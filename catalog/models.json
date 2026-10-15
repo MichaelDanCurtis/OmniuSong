@@ -368,7 +368,7 @@
       "category": "Symbolic composition",
       "summary": "Expressive piano MIDI continuation with an official MLX implementation.",
       "controls": "Human MIDI phrase, continuation, expressive timing",
-      "caveat": "Qualified on the development Mac: real MLX continuation with pinned official weights. Studio generation controls and live hardware remain pending; this does not establish MIDI 2 precision.",
+      "caveat": "Qualified on the development Mac: real MLX continuation with pinned official weights. Studio source-bar selection, seeded candidates, audition, acceptance, discard and backups are verified. Listening and live hardware remain pending; this does not establish MIDI 2 precision.",
       "source": "https://github.com/EleutherAI/aria",
       "recommendation": "keep",
       "status": "research",

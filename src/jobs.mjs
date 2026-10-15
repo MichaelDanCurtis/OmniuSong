@@ -28,6 +28,7 @@ export class JobQueue {
     try{
       job.state='running';job.startedAt=new Date().toISOString();await this.store.saveJob(job);
       const project=await this.store.read('projects',job.projectId);
+      if(project.revision!==job.projectRevision)throw new Conflict('Project was edited while this candidate was queued. Generate a fresh candidate.');
       job.result=await this.plugins.run(job.pluginId,{project:copy(project),input:copy(job.input),capability:job.capability,signal:controller.signal});
       controller.signal.throwIfAborted();job.state='succeeded';
     }catch(error){job.state=job.state==='canceled'?'canceled':'failed';job.error=error.message;delete job.result;}
@@ -49,7 +50,7 @@ export class JobQueue {
       if(project.history.some(h=>h.provenance?.jobId===id)){job.decision='accepted';await this.store.saveJob(job);return {job:copy(job),project};}
       if(decision==='accepted'){
         if(project.revision!==expectedRevision||project.revision!==job.projectRevision)throw new Conflict('Project was edited after this candidate started. Generate a fresh candidate to preserve your edits.');
-        project=mergeCandidate(project,job.result,{jobId:job.id,pluginId:job.pluginId,pluginVersion:job.pluginVersion,model:job.result.model??null,ai:job.ai,input:job.input});
+        project=mergeCandidate(project,job.result,{jobId:job.id,pluginId:job.pluginId,pluginVersion:job.pluginVersion,model:job.result.model??null,modelRevision:job.result.modelRevision??null,modelSha256:job.result.modelSha256??null,ai:job.ai,input:job.input});
         project=await this.store.saveProject(project,expectedRevision);
       }
       job.decision=decision;job.reviewedAt=new Date().toISOString();await this.store.saveJob(job);return {job:copy(job),project};

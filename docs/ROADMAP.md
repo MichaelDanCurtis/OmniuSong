@@ -30,7 +30,7 @@ Exit with an independently performed session: create project, play keys, record 
 4. Magenta RealTime 2 Small for a local performance experiment.
 5. MiniMax Music 3 through a qualified external worker or local service.
 
-Basic Pitch is integrated into the studio with real ONNX transcription. Aria now performs real MLX continuation through a bounded local worker, with a playable qualification preview; general studio controls and live performance acceptance remain pending. [Aria evidence](ARIA-QUALIFICATION.md).
+Basic Pitch is integrated into the studio with real ONNX transcription. Aria now performs real MLX continuation through the studio candidate queue, with source-bar and response-budget controls, full-session review, separate audition, acceptance, and discard. Live performance and listening acceptance remain pending. [Aria evidence](ARIA-QUALIFICATION.md).
 
 Use separate environments, pinned model revisions, explicit download sizes, model manifests, cancellation, bounded resources, and machine-readable health checks. Do not make all runtimes share one Python environment.
 

@@ -98,7 +98,11 @@ export function newProject(name = 'Midnight gardens') {
 }
 export function mergeCandidate(project, result, provenance) {
   const next = copy(project);
-  // Candidates only append tracks. Existing human performances and locks survive.
+  // Candidates append tracks and may extend the loop. Original performances and locks survive.
+  if(result.minimumBars!==undefined){
+    demand(int(result.minimumBars,1,128),'Invalid candidate session length');
+    next.bars=Math.max(next.bars,result.minimumBars);
+  }
   for (const track of result.tracks ?? []) next.tracks.push({ ...copy(track), id: uid(), provenance });
   if (result.lyrics !== undefined) {
     demand(!next.lyricsLocked, 'Lyrics are locked');

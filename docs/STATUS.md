@@ -1,6 +1,6 @@
 # OmniuSong implementation status
 
-October 15, 2026, approximately 2:20 AM America/Los_Angeles.
+October 15, 2026, approximately 2:45 AM America/Los_Angeles.
 
 ## Open the current build
 
@@ -28,7 +28,9 @@ The local studio is running as a detached process. Its PID and log are in `.runt
 - Procedural arrangement sketches and an FM sample instrument, accurately labeled as procedural.
 - An optional local Ollama lyric adapter. No Ollama service was present during the initial check; no lyric-model inference has been claimed.
 - Actual local Basic Pitch transcription through ONNX, with an isolated Python environment, bounded worker output, cancellation signal, model checksum, and raw contour estimates retained alongside converted expression values.
-- Actual Aria piano continuation on MLX in an isolated environment, with pinned official code and a 2.63 GB checkpoint verified on each run. A compatibility subclass supplies the upstream sampling path's missing cache boundary. The worker validates and bounds input, isolates new notes from the tokenized source, retains model timing, supports cancellation, and records runtime identity. General studio generation controls are pending.
+- Actual Aria piano continuation on MLX in an isolated environment, with pinned official code and a 2.63 GB checkpoint verified on each run. A compatibility subclass supplies the upstream sampling path's missing cache boundary. The worker validates and bounds input, isolates new notes from the tokenized source, retains model timing, supports cancellation, and records runtime identity. Studio continuation now uses the durable candidate queue with source-bar selection, a bounded response token budget, seed, immediate answer audition, acceptance, and discard. The source is projected as piano with boundary cropping and no expression; the stored source is untouched.
+- A new **Aria studio qualification** session verifies two different seeded 21-note answers: one discarded, one accepted. Acceptance expands its loop from two bars to five. Model identity, runtime, source scope, original model timing, and generation evidence are retained in accepted-track metadata and complete backups.
+- Four-bar editor pages cover the full 128-bar session limit, with pitch-range choices covering MIDI notes 0–127. The bar-five note editor, high-note edit, undo, save, and reload were exercised in the browser. Startup controls remain inert until session initialization completes. Queued jobs now reject a changed source revision before running inference.
 - A separate **Aria piano · local model preview** session contains 12 locked procedural prompt notes followed by 21 AI-generated notes across five bars. MIDI, WAV, project, UMP JSON, and a reproducible receipt are saved in `docs/verification/`. The audio uses the existing preview synth, not a neural piano renderer.
 - MIDI 1 type 1 export, MIDI 2 note/per-note-pitch UMP encoding, and timestamped UMP JSON export. The JSON format is explicitly identified as OmniuSong interchange, not a standard MIDI Clip File.
 - Compiled Swift Mac shell with CoreMIDI UMP input. Native launch and physical MIDI performance remain unverified.
@@ -38,11 +40,12 @@ The local studio is running as a detached process. Its PID and log are in `.runt
 
 | Check | Result | Practical scope |
 | --- | --- | --- |
-| JavaScript syntax and catalog | Passed | 24 modules and 36 unique model entries |
-| Automated tests | 56 passed, no skips | Project, MIDI, persistence, queue, real model inference, and archive checks, plus source/channel/group isolation, repeated and sustained notes, pending audio cancellation, focus/device loss, control messages, bounded capture, zero-velocity MIDI 2 notes, release velocity, and raw-input backup round trips; recording lifecycle, cancellation, retained-original retries, audio byte delivery, seek-range checks, actual Aria inference, bounded invalid requests, and cancellation before launch |
+| JavaScript syntax and catalog | Passed | 27 modules and 36 unique model entries |
+| Automated tests | 62 passed, no skips | Project, MIDI, persistence, queue, real model inference, and archive checks, plus source/channel/group isolation, repeated and sustained notes, pending audio cancellation, focus/device loss, control messages, bounded capture, zero-velocity MIDI 2 notes, release velocity, and raw-input backup round trips; recording lifecycle, cancellation, retained-original retries, audio byte delivery, seek-range checks, actual Aria inference, bounded invalid requests, cancellation before launch, phrase boundaries and budgets, exact answer placement, loop expansion, complete continuation archives, immediate audition, timeline bounds, and queued-source revision conflicts |
 | Mac release build | Passed | Native executable and local app bundle compiled; not a launch or hardware test |
 | Four-tone model inference | Passed | Real Basic Pitch ONNX checkpoint recovered MIDI pitches 60, 64, 67, 72 from a 3.2-second synthetic fixture; 231 contour points retained |
 | Aria local inference | Passed | 38 prompt tokens, 64 new tokens, and 21 new complete notes. Latest warm-filesystem receipt: 2.500 seconds total, 0.560 seconds generation, 2,719,036,048 bytes MLX peak allocation. One fixture, not a live-performance benchmark |
+| Aria studio workflow | Passed in browser | Two real seeded continuations differed; discard left the two-bar source unchanged; audition ran before acceptance; acceptance produced five bars with 33 notes. Bar-five editing at pitch 127 saved and undid correctly, reload retained the accepted notes, and a complete archive restored with identical tracks. Live receipt: `verification/aria-studio.json` |
 | Aria output and preview | Passed | Original request preserved; separate source and answer tracks; actual second inference in tests; MIDI 1 independently parsed by Mido with 33 note-ons. Studio session selection, prompt lock, transport start/stop, and model qualification label checked in browser |
 | Model checkpoint identity | Captured | SHA256 `2c3c1d144bfa61ad236e92e169c13535c880469a12a047d4e73451f2c059a0ec` |
 | Browser session flow | Passed | Generate and audition a 92-note sketch, accept, add a note, save, reload, generate and accept a sample, play a sample key, transcribe the sample, accept notes |
@@ -66,13 +69,13 @@ The initial SciPy 1.15.3 wheel failed to load a Fortran extension on this macOS 
 
 ## Remaining work
 
-The next useful slice is integrating the qualified Aria worker with the candidate queue and human review: explicit source track/phrase, bounded response controls, safe answer placement, audition/accept/discard, and timeline navigation beyond the fixed four-bar editor window. Preserve the full source performance and communicate tokenizer timing/velocity projection. Then consider a bounded Magenta RealTime 2 Small qualification. Reliable session switching, complete backups, source-aware input, recording-state safeguards, and local audio import are implemented. Audio clip offsets, recording alignment, and detailed note-duration editing remain useful follow-on work. Archive limits are in PROJECT-ARCHIVE; input semantics are in HARDWARE-MIDI; recording behavior is in RECORDING.
+Aria continuation and full timeline review are implemented and browser verified. The next bounded model experiment is Magenta RealTime 2 Small, after inspecting resources, exact model size, official runtime, licensing, and local platform support. Prefer one short synthetic-input qualification; avoid new heavyweight environments if the supported path does not fit. Alternatively, improve detailed note-duration editing and clip offsets before adding more models. Reliable session switching, complete backups, source-aware input, recording-state safeguards, and local audio import are implemented. Audio clip offsets, recording alignment, and detailed note-duration editing remain useful follow-on work. Archive limits are in PROJECT-ARCHIVE; input semantics are in HARDWARE-MIDI; recording behavior is in RECORDING.
 
 Raw input is limited to 4,096 messages per project, with a visible warning and omission count when full. Recorded timing uses browser receipt and elapsed time; native host ticks are retained but not calibrated to the audio clock. Same-pitch MIDI note-offs pair FIFO within one source/group/channel. Original packets and generated edited-note exports remain distinct. Software source-loss tests do not establish a native or physical controller round trip. See `verification/input-session.json` for the browser save receipt.
 
 Then improve audio clip offsets and recording alignment, note duration editing, per-note expression editing and playback, MIDI output, standard MIDI 2 Clip Files, and independent file validation. The preview stores expression that its current Web Audio synth does not yet perform.
 
-Aria's successful local fixture does not qualify live takeover, simultaneous recording, hardware latency, listening quality, or a full studio continuation workflow. Code/model identities and the compatibility fix are documented in ARIA-QUALIFICATION. The status endpoint reports installation separately from studio integration.
+Aria's synthetic-source studio workflow does not qualify live takeover, simultaneous recording, hardware latency, listening quality, or general continuation quality on human performances. Response tokens are a compute/length budget, not an exact number of bars. Prompts over 15 seconds, 256 notes, or 1,024 tokens are rejected. Acceptance appends after the selected phrase and can overlap other existing tracks; it does not rearrange the song. Code/model identities and the compatibility fix are documented in ARIA-QUALIFICATION. The status endpoint reports installation separately from studio integration.
 
 Native realtime audio, Audio Unit/VST3/CLAP hosting, secure third-party plugin execution, large song-model workers, score-conditioned song editing, choir rendering, and Windows packaging remain roadmap work. No paid service, model gate acceptance, deployment, or personal-audio upload was performed.
 
@@ -100,3 +103,5 @@ The continuation should preserve original performances, avoid paid or externally
 ![Imported original and accepted local transcription](verification/audio-import-preview.png)
 
 ![Aria piano preview with source and AI answer](verification/aria-preview.png)
+
+![Aria studio workflow with accepted answer and bar-five review](verification/aria-studio.png)

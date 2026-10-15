@@ -1,7 +1,8 @@
 import { demand, makeTrack, uid } from './project.mjs';
 import { compose } from './composer.mjs';
 import { renderSample } from './wav.mjs';
-import { runBasicPitch } from './worker.mjs';
+import { runBasicPitch, runAria } from './worker.mjs';
+import { ariaPhrase, ariaCandidate } from './continuation.mjs';
 import { join } from 'node:path';
 
 export class PluginRegistry {
@@ -58,6 +59,11 @@ export function createPlugins(store,config={}) {
     track.sourceAssetId=input.sourceAssetId??input.assetId;
     track.transcription={model:result.model,modelSha256:result.modelSha256,elapsedSeconds:result.elapsedSeconds,sourceDurationSeconds:result.sourceDurationSeconds};
     return {tracks:[track],model:result.model,modelSha256:result.modelSha256,summary:`${result.notes.length} estimated notes from real local Basic Pitch inference. Original audio retained; review pitches and timing.`};
+  });
+  registry.register({apiVersion:1,id:'eleutherai.aria-mlx',name:'Aria piano continuation',execution:'local',capabilities:['continue'],ai:true,version:'0.1.0',description:'Real local MLX piano continuation from selected source bars. Requires the qualified Apple Silicon runtime.'},async({input,project,signal})=>{
+    const {request,scope}=ariaPhrase(project,input);
+    const result=await runAria(request,signal);
+    return ariaCandidate(project,scope,result);
   });
   return registry;
 }

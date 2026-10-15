@@ -15,6 +15,9 @@ test('studio API supports real persistence, review, export and origin isolation'
   const projects=await get('/api/projects');assert.equal(projects.length,1);const p=await get('/api/projects/'+projects[0].id);
   const catalog=await get('/api/catalog');assert.ok(catalog.models.length>=30);
   const page=await fetch(base+'/');assert.equal(page.status,200);assert.match(await page.text(),/piano-roll/);
+  const noteView=await fetch(base+'/note-view.js');assert.equal(noteView.status,200);assert.match(noteView.headers.get('content-type'),/javascript/);
+  assert.equal((await get('/api/status')).ariaStudioControls,true);
+  assert.ok((await get('/api/plugins')).some(p=>p.id==='eleutherai.aria-mlx'&&p.ai&&p.capabilities.includes('continue')));
   const blocked=await send('/api/projects',{name:'bad'},'POST',{Origin:'https://untrusted.example'});assert.equal(blocked.status,403);
   const old=p.revision;p.name='A real saved title';const savedResponse=await send('/api/projects/'+p.id,{project:p,expectedRevision:old},'PUT');assert.equal(savedResponse.status,200);const saved=await savedResponse.json();assert.equal(saved.revision,1);
   const conflict=await send('/api/projects/'+p.id,{project:p,expectedRevision:old},'PUT');assert.equal(conflict.status,409);

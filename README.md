@@ -2,7 +2,7 @@
 
 A Mac-first music workstation where people play, sing, edit, and direct multiple AI models. Windows follows through the same portable project format and model adapters.
 
-The first development preview includes a playable studio, sixteen pads, a piano roll, vocal take capture, local projects, a model observatory, and generation candidates that require acceptance before they change the song. Basic Pitch performs real local audio-to-MIDI inference. Aria MLX now has a qualified local piano-continuation worker and a playable saved preview; general studio continuation controls are next. Arrangement and sample tools use musical rules and synthesis. The Ollama lyric adapter can use an installed local AI model. The remaining researched models are candidates for integration.
+The first development preview includes a playable studio, sixteen pads, a piano roll, vocal take capture, local projects, a model observatory, and generation candidates that require acceptance before they change the song. Basic Pitch performs real local audio-to-MIDI inference. Aria MLX creates local piano continuations from selected source bars, with separate audition, acceptance, and discard. The piano roll can navigate the complete session and MIDI pitch range. Arrangement and sample tools use musical rules and synthesis. The Ollama lyric adapter can use an installed local AI model. The remaining researched models are candidates for integration.
 
 ## Start the studio
 
@@ -28,15 +28,16 @@ The development app requires the local server to be running. It adds CoreMIDI UM
 4. Record an original vocal take using **Record voice**. Recording requests microphone permission only when used. The full original take is available in its audio player and through **Download original**; arrangement playback currently places it at the start of the loop. You can also **Import audio** from WAV, MP3, M4A, FLAC, Ogg, or WebM when the browser can read it, up to two minutes and 30 MiB. **Import example phrase** uses a synthesized four-tone fixture so you can try the complete flow immediately.
    Select a vocal or sample track and choose **Turn selected audio into notes** to run local Basic Pitch transcription. Audition and accept the estimated notes separately; the original audio stays in the project.
    If a take cannot save, its original stays in the tab with **Retry saving take** and **Download unsaved original**. Session switching stays blocked until it is resolved. See [recording and import](docs/RECORDING.md) for limits.
-5. Review the **Model observatory** and save Keep, Explore, or Skip choices.
-6. Choose **Backup project** to download a complete `.omniusong` archive with its referenced audio. Use **Restore backup** to open it as a new session. Switch between saved work with **Saved sessions**; pending edits are saved before a switch.
-7. Export a MIDI 1 file or MIDI 2 UMP packet trace. The packet trace is an OmniuSong JSON format; Standard MIDI Clip File export is planned.
+5. Select a pitched note track and open **Continue with Aria · local AI**. Choose its start bar, 1–4 source bars (up to 15 seconds), an approximate answer length, and Seed. Choose **Continue selected piano phrase**, audition the answer, then accept or discard it. Acceptance adds a separate piano track after the selected bars and extends the loop if needed. Original notes and expression stay intact; Aria uses a cropped piano projection without expression. Use **Visible bars** and **Pitch range** to review the whole answer.
+6. Review the **Model observatory** and save Keep, Explore, or Skip choices.
+7. Choose **Backup project** to download a complete `.omniusong` archive with its referenced audio. Use **Restore backup** to open it as a new session. Switch between saved work with **Saved sessions**; pending edits are saved before a switch.
+8. Export a MIDI 1 file or MIDI 2 UMP packet trace. The packet trace is an OmniuSong JSON format; Standard MIDI Clip File export is planned.
 
 To use a local AI lyric model, start an existing Ollama installation and set `OMNIUSONG_OLLAMA_MODEL` to an installed model before starting the studio. Then enable **Use my local AI lyric model**. The app does not install or select a model silently.
 
 Basic Pitch is installed in this checkout's isolated `.runtime/basic-pitch` environment. To recreate it, use `scripts/setup-basic-pitch.sh` with uv and Python 3.11. This selects the ONNX runtime and avoids installing TensorFlow or CoreML. Exact resolved package versions are recorded in `workers/basic-pitch-resolved.txt`. The synthetic four-tone qualification and model checksum are in `docs/verification/basic-pitch.json`.
 
-Aria uses its own isolated `.runtime/aria` environment and a pinned 2.63 GB checkpoint. See [Aria qualification](docs/ARIA-QUALIFICATION.md) for the exact model, compatibility fix, measured fixture, setup, and MIDI/audio artifacts. The saved **Aria piano · local model preview** session contains an unchanged procedural prompt and its separate AI answer.
+Aria uses its own isolated `.runtime/aria` environment and a pinned 2.63 GB checkpoint. See [Aria qualification](docs/ARIA-QUALIFICATION.md) for the exact model, compatibility fix, measured fixture, setup, and MIDI/audio artifacts. The saved **Aria studio qualification** session demonstrates the complete flow with an unchanged locked procedural prompt, two different seeded answers (one discarded), and an accepted 21-note answer across five bars. Listening and human-performance quality checks remain open.
 
 ## Project and planning documents
 

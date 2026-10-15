@@ -1,8 +1,9 @@
 import { StudioAudio, bufferWAV } from './audio.js';
 import { PerformanceInput, decodeMIDI1, decodeUMP, appendCapture } from './input.js';
 import { TakeCapture, audioType, AUDIO_LIMIT_BYTES } from './recording.js';
+import { rollWindow, candidateAudition } from './note-view.js';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],audio=new StudioAudio();
-let project,selectedId,catalog,plugins,selections={},jobs=[],dirty=false,editSequence=0,savePromise=null,saveTimer,undoStack=[],midiAccess,sessionBusy=false;
+let project,selectedId,catalog,plugins,selections={},jobs=[],dirty=false,editSequence=0,savePromise=null,saveTimer,undoStack=[],midiAccess,sessionBusy=false,rollPage=0,rollTop=null;
 const midiConnected=new Map(),nativeSources=new Set();
 const colors=['#bfdb9f','#e5b677','#97bec1','#cd9dad','#9eb7d5','#d6cb90'];
 const localAddress=sourceId=>({sourceId,sourceName:sourceId==='computer'?'Computer keyboard':'On-screen keys',group:0,channel:0,protocol:'local'});
@@ -62,7 +63,7 @@ async function refreshLibrary(){
   const picker=$('#project-picker');picker.replaceChildren();for(const session of sessions){const option=el('option','',session.name);option.value=session.id;picker.append(option);}if(project)picker.value=project.id;return sessions;
 }
 async function useProject(next){
-  project=next;selectedId=next.tracks[0]?.id;undoStack=[];jobs=[];dirty=false;editSequence=0;clearTimeout(saveTimer);
+  project=next;selectedId=next.tracks[0]?.id;rollPage=0;rollTop=null;$('#aria-start').value=1;$('#aria-bars').value=Math.min(2,next.bars);undoStack=[];jobs=[];dirty=false;editSequence=0;clearTimeout(saveTimer);
   try{localStorage.setItem('omniusong.activeProject',next.id);}catch{}
   renderStudio();renderJobs();await refreshLibrary();await refreshJobs();$('#save-status').textContent='Saved on this Mac';
 }
@@ -92,7 +93,7 @@ function renderStudio(){
   const ruler=el('div','bar-ruler');ruler.append(el('span','','TRACKS'));const numbers=el('div','bar-numbers');for(let b=1;b<=project.bars;b++)numbers.append(el('span','',String(b).padStart(2,'0')));ruler.append(numbers);arrangement.append(ruler);
   project.tracks.forEach((t,index)=>{
     const row=el('div','track-row'+(t.id===selectedId?' selected':''));row.style.setProperty('--track-color',colors[index%colors.length]);const label=el('div','track-label');label.append(el('span','track-dot'));
-    const select=el('button','track-select',t.name);select.title=t.name;select.onclick=()=>{selectedId=t.id;renderStudio();};label.append(select);
+    const select=el('button','track-select',t.name);select.title=t.name;select.onclick=()=>selectTrack(t.id);label.append(select);
     for(const [field,text]of [['muted','M'],['locked','L']]){const button=el('button','track-switch'+(t[field]?' enabled':''),text);button.title=(field==='muted'?'Mute ':'Lock ')+t.name;button.setAttribute('aria-label',button.title);button.setAttribute('aria-pressed',String(t[field]));button.onclick=()=>{remember();t[field]=!t[field];if(field==='muted')audio.setTrackMuted(t.id,t.muted);changed();};label.append(button);}
     if(t.kind==='notes'){const arm=el('button','track-switch'+(t.armed?' enabled':''),'R');arm.title='Arm note recording for '+t.name;arm.setAttribute('aria-label',arm.title);arm.setAttribute('aria-pressed',String(Boolean(t.armed)));arm.onclick=()=>{remember();t.armed=!t.armed;changed();};label.append(arm);}
     const lane=el('div','track-lane'+(t.notes.length||t.assetId?' has-notes':''));
@@ -101,19 +102,28 @@ function renderStudio(){
     row.append(label,lane);arrangement.append(row);
   });
   renderRoll();renderTakes();
+  $('#aria-source').textContent='Source: '+(track()?.name??'Select a pitched track');$('#aria-start').max=project.bars;
   if(document.activeElement!==$('#lyric-editor'))$('#lyric-editor').value=project.lyrics;
   $('#lock-lyrics').checked=Boolean(project.lyricsLocked);$('#lyric-editor').disabled=Boolean(project.lyricsLocked);
+}
+function selectTrack(id){
+  selectedId=id;rollTop=null;const notes=track()?.notes??[];
+  rollPage=notes.length?Math.floor(Math.min(...notes.map(n=>n.startTick))/15360):0;renderStudio();
 }
 function renderRoll(){
   const grid=$('#piano-roll');grid.replaceChildren();const t=track();const total=project.bars*3840,step=480,columns=32;
   grid.style.gridTemplateColumns=`28px repeat(${columns}, minmax(4px,1fr))`;
-  const top=t?.instrument==='drums'?60:t?.instrument==='bass'?48:72;
+  if(rollTop===null)rollTop=t?.notes.length?Math.min(127,Math.max(24,Math.ceil(Math.max(...t.notes.map(n=>n.pitch))/12)*12)):(t?.instrument==='drums'?60:t?.instrument==='bass'?48:72);
+  const view=rollWindow(project.bars,rollPage,rollTop),top=view.topPitch;rollPage=view.page;
+  $('#roll-range').textContent=`Bars ${view.startBar}–${view.endBar} of ${project.bars}`;$('#roll-prev').disabled=rollPage===0;$('#roll-next').disabled=rollPage===view.pages-1;
+  const pages=$('#roll-page');pages.replaceChildren();for(let page=0;page<view.pages;page++){const option=el('option','',`Bars ${page*4+1}–${Math.min(project.bars,(page+1)*4)}`);option.value=page;pages.append(option);}pages.value=rollPage;
+  $('#roll-pitch').value=top;
   for(let pitch=top;pitch>=top-24;pitch--){
     grid.append(el('span','pitch-name',pitch%12===0?'C'+(pitch/12-1):''));
     for(let col=0;col<columns;col++){
-      const at=col*step,note=t?.notes.find(n=>n.pitch===pitch&&n.startTick>=at&&n.startTick<at+step),cell=el('button','note-cell'+(col%2===0?' beat':'')+([1,3,6,8,10].includes(pitch%12)?' black':'')+(note?' filled':''));
+      const at=view.startTick+col*step,note=t?.notes.find(n=>n.pitch===pitch&&n.startTick>=at&&n.startTick<at+step),cell=el('button','note-cell'+(col%2===0?' beat':'')+([1,3,6,8,10].includes(pitch%12)?' black':'')+(note?' filled':''));
       if(note)cell.title=`Start beat ${(note.startTick/960+1).toFixed(2)} · Length ${(note.durationTicks/960).toFixed(2)} beats. Original timing is preserved.`;
-      cell.setAttribute('role','gridcell');cell.setAttribute('aria-label',`Note ${pitch}, beat ${col/2+1}${note?', active':''}`);cell.tabIndex=note?0:-1;cell.disabled=!t||t.kind!=='notes'||t.locked||at>=total;
+      cell.setAttribute('role','gridcell');cell.setAttribute('aria-label',`Note ${pitch}, beat ${at/960+1}${note?', active':''}`);cell.tabIndex=note?0:-1;cell.disabled=!t||t.kind!=='notes'||t.locked||at>=total;
       cell.onclick=async()=>{remember();if(note)t.notes=t.notes.filter(n=>n.id!==note.id);else{t.notes.push({id:crypto.randomUUID(),pitch,startTick:at,durationTicks:480,velocity16:45000,expression:[]});await audio.ready();audio.voice(pitch,.6,t.instrument,audio.context.currentTime,.2,audio.buffers.get(t.assetId),t.sampleRoot??60);}changed();};
       grid.append(cell);
     }
@@ -137,7 +147,13 @@ function makePerformance(){
   function bindKey(button,pitch,sourceId='screen'){const pointers=new Map();button.onpointerdown=e=>{if(e.button!==0)return;e.preventDefault();button.setPointerCapture(e.pointerId);pointers.set(e.pointerId,noteOn(pitch,sourceId==='pads'?.8:.7,sourceId));};button.onpointerup=e=>{const voiceId=pointers.get(e.pointerId);if(voiceId)noteOff(pitch,sourceId,voiceId);pointers.delete(e.pointerId);};button.onpointercancel=button.onpointerup;button.onlostpointercapture=button.onpointerup;}
 }
 async function generate(pluginId,capability){
-  await save();await post('/api/jobs',{projectId:project.id,projectRevision:project.revision,pluginId,capability,input:{prompt:$('#idea').value,seed:Number($('#seed').value),density:Number($('#density').value)/100,brightness:Number($('#density').value)/100}});await refreshJobs();
+  await sessionTransition(async()=>{await post('/api/jobs',{projectId:project.id,projectRevision:project.revision,pluginId,capability,input:{prompt:$('#idea').value,seed:Number($('#seed').value),density:Number($('#density').value)/100,brightness:Number($('#density').value)/100}});await refreshJobs();});
+}
+async function continuePiano(){
+  await sessionTransition(async()=>{
+    await post('/api/jobs',{projectId:project.id,projectRevision:project.revision,pluginId:'eleutherai.aria-mlx',capability:'continue',input:{sourceTrackId:track()?.id,startBar:Number($('#aria-start').value),phraseBars:Number($('#aria-bars').value),maxNewTokens:Number($('#aria-tokens').value),seed:Number($('#seed').value)}});
+    await refreshJobs();toast('Aria is preparing a separate piano answer on this Mac');
+  });
 }
 async function transcribeSelected(){
   await sessionTransition(async()=>{
@@ -158,9 +174,9 @@ function renderJobs(){
     const actions=el('div','candidate-buttons');
     function action(label,handler,primary=false){const b=el('button',primary?'primary':'quiet',label);b.onclick=()=>handler().catch(e=>toast(e.message,true));actions.append(b);}
     if(j.state==='succeeded'&&j.decision==='pending'){
-      if(j.result?.tracks?.some(t=>t.notes.length))action('▶ Audition',async()=>{await audio.play({...project,tracks:j.result.tracks});$('#play').textContent='■ Stop';});
+      if(j.result?.tracks?.some(t=>t.notes.length))action('▶ Audition',async()=>{await audio.play(candidateAudition(project,j.result));$('#play').textContent='■ Stop';});
       if(j.result?.assetId)action('▶ Sample',async()=>{await audio.ready();const buffer=await audio.loadAsset(j.result.assetId);audio.voice(60,.8,'sample',audio.context.currentTime,2,buffer);});
-      action('Accept',()=>sessionTransition(async()=>{const accepted=await post('/api/jobs/'+j.id+'/accept',{expectedRevision:project.revision});remember();project=accepted.project;selectedId=project.tracks.at(-1)?.id;renderStudio();await refreshJobs();toast('Added to your session');}),true);
+      action('Accept',()=>sessionTransition(async()=>{const accepted=await post('/api/jobs/'+j.id+'/accept',{expectedRevision:project.revision});remember();project=accepted.project;selectTrack(project.tracks.at(-1)?.id);await refreshJobs();toast('Added to your session');}),true);
       action('Discard',async()=>{await post('/api/jobs/'+j.id+'/reject',{});await refreshJobs();});
     }else if(['queued','running'].includes(j.state))action('Cancel',async()=>{await post('/api/jobs/'+j.id+'/cancel',{});await refreshJobs();});
     card.append(actions);box.append(card);
@@ -285,9 +301,12 @@ async function boot(){
   const guarded=(selector,fn)=>{$(selector).onclick=()=>Promise.resolve().then(fn).catch(e=>toast(e.message,true));};
   guarded('#save',save);guarded('#play',async()=>{if(audio.playing)panic();else{await audio.play(project);$('#play').textContent='■ Stop';}});guarded('#panic',async()=>panic());
   guarded('#sketch',()=>generate('local.sketch','compose'));guarded('#instrument',()=>generate('local.instrument','instrument'));guarded('#lyrics',()=>generate($('#use-ollama').checked?'ollama.lyrics':'local.lyric-cards','lyrics'));guarded('#transcribe',transcribeSelected);guarded('#record',recordVoice);guarded('#midi-connect',connectMIDI);
+  guarded('#aria-continue',continuePiano);
+  guarded('#roll-prev',async()=>{rollPage--;renderRoll();});guarded('#roll-next',async()=>{rollPage++;renderRoll();});
+  $('#roll-page').onchange=()=>{rollPage=Number($('#roll-page').value);renderRoll();};$('#roll-pitch').onchange=()=>{rollTop=Number($('#roll-pitch').value);renderRoll();};
   guarded('#undo',async()=>{if(!undoStack.length)return;panic();const revision=project.revision;project=undoStack.pop();project.revision=revision;selectedId=track()?.id;changed();});
   guarded('#clear-track',async()=>{if(track()?.locked)return;panic();remember();track().notes=[];changed();});
-  guarded('#add-track',async()=>{remember();const t={id:crypto.randomUUID(),name:'Instrument '+(project.tracks.length+1),kind:'notes',instrument:'keys',gain:.65,muted:false,locked:false,notes:[]};project.tracks.push(t);selectedId=t.id;changed();});
+  guarded('#add-track',async()=>{remember();const t={id:crypto.randomUUID(),name:'Instrument '+(project.tracks.length+1),kind:'notes',instrument:'keys',gain:.65,muted:false,locked:false,notes:[]};project.tracks.push(t);selectedId=t.id;rollTop=null;rollPage=0;changed();});
   guarded('#new-project',()=>sessionTransition(async()=>useProject(await post('/api/projects',{name:'Untitled session'}))));
   $('#project-picker').onchange=()=>{const id=$('#project-picker').value;sessionTransition(async()=>useProject(await api('/api/projects/'+id))).catch(e=>{$('#project-picker').value=project.id;toast(e.message,true);});};
   guarded('#import-project',async()=>{if(capture.busy)throw new Error('Finish saving the original audio before restoring a backup');$('#archive-file').click();});
@@ -322,4 +341,4 @@ async function boot(){
   window.addEventListener('beforeunload',e=>{if(dirty||capture.busy||sessionBusy){e.preventDefault();e.returnValue='';}});
   setInterval(()=>{if(!document.hidden&&!dirty&&!savePromise&&!sessionBusy)refreshJobs().catch(()=>{});},1500);
 }
-boot().catch(e=>toast('Could not open studio: '+e.message,true));
+boot().then(()=>{document.body.inert=false;$('#save-status').textContent='Saved on this Mac';}).catch(e=>{document.body.inert=false;toast('Could not open studio: '+e.message,true);});

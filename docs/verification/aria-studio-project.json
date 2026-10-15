@@ -1,0 +1,918 @@
+{
+  "schemaVersion": 1,
+  "id": "2876fcce-d546-447a-acce-e67180d801de",
+  "revision": 4,
+  "ppq": 960,
+  "name": "Aria studio qualification",
+  "tempo": 104,
+  "bars": 5,
+  "key": "C minor",
+  "lyrics": "",
+  "tracks": [
+    {
+      "id": "dddccf06-bdf4-49cf-9342-a1339956f0c5",
+      "name": "Procedural prompt",
+      "kind": "notes",
+      "instrument": "keys",
+      "gain": 0.65,
+      "muted": false,
+      "locked": true,
+      "armed": false,
+      "notes": [
+        {
+          "pitch": 60,
+          "startTick": 0,
+          "durationTicks": 390,
+          "velocity16": 40000,
+          "id": "prompt-0",
+          "expression": []
+        },
+        {
+          "pitch": 63,
+          "startTick": 480,
+          "durationTicks": 410,
+          "velocity16": 43000,
+          "id": "prompt-1",
+          "expression": []
+        },
+        {
+          "pitch": 67,
+          "startTick": 960,
+          "durationTicks": 430,
+          "velocity16": 46000,
+          "id": "prompt-2",
+          "expression": []
+        },
+        {
+          "pitch": 70,
+          "startTick": 1440,
+          "durationTicks": 390,
+          "velocity16": 49000,
+          "id": "prompt-3",
+          "expression": []
+        },
+        {
+          "pitch": 67,
+          "startTick": 1920,
+          "durationTicks": 410,
+          "velocity16": 40000,
+          "id": "prompt-4",
+          "expression": []
+        },
+        {
+          "pitch": 63,
+          "startTick": 2400,
+          "durationTicks": 430,
+          "velocity16": 43000,
+          "id": "prompt-5",
+          "expression": []
+        },
+        {
+          "pitch": 62,
+          "startTick": 2880,
+          "durationTicks": 390,
+          "velocity16": 46000,
+          "id": "prompt-6",
+          "expression": []
+        },
+        {
+          "pitch": 65,
+          "startTick": 3360,
+          "durationTicks": 410,
+          "velocity16": 49000,
+          "id": "prompt-7",
+          "expression": []
+        },
+        {
+          "pitch": 68,
+          "startTick": 3840,
+          "durationTicks": 430,
+          "velocity16": 40000,
+          "id": "prompt-8",
+          "expression": []
+        },
+        {
+          "pitch": 72,
+          "startTick": 4320,
+          "durationTicks": 390,
+          "velocity16": 43000,
+          "id": "prompt-9",
+          "expression": []
+        },
+        {
+          "pitch": 68,
+          "startTick": 4800,
+          "durationTicks": 410,
+          "velocity16": 46000,
+          "id": "prompt-10",
+          "expression": []
+        },
+        {
+          "pitch": 65,
+          "startTick": 5280,
+          "durationTicks": 430,
+          "velocity16": 49000,
+          "id": "prompt-11",
+          "expression": []
+        }
+      ]
+    },
+    {
+      "id": "c626269c-2887-47db-8c95-2ff3a5eba9fc",
+      "name": "AI answer · Aria MLX",
+      "kind": "notes",
+      "instrument": "keys",
+      "gain": 0.65,
+      "muted": false,
+      "locked": false,
+      "armed": false,
+      "notes": [
+        {
+          "id": "f9f7c176-af78-4bed-beb0-e36bc4ca511d",
+          "pitch": 62,
+          "startTick": 7680,
+          "durationTicks": 416,
+          "velocity16": 41090,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 3460,
+            "endMilliseconds": 3710,
+            "velocity7": 80
+          }
+        },
+        {
+          "id": "0f7c8658-1f41-4f36-a9ed-cf829e8a3dc5",
+          "pitch": 65,
+          "startTick": 8163,
+          "durationTicks": 433,
+          "velocity16": 46291,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 3750,
+            "endMilliseconds": 4010,
+            "velocity7": 90
+          }
+        },
+        {
+          "id": "921c9fec-b694-45b9-bbe6-ed18c4a8cdea",
+          "pitch": 68,
+          "startTick": 8645,
+          "durationTicks": 433,
+          "velocity16": 41090,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 4040,
+            "endMilliseconds": 4300,
+            "velocity7": 80
+          }
+        },
+        {
+          "id": "030eba77-4d35-4b63-be67-7f7992f4dd15",
+          "pitch": 72,
+          "startTick": 9128,
+          "durationTicks": 383,
+          "velocity16": 41090,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 4330,
+            "endMilliseconds": 4560,
+            "velocity7": 80
+          }
+        },
+        {
+          "id": "549d6508-35ab-479c-92d4-640cecebb1dc",
+          "pitch": 68,
+          "startTick": 9610,
+          "durationTicks": 416,
+          "velocity16": 46291,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 4620,
+            "endMilliseconds": 4870,
+            "velocity7": 90
+          }
+        },
+        {
+          "id": "2143a6dd-75f7-4e70-914d-7fe41e90b452",
+          "pitch": 65,
+          "startTick": 10093,
+          "durationTicks": 416,
+          "velocity16": 46291,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 4910,
+            "endMilliseconds": 5160,
+            "velocity7": 90
+          }
+        },
+        {
+          "id": "49df5913-c2a0-4521-9387-849af976bbf4",
+          "pitch": 70,
+          "startTick": 10559,
+          "durationTicks": 416,
+          "velocity16": 41090,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 5190,
+            "endMilliseconds": 5440,
+            "velocity7": 80
+          }
+        },
+        {
+          "id": "7e27c0b4-ce31-4f64-8ab4-3ef2d25e7db9",
+          "pitch": 67,
+          "startTick": 11041,
+          "durationTicks": 433,
+          "velocity16": 46291,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 5480,
+            "endMilliseconds": 5740,
+            "velocity7": 90
+          }
+        },
+        {
+          "id": "23b7ee43-ef04-4208-b183-66071c4a6b19",
+          "pitch": 63,
+          "startTick": 11524,
+          "durationTicks": 433,
+          "velocity16": 41090,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 5770,
+            "endMilliseconds": 6030,
+            "velocity7": 80
+          }
+        },
+        {
+          "id": "53bd3bc2-e863-41c4-81a9-5a600e803241",
+          "pitch": 67,
+          "startTick": 12006,
+          "durationTicks": 433,
+          "velocity16": 46291,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 6060,
+            "endMilliseconds": 6320,
+            "velocity7": 90
+          }
+        },
+        {
+          "id": "864e92d3-da4a-4e61-9e8a-2a31bdb8527a",
+          "pitch": 63,
+          "startTick": 12489,
+          "durationTicks": 433,
+          "velocity16": 41090,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 6350,
+            "endMilliseconds": 6610,
+            "velocity7": 80
+          }
+        },
+        {
+          "id": "444fb729-99e5-4fcd-a0a1-c5d832a65ca7",
+          "pitch": 58,
+          "startTick": 12972,
+          "durationTicks": 416,
+          "velocity16": 41090,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 6640,
+            "endMilliseconds": 6890,
+            "velocity7": 80
+          }
+        },
+        {
+          "id": "f4632f4c-56bb-480b-92ba-de11645888c0",
+          "pitch": 60,
+          "startTick": 13454,
+          "durationTicks": 383,
+          "velocity16": 46291,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 6930,
+            "endMilliseconds": 7160,
+            "velocity7": 90
+          }
+        },
+        {
+          "id": "e88275a4-6b14-46c6-933b-54efa1dd6a57",
+          "pitch": 63,
+          "startTick": 13937,
+          "durationTicks": 416,
+          "velocity16": 41090,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 7220,
+            "endMilliseconds": 7470,
+            "velocity7": 80
+          }
+        },
+        {
+          "id": "6120e96d-fa2e-4a97-811b-9d6c583e6c16",
+          "pitch": 67,
+          "startTick": 14419,
+          "durationTicks": 433,
+          "velocity16": 46291,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 7510,
+            "endMilliseconds": 7770,
+            "velocity7": 90
+          }
+        },
+        {
+          "id": "d3496186-62af-4e40-a897-10e56a0efec9",
+          "pitch": 70,
+          "startTick": 14902,
+          "durationTicks": 383,
+          "velocity16": 46291,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 7800,
+            "endMilliseconds": 8030,
+            "velocity7": 90
+          }
+        },
+        {
+          "id": "1ccc782e-03f6-4e81-922f-ee6336e8801a",
+          "pitch": 67,
+          "startTick": 15384,
+          "durationTicks": 416,
+          "velocity16": 46291,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 8090,
+            "endMilliseconds": 8340,
+            "velocity7": 90
+          }
+        },
+        {
+          "id": "c30559b2-22f2-4b4a-8f9a-90061cd357aa",
+          "pitch": 63,
+          "startTick": 15867,
+          "durationTicks": 433,
+          "velocity16": 41090,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 8380,
+            "endMilliseconds": 8640,
+            "velocity7": 80
+          }
+        },
+        {
+          "id": "2c7c199d-7967-4abb-9949-28784d1ec457",
+          "pitch": 62,
+          "startTick": 16349,
+          "durationTicks": 399,
+          "velocity16": 46291,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 8670,
+            "endMilliseconds": 8910,
+            "velocity7": 90
+          }
+        },
+        {
+          "id": "663cc8ac-4c6c-45f5-a131-39a1f8343af4",
+          "pitch": 65,
+          "startTick": 16832,
+          "durationTicks": 399,
+          "velocity16": 46291,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 8960,
+            "endMilliseconds": 9200,
+            "velocity7": 90
+          }
+        },
+        {
+          "id": "f76b0697-4d66-4918-9b30-d4cf2008357b",
+          "pitch": 68,
+          "startTick": 17298,
+          "durationTicks": 416,
+          "velocity16": 46291,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 9240,
+            "endMilliseconds": 9490,
+            "velocity7": 90
+          }
+        }
+      ],
+      "continuation": {
+        "sourceTrackId": "dddccf06-bdf4-49cf-9342-a1339956f0c5",
+        "sourceTrackName": "Procedural prompt",
+        "sourceProjectRevision": 1,
+        "startTick": 0,
+        "endTick": 7680,
+        "sourceNoteCount": 12,
+        "clippedNotes": 0,
+        "projection": "Pitched notes rendered as piano. Context is cropped at the selected bar boundaries, then tokenized with Aria timing and 7-bit velocity; expression is not used. Original source notes are unchanged.",
+        "answerStartTick": 7680,
+        "model": "loubb/aria-medium-base/model-gen.safetensors",
+        "modelRevision": "5a1ef36c5007ee10fbe57d61d96725a7244bd2b2",
+        "modelSha256": "5e6b07ee2680f0044deea30da613d89b12e3e30d012d1812b388d6b8d8306c90",
+        "sourceRevision": "c2f67bc90b49335543c0249fe00fb84a9337faf8",
+        "utilsRevision": "7c815755c6889a784b6a1b3343e9e8daa3e7d128",
+        "backend": "mlx",
+        "runtimeVersions": {
+          "python": "3.11.15",
+          "mlx": "0.25.2",
+          "torch": "2.8.0",
+          "numpy": "2.2.6"
+        },
+        "runtimeCompatibility": "Explicit attention-cache boundary and scalar RoPE offset in adapter subclass; upstream source unchanged",
+        "elapsedSeconds": 2.247,
+        "generationSeconds": 0.612,
+        "peakMLXBytes": 2719036048,
+        "seed": 43,
+        "promptTokens": 38,
+        "generatedTokens": 64,
+        "decodedPromptNotes": 12,
+        "firstGeneratedOnsetMilliseconds": 3460,
+        "timingPolicy": "New notes only. First generated onset translated to zero; original model times retained. Prompt velocity projected to 7 bits.",
+        "tokenTrace": [
+          [
+            "prefix",
+            "instrument",
+            "piano"
+          ],
+          "<S>",
+          [
+            "piano",
+            60,
+            80
+          ],
+          [
+            "onset",
+            0
+          ],
+          [
+            "dur",
+            230
+          ],
+          [
+            "piano",
+            63,
+            80
+          ],
+          [
+            "onset",
+            290
+          ],
+          [
+            "dur",
+            250
+          ],
+          [
+            "piano",
+            67,
+            90
+          ],
+          [
+            "onset",
+            580
+          ],
+          [
+            "dur",
+            260
+          ],
+          [
+            "piano",
+            70,
+            90
+          ],
+          [
+            "onset",
+            860
+          ],
+          [
+            "dur",
+            230
+          ],
+          [
+            "piano",
+            67,
+            80
+          ],
+          [
+            "onset",
+            1150
+          ],
+          [
+            "dur",
+            250
+          ],
+          [
+            "piano",
+            63,
+            80
+          ],
+          [
+            "onset",
+            1440
+          ],
+          [
+            "dur",
+            260
+          ],
+          [
+            "piano",
+            62,
+            90
+          ],
+          [
+            "onset",
+            1730
+          ],
+          [
+            "dur",
+            230
+          ],
+          [
+            "piano",
+            65,
+            90
+          ],
+          [
+            "onset",
+            2020
+          ],
+          [
+            "dur",
+            250
+          ],
+          [
+            "piano",
+            68,
+            80
+          ],
+          [
+            "onset",
+            2310
+          ],
+          [
+            "dur",
+            260
+          ],
+          [
+            "piano",
+            72,
+            80
+          ],
+          [
+            "onset",
+            2600
+          ],
+          [
+            "dur",
+            230
+          ],
+          [
+            "piano",
+            68,
+            90
+          ],
+          [
+            "onset",
+            2890
+          ],
+          [
+            "dur",
+            250
+          ],
+          [
+            "piano",
+            65,
+            90
+          ],
+          [
+            "onset",
+            3170
+          ],
+          [
+            "dur",
+            260
+          ],
+          [
+            "piano",
+            62,
+            80
+          ],
+          [
+            "onset",
+            3460
+          ],
+          [
+            "dur",
+            250
+          ],
+          [
+            "piano",
+            65,
+            90
+          ],
+          [
+            "onset",
+            3750
+          ],
+          [
+            "dur",
+            260
+          ],
+          [
+            "piano",
+            68,
+            80
+          ],
+          [
+            "onset",
+            4040
+          ],
+          [
+            "dur",
+            260
+          ],
+          [
+            "piano",
+            72,
+            80
+          ],
+          [
+            "onset",
+            4330
+          ],
+          [
+            "dur",
+            230
+          ],
+          [
+            "piano",
+            68,
+            90
+          ],
+          [
+            "onset",
+            4620
+          ],
+          [
+            "dur",
+            250
+          ],
+          [
+            "piano",
+            65,
+            90
+          ],
+          [
+            "onset",
+            4910
+          ],
+          [
+            "dur",
+            250
+          ],
+          "<T>",
+          [
+            "piano",
+            70,
+            80
+          ],
+          [
+            "onset",
+            190
+          ],
+          [
+            "dur",
+            250
+          ],
+          [
+            "piano",
+            67,
+            90
+          ],
+          [
+            "onset",
+            480
+          ],
+          [
+            "dur",
+            260
+          ],
+          [
+            "piano",
+            63,
+            80
+          ],
+          [
+            "onset",
+            770
+          ],
+          [
+            "dur",
+            260
+          ],
+          [
+            "piano",
+            67,
+            90
+          ],
+          [
+            "onset",
+            1060
+          ],
+          [
+            "dur",
+            260
+          ],
+          [
+            "piano",
+            63,
+            80
+          ],
+          [
+            "onset",
+            1350
+          ],
+          [
+            "dur",
+            260
+          ],
+          [
+            "piano",
+            58,
+            80
+          ],
+          [
+            "onset",
+            1640
+          ],
+          [
+            "dur",
+            250
+          ],
+          [
+            "piano",
+            60,
+            90
+          ],
+          [
+            "onset",
+            1930
+          ],
+          [
+            "dur",
+            230
+          ],
+          [
+            "piano",
+            63,
+            80
+          ],
+          [
+            "onset",
+            2220
+          ],
+          [
+            "dur",
+            250
+          ],
+          [
+            "piano",
+            67,
+            90
+          ],
+          [
+            "onset",
+            2510
+          ],
+          [
+            "dur",
+            260
+          ],
+          [
+            "piano",
+            70,
+            90
+          ],
+          [
+            "onset",
+            2800
+          ],
+          [
+            "dur",
+            230
+          ],
+          [
+            "piano",
+            67,
+            90
+          ],
+          [
+            "onset",
+            3090
+          ],
+          [
+            "dur",
+            250
+          ],
+          [
+            "piano",
+            63,
+            80
+          ],
+          [
+            "onset",
+            3380
+          ],
+          [
+            "dur",
+            260
+          ],
+          [
+            "piano",
+            62,
+            90
+          ],
+          [
+            "onset",
+            3670
+          ],
+          [
+            "dur",
+            240
+          ],
+          [
+            "piano",
+            65,
+            90
+          ],
+          [
+            "onset",
+            3960
+          ],
+          [
+            "dur",
+            240
+          ],
+          [
+            "piano",
+            68,
+            90
+          ],
+          [
+            "onset",
+            4240
+          ],
+          [
+            "dur",
+            250
+          ]
+        ]
+      },
+      "provenance": {
+        "jobId": "bf48ba55-ee1e-47ca-a69b-dc9119a95d2d",
+        "pluginId": "eleutherai.aria-mlx",
+        "pluginVersion": "0.1.0",
+        "model": "loubb/aria-medium-base/model-gen.safetensors",
+        "modelRevision": "5a1ef36c5007ee10fbe57d61d96725a7244bd2b2",
+        "modelSha256": "5e6b07ee2680f0044deea30da613d89b12e3e30d012d1812b388d6b8d8306c90",
+        "ai": true,
+        "input": {
+          "sourceTrackId": "dddccf06-bdf4-49cf-9342-a1339956f0c5",
+          "startBar": 1,
+          "phraseBars": 2,
+          "maxNewTokens": 64,
+          "seed": 43
+        }
+      }
+    }
+  ],
+  "history": [
+    {
+      "id": "060f26fa-405f-43ea-ba2f-c7659c9ff6ca",
+      "at": "2026-10-15T09:40:57.181Z",
+      "action": "accept-candidate",
+      "provenance": {
+        "jobId": "bf48ba55-ee1e-47ca-a69b-dc9119a95d2d",
+        "pluginId": "eleutherai.aria-mlx",
+        "pluginVersion": "0.1.0",
+        "model": "loubb/aria-medium-base/model-gen.safetensors",
+        "modelRevision": "5a1ef36c5007ee10fbe57d61d96725a7244bd2b2",
+        "modelSha256": "5e6b07ee2680f0044deea30da613d89b12e3e30d012d1812b388d6b8d8306c90",
+        "ai": true,
+        "input": {
+          "sourceTrackId": "dddccf06-bdf4-49cf-9342-a1339956f0c5",
+          "startBar": 1,
+          "phraseBars": 2,
+          "maxNewTokens": 64,
+          "seed": 43
+        }
+      }
+    }
+  ],
+  "createdAt": "2026-10-15T09:39:43.234Z",
+  "updatedAt": "2026-10-15T09:41:25.340Z"
+}
