@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "id": "42f316e9-799a-4758-aa42-947614fa0c5d",
+  "revision": 1,
+  "ppq": 960,
+  "name": "Recovery choices qualification",
+  "tempo": 120,
+  "bars": 4,
+  "key": "C minor",
+  "lyrics": "",
+  "tracks": [
+    {
+      "id": "c79437f1-23bf-47f6-8aca-94c24b4badf1",
+      "name": "Locked recovery-choice source",
+      "kind": "notes",
+      "instrument": "keys",
+      "gain": 0.65,
+      "muted": true,
+      "locked": true,
+      "armed": false,
+      "notes": [
+        {
+          "id": "unchanged-guide",
+          "pitch": 60,
+          "startTick": 123,
+          "durationTicks": 987,
+          "velocity16": 49123,
+          "expression": [
+            {
+              "type": "pressure",
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 42
+                },
+                {
+                  "tick": 700,
+                  "value32": 4294967295
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "d7c0180a-a623-430a-ae17-1a3f80a3b329",
+      "name": "Pocket drums",
+      "kind": "notes",
+      "instrument": "drums",
+      "gain": 0.65,
+      "muted": false,
+      "locked": false,
+      "armed": false,
+      "notes": []
+    }
+  ],
+  "history": [],
+  "createdAt": "2026-10-15T13:38:34.552Z",
+  "updatedAt": "2026-10-15T13:38:34.563Z"
+}

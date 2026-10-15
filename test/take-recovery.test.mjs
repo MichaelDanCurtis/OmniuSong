@@ -9,7 +9,7 @@ import { TakeRecovery, RECOVERY_LIMITS } from '../src/take-recovery.mjs';
 import { newProject } from '../src/project.mjs';
 import { createServer } from '../src/server.mjs';
 import { TakeCapture, takeAssetId, sameTakeSource } from '../public/recording.js';
-import { exportArchive, importArchive } from '../src/archive.mjs';
+import { exportArchive, importArchive, inspectArchive } from '../src/archive.mjs';
 
 const bytes=Buffer.from('complete procedural test audio bytes'),assetId=createHash('sha256').update(bytes).digest('hex')+'.wav';
 function track(id='original-take'){return {id,name:'Retained original',kind:'audio',instrument:'voice',gain:.7,muted:false,locked:false,notes:[],assetId,audio:{origin:'import',mimeType:'audio/wav',durationSeconds:3.2,byteLength:bytes.length,originalName:'Test.wav',startTick:7680,external:{keep:true}}};}
@@ -55,9 +55,14 @@ test('recovery HTTP flow preserves original media and blocks premature acknowled
   assert.equal((await send('/api/pending-takes/original-take',proposal,'PUT')).status,200);assert.equal((await get('/api/pending-takes'))[0].state,'waiting-for-audio');
   const upload=await fetch(base+'/api/assets',{method:'POST',headers:{'Content-Type':'audio/wav'},body:bytes});assert.equal((await upload.json()).assetId,assetId);assert.equal((await get('/api/pending-takes'))[0].state,'ready');
   assert.equal((await fetch(base+'/api/projects/'+project.id+'/archive')).status,400);
+  assert.equal((await send('/api/pending-takes/original-take/park',{})).status,200);assert.equal((await get('/api/pending-takes'))[0].parked,true);
+  const withoutOriginal=await fetch(base+'/api/projects/'+project.id+'/archive');assert.equal(withoutOriginal.status,200);
+  const excluded=await inspectArchive(Buffer.from(await withoutOriginal.arrayBuffer()));assert.equal(excluded.assets.length,0);assert.deepEqual(excluded.project.tracks,project.tracks);
+  assert.equal((await send('/api/pending-takes/original-take/resume',{})).status,200);assert.equal((await fetch(base+'/api/projects/'+project.id+'/archive')).status,400);
   assert.equal((await send('/api/pending-takes/original-take/complete',{})).status,400);
   project.tracks.push(proposal.track);assert.equal((await send('/api/projects/'+project.id,{project,expectedRevision:999},'PUT')).status,409);assert.equal((await get('/api/pending-takes')).length,1);
   assert.equal((await send('/api/projects/'+project.id,{project,expectedRevision:0},'PUT')).status,200);assert.equal((await get('/api/pending-takes'))[0].state,'already-attached');
+  assert.equal((await send('/api/pending-takes/original-take/park',{})).status,409);
   assert.equal((await fetch(base+'/api/projects/'+project.id+'/archive')).status,200);
   for(let i=0;i<2;i++)assert.equal((await send('/api/pending-takes/original-take/complete',{})).status,200);assert.deepEqual(await get('/api/pending-takes'),[]);assert.equal((await get('/api/projects/'+project.id)).tracks.filter(t=>t.id==='original-take').length,1);
   assert.deepEqual(Buffer.from(await(await fetch(base+'/api/assets/'+assetId)).arrayBuffer()),bytes);
@@ -67,4 +72,22 @@ test('recovered microphone takes retain origin and proposed identity through a f
   let calls=0;const contexts=[],blob=new Blob([bytes],{type:'audio/wav'}),proposedTrack=track();proposedTrack.audio.origin='microphone';
   const capture=new TakeCapture({getStream:()=>{throw new Error('Recovery must not request a microphone');},createRecorder:()=>{throw new Error('Recovery must not encode again');},persist:async(original,context)=>{assert.equal(original,blob);contexts.push(structuredClone(context));if(++calls===1)throw new Error('session conflict');}});
   const context={origin:'microphone',projectId:'same-project',takeId:proposedTrack.id,assetId,assetUploaded:true,recoverySaved:true,proposedTrack};await capture.recover(blob,context);assert.equal(capture.phase,'failed');context.proposedTrack.name='Changed outside';await capture.retry();assert.equal(capture.phase,'idle');assert.deepEqual(contexts[0],contexts[1]);assert.equal(contexts[1].origin,'microphone');assert.equal(contexts[1].proposedTrack.name,'Retained original');
+});
+test('set-aside and return preserve exact journals, originals and projects; retries cannot silently reactivate them',async t=>{
+  const f=await fixture(t);await f.recovery.stage('original-take',f.proposal);await f.store.putAsset(bytes,'wav');const raw=await readFile(join(f.dir,'pending-takes','original-take.json'));
+  await f.recovery.move('original-take','park');await f.recovery.move('original-take','park');assert.equal((await f.recovery.list())[0].parked,true);assert.deepEqual(await f.recovery.list({includeParked:false}),[]);assert.deepEqual(await readFile(join(f.dir,'parked-takes','original-take.json')),raw);assert.deepEqual(await f.store.asset(assetId),bytes);assert.deepEqual(await f.store.read('projects',f.project.id),f.project);
+  await assert.rejects(f.recovery.stage('original-take',f.proposal),/Return this set-aside/);await assert.rejects(f.recovery.complete('original-take'),/Return this set-aside/);
+  const restarted=await new TakeRecovery(await new Store(f.dir).init()).init();assert.equal((await restarted.list())[0].parked,true);await restarted.move('original-take','resume');await restarted.move('original-take','resume');assert.equal((await restarted.list())[0].parked,false);assert.deepEqual(await readFile(join(f.dir,'pending-takes','original-take.json')),raw);
+  f.project.tracks.push(f.proposal.track);await f.store.saveProject(f.project,0);await restarted.complete('original-take');await assert.rejects(restarted.move('original-take','park'));assert.deepEqual(await restarted.list(),[]);
+});
+test('malformed metadata can be set aside and returned without alteration or invented media recovery',async t=>{
+  const f=await fixture(t);await f.recovery.stage('original-take',f.proposal);const raw=Buffer.from('{unreadable journal');await writeFile(join(f.dir,'pending-takes','original-take.json'),raw);
+  await f.recovery.move('original-take','park');const entry=(await f.recovery.list())[0];assert.equal(entry.parked,true);assert.equal(entry.state,'damaged-metadata');assert.equal(entry.track,undefined);assert.deepEqual(await readFile(join(f.dir,'parked-takes','original-take.json')),raw);
+  await f.recovery.move('original-take','resume');assert.equal((await f.recovery.list())[0].parked,false);assert.deepEqual(await readFile(join(f.dir,'pending-takes','original-take.json')),raw);
+});
+test('returning to recovery respects active limits; set-aside limits retain the source on failed moves',async t=>{
+  const f=await fixture(t);for(let i=0;i<16;i++)await f.recovery.stage('take-'+i,{projectId:f.project.id,track:track('take-'+i)});await f.recovery.move('take-0','park');await f.recovery.stage('replacement',{projectId:f.project.id,track:track('replacement')});await assert.rejects(f.recovery.move('take-0','resume'),/16 unfinished/);assert.equal((await f.recovery.list()).find(e=>e.id==='take-0').parked,true);
+  await f.recovery.move('take-1','park');await f.recovery.move('take-0','resume');assert.equal((await f.recovery.list()).filter(e=>!e.parked).length,16);
+  const g=await fixture(t);for(let i=0;i<65;i++){const id='park-'+i;await g.recovery.stage(id,{projectId:g.project.id,track:track(id)});if(i<64)await g.recovery.move(id,'park');}await assert.rejects(g.recovery.move('park-64','park'),/64-entry/);assert.equal((await g.recovery.list({includeParked:false}))[0].id,'park-64');
+  const h=await fixture(t);for(let i=0;i<18;i++){const item=track('large-park-'+i);item.audio.byteLength=30*1024*1024;await h.recovery.stage(item.id,{projectId:h.project.id,track:item});if(i<17)await h.recovery.move(item.id,'park');}await assert.rejects(h.recovery.move('large-park-17','park'),/512 MiB/);assert.equal((await h.recovery.list({includeParked:false}))[0].id,'large-park-17');
 });

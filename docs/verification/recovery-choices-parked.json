@@ -1,0 +1,88 @@
+{
+  "fixture": "Procedural four-tone original, metadata-only unfinished upload, and intentionally malformed metadata in an isolated store",
+  "at": "2026-10-15T13:39:58.304Z",
+  "projectId": "42f316e9-799a-4758-aa42-947614fa0c5d",
+  "projectUnchanged": true,
+  "entries": [
+    {
+      "id": "unreadable-entry",
+      "parked": true,
+      "state": "damaged-metadata",
+      "message": "Recovery metadata could not be read. The local files were retained."
+    },
+    {
+      "version": 1,
+      "id": "retained-phrase",
+      "createdAt": "2026-10-15T13:38:34.589Z",
+      "projectId": "42f316e9-799a-4758-aa42-947614fa0c5d",
+      "track": {
+        "id": "retained-phrase",
+        "name": "Retained phrase · procedural",
+        "kind": "audio",
+        "instrument": "voice",
+        "gain": 0.7,
+        "muted": false,
+        "locked": false,
+        "notes": [],
+        "assetId": "2a43aaacbb59bedceb5a15b4a99d5f70b880a8258cc788b09a8feddc12d74f55.wav",
+        "audio": {
+          "origin": "import",
+          "mimeType": "audio/wav",
+          "durationSeconds": 3.2,
+          "byteLength": 282284,
+          "startTick": 7680,
+          "originalName": "Recovery choice - procedural tones.wav",
+          "example": true,
+          "method": "procedural four-tone management fixture"
+        }
+      },
+      "parked": true,
+      "state": "ready",
+      "message": "Original audio is saved locally; session attachment is unfinished.",
+      "projectName": "Recovery choices qualification"
+    },
+    {
+      "version": 1,
+      "id": "unfinished-upload",
+      "createdAt": "2026-10-15T13:38:34.594Z",
+      "projectId": "42f316e9-799a-4758-aa42-947614fa0c5d",
+      "track": {
+        "id": "unfinished-upload",
+        "name": "Unfinished upload · no audio",
+        "kind": "audio",
+        "instrument": "voice",
+        "gain": 0.7,
+        "muted": false,
+        "locked": false,
+        "notes": [],
+        "assetId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.wav",
+        "audio": {
+          "origin": "import",
+          "mimeType": "audio/wav",
+          "durationSeconds": 3.2,
+          "byteLength": 282284,
+          "startTick": 7680,
+          "originalName": "Recovery choice - procedural tones.wav",
+          "example": true,
+          "method": "procedural four-tone management fixture"
+        }
+      },
+      "parked": true,
+      "state": "waiting-for-audio",
+      "message": "Recovery metadata exists, but the original audio upload did not finish.",
+      "projectName": "Recovery choices qualification"
+    }
+  ],
+  "parkedFileHashes": {
+    "retained-phrase.json": "aa1d3cfedfaf415b05fadb68bc874bf46f82380acd53d09a17ab4c63a20fc747",
+    "unfinished-upload.json": "69a249bc79f390d3dd6c1e54c602e120ff86d485200beee34d2e499efd8d103b",
+    "unreadable-entry.json": "275db21353b827c7d5ec84eb085c0819a274b1750651af6c9a0cd88a6294d8d9"
+  },
+  "backupWhileSetAside": {
+    "path": "/Users/michaelcurtis/Downloads/Recovery choices qualification.omniusong",
+    "bytes": 533,
+    "sha256": "9f339e38f619c007fbdeea164d5f6cbd95ffacbc38730c35fd93902157e9c556",
+    "assetCount": 0,
+    "tracksExact": true
+  }
+}

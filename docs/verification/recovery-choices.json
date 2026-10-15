@@ -1,0 +1,59 @@
+{
+  "at": "2026-10-15T13:41:54.520Z",
+  "fixture": "Procedural four-tone original, metadata-only unfinished upload, and intentionally malformed metadata in an isolated store",
+  "projectUnchangedWhileSetAside": true,
+  "setAsideCount": 3,
+  "retainedOriginalStayedDownloadable": true,
+  "incompleteAndUnreadableEntriesDidNotOfferAudioDownloads": true,
+  "setAsideSurvivedServiceRestartAndBrowserReload": true,
+  "rawJournalFilesExactAcrossSetAsideReturnAndCompletion": true,
+  "sourceBytesExact": true,
+  "returnedOriginalBlockedBackupUntilRecovery": true,
+  "recoveredTakeCount": 1,
+  "recoveredStartTick": 7680,
+  "lockedSourceExact": true,
+  "remainingSetAsideEntries": [
+    {
+      "id": "unreadable-entry",
+      "state": "damaged-metadata"
+    },
+    {
+      "id": "unfinished-upload",
+      "state": "waiting-for-audio"
+    }
+  ],
+  "backupWhileSetAside": {
+    "path": "/Users/michaelcurtis/Downloads/Recovery choices qualification.omniusong",
+    "bytes": 533,
+    "sha256": "9f339e38f619c007fbdeea164d5f6cbd95ffacbc38730c35fd93902157e9c556",
+    "assetCount": 0,
+    "tracksExact": true
+  },
+  "backupAfterRecovery": {
+    "path": "/Users/michaelcurtis/Downloads/Recovery choices qualification (1).omniusong",
+    "bytes": 220914,
+    "sha256": "91b44b43c455a3958e6b34c8e06b5745f34f2bcb243a757cbbaa945cf6e40316",
+    "assetCount": 1,
+    "emptyStoreRestoreExact": true
+  },
+  "mainStudioSession": {
+    "id": "f3e500d7-bf93-47be-a24d-785bde766035",
+    "name": "Recovery choices qualification (restored)",
+    "revision": 0
+  },
+  "responsive": [
+    {
+      "width": 1440,
+      "scrollWidth": 1425
+    },
+    {
+      "width": 680,
+      "scrollWidth": 665
+    }
+  ],
+  "browserConsoleErrors": [],
+  "tests": 108,
+  "isolatedTestServiceStoppedAndRemoved": true,
+  "earlierQualificationSessionsUnchanged": true,
+  "mainRecoveryQueueEmpty": true
+}

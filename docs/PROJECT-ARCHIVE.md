@@ -4,7 +4,7 @@ The `.omniusong` file is a complete backup of one accepted project and its refer
 
 Model weights, credentials, provider accounts, pending generation jobs, the global model selection list, and application settings are outside this format. Accepted-candidate provenance embedded in the project is preserved. A restored project can reference its original job IDs as historical provenance without recreating or rerunning those jobs.
 
-Completed recordings/imports use a separate local recovery journal while session attachment is unfinished. Export blocks known unattached originals for the selected session, and blocks unreadable recovery metadata until reviewed. Already-attached originals can be included before recovery acknowledgment because their full source is already referenced. Pending/completed operational journals are outside this archive; recover the original first to include its track, source metadata, and audio normally. See [recording recovery](RECORDING.md).
+Completed recordings/imports use a separate local recovery journal while session attachment is unfinished. Export blocks active unattached originals for the selected session, and blocks active unreadable recovery metadata until reviewed or explicitly set aside. Already-attached originals can be included before recovery acknowledgment because their full source is already referenced. Pending/set-aside/completed operational journals are outside this archive. Set-aside entries remain local and do not block export; accepted project tracks and their assets remain included. Return and recover a set-aside original first to include its track, source metadata, and audio normally. See [recording recovery](RECORDING.md).
 
 ## Version 1 format
 

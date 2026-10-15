@@ -335,12 +335,24 @@ function updateCaptureControls(){
 }
 async function refreshRecovery(){
   const box=$('#recovery-list'),entries=await api('/api/pending-takes');box.replaceChildren();$('#take-recovery').classList.toggle('hidden',!entries.length);
-  $('#recovery-status').textContent=`${entries.length} unfinished save${entries.length===1?'':'s'}. Originals stay on this Mac. Active recordings are protected only after their completed audio is stored.`;
+  const active=entries.filter(entry=>!entry.parked).length,parked=entries.length-active;
+  $('#recovery-status').textContent=`${active} unfinished save${active===1?'':'s'}${parked?` · ${parked} set aside`:''}. Set-aside entries stay on this Mac and do not block project backups. Backups include accepted tracks. Active recordings are protected only after their completed audio is stored.`;
+  let parkedHeading=false;
   for(const entry of entries){
+    if(entry.parked&&!parkedHeading){box.append(el('h4','recovery-subheading','Set-aside entries · kept on this Mac'));parkedHeading=true;}
     const row=el('div','recovery-entry'),details=el('div');details.append(el('strong','',entry.track?.name??'Unreadable recovery entry'),el('p','',`${entry.projectName??'Original session'} · ${entry.message}`));row.append(details);
-    if(['ready','already-attached'].includes(entry.state)){
+    if(!entry.parked&&['ready','already-attached'].includes(entry.state)){
       const button=el('button','quiet small recover-take',entry.state==='already-attached'?'Finish recovery':'Open session and recover');button.disabled=sessionBusy||capture.busy;
       button.onclick=()=>recoverTake(entry).catch(error=>toast(error.message,true));row.append(button);
+    }
+    if(entry.parked||entry.state!=='already-attached'){
+    const move=el('button','quiet small recover-take',entry.parked?'Return to recovery':'Set aside · keep locally');move.disabled=sessionBusy||capture.busy;
+    move.onclick=async()=>{
+      if(capture.busy||sessionBusy){toast('Finish the current audio operation first',true);return;}
+      move.disabled=true;
+      try{await post('/api/pending-takes/'+entry.id+(entry.parked?'/resume':'/park'),{});await refreshRecovery();toast(entry.parked?'Original returned to recovery':'Recovery entry set aside. Its local files are kept; accepted session tracks stay intact.');}
+      catch(error){toast(error.message,true);move.disabled=sessionBusy||capture.busy;await refreshRecovery().catch(()=>{});}
+    };row.append(move);
     }
     if(entry.track&&['ready','already-attached','identity-conflict','session-missing'].includes(entry.state)){
       const link=el('a','original-audio','Download retained original');link.href='/api/assets/'+entry.track.assetId;link.download=entry.track.audio.originalName??('OmniuSong-retained.'+entry.track.assetId.split('.').at(-1));row.append(link);

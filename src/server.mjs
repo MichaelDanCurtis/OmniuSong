@@ -37,10 +37,10 @@ export async function createServer({dataDir=process.env.OMNIUSONG_DATA_DIR??join
       if(req.method==='GET'&&path==='/api/examples/four-tones.wav')return send(res,200,renderExamplePhrase(),'audio/wav');
       if(req.method==='GET'&&path==='/api/plugins')return send(res,200,plugins.list());
       if(req.method==='GET'&&path==='/api/pending-takes')return send(res,200,await recovery.list());
-      const recoveryMatch=path.match(/^\/api\/pending-takes\/([a-zA-Z0-9-]+)(\/complete)?$/);
+      const recoveryMatch=path.match(/^\/api\/pending-takes\/([a-zA-Z0-9-]+)(?:\/(complete|park|resume))?$/);
       if(recoveryMatch){const [,id,complete]=recoveryMatch;
         if(req.method==='PUT'&&!complete)return send(res,200,await recovery.stage(id,await json(req,RECOVERY_LIMITS.metadataBytes)));
-        if(req.method==='POST'&&complete){await json(req);return send(res,200,await recovery.complete(id));}
+        if(req.method==='POST'&&complete){await json(req);return send(res,200,complete==='complete'?await recovery.complete(id):await recovery.move(id,complete));}
       }
       if(path==='/api/projects'){
         if(req.method==='GET')return send(res,200,(await store.list('projects')).map(p=>({id:p.id,name:p.name,revision:p.revision,createdAt:p.createdAt,updatedAt:p.updatedAt,trackCount:p.tracks.length})));
@@ -59,7 +59,7 @@ export async function createServer({dataDir=process.env.OMNIUSONG_DATA_DIR??join
           if(format==='ump')return send(res,200,exportUMPTrace(p));
           if(format==='wav')return send(res,200,renderProject(p),'audio/wav');
           if(format==='archive'){
-            demand(!(await recovery.list()).some(entry=>entry.state==='damaged-metadata'||entry.projectId===id&&entry.state!=='already-attached'),'Recover unfinished audio saves for this session before backing up. Retained originals are available in recovery.');
+            demand(!(await recovery.list({includeParked:false})).some(entry=>entry.state==='damaged-metadata'||entry.projectId===id&&entry.state!=='already-attached'),'Recover or set aside unfinished audio saves for this session before backing up. Retained originals are available in recovery.');
             return send(res,200,await exportArchive(store,p),ARCHIVE_MIME);
           }
           return send(res,200,p);
