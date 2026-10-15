@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { clipWindow, originalClipAudio } from '../public/clip-edit.js';
 import { transportSettings } from '../public/transport.js';
+import { recordingPlacement } from '../public/recording.js';
 
 export const PPQ = 960;
 export const ASSET_ID = /^[a-f0-9]{64}\.(wav|webm|mp4|ogg|mp3|flac)$/;
@@ -88,6 +89,10 @@ export function validateProject(project) {
       demand(finite(t.audio.durationSeconds,.001,86400),'Invalid audio duration');
       clipWindow(t.audio);
       if(t.audio.editSource!==undefined)originalClipAudio(t.audio);
+      if(t.audio.recordingTiming!==undefined){
+        demand(t.audio.origin==='microphone','Recording timing needs a microphone source');
+        demand(t.audio.recordingTiming.status===recordingPlacement(t.audio.recordingTiming,t.audio.durationSeconds).status,'Invalid recording timing status');
+      }
       if(t.audio.startTick!==undefined)demand(int(t.audio.startTick,0,1e9),'Invalid audio start');
       demand(int(t.audio.byteLength,1,30*1024*1024),'Invalid audio byte length');
       if(t.audio.originalName!==undefined)demand(typeof t.audio.originalName==='string'&&t.audio.originalName.length<=512,'Invalid original audio name');

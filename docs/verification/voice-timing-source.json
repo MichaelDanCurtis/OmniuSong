@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "id": "3ed95ce8-6dd0-435a-9353-139c5e254943",
+  "revision": 1,
+  "ppq": 960,
+  "name": "Voice timing · simulated capture",
+  "tempo": 120,
+  "bars": 4,
+  "key": "C minor",
+  "lyrics": "",
+  "tracks": [
+    {
+      "id": "da8386b9-ad88-42f8-92de-d2fd3f4f2955",
+      "name": "Locked synthetic timing guide",
+      "kind": "notes",
+      "instrument": "keys",
+      "gain": 0.65,
+      "muted": true,
+      "locked": true,
+      "armed": false,
+      "notes": [
+        {
+          "id": "guide-note",
+          "pitch": 60,
+          "startTick": 123,
+          "durationTicks": 987,
+          "velocity16": 49123,
+          "expression": [
+            {
+              "type": "pressure",
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 12345
+                },
+                {
+                  "tick": 700,
+                  "value32": 4294967295
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "deb7431c-5d53-44b7-88de-181dcf958633",
+      "name": "Pocket drums",
+      "kind": "notes",
+      "instrument": "drums",
+      "gain": 0.65,
+      "muted": false,
+      "locked": false,
+      "armed": false,
+      "notes": []
+    },
+    {
+      "id": "7699b8a3-255f-4d61-863e-6fac44c644f4",
+      "name": "Simulated recorder take · procedural tones",
+      "kind": "audio",
+      "instrument": "voice",
+      "gain": 0.7,
+      "muted": false,
+      "locked": false,
+      "notes": [],
+      "assetId": "2a43aaacbb59bedceb5a15b4a99d5f70b880a8258cc788b09a8feddc12d74f55.wav",
+      "audio": {
+        "origin": "microphone",
+        "example": true,
+        "method": "procedural timing fixture; no microphone used",
+        "mimeType": "audio/wav",
+        "durationSeconds": 3.2,
+        "byteLength": 282284,
+        "originalName": "Simulated take - procedural tones.wav",
+        "startTick": 0,
+        "trimStartSeconds": 1.75,
+        "recordingTiming": {
+          "version": 1,
+          "method": "browser-recorder-start-call",
+          "calibration": "unmeasured",
+          "captureAudioTimeSeconds": 10.25,
+          "songStartAudioTimeSeconds": 12,
+          "tempo": 120,
+          "ppq": 960,
+          "loopTicks": 15360,
+          "status": "estimated"
+        }
+      }
+    }
+  ],
+  "history": [],
+  "createdAt": "2026-10-15T12:39:15.118Z",
+  "updatedAt": "2026-10-15T12:39:15.129Z",
+  "transport": {
+    "version": 1,
+    "metronome": false,
+    "countInBars": 1,
+    "clickLevel": 0.25
+  }
+}

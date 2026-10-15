@@ -1,0 +1,72 @@
+{
+  "at": "2026-10-15T12:42:15.130Z",
+  "projectId": "3ed95ce8-6dd0-435a-9353-139c5e254943",
+  "projectName": "Voice timing · simulated capture",
+  "revision": 4,
+  "fixture": "Programmatically created timing metadata and a procedural four-tone WAV; no microphone used",
+  "originalBytes": 282284,
+  "originalSha256": "2a43aaacbb59bedceb5a15b4a99d5f70b880a8258cc788b09a8feddc12d74f55",
+  "originalSeconds": 3.2,
+  "estimatedSourceInSeconds": 1.75,
+  "reviewedStartTick": 97,
+  "reviewedSourceInSeconds": 1.8,
+  "reviewedWindowSeconds": 1.4,
+  "recordingTiming": {
+    "version": 1,
+    "method": "browser-recorder-start-call",
+    "calibration": "unmeasured",
+    "captureAudioTimeSeconds": 10.25,
+    "songStartAudioTimeSeconds": 12,
+    "tempo": 120,
+    "ppq": 960,
+    "loopTicks": 15360,
+    "status": "estimated"
+  },
+  "initialSettingsRestoredAfterBrowserReload": true,
+  "lockedGuideUnchanged": true,
+  "auditionImmediate": true,
+  "fullSourcePlayerDurationSeconds": 3.2,
+  "manualImport": {
+    "projectId": "c0dc28a8-9002-478d-9d73-b2851f421a05",
+    "revision": 2,
+    "startTick": 7680,
+    "bar": 3,
+    "sourceUnchanged": true
+  },
+  "archive": {
+    "path": "/Users/michaelcurtis/Downloads/Voice timing  simulated capture.omniusong",
+    "bytes": 221364,
+    "sha256": "2ef499463116310dcff27e9eee84eaa7464b2b1c3e245c2c2d9b35ca271106bb",
+    "assetCount": 1,
+    "downloadEvent": "CUA download event timed out; actual browser download located and verified independently",
+    "emptyStoreRestoreExact": true,
+    "originalBytesExact": true
+  },
+  "responsive": [
+    {
+      "width": 1440,
+      "scrollWidth": 1425
+    },
+    {
+      "width": 680,
+      "scrollWidth": 665
+    }
+  ],
+  "browserConsoleErrors": [],
+  "tests": 98,
+  "limits": [
+    "Physical microphone, permission dialog, encoder latency and listening quality unverified",
+    "Unmeasured recorder-start command timing; not sample-accurate alignment",
+    "Pending unsaved take remains in browser memory",
+    "Backing loop repeats; saved take is one continuous clip, not automatic loop comping"
+  ],
+  "invalidDraftStopVerified": true,
+  "invalidDraftPlayRejectedAndReverted": true,
+  "earlierQualificationSessionsUnchanged": [
+    "transport",
+    "clip-editing",
+    "note-editing",
+    "magenta-studio",
+    "aria-studio"
+  ]
+}

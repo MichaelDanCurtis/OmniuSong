@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "id": "c0dc28a8-9002-478d-9d73-b2851f421a05",
+  "revision": 2,
+  "ppq": 960,
+  "name": "Recording placement qualification",
+  "tempo": 120,
+  "bars": 4,
+  "key": "C minor",
+  "lyrics": "",
+  "tracks": [
+    {
+      "id": "81c4b2dd-4e95-45b9-8f77-d995f7239ddb",
+      "name": "Your piano",
+      "kind": "notes",
+      "instrument": "keys",
+      "gain": 0.65,
+      "muted": false,
+      "locked": false,
+      "armed": false,
+      "notes": []
+    },
+    {
+      "id": "2f1d9af3-0a41-400d-aa4d-e25b77872e3a",
+      "name": "Pocket drums",
+      "kind": "notes",
+      "instrument": "drums",
+      "gain": 0.65,
+      "muted": false,
+      "locked": false,
+      "armed": false,
+      "notes": []
+    },
+    {
+      "id": "8dd97f78-d5f1-49e0-a345-4f83dea4ab71",
+      "name": "Example four-tone phrase",
+      "kind": "audio",
+      "instrument": "voice",
+      "gain": 0.7,
+      "muted": false,
+      "locked": false,
+      "notes": [],
+      "assetId": "2a43aaacbb59bedceb5a15b4a99d5f70b880a8258cc788b09a8feddc12d74f55.wav",
+      "audio": {
+        "origin": "import",
+        "mimeType": "audio/wav",
+        "durationSeconds": 3.2,
+        "byteLength": 282284,
+        "startTick": 7680,
+        "originalName": "Example four-tone phrase.wav",
+        "example": true,
+        "method": "procedural four-tone fixture"
+      }
+    }
+  ],
+  "history": [],
+  "createdAt": "2026-10-15T12:37:47.507Z",
+  "updatedAt": "2026-10-15T12:38:15.712Z"
+}

@@ -1,6 +1,6 @@
 import { StudioAudio, bufferWAV } from './audio.js';
 import { PerformanceInput, decodeMIDI1, decodeUMP, appendCapture } from './input.js';
-import { TakeCapture, audioType, AUDIO_LIMIT_BYTES } from './recording.js';
+import { TakeCapture, audioType, AUDIO_LIMIT_BYTES, recordingTiming, takePlacement } from './recording.js';
 import { rollWindow, candidateAudition } from './note-view.js';
 import { editNote, restoreNote, deleteNote } from './note-edit.js';
 import { clipWindow, editClip, restoreClip, analysisWindow } from './clip-edit.js';
@@ -66,9 +66,9 @@ async function refreshLibrary(){
   const picker=$('#project-picker');picker.replaceChildren();for(const session of sessions){const option=el('option','',session.name);option.value=session.id;picker.append(option);}if(project)picker.value=project.id;return sessions;
 }
 async function useProject(next){
-  project=next;selectedId=next.tracks[0]?.id;selectedNoteId=null;noteDraft=null;clipDraft=null;rollPage=0;rollTop=null;$('#aria-start').value=1;$('#aria-bars').value=Math.min(2,next.bars);$('#magenta-start').value=1;undoStack=[];jobs=[];dirty=false;editSequence=0;clearTimeout(saveTimer);
+  project=next;selectedId=next.tracks[0]?.id;selectedNoteId=null;noteDraft=null;clipDraft=null;rollPage=0;rollTop=null;$('#audio-start-bar').value=1;$('#aria-start').value=1;$('#aria-bars').value=Math.min(2,next.bars);$('#magenta-start').value=1;undoStack=[];jobs=[];dirty=false;editSequence=0;clearTimeout(saveTimer);
   try{localStorage.setItem('omniusong.activeProject',next.id);}catch{}
-  renderStudio();renderJobs();await refreshLibrary();await refreshJobs();$('#save-status').textContent='Saved on this Mac';
+  renderStudio();renderJobs();updateCaptureControls();await refreshLibrary();await refreshJobs();$('#save-status').textContent='Saved on this Mac';
 }
 async function sessionTransition(operation){
   if(sessionBusy)throw new Error('A session is already opening');
@@ -210,7 +210,7 @@ function renderClipInspector(){
   for(const field of $$('[data-clip-field]')){const key=field.dataset.clipField,draft=clipDraft?.trackId===t?.id?clipDraft?.patch:{};field.value=draft&&Object.hasOwn(draft,key)?draft[key]:view?.[key]??'';field.disabled=!view||t.locked;if(key!=='startTick')field.max=t?.audio?.durationSeconds??86400;}
   $('#clip-save').disabled=!view||t.locked;$('#clip-restore').disabled=!view||t.locked||!t.audio.editSource;$('#clip-preview').disabled=!view;
   $('#clip-position').textContent=view?`Bar ${(view.startTick/3840+1).toFixed(4)} · beat ${(view.startTick/960+1).toFixed(4)} · ${view.durationSeconds.toFixed(4)} seconds in the arrangement`:'';
-  $('#clip-source').textContent=view?`Full ${t.audio.origin==='generated'?'AI-generated':t.audio.origin==='import'?'imported':'recorded'} source: ${t.audio.durationSeconds.toFixed(4)} seconds. ${t.audio.editSource?'Original placement and trim kept. ':''}The source file and its metadata stay intact.`:'';
+  $('#clip-source').textContent=view?`Full ${t.audio.example&&t.audio.recordingTiming?'simulated recording':t.audio.origin==='generated'?'AI-generated':t.audio.origin==='import'?'imported':'recorded'} source: ${t.audio.durationSeconds.toFixed(4)} seconds. ${t.audio.editSource?'Original placement and trim kept. ':''}The source file and its metadata stay intact. ${t.audio.recordingTiming?(t.audio.recordingTiming.status==='estimated'?'Timing estimated from the recorder start command; microphone and encoder latency are unmeasured. Adjust Start / Source in after listening.':t.audio.recordingTiming.status==='ended-before-song'?'Take ended before the song boundary. Full source placed at bar 1 for review.':'Automatic timing was outside 128 bars. Full source placed at bar 1 for review.'):''}`:'';
   $('#clip-edit-status').textContent=t?.locked?'Track locked · clip can be inspected and auditioned.':clipFieldPending()?'Save clip or press Enter. Changing tracks also saves.':'960 ticks = 1 beat. Source in/out use seconds from the full recording.';
 }
 function renderTakes(){const box=$('#takes');box.replaceChildren();for(const t of project.tracks.filter(t=>t.kind==='audio')){const take=el('div','take',t.name);const player=document.createElement('audio');player.controls=true;player.src='/api/assets/'+t.assetId;player.setAttribute('aria-label',t.name);const original=el('a','original-audio',t.audio?.origin==='generated'?'Download generated WAV':'Download original');original.href=player.src;original.download=t.audio?.originalName??('OmniuSong-original.'+t.assetId.split('.').at(-1));take.append(player,original);box.append(take);}}
@@ -220,20 +220,21 @@ function noteOn(pitch,velocity=.7,sourceId='screen',extra={}){
   return input.noteOn({...localAddress(sourceId),pitch,velocity16:Math.round(velocity*65535),...extra,track:t,instrument:sourceId==='pads'?'drums':t?.instrument??'keys'});
 }
 function noteOff(pitch,sourceId='screen',voiceId){input.noteOff({...localAddress(sourceId),pitch,voiceId});}
-function panic(){input.panic();audio.stop();$('#play').textContent='▶ Play';}
+function panic(){input.panic();if(capture.take?.context.withSong&&['requesting','preparing','recording'].includes(capture.phase))capture.stop();audio.stop();$('#play').textContent='▶ Play';}
 function renderTransportControls(){
-  const settings=transportSettings(project.transport);$('#metronome').setAttribute('aria-pressed',String(settings.metronome));$('#count-in').value=settings.countInBars;$('#click-level').value=Math.round(settings.clickLevel*100);$('#count-in').disabled=audio.playing;
+  const settings=transportSettings(project.transport);$('#metronome').setAttribute('aria-pressed',String(settings.metronome));$('#count-in').value=settings.countInBars;$('#click-level').value=Math.round(settings.clickLevel*100);$('#count-in').disabled=audio.playing||capture.busy;
 }
 function updateTransport(_tick,state=audio.position()){
   const label=state.phase==='loading'?'Loading audio…':state.phase==='starting'?'Starting…':state.phase==='count-in'?`Count in · ${state.countInBeat} / ${state.countInBeats}`:state.phase==='playing'?`${state.mode==='audition'?'Audition':'Playing'} · bar ${state.bar} · beat ${state.beat}`:'Stopped';
   if($('#transport-position').textContent!==label)$('#transport-position').textContent=label;
-  $('#transport-position').classList.toggle('counting',state.phase==='count-in');$('#play').textContent=audio.playing?'■ Stop':'▶ Play';$('#count-in').disabled=audio.playing;
+  $('#transport-position').classList.toggle('counting',state.phase==='count-in');$('#play').textContent=audio.playing?'■ Stop':'▶ Play';$('#count-in').disabled=audio.playing||capture.busy;
 }
 function changeTransport(patch){
-  if(patch.countInBars!==undefined&&audio.playing)throw new Error('Stop playback before changing the count-in');
+  if(patch.countInBars!==undefined&&(audio.playing||capture.busy))throw new Error('Finish playback and recording before changing the count-in');
   const settings=transportSettings({...transportSettings(project.transport),...patch});remember();project.transport=settings;audio.setMetronome(settings.metronome,settings.clickLevel);changed();
 }
-async function startPlayback(song=project,mode='session'){
+async function startPlayback(song=project,mode='session',{captureStart=false}={}){
+  if(capture.busy&&!captureStart)throw new Error('Finish the current voice take before starting playback or auditioning');
   input.panic('transport-restart');
   try{await audio.play(song,updateTransport,{mode});}finally{updateTransport();}
 }
@@ -301,20 +302,33 @@ function renderModels(){
 }
 function download(value,name,type='application/json'){const blob=new Blob([typeof value==='string'||value instanceof Blob?value:JSON.stringify(value,null,2)],{type});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);}
 const capture=new TakeCapture({
-  getStream:()=>navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}}),
+  getStream:async(context,signal)=>{
+    if(context.withSong)await audio.ready();
+    if(signal.aborted)throw new Error('Recording canceled');
+    return navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+  },
   createRecorder:stream=>{const supported=['audio/webm;codecs=opus','audio/mp4','audio/ogg;codecs=opus'].find(type=>MediaRecorder.isTypeSupported(type));return new MediaRecorder(stream,supported?{mimeType:supported}:{});},
+  prepare:async(context,signal)=>{
+    if(!context.withSong)return;
+    if(signal.aborted)throw new Error('Recording canceled');
+    signal.addEventListener('abort',()=>{input.panic('voice-take-finished');audio.stop();},{once:true});
+    await startPlayback(project,'session',{captureStart:true});
+  },
+  atStart:context=>context.withSong?{recordingTiming:recordingTiming(audio.project,audio.clock,audio.context.currentTime)}:{},
   persist:persistTake,
   onState:updateCaptureControls,
   onError:error=>toast(error.message,true)
 });
 function updateCaptureControls(){
   const phase=capture.phase,button=$('#record');
-  const labels={idle:'● Record voice',requesting:'Cancel mic request',recording:'■ Finish take',stopping:'Finishing take…',saving:'Saving original…',failed:'Retry saving take'};
+  const labels={idle:'● Record voice',requesting:'Cancel mic request',preparing:'Cancel song preparation',recording:'■ Finish take',stopping:'Finishing take…',saving:'Saving original…',failed:'Retry saving take'};
   button.textContent=labels[phase];button.classList.toggle('recording',phase==='recording');button.disabled=sessionBusy||['stopping','saving'].includes(phase);
   for(const id of ['#project-picker','#new-project','#import-project','#export-project','#import-audio','#import-example'])$(id).disabled=sessionBusy||capture.busy;
+  $('#voice-with-song').disabled=sessionBusy||capture.busy;$('#audio-start-bar').disabled=sessionBusy||capture.busy;
+  $('#tempo').disabled=sessionBusy||capture.busy;$('#count-in').disabled=sessionBusy||capture.busy||audio.playing;
   $('#download-take').classList.toggle('hidden',phase!=='failed'||!capture.blob);
   $('#cancel-import').classList.toggle('hidden',phase!=='failed'||capture.take?.context.origin!=='import');
-  const hints={idle:'Original audio stays on this Mac. Imports: up to 2 minutes and 30 MiB.',requesting:'Waiting for microphone permission. You can cancel this request.',recording:'Recording your original take · up to 2 minutes.',stopping:'Finishing audio and releasing the microphone…',saving:'Checking and saving the original audio with this session…',failed:'Original retained in this tab. Retry saving or download it before closing.'};
+  const hints={idle:$('#voice-with-song').checked?'Voice starts with the song from bar 1 after permission. Use headphones; placement is estimated. Imports still use the chosen bar.':'Solo voice and imports use the chosen bar. Originals stay on this Mac · up to 2 minutes and 30 MiB.',requesting:'Waiting for microphone permission. You can cancel this request.',preparing:'Microphone ready. Loading the song before starting the take…',recording:capture.take?.context.withSong?'Recording with the song. Count-in stays in the full original; clip alignment is an uncalibrated estimate.':'Recording your original solo take · up to 2 minutes.',stopping:'Finishing audio and releasing the microphone…',saving:'Checking and saving the original audio with this session…',failed:'Original retained in this tab. Retry saving or download it before closing.'};
   $('#capture-status').textContent=hints[phase];
 }
 function importMetadata(blob){
@@ -342,8 +356,9 @@ async function persistTake(blob,context){
   if(!project.tracks.some(t=>t.id===context.takeId)){
     if(project.tracks.length>=64)throw new Error('This session already has 64 tracks. Download the original before making room.');
     remember();const t={id:context.takeId,name:context.origin==='import'?(context.originalName.replace(/\.[^.]+$/,'').slice(0,150)||'Imported audio'):'Your voice · take '+(project.tracks.filter(t=>t.kind==='audio').length+1),kind:'audio',instrument:'voice',gain:.7,muted:false,locked:false,notes:[],assetId:context.assetId,
-      audio:{origin:context.origin,mimeType,durationSeconds:context.durationSeconds,byteLength:blob.size,...(context.originalName?{originalName:context.originalName}:{}),...(context.startedAt?{startedAt:context.startedAt}:{}),...(context.interruption?{interruption:context.interruption}:{}),...(context.example?{example:true,method:'procedural four-tone fixture'}:{})}};
-    project.tracks.push(t);selectedId=t.id;changed();
+      audio:{origin:context.origin,mimeType,durationSeconds:context.durationSeconds,byteLength:blob.size,...takePlacement(context),...(context.originalName?{originalName:context.originalName}:{}),...(context.startedAt?{startedAt:context.startedAt}:{}),...(context.interruption?{interruption:context.interruption}:{}),...(context.example?{example:true,method:'procedural four-tone fixture'}:{})}};
+    const view=clipWindow(t.audio),endTick=view.startTick+view.durationSeconds*project.tempo/60*project.ppq;
+    project.bars=Math.max(project.bars,Math.min(128,Math.ceil(endTick/3840)));project.tracks.push(t);selectedId=t.id;changed();
   }
   await flushSaves();toast(context.origin==='import'?'Original audio imported and saved locally':'Original vocal take saved locally');
 }
@@ -353,12 +368,14 @@ async function recordVoice(){
   if(sessionBusy)throw new Error('Wait for this session to finish opening');
   if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder)throw new Error('Microphone capture is unavailable here. Open the local studio in Chrome.');
   if(project.tracks.length>=64)throw new Error('This session already has 64 tracks');
-  await capture.start({projectId:project.id,takeId:crypto.randomUUID(),origin:'microphone'});
+  const withSong=$('#voice-with-song').checked,startTick=withSong?0:newAudioStart();panic();
+  await capture.start({projectId:project.id,takeId:crypto.randomUUID(),origin:'microphone',withSong,startTick});
 }
+function newAudioStart(){const bar=Number($('#audio-start-bar').value);if(!Number.isInteger(bar)||bar<1||bar>128)throw new Error('Choose a starting bar from 1 to 128');return (bar-1)*3840;}
 async function importAudio(file){
   if(!file)return;if(sessionBusy)throw new Error('Wait for the session to open');
   audioType(file.name,file.type);
-  await capture.import(file,{projectId:project.id,takeId:crypto.randomUUID(),originalName:file.name.slice(0,512)});
+  await capture.import(file,{projectId:project.id,takeId:crypto.randomUUID(),originalName:file.name.slice(0,512),startTick:newAudioStart()});
 }
 function recordPacket(packet,source,receivedTimeMs,hostTime){
   const t=track();if(sessionBusy||!audio.recordingReady()||!t?.armed||t.locked||t.kind!=='notes')return;
@@ -405,7 +422,11 @@ async function boot(){
   for(const category of [...new Set(catalog.models.map(m=>m.category))]){const option=el('option','',category);option.value=category;$('#model-category').append(option);}
   makePerformance();renderStudio();renderModels();updateCaptureControls();await refreshJobs();
   $$('.rail-button').forEach(b=>b.onclick=()=>{$$('.rail-button').forEach(x=>x.classList.toggle('active',x===b));$$('.view').forEach(v=>v.classList.toggle('hidden',v.id!==b.dataset.view+'-view'));});
-  const guarded=(selector,fn)=>{$(selector).onclick=()=>Promise.resolve().then(()=>{if(commitPendingEdits())return fn();}).catch(e=>toast(e.message,true));};
+  const guarded=(selector,fn)=>{$(selector).onclick=()=>Promise.resolve().then(()=>{
+    const stopAction=selector==='#panic'||selector==='#play'&&audio.playing||selector==='#record'&&capture.busy;
+    if(stopAction||commitPendingEdits())return fn();
+  }).catch(e=>toast(e.message,true));};
+  $('#voice-with-song').onchange=updateCaptureControls;
   guarded('#save',save);guarded('#play',async()=>{if(audio.playing)panic();else await startPlayback();});guarded('#panic',async()=>panic());
   guarded('#sketch',()=>generate('local.sketch','compose'));guarded('#instrument',()=>generate('local.instrument','instrument'));guarded('#lyrics',()=>generate($('#use-ollama').checked?'ollama.lyrics':'local.lyric-cards','lyrics'));guarded('#transcribe',transcribeSelected);guarded('#record',recordVoice);guarded('#midi-connect',connectMIDI);
   guarded('#metronome',()=>changeTransport({metronome:!transportSettings(project.transport).metronome}));
@@ -433,7 +454,7 @@ async function boot(){
   guarded('#import-project',async()=>{if(capture.busy)throw new Error('Finish saving the original audio before restoring a backup');$('#archive-file').click();});
   guarded('#import-audio',async()=>{if(capture.busy||sessionBusy)throw new Error('Finish the current audio operation first');$('#audio-file').click();});
   $('#audio-file').onchange=async()=>{try{await importAudio($('#audio-file').files[0]);}catch(error){toast(error.message,true);}finally{$('#audio-file').value='';}};
-  guarded('#import-example',async()=>{if(capture.busy||sessionBusy)throw new Error('Finish the current audio operation first');const projectId=project.id,response=await fetch('/api/examples/four-tones.wav');if(!response.ok)throw new Error('Could not load the example');const blob=await response.blob();if(project.id!==projectId)throw new Error('Session changed; choose Import example phrase again');await capture.import(blob,{projectId,takeId:crypto.randomUUID(),originalName:'Example four-tone phrase.wav',example:true});});
+  guarded('#import-example',async()=>{if(capture.busy||sessionBusy)throw new Error('Finish the current audio operation first');const projectId=project.id,startTick=newAudioStart(),response=await fetch('/api/examples/four-tones.wav');if(!response.ok)throw new Error('Could not load the example');const blob=await response.blob();if(project.id!==projectId)throw new Error('Session changed; choose Import example phrase again');await capture.import(blob,{projectId,takeId:crypto.randomUUID(),originalName:'Example four-tone phrase.wav',example:true,startTick});});
   guarded('#download-take',async()=>{if(capture.blob){const mime=capture.blob.type||'application/octet-stream',extension=Object.entries({wav:'audio/wav',webm:'audio/webm',mp4:'audio/mp4',ogg:'audio/ogg',mp3:'audio/mpeg',flac:'audio/flac'}).find(([,type])=>type===mime)?.[0]??'bin';download(capture.blob,capture.take.context.originalName??('OmniuSong-original.'+extension),mime);}});
   guarded('#cancel-import',async()=>capture.cancelImport());
   $('#archive-file').onchange=async()=>{const file=$('#archive-file').files[0];try{await restoreBackup(file);}catch(error){toast(error.message,true);}finally{$('#archive-file').value='';}};

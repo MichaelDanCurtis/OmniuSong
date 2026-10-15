@@ -1,6 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TakeCapture, audioType } from '../public/recording.js';
+import { TakeCapture, audioType, recordingTiming, recordingPlacement, takePlacement } from '../public/recording.js';
+import { transportClock } from '../public/transport.js';
+import { newProject, validateProject } from '../src/project.mjs';
+import { editClip, restoreClip } from '../public/clip-edit.js';
+import { Store } from '../src/storage.mjs';
+import { exportArchive, importArchive } from '../src/archive.mjs';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 const turn=()=>new Promise(resolve=>setImmediate(resolve));
 const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});return {promise,resolve,reject};};
 function fixture(options={}){
@@ -50,4 +58,44 @@ test('imports use the same protected save lifecycle and retain the original on f
 });
 test('MIME inference accepts common browser aliases and rejects unrelated files',()=>{
   assert.equal(audioType('voice.wav','audio/x-wav'),'audio/wav');assert.equal(audioType('Voice.M4A',''),'audio/mp4');assert.equal(audioType('voice.mp3','application/octet-stream'),'audio/mpeg');assert.equal(audioType('','audio/webm;codecs=opus'),'audio/webm');assert.throws(()=>audioType('image.png','image/png'),/Choose WAV/);
+});
+test('song preparation follows permission; recorder timing is sampled afterward and originals survive retry',async()=>{
+  const permission=deferred(),prepared=deferred(),order=[],clockProject={tempo:120,ppq:960,bars:2},clock=transportClock(clockProject,10,1);let audioTime=0,aborts=0,attempts=0;
+  const f=fixture({getStream:()=>permission.promise,prepare:async(context,signal)=>{order.push('prepare');assert.equal(context.withSong,true);signal.addEventListener('abort',()=>aborts++);await prepared.promise;},atStart:()=>{order.push('timing');return {recordingTiming:recordingTiming(clockProject,clock,audioTime)};},persist:async(blob,context)=>{f.saved.push({blob,context:structuredClone(context)});if(++attempts===1)throw new Error('disk full');}});
+  const start=f.capture.start({projectId:'a',withSong:true,external:{keep:true}});assert.equal(f.capture.phase,'requesting');assert.deepEqual(order,[]);
+  permission.resolve(f.stream);await turn();assert.equal(f.capture.phase,'preparing');assert.equal(f.recorder.state,'inactive');assert.deepEqual(order,['prepare']);
+  audioTime=10.1;prepared.resolve();await start;assert.equal(f.capture.phase,'recording');assert.deepEqual(order,['prepare','timing']);assert.equal(f.capture.take.context.recordingTiming.captureAudioTimeSeconds,10.1);
+  f.capture.take.startedAt=-3000;f.capture.stop();await turn();assert.equal(f.capture.phase,'failed');assert.equal(aborts,1);assert.equal(f.tracks[0].stops,1);assert.equal(await f.capture.blob.text(),'final audio');
+  await f.capture.retry();assert.equal(aborts,1);assert.equal(f.saved[0].blob,f.saved[1].blob);assert.deepEqual(f.saved[0].context,f.saved[1].context);assert.equal(f.saved[0].context.durationSeconds,4);
+});
+test('canceling pending preparation releases its stream and cannot disturb a newer take',async()=>{
+  const ready=deferred();let canceled=0;const f=fixture({prepare:async(_context,signal)=>{signal.addEventListener('abort',()=>canceled++);await ready.promise;}}),first=f.capture.start({projectId:'first'});
+  await turn();assert.equal(f.capture.phase,'preparing');f.capture.stop();assert.equal(canceled,1);assert.equal(f.tracks[0].stops,1);assert.equal(f.capture.phase,'idle');
+  f.capture.prepare=null;await f.capture.start({projectId:'second'});assert.equal(f.capture.phase,'recording');ready.resolve();await first;assert.equal(f.capture.phase,'recording');assert.equal(f.capture.take.context.projectId,'second');assert.equal(f.tracks[0].stops,1);f.capture.stop();await turn();
+});
+test('preparation and recorder-start failures cancel the backing song and release the microphone',async()=>{
+  for(const kind of ['prepare','start','timing']){let canceled=0;const f=fixture({prepare:async(_context,signal)=>{signal.addEventListener('abort',()=>canceled++);if(kind==='prepare')throw new Error('load failed');},atStart:()=>{if(kind==='timing')throw new Error('clock missing');return {};}});if(kind==='start')f.recorder.start=()=>{throw new Error('encoder unavailable');};await f.capture.start({projectId:'a'});assert.equal(canceled,1);assert.equal(f.capture.phase,'idle');assert.equal(f.tracks[0].stops,1);assert.equal(f.saved.length,0);assert.equal(f.errors.length,1);}
+});
+test('recording estimates trim preroll or place late starts without wrapping at the loop',()=>{
+  const p={tempo:120,ppq:960,bars:2},clock=transportClock(p,10,1),early=recordingTiming(p,clock,10.25);
+  assert.deepEqual(recordingPlacement(early,5),{status:'estimated',startTick:0,trimStartSeconds:1.75});
+  const late=recordingTiming(p,clock,12.125);assert.deepEqual(recordingPlacement(late,2),{status:'estimated',startTick:240,trimStartSeconds:0});
+  const afterLoop=recordingTiming(p,clock,16.125);assert.equal(recordingPlacement(afterLoop,1).startTick,7920);
+  const fractional={...p,tempo:103.33},fractionalClock=transportClock(fractional,10,2),timing=recordingTiming(fractional,fractionalClock,10.1);assert.equal(recordingPlacement(timing,10).trimStartSeconds,fractionalClock.startTime-10.1);
+  assert.equal(early.calibration,'unmeasured');assert.equal(early.method,'browser-recorder-start-call');assert.throws(()=>recordingTiming(p,null,0),/did not start/);
+});
+test('short count-in takes and out-of-timeline estimates retain the full source for review',()=>{
+  const p={tempo:120,ppq:960,bars:2},clock=transportClock(p,10,1),early=recordingTiming(p,clock,10);
+  assert.deepEqual(recordingPlacement(early,.5),{status:'ended-before-song',startTick:0,trimStartSeconds:0});assert.equal(recordingPlacement(early,2).status,'ended-before-song');
+  assert.deepEqual(recordingPlacement(recordingTiming(p,clock,1000),3),{status:'outside-timeline',startTick:0,trimStartSeconds:0});
+  assert.deepEqual(takePlacement({startTick:7680}),{startTick:7680});for(const startTick of [-1,1.5,128*3840,NaN])assert.throws(()=>takePlacement({startTick}));
+  for(const patch of [{version:2},{calibration:'measured'},{captureAudioTimeSeconds:NaN},{tempo:0},{loopTicks:1},{ppq:480}])assert.throws(()=>recordingPlacement({...early,...patch},4),/timing estimate/);
+});
+test('recording estimates and complete originals survive clip edits and project archives',async t=>{
+  const dir=await mkdtemp(join(tmpdir(),'omniusong-recording-clock-'));t.after(()=>rm(dir,{recursive:true,force:true}));const source=await new Store(join(dir,'source')).init(),destination=await new Store(join(dir,'destination')).init(),p=newProject('Simulated microphone timing');p.tempo=120;
+  const bytes=Buffer.from('complete original including preroll'),assetId=await source.putAsset(bytes,'webm'),timing=recordingTiming(p,transportClock(p,10,1),10.25),placement=takePlacement({recordingTiming:timing,durationSeconds:5});
+  p.tracks.push({id:'take',name:'Simulated take',kind:'audio',instrument:'voice',gain:.7,muted:false,locked:false,notes:[],assetId,audio:{origin:'microphone',mimeType:'audio/webm',durationSeconds:5,byteLength:bytes.length,...placement,external:{keep:true}}});
+  const original=structuredClone(p.tracks.at(-1)),edited=editClip(p,'take',{startTick:100,trimStartSeconds:2});assert.deepEqual(restoreClip(edited,'take').tracks.at(-1),original);
+  const saved=await source.saveProject(edited,null),restored=await importArchive(destination,await exportArchive(source,saved));assert.deepEqual(restored.project.tracks,saved.tracks);assert.deepEqual(await destination.asset(assetId),bytes);assert.deepEqual(restoreClip(restored.project,'take').tracks.at(-1),original);
+  const broken=structuredClone(saved);broken.tracks.at(-1).audio.recordingTiming.status='calibrated';assert.throws(()=>validateProject(broken),/timing status/);
 });
