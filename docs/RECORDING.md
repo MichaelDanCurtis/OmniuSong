@@ -2,6 +2,8 @@
 
 The preview keeps the human source separate from estimated notes. Recording and import send audio only to the studio's loopback service. No cloud audio service is enabled.
 
+The metronome/count-in applies to session Play and armed note recording. **Record voice** does not yet use it or place a microphone take automatically against that song clock. See [transport boundaries](TRANSPORT.md).
+
 ## Record a take
 
 Choose **Record voice** to request the microphone. Permission is requested only on that action. While the request is pending, **Cancel mic request** cancels the application's request; if the browser supplies a stream afterward, its tracks are stopped. This does not change the browser's saved permission setting.

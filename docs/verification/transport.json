@@ -1,0 +1,145 @@
+{
+  "at": "2026-10-15T12:16:28.176Z",
+  "projectId": "f31a603c-4077-45c3-b04c-79c3a35fe607",
+  "revision": 4,
+  "transport": {
+    "version": 1,
+    "metronome": true,
+    "countInBars": 1,
+    "clickLevel": 0.34
+  },
+  "tempo": 120,
+  "bars": 2,
+  "noteCount": 3,
+  "recorded": [
+    {
+      "track": "Count-in keyboard",
+      "note": {
+        "id": "eba93aa9-aac6-478f-8d64-c887e230774e",
+        "pitch": 60,
+        "startTick": 688,
+        "durationTicks": 19,
+        "velocity16": 45875,
+        "expression": [],
+        "input": {
+          "sourceId": "screen",
+          "sourceName": "On-screen keys",
+          "protocol": "local",
+          "group": 0,
+          "channel": 0,
+          "receivedTimeMs": 39567.799999952316,
+          "keyDurationTicks": 19,
+          "releaseVelocity16": 0,
+          "endReason": "key-release"
+        }
+      }
+    },
+    {
+      "track": "Count-in pads",
+      "note": {
+        "id": "da27df9e-101c-4d8a-a474-309b531fd8a0",
+        "pitch": 38,
+        "startTick": 1748,
+        "durationTicks": 18,
+        "velocity16": 52428,
+        "expression": [],
+        "input": {
+          "sourceId": "pads",
+          "sourceName": "On-screen keys",
+          "protocol": "local",
+          "group": 0,
+          "channel": 0,
+          "receivedTimeMs": 40119.799999952316,
+          "keyDurationTicks": 18,
+          "releaseVelocity16": 0,
+          "endReason": "key-release"
+        }
+      }
+    }
+  ],
+  "checks": {
+    "originalLockedTrackExact": true,
+    "countInTimeExcludedFromNoteStarts": true,
+    "prerollHeldNoteNotRecorded": true,
+    "stoppedCountInAddsNoNotes": true,
+    "auditionAddsNoNotes": true,
+    "savedProjectExactAfterAudition": true
+  },
+  "browser": {
+    "twoBarCancel": true,
+    "countInSelectionDisabledWhileActive": true,
+    "heldSustainDuringCountIn": true,
+    "oneBarBoundaryThenKeyboardAndPad": true,
+    "liveClickToggleKeepsTransportRunning": true,
+    "clickLevelSaved": 0.34,
+    "reload": true,
+    "stoppedActiveInput": 0,
+    "fullBackupDownload": true,
+    "viewports": [
+      1440,
+      680
+    ],
+    "horizontalOverflow": false,
+    "consoleErrors": []
+  },
+  "audition": {
+    "jobId": "828f3b42-63ce-417a-a306-57602309bb36",
+    "pluginId": "local.sketch",
+    "procedural": true,
+    "skippedCountIn": true,
+    "modeLabel": "Audition",
+    "discarded": true
+  },
+  "backup": {
+    "path": "/Users/michaelcurtis/Downloads/Transport qualification.omniusong",
+    "bytes": 869,
+    "assets": 0,
+    "sha256": "6eceb61dbccb7a5774314b8c9f6e9f198799436fa834c4f231eec61236e801ca",
+    "restoredId": "5d73157f-80cf-4125-bea4-50dcf3b10b5e",
+    "transportTracksHistoryExact": true
+  },
+  "exports": {
+    "midi1Bytes": 173,
+    "umpFormat": "omniusong-ump-trace",
+    "umpPackets": 8,
+    "fullNoteVelocity16Exact": true,
+    "standardClipFile": false,
+    "independentMidi1": {
+      "parser": "Mido",
+      "noteOns": [
+        {
+          "track": "Count-in keyboard",
+          "pitch": 60,
+          "tick": 688,
+          "velocity7": 89
+        },
+        {
+          "track": "Count-in pads",
+          "pitch": 38,
+          "tick": 1748,
+          "velocity7": 102
+        },
+        {
+          "track": "Locked test source",
+          "pitch": 64,
+          "tick": 123,
+          "velocity7": 95
+        }
+      ],
+      "countInNotExported": true
+    }
+  },
+  "limits": [
+    "Automation-driven on-screen input; no physical keyboard/pads, microphone, or latency qualification",
+    "Count-in applies to session playback and armed note recording, not microphone capture",
+    "Native host ticks are retained elsewhere but still uncalibrated to the audio clock",
+    "New notes are saved live; restart playback to hear them in the loop snapshot",
+    "Procedural sine click, not an AI model"
+  ],
+  "tests": {
+    "modules": 38,
+    "catalogEntries": 36,
+    "passed": 92,
+    "skipped": 0
+  }
+}

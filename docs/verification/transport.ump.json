@@ -1,0 +1,76 @@
+{
+  "format": "omniusong-ump-trace",
+  "version": 1,
+  "protocol": "MIDI 2.0",
+  "ppq": 960,
+  "tempo": 120,
+  "description": "Timestamped UMP JSON interchange. This is not a Standard MIDI Clip File.",
+  "warnings": [],
+  "rawInputCapture": null,
+  "packets": [
+    {
+      "tick": 123,
+      "trackId": "c8c722c1-c206-43b6-b919-dca113b0a79b",
+      "words": [
+        1083326464,
+        3219324928
+      ]
+    },
+    {
+      "tick": 123,
+      "trackId": "c8c722c1-c206-43b6-b919-dca113b0a79b",
+      "words": [
+        1080180736,
+        2147483648
+      ]
+    },
+    {
+      "tick": 688,
+      "trackId": "042fc7f2-7f00-4cd3-b469-8348366a4c13",
+      "words": [
+        1083194368,
+        3006464000
+      ]
+    },
+    {
+      "tick": 707,
+      "trackId": "042fc7f2-7f00-4cd3-b469-8348366a4c13",
+      "words": [
+        1082145792,
+        0
+      ]
+    },
+    {
+      "tick": 823,
+      "trackId": "c8c722c1-c206-43b6-b919-dca113b0a79b",
+      "words": [
+        1080180736,
+        2271560481
+      ]
+    },
+    {
+      "tick": 1110,
+      "trackId": "c8c722c1-c206-43b6-b919-dca113b0a79b",
+      "words": [
+        1082277888,
+        0
+      ]
+    },
+    {
+      "tick": 1748,
+      "trackId": "8ed41186-ff9a-44bd-8c3d-c9e627f9af6c",
+      "words": [
+        1083778560,
+        3435921408
+      ]
+    },
+    {
+      "tick": 1766,
+      "trackId": "8ed41186-ff9a-44bd-8c3d-c9e627f9af6c",
+      "words": [
+        1082729984,
+        0
+      ]
+    }
+  ]
+}

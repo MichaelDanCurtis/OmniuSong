@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "id": "f31a603c-4077-45c3-b04c-79c3a35fe607",
+  "revision": 4,
+  "ppq": 960,
+  "name": "Transport qualification",
+  "tempo": 120,
+  "bars": 2,
+  "key": "C minor",
+  "lyrics": "",
+  "tracks": [
+    {
+      "id": "042fc7f2-7f00-4cd3-b469-8348366a4c13",
+      "name": "Count-in keyboard",
+      "kind": "notes",
+      "instrument": "keys",
+      "gain": 0.65,
+      "muted": false,
+      "locked": false,
+      "armed": true,
+      "notes": [
+        {
+          "id": "eba93aa9-aac6-478f-8d64-c887e230774e",
+          "pitch": 60,
+          "startTick": 688,
+          "durationTicks": 19,
+          "velocity16": 45875,
+          "expression": [],
+          "input": {
+            "sourceId": "screen",
+            "sourceName": "On-screen keys",
+            "protocol": "local",
+            "group": 0,
+            "channel": 0,
+            "receivedTimeMs": 39567.799999952316,
+            "keyDurationTicks": 19,
+            "releaseVelocity16": 0,
+            "endReason": "key-release"
+          }
+        }
+      ]
+    },
+    {
+      "id": "8ed41186-ff9a-44bd-8c3d-c9e627f9af6c",
+      "name": "Count-in pads",
+      "kind": "notes",
+      "instrument": "drums",
+      "gain": 0.65,
+      "muted": false,
+      "locked": false,
+      "armed": true,
+      "notes": [
+        {
+          "id": "da27df9e-101c-4d8a-a474-309b531fd8a0",
+          "pitch": 38,
+          "startTick": 1748,
+          "durationTicks": 18,
+          "velocity16": 52428,
+          "expression": [],
+          "input": {
+            "sourceId": "pads",
+            "sourceName": "On-screen keys",
+            "protocol": "local",
+            "group": 0,
+            "channel": 0,
+            "receivedTimeMs": 40119.799999952316,
+            "keyDurationTicks": 18,
+            "releaseVelocity16": 0,
+            "endReason": "key-release"
+          }
+        }
+      ]
+    },
+    {
+      "id": "c8c722c1-c206-43b6-b919-dca113b0a79b",
+      "name": "Locked test source",
+      "kind": "notes",
+      "instrument": "keys",
+      "gain": 0.65,
+      "muted": true,
+      "locked": true,
+      "armed": false,
+      "notes": [
+        {
+          "id": "3179715f-f57d-4308-ac20-b3bed6f6e2fe",
+          "pitch": 64,
+          "startTick": 123,
+          "durationTicks": 987,
+          "velocity16": 49123,
+          "expression": [
+            {
+              "type": "pitch",
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 700,
+                  "value32": 2271560481
+                }
+              ]
+            }
+          ],
+          "externalMetadata": {
+            "syntheticFixture": true
+          }
+        }
+      ]
+    }
+  ],
+  "history": [],
+  "createdAt": "2026-10-15T12:12:41.666Z",
+  "updatedAt": "2026-10-15T12:13:33.809Z",
+  "transport": {
+    "version": 1,
+    "metronome": true,
+    "countInBars": 1,
+    "clickLevel": 0.34
+  }
+}

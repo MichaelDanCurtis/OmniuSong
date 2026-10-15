@@ -4,6 +4,7 @@ import { TakeCapture, audioType, AUDIO_LIMIT_BYTES } from './recording.js';
 import { rollWindow, candidateAudition } from './note-view.js';
 import { editNote, restoreNote, deleteNote } from './note-edit.js';
 import { clipWindow, editClip, restoreClip, analysisWindow } from './clip-edit.js';
+import { transportSettings } from './transport.js';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],audio=new StudioAudio();
 let project,selectedId,catalog,plugins,selections={},jobs=[],dirty=false,editSequence=0,savePromise=null,saveTimer,undoStack=[],midiAccess,sessionBusy=false,rollPage=0,rollTop=null,selectedNoteId=null,noteDraft=null,clipDraft=null;
 const midiConnected=new Map(),nativeSources=new Set();
@@ -18,7 +19,7 @@ const input=new PerformanceInput({
   },
   onStart(voice){
     const t=voice.track;
-    if(!audio.playing||!t?.armed||t.locked||t.kind!=='notes')return;
+    if(!audio.recordingReady()||!t?.armed||t.locked||t.kind!=='notes')return;
     remember();
     const note={id:voice.id,pitch:voice.pitch,startTick:Math.floor(audio.tick()),durationTicks:1,velocity16:voice.velocity16,expression:[],
       input:{sourceId:voice.sourceId,sourceName:voice.sourceName,protocol:voice.protocol,group:voice.group,channel:voice.channel,receivedTimeMs:voice.startedAt}};
@@ -111,8 +112,8 @@ function renderStudio(){
   });
   const isAudio=track()?.kind==='audio';$('#editor-mode').textContent=isAudio?'AUDIO CLIP':'NOTE EDITOR';
   for(const selector of ['.roll-navigation','#piano-roll','#note-inspector','#clear-track','.editor-actions .tiny-tag'])$(selector).classList.toggle('hidden',isAudio);
-  $('#clip-inspector').classList.toggle('hidden',!isAudio);$('#editor-hint').textContent=isAudio?'Move or trim the arrangement clip. The complete source stays in its player and download.':'Click an empty cell to write; click a note to edit. Arm a track with R to capture keys while the transport runs.';
-  if(!isAudio)renderRoll();renderNoteInspector();renderClipInspector();renderTakes();
+  $('#clip-inspector').classList.toggle('hidden',!isAudio);$('#editor-hint').textContent=isAudio?'Move or trim the arrangement clip. The complete source stays in its player and download.':'Click an empty cell to write; click a note to edit. Arm R and use Play to record keys after the count-in.';
+  if(!isAudio)renderRoll();renderNoteInspector();renderClipInspector();renderTakes();renderTransportControls();
   $('#aria-source').textContent='Source: '+(track()?.name??'Select a pitched track');$('#aria-start').max=project.bars;
   $('#magenta-source').textContent='Selected guide: '+(track()?.name??'Select a pitched track');$('#magenta-start').max=project.bars;
   if(document.activeElement!==$('#lyric-editor'))$('#lyric-editor').value=project.lyrics;
@@ -220,6 +221,22 @@ function noteOn(pitch,velocity=.7,sourceId='screen',extra={}){
 }
 function noteOff(pitch,sourceId='screen',voiceId){input.noteOff({...localAddress(sourceId),pitch,voiceId});}
 function panic(){input.panic();audio.stop();$('#play').textContent='▶ Play';}
+function renderTransportControls(){
+  const settings=transportSettings(project.transport);$('#metronome').setAttribute('aria-pressed',String(settings.metronome));$('#count-in').value=settings.countInBars;$('#click-level').value=Math.round(settings.clickLevel*100);$('#count-in').disabled=audio.playing;
+}
+function updateTransport(_tick,state=audio.position()){
+  const label=state.phase==='loading'?'Loading audio…':state.phase==='starting'?'Starting…':state.phase==='count-in'?`Count in · ${state.countInBeat} / ${state.countInBeats}`:state.phase==='playing'?`${state.mode==='audition'?'Audition':'Playing'} · bar ${state.bar} · beat ${state.beat}`:'Stopped';
+  if($('#transport-position').textContent!==label)$('#transport-position').textContent=label;
+  $('#transport-position').classList.toggle('counting',state.phase==='count-in');$('#play').textContent=audio.playing?'■ Stop':'▶ Play';$('#count-in').disabled=audio.playing;
+}
+function changeTransport(patch){
+  if(patch.countInBars!==undefined&&audio.playing)throw new Error('Stop playback before changing the count-in');
+  const settings=transportSettings({...transportSettings(project.transport),...patch});remember();project.transport=settings;audio.setMetronome(settings.metronome,settings.clickLevel);changed();
+}
+async function startPlayback(song=project,mode='session'){
+  input.panic('transport-restart');
+  try{await audio.play(song,updateTransport,{mode});}finally{updateTransport();}
+}
 function setLocalSustain(down){for(const sourceId of ['computer','screen'])input.sustain(localAddress(sourceId),down);}
 function makePerformance(){
   const pads=$('#pads'),names=['KICK','SNARE','CLAP','HAT','LOW','TOM','RIM','OPEN','PERC','BELL','TICK','SHAKE','SNAP','RIDE','CRASH','TONE'],pitches=[36,38,39,42,41,43,37,46,60,56,75,70,40,51,49,64];
@@ -264,7 +281,7 @@ function renderJobs(){
     const actions=el('div','candidate-buttons');
     function action(label,handler,primary=false){const b=el('button',primary?'primary':'quiet',label);b.onclick=()=>handler().catch(e=>toast(e.message,true));actions.append(b);}
     if(j.state==='succeeded'&&j.decision==='pending'){
-      if(j.result?.tracks?.some(t=>t.notes.length||t.kind==='audio'))action('▶ Audition',async()=>{await audio.play(candidateAudition(project,j.result));$('#play').textContent='■ Stop';});
+      if(j.result?.tracks?.some(t=>t.notes.length||t.kind==='audio'))action('▶ Audition',()=>startPlayback(candidateAudition(project,j.result),'audition'));
       if(j.result?.assetId)action('▶ Sample',async()=>{await audio.ready();const buffer=await audio.loadAsset(j.result.assetId);audio.voice(60,.8,'sample',audio.context.currentTime,2,buffer);});
       action('Accept',()=>sessionTransition(async()=>{const accepted=await post('/api/jobs/'+j.id+'/accept',{expectedRevision:project.revision});remember();project=accepted.project;selectTrack(project.tracks.at(-1)?.id);await refreshJobs();toast('Added to your session');}),true);
       action('Discard',async()=>{panic();await post('/api/jobs/'+j.id+'/reject',{});await refreshJobs();});
@@ -344,7 +361,7 @@ async function importAudio(file){
   await capture.import(file,{projectId:project.id,takeId:crypto.randomUUID(),originalName:file.name.slice(0,512)});
 }
 function recordPacket(packet,source,receivedTimeMs,hostTime){
-  const t=track();if(sessionBusy||!audio.playing||!t?.armed||t.locked||t.kind!=='notes')return;
+  const t=track();if(sessionBusy||!audio.recordingReady()||!t?.armed||t.locked||t.kind!=='notes')return;
   const event={...packet,...source,receivedTimeMs,tick:Math.floor(audio.tick()),trackId:t.id};
   if(hostTime!==undefined)event.hostTime=hostTime;
   const retained=appendCapture(project,event);changed(false);
@@ -389,8 +406,11 @@ async function boot(){
   makePerformance();renderStudio();renderModels();updateCaptureControls();await refreshJobs();
   $$('.rail-button').forEach(b=>b.onclick=()=>{$$('.rail-button').forEach(x=>x.classList.toggle('active',x===b));$$('.view').forEach(v=>v.classList.toggle('hidden',v.id!==b.dataset.view+'-view'));});
   const guarded=(selector,fn)=>{$(selector).onclick=()=>Promise.resolve().then(()=>{if(commitPendingEdits())return fn();}).catch(e=>toast(e.message,true));};
-  guarded('#save',save);guarded('#play',async()=>{if(audio.playing)panic();else{await audio.play(project);$('#play').textContent='■ Stop';}});guarded('#panic',async()=>panic());
+  guarded('#save',save);guarded('#play',async()=>{if(audio.playing)panic();else await startPlayback();});guarded('#panic',async()=>panic());
   guarded('#sketch',()=>generate('local.sketch','compose'));guarded('#instrument',()=>generate('local.instrument','instrument'));guarded('#lyrics',()=>generate($('#use-ollama').checked?'ollama.lyrics':'local.lyric-cards','lyrics'));guarded('#transcribe',transcribeSelected);guarded('#record',recordVoice);guarded('#midi-connect',connectMIDI);
+  guarded('#metronome',()=>changeTransport({metronome:!transportSettings(project.transport).metronome}));
+  $('#count-in').onchange=()=>{try{if(commitPendingEdits())changeTransport({countInBars:Number($('#count-in').value)});}catch(error){toast(error.message,true);renderTransportControls();}};
+  $('#click-level').onchange=()=>{try{if(commitPendingEdits())changeTransport({clickLevel:Number($('#click-level').value)/100});}catch(error){toast(error.message,true);renderTransportControls();}};
   guarded('#aria-continue',continuePiano);
   guarded('#magenta-generate',generateAudio);
   guarded('#roll-prev',async()=>{rollPage--;renderRoll();});guarded('#roll-next',async()=>{rollPage++;renderRoll();});
@@ -406,7 +426,7 @@ async function boot(){
   for(const field of $$('[data-clip-field]'))field.oninput=()=>{if(!track()?.audio)return;if(clipDraft?.trackId!==track().id)clipDraft={trackId:track().id,patch:{}};clipDraft.patch[field.dataset.clipField]=field.value;$('#clip-edit-status').textContent='Save clip or press Enter. Changing tracks also saves.';$('#save-status').textContent='Clip edit pending';};
   $('#clip-inspector').onsubmit=e=>{e.preventDefault();commitPendingEdits();};
   guarded('#clip-restore',()=>{panic();const next=restoreClip(project,track()?.id);if(next!==project){remember();project=next;changed();}});
-  guarded('#clip-preview',async()=>{const t=track(),preview=candidateAudition(project,{tracks:[t],auditionStartTick:t.audio.startTick??0});for(const copy of preview.tracks)copy.muted=false;await audio.play(preview);$('#play').textContent='■ Stop';});
+  guarded('#clip-preview',async()=>{const t=track(),preview=candidateAudition(project,{tracks:[t],auditionStartTick:t.audio.startTick??0});for(const copy of preview.tracks)copy.muted=false;await startPlayback(preview,'audition');});
   guarded('#add-track',async()=>{remember();const t={id:crypto.randomUUID(),name:'Instrument '+(project.tracks.length+1),kind:'notes',instrument:'keys',gain:.65,muted:false,locked:false,notes:[]};project.tracks.push(t);selectedId=t.id;selectedNoteId=null;rollTop=null;rollPage=0;changed();});
   guarded('#new-project',()=>sessionTransition(async()=>useProject(await post('/api/projects',{name:'Untitled session'}))));
   $('#project-picker').onchange=()=>{const id=$('#project-picker').value;sessionTransition(async()=>useProject(await api('/api/projects/'+id))).catch(e=>{$('#project-picker').value=project.id;toast(e.message,true);});};

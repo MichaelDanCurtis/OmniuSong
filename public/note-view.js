@@ -1,4 +1,5 @@
 import { clipWindow } from './clip-edit.js';
+import { transportSettings } from './transport.js';
 const BAR=3840;
 export function rollWindow(bars,page=0,topPitch=72){
   const pages=Math.ceil(bars/4),index=Math.max(0,Math.min(pages-1,page));
@@ -6,6 +7,7 @@ export function rollWindow(bars,page=0,topPitch=72){
 }
 export function candidateAudition(project,result){
   const preview=structuredClone(project),start=result.auditionStartTick??0;
+  preview.transport={...transportSettings(preview.transport),metronome:false,countInBars:0};
   preview.tracks=structuredClone(result.tracks??[]);
   for(const t of preview.tracks){
     for(const n of t.notes)n.startTick-=start;

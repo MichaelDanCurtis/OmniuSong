@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { clipWindow, originalClipAudio } from '../public/clip-edit.js';
+import { transportSettings } from '../public/transport.js';
 
 export const PPQ = 960;
 export const ASSET_ID = /^[a-f0-9]{64}\.(wav|webm|mp4|ogg|mp3|flac)$/;
@@ -66,6 +67,7 @@ export function validateProject(project) {
   demand(project.ppq === PPQ, 'Unsupported time resolution');
   demand(finite(project.tempo, 30, 300), 'Tempo must be 30–300 BPM');
   demand(int(project.bars, 1, 128), 'Bars must be 1–128');
+  if(project.transport!==undefined)transportSettings(project.transport);
   demand(Array.isArray(project.tracks) && project.tracks.length <= 64, 'Too many tracks');
   demand(typeof project.lyrics === 'string' && project.lyrics.length <= 50000, 'Invalid lyrics');
   const ids = new Set();
