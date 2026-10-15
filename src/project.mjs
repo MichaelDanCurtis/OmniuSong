@@ -12,7 +12,16 @@ export function validateNote(note) {
   demand(int(note.pitch, 0, 127), 'Pitch must be 0–127');
   demand(int(note.startTick, 0, 1e9), 'Invalid note start');
   demand(int(note.durationTicks, 1, 1e8), 'Invalid note duration');
-  demand(int(note.velocity16, 1, 65535), 'Velocity must be 1–65535');
+  demand(int(note.velocity16, 0, 65535), 'Velocity must be 0–65535');
+  if(note.input!==undefined){
+    validateSource(note.input);
+    demand(['local','midi1','midi2'].includes(note.input.protocol),'Invalid input protocol');
+    demand(int(note.input.group,0,15)&&int(note.input.channel,0,15),'Invalid input address');
+    demand(finite(note.input.receivedTimeMs,0,1e15),'Invalid input receipt time');
+    if(note.input.keyDurationTicks!==undefined)demand(int(note.input.keyDurationTicks,1,1e8),'Invalid key duration');
+    if(note.input.releaseVelocity16!==undefined)demand(int(note.input.releaseVelocity16,0,65535),'Invalid release velocity');
+    if(note.input.endReason!==undefined)demand(typeof note.input.endReason==='string'&&note.input.endReason.length<=80,'Invalid note end reason');
+  }
   for (const lane of note.expression ?? []) {
     demand(['pitch', 'pressure', 'timbre'].includes(lane.type), 'Unknown expression lane');
     demand(Array.isArray(lane.points) && lane.points.length <= 10000, 'Invalid expression points');
@@ -22,6 +31,25 @@ export function validateNote(note) {
       demand(int(p.value32, 0, 0xffffffff), 'Expression must use unsigned 32 bit values');
       previous = p.tick;
     }
+  }
+}
+function validateSource(source){
+  demand(typeof source.sourceId==='string'&&source.sourceId.length>0&&source.sourceId.length<=200,'Invalid input source');
+  demand(typeof source.sourceName==='string'&&source.sourceName.length<=160,'Invalid input source name');
+}
+export function validateInputCapture(capture,trackIds){
+  demand(capture?.version===1&&Array.isArray(capture.events)&&capture.events.length<=4096,'Invalid raw input capture');
+  demand(int(capture.droppedEvents,0,1e9),'Invalid dropped event count');
+  for(const event of capture.events){
+    validateSource(event);
+    demand(trackIds.has(event.trackId)&&int(event.tick,0,1e9),'Invalid captured track or tick');
+    demand(finite(event.receivedTimeMs,0,1e15),'Invalid capture receipt time');
+    if(event.hostTime!==undefined)demand(typeof event.hostTime==='string'&&/^\d{1,20}$/.test(event.hostTime),'Invalid native host timestamp');
+    if(event.format==='ump'){
+      const counts=[1,1,1,2,2,4,1,1,2,2,2,3,3,4,4,4];
+      demand(Array.isArray(event.words)&&event.words.length>=1&&event.words.length<=4&&event.words.every(w=>int(w,0,0xffffffff)),'Invalid captured UMP');
+      demand(event.words.length===counts[event.words[0]>>>28],'Truncated captured UMP');
+    }else demand(event.format==='midi1'&&Array.isArray(event.bytes)&&event.bytes.length>=1&&event.bytes.length<=1024&&event.bytes.every(b=>int(b,0,255)),'Invalid captured MIDI bytes');
   }
 }
 export function validateProject(project) {
@@ -50,6 +78,7 @@ export function validateProject(project) {
     if (t.sourceAssetId) demand(typeof t.sourceAssetId==='string'&&ASSET_ID.test(t.sourceAssetId), 'Invalid source asset id');
   }
   demand(Array.isArray(project.history) && project.history.length <= 5000, 'Invalid project history');
+  if(project.inputCapture!==undefined)validateInputCapture(project.inputCapture,ids);
   return project;
 }
 export function makeTrack(name, instrument = 'keys', notes = []) {

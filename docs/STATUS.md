@@ -1,6 +1,6 @@
 # OmniuSong implementation status
 
-October 15, 2026, approximately 12:55 AM America/Los_Angeles.
+October 15, 2026, approximately 1:15 AM America/Los_Angeles.
 
 ## Open the current build
 
@@ -19,6 +19,8 @@ The local studio is running as a detached process. Its PID and log are in `.runt
 - A saved-session picker flushes pending edits before switching and remembers the active session after reload. Audio asset writes now use atomic replacement, and reads detect damaged content.
 - Developer plugin registry and durable generation queue with explicit audition/accept/discard, cancellation, restart interruption, and idempotent acceptance.
 - Arrangement overview, piano roll, 16 pads, two-octave keyboard, track selection, mute, lock, explicit recording arm, local undo, tempo control, lyric editing, and a searchable model observatory.
+- Source-aware note input with distinct UUID voice lifetimes, channel/group separation, repeated-note pairing, sustain, physical key-release timing, release velocity, and safe cancellation during audio startup. Focus loss, panic, and device removal finalize held notes. A visible Sustain button supports the computer and on-screen keyboard.
+- Bounded original MIDI 1/UMP capture while an armed selected track plays. Source IDs and receipt times are retained; the Mac bridge also carries native host-tick strings without rounding them through JavaScript numbers. This is wired and software tested; native endpoint delivery remains unverified.
 - Original vocal capture flow and full-take preview. Capture is user initiated. Microphone operation has not been tested because the Mac is locked.
 - Procedural arrangement sketches and an FM sample instrument, accurately labeled as procedural.
 - An optional local Ollama lyric adapter. No Ollama service was present during the initial check; no lyric-model inference has been claimed.
@@ -31,14 +33,15 @@ The local studio is running as a detached process. Its PID and log are in `.runt
 
 | Check | Result | Practical scope |
 | --- | --- | --- |
-| JavaScript syntax and catalog | Passed | 18 modules and 36 unique model entries |
-| Automated tests | 31 passed, no skips | Previous project/MIDI/model checks plus archive restoration, exact expression/provenance round trips, missing and damaged audio, checksum failures, duplicate entries, traversal attempts, bounded gzip expansion, and HTTP backup/restore |
+| JavaScript syntax and catalog | Passed | 20 modules and 36 unique model entries |
+| Automated tests | 45 passed, no skips | Project, MIDI, persistence, queue, real model inference, and archive checks, plus source/channel/group isolation, repeated and sustained notes, pending audio cancellation, focus/device loss, control messages, bounded capture, zero-velocity MIDI 2 notes, release velocity, and raw-input backup round trips |
 | Mac release build | Passed | Native executable and local app bundle compiled; not a launch or hardware test |
 | Four-tone model inference | Passed | Real Basic Pitch ONNX checkpoint recovered MIDI pitches 60, 64, 67, 72 from a 3.2-second synthetic fixture; 231 contour points retained |
 | Model checkpoint identity | Captured | SHA256 `2c3c1d144bfa61ad236e92e169c13535c880469a12a047d4e73451f2c059a0ec` |
 | Browser session flow | Passed | Generate and audition a 92-note sketch, accept, add a note, save, reload, generate and accept a sample, play a sample key, transcribe the sample, accept notes |
 | Saved browser state | Observed | Original session: eight tracks, 95 notes, revision 4. Restored copy: eight tracks, 96 notes, revision 1 after a note edit and session-switch test. All material was created during development |
 | Complete backup | Passed | Downloaded 446,150-byte archive restored through the live service; all eight tracks, 95 notes, provenance, and two audio assets matched the source, including byte-for-byte media comparison |
+| Input browser flow | Passed | Three distinct notes, including two presses of C4, recorded under sustain. Pedal release cleared them; physical key durations and longer sustained durations survived save/reload. Panic cleared active input; keys played while stopped added no notes. The separate Input qualification session contains this test material |
 | Session switching | Passed in browser | A pending note edit saved before switching; original retained its state, restored copy retained the edit and reopened after reload |
 | Browser backup file selection | Permission limitation | Actual backup download verified; automated restore-file selection requires Chrome extension file URL permission. The restore service and complete bundle round trip are verified separately |
 | Model observatory | Passed | Search and saved Keep selection through the UI |
@@ -54,9 +57,11 @@ The initial SciPy 1.15.3 wheel failed to load a Fortran extension on this macOS 
 
 ## Remaining work
 
-The next useful slice is input reliability: sustain, source/channel identities, per-note identity, focus loss and panic, raw UMP retention, and fast note release during audio initialization. Then add audio import, clip offsets, recording alignment, and note duration editing. Complete project backup and saved-session switching are implemented; archive limits and validation are documented in PROJECT-ARCHIVE.
+The next useful slice is microphone-state reliability and audio import: keep session changes blocked while permission, recording, and take storage are pending; clean up failed capture; preserve every original asset. Then add clip offsets, recording alignment, and note duration editing. Complete backups, session switching, and software input lifetimes are implemented. Archive limits are in PROJECT-ARCHIVE; input semantics and limits are in HARDWARE-MIDI.
 
-Then improve audio clip offsets and recording alignment, sustain and source/channel identities, note duration editing, per-note expression editing and playback, MIDI output, standard MIDI 2 Clip Files, and independent file validation. The preview stores expression that its current Web Audio synth does not yet perform.
+Raw input is limited to 4,096 messages per project, with a visible warning and omission count when full. Recorded timing uses browser receipt and elapsed time; native host ticks are retained but not calibrated to the audio clock. Same-pitch MIDI note-offs pair FIFO within one source/group/channel. Original packets and generated edited-note exports remain distinct. Software source-loss tests do not establish a native or physical controller round trip. See `verification/input-session.json` for the browser save receipt.
+
+Then improve audio clip offsets and recording alignment, note duration editing, per-note expression editing and playback, MIDI output, standard MIDI 2 Clip Files, and independent file validation. The preview stores expression that its current Web Audio synth does not yet perform.
 
 Native realtime audio, Audio Unit/VST3/CLAP hosting, secure third-party plugin execution, large song-model workers, score-conditioned song editing, choir rendering, and Windows packaging remain roadmap work. No paid service, model gate acceptance, deployment, or personal-audio upload was performed.
 
@@ -75,3 +80,5 @@ The continuation should preserve original performances, avoid paid or externally
 ![OmniuSong studio with the accepted arrangement and Basic Pitch candidate](verification/studio-preview.png)
 
 ![Saved-session selection and complete backup controls](verification/session-backup-preview.png)
+
+![Studio with sustain and active-note controls](verification/input-preview.png)

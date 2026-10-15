@@ -7,6 +7,8 @@ final class StudioDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHand
     var webView: WKWebView!
     var midiClient = MIDIClientRef()
     var midiPort = MIDIPortRef()
+    var connectedSourceKeys: [String] = []
+    var midiGeneration = 0
     let studioURL = URL(string: "http://127.0.0.1:43178")!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -53,21 +55,40 @@ final class StudioDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHand
               url.host == studioURL.host, url.port == studioURL.port,
               let payload = message.body as? [String: Any],
               let action = payload["action"] as? String else { return }
-        if action == "connectMIDI" { connectMIDI() }
+        if action == "connectMIDI" { connectMIDI(force: true) }
     }
     func emit(_ payload: [String: Any]) {
         guard let data = try? JSONSerialization.data(withJSONObject: payload), let json = String(data: data, encoding: .utf8) else { return }
         webView.evaluateJavaScript("window.omniuNative && window.omniuNative(\(json));", completionHandler: nil)
     }
-    func connectMIDI() {
+    func connectMIDI(force: Bool = false) {
         if midiClient == 0 {
             let status = MIDIClientCreateWithBlock("OmniuSong" as CFString, &midiClient) { [weak self] _ in
                 DispatchQueue.main.async { self?.connectMIDI() }
             }
             guard status == noErr else { emit(["type": "status", "message": "CoreMIDI client error \(status)"]); return }
         }
+        var sources: [MIDIEndpointRef] = []
+        var metadata: [MIDIEndpointRef: [String: String]] = [:]
+        for i in 0..<MIDIGetNumberOfSources() {
+            let source = MIDIGetSource(i)
+            var uniqueID: Int32 = 0
+            var name: Unmanaged<CFString>?
+            let identityStatus = MIDIObjectGetIntegerProperty(source, kMIDIPropertyUniqueID, &uniqueID)
+            MIDIObjectGetStringProperty(source, kMIDIPropertyDisplayName, &name)
+            let label = name?.takeRetainedValue() as String? ?? "CoreMIDI input"
+            sources.append(source)
+            metadata[source] = ["sourceId": identityStatus == noErr ? String(uniqueID) : "endpoint-\(source)", "sourceName": label]
+        }
+        let sourceKeys = sources.map { "\($0):\(metadata[$0]!["sourceId"]!)" }.sorted()
+        if !force && midiPort != 0 && sourceKeys == connectedSourceKeys { return }
+        midiGeneration += 1
+        let generation = midiGeneration
+        emit(["type": "midi-reset"])
         if midiPort != 0 { MIDIPortDispose(midiPort); midiPort = 0 }
-        let status = MIDIInputPortCreateWithProtocol(midiClient, "OmniuSong UMP input" as CFString, ._2_0, &midiPort) { [weak self] events, _ in
+        let sourceMetadata = metadata
+        let status = MIDIInputPortCreateWithProtocol(midiClient, "OmniuSong UMP input" as CFString, ._2_0, &midiPort) { [weak self] events, refCon in
+            guard let refCon = refCon, let source = sourceMetadata[MIDIEndpointRef(UInt(bitPattern: refCon))] else { return }
             let offset = MemoryLayout<MIDIEventList>.offset(of: \MIDIEventList.packet)!
             var packet = UnsafeRawPointer(events).advanced(by: offset).assumingMemoryBound(to: MIDIEventPacket.self)
             for _ in 0..<events.pointee.numPackets {
@@ -76,17 +97,23 @@ final class StudioDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHand
                     let wordsOffset = MemoryLayout<MIDIEventPacket>.offset(of: \MIDIEventPacket.words)!
                     let rawWords = UnsafeRawPointer(packet).advanced(by: wordsOffset).assumingMemoryBound(to: UInt32.self)
                     let words = Array(UnsafeBufferPointer(start: rawWords, count: count))
-                    DispatchQueue.main.async { self?.emit(["type": "ump", "words": words]) }
+                    // Host ticks stay decimal strings to avoid JavaScript's 53-bit number limit.
+                    let hostTime = String(packet.pointee.timeStamp)
+                    DispatchQueue.main.async {
+                        guard let self = self, generation == self.midiGeneration else { return }
+                        self.emit(["type": "ump", "words": words, "sourceId": source["sourceId"]!, "sourceName": source["sourceName"]!, "hostTime": hostTime])
+                    }
                 }
                 packet = UnsafePointer(MIDIEventPacketNext(packet))
             }
         }
         guard status == noErr else { emit(["type": "status", "message": "CoreMIDI port error \(status)"]); return }
         var connected = 0
-        for i in 0..<MIDIGetNumberOfSources() {
-            let source = MIDIGetSource(i)
-            if MIDIPortConnectSource(midiPort, source, nil) == noErr { connected += 1 }
+        for source in sources {
+            // The integer token is never dereferenced; it identifies this connection in the receive block.
+            if MIDIPortConnectSource(midiPort, source, UnsafeMutableRawPointer(bitPattern: UInt(source))) == noErr { connected += 1 }
         }
+        connectedSourceKeys = sourceKeys
         emit(["type": "status", "message": "\(connected) CoreMIDI input(s) · UMP protocol 2.0"])
     }
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {

@@ -17,6 +17,8 @@ async function fixture(t){
   project.tracks[0].notes=[{id:'expressive-note',pitch:60,startTick:123,durationTicks:987,velocity16:49123,expression:[{type:'pitch',points:[{tick:0,value32:0x80000000},{tick:250,value32:0x87654321}]}],externalMetadata:{namespace:'retained'}}];
   project.history.push({id:'decision',provenance:{input:{assetId:analysis,sourceAssetId:asset}}});
   project.providerMetadata={custom:'untouched'};
+  project.tracks[0].notes[0].input={sourceId:'coremidi:123',sourceName:'Synthetic source',protocol:'midi2',group:3,channel:2,receivedTimeMs:9876.5,keyDurationTicks:500,releaseVelocity16:0x9123,endReason:'pedal-release'};
+  project.inputCapture={version:1,droppedEvents:0,events:[{format:'ump',words:[0x43923c03,0xbfe3abcd],sourceId:'coremidi:123',sourceName:'Synthetic source',hostTime:'18446744073709551615',receivedTimeMs:9876.5,tick:123,trackId:project.tracks[0].id}]};
   const saved=await store.saveProject(project,null),bytes=await exportArchive(store,saved);
   return {store,project:saved,bytes,asset,analysis};
 }
@@ -26,6 +28,7 @@ test('complete backup restores into an empty store, retains expression and prove
   const f=await fixture(t),destination=await storeFor(t),restored=await importArchive(destination,f.bytes);
   assert.notEqual(restored.project.id,f.project.id);assert.equal(restored.project.revision,0);assert.equal(restored.assetCount,2);
   assert.deepEqual(restored.project.tracks,f.project.tracks);assert.deepEqual(restored.project.history,f.project.history);assert.deepEqual(restored.project.providerMetadata,f.project.providerMetadata);
+  assert.deepEqual(restored.project.inputCapture,f.project.inputCapture);
   assert.equal(restored.project.importedFrom.projectId,f.project.id);
   assert.deepEqual(await destination.asset(f.asset),await f.store.asset(f.asset));assert.deepEqual(await destination.asset(f.analysis),await f.store.asset(f.analysis));
   const exportedAgain=await inspectArchive(await exportArchive(destination,restored.project));assert.equal(exportedAgain.assets.length,2);

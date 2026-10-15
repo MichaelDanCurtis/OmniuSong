@@ -20,6 +20,7 @@ The first implementation is intentionally a development system. The production a
 | `src/jobs.mjs` | Durable queue, cancellation, crash interruption, candidate review |
 | `src/composer.mjs` and `src/wav.mjs` | Explicitly procedural musical sketch and sample tools |
 | `src/server.mjs` | Loopback API, static studio, bounded uploads, export routes |
+| `public/input.js` | Portable source-aware voice lifetimes, sustain, MIDI 1/UMP decoding, and bounded raw capture |
 | `public/` | Arrangement, piano roll, pads, keyboard, co-producer, lyric editing, model observatory |
 | `catalog/models.json` | Sourced research candidates and initial Keep/Explore/Skip recommendations |
 | `native/` | Mac shell and CoreMIDI UMP input |
@@ -49,7 +50,7 @@ Read STATUS and the working tree before each continuation. Choose one bounded im
 
 1. **Finish the full session loop.** Exercise arrangement generation, audition, acceptance, note editing, save/reload, sample playback, exports, model selections, native launch, and input connection. Fix discovered errors.
 2. **Portable archives and session switching.** Implemented: checksummed `.omniusong` bundles include all referenced audio, and restore creates a new session. HTTP round trips and the live downloaded bundle pass; browser switching saves edits and remembers the selected session. Automated browser file selection remains unverified because the Chrome extension lacks file URL permission. Native Mac file dialogs and download handling still need qualification.
-3. **Input reliability.** Add explicit recording arm, handling for fast press/release during audio initialization, sustain, source/channel identities, focus loss, panic, and overlapping voices. Capture original UMP data without downgrading it.
+3. **Input reliability.** Implemented and software tested: source/group/channel identities, UUID voice lifetimes, sustain, fast release during audio startup, focus loss, panic, device loss, release velocity, and bounded original UMP/MIDI 1 capture. Browser sustain/record/save/reload is verified. Native virtual-endpoint and physical device qualification remain open.
 4. **Extend transcription qualification.** The Basic Pitch ONNX adapter is implemented and passes a real four-tone inference test. Add audio import and evaluate original human singing and instruments when available. Retain raw estimates and source audio. Compare MuScriptor for mixed material without treating isolated-tone success as general transcription accuracy.
 5. **Aria or realtime model spike.** Compare official MLX runtime requirements, install in an isolated environment if feasible, and run one bounded inference. Preserve checkpoint identity and output. Do not treat imports as successful inference.
 6. **Model worker contract.** Create a typed local worker protocol, health and model inventory endpoints, parameter schema, cancellation, result checksums, and installation states. Implement one official runtime's actual API; avoid placeholder endpoints.
@@ -65,7 +66,7 @@ The first in-process registry demonstrates the extension boundary. Before accept
 
 ## Data evolution
 
-Keep schema migrations explicit and reversible. Add fields for sample-accurate audio offsets, tempo maps, endpoint identities, release velocity, note identity, source measurements, and input UMP events before claiming a complete MIDI 2 recording path. Unknown model metadata must survive round trips.
+Keep schema migrations explicit and reversible. Input source/address, release velocity, internal note identity, source receipt timing, and raw UMP/MIDI 1 capture are optional validated fields in schema 1. Sample-accurate offsets, tempo maps, clock calibration, and an independently qualified native input/output path remain necessary before claiming complete MIDI 2 recording. Unknown model metadata must survive round trips.
 
 Use project transactions for edits. Store a compact operation journal and checkpoint snapshots once durable undo lands. A cross-file candidate acceptance should eventually be one transaction; the first queue uses an acceptance-history marker to recover the project/job split safely.
 

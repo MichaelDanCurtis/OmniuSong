@@ -1,7 +1,44 @@
 import { StudioAudio, bufferWAV } from './audio.js';
+import { PerformanceInput, decodeMIDI1, decodeUMP, appendCapture } from './input.js';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],audio=new StudioAudio();
 let project,selectedId,catalog,plugins,selections={},jobs=[],dirty=false,editSequence=0,savePromise=null,saveTimer,undoStack=[],recording=null,midiAccess,sessionBusy=false;
-const held=new Map(),colors=['#bfdb9f','#e5b677','#97bec1','#cd9dad','#9eb7d5','#d6cb90'];
+const midiConnected=new Map(),nativeSources=new Set();
+const colors=['#bfdb9f','#e5b677','#97bec1','#cd9dad','#9eb7d5','#d6cb90'];
+const localAddress=sourceId=>({sourceId,sourceName:sourceId==='computer'?'Computer keyboard':'On-screen keys',group:0,channel:0,protocol:'local'});
+const input=new PerformanceInput({
+  async startVoice(voice){
+    await audio.ready();let buffer;const t=voice.track;
+    if(t?.assetId&&t.kind==='notes')buffer=await audio.loadAsset(t.assetId);
+    if(voice.ended||t?.muted)return;
+    return audio.voice(voice.pitch,voice.velocity16/65535,voice.instrument,audio.context.currentTime,null,buffer,t?.sampleRoot??60,t?.gain??.65,t?.id);
+  },
+  onStart(voice){
+    const t=voice.track;
+    if(!audio.playing||!t?.armed||t.locked||t.kind!=='notes')return;
+    remember();
+    const note={id:voice.id,pitch:voice.pitch,startTick:Math.floor(audio.tick()),durationTicks:1,velocity16:voice.velocity16,expression:[],
+      input:{sourceId:voice.sourceId,sourceName:voice.sourceName,protocol:voice.protocol,group:voice.group,channel:voice.channel,receivedTimeMs:voice.startedAt}};
+    t.notes.push(note);changed();return {note,projectId:project.id,tempo:project.tempo};
+  },
+  onKeyRelease(voice){
+    if(!voice.record||voice.record.projectId!==project.id)return;
+    voice.record.note.input.keyDurationTicks=durationTicks(voice.record,voice.keyReleasedAt-voice.startedAt);
+    voice.record.note.input.releaseVelocity16=voice.releaseVelocity16;changed(false);
+  },
+  onEnd(voice,reason){
+    if(!voice.record||voice.record.projectId!==project.id)return;
+    voice.record.note.durationTicks=durationTicks(voice.record,voice.endedAt-voice.startedAt);
+    voice.record.note.input.endReason=reason;changed();
+  },
+  onChange(state){
+    const pitches=new Set([...state.voices.values()].map(v=>v.pitch));
+    $$('[data-pitch]').forEach(e=>e.classList.toggle('hit',pitches.has(Number(e.dataset.pitch))));
+    const pedal=$('#sustain');if(pedal)pedal.setAttribute('aria-pressed',String(state.pedals.has(JSON.stringify(['computer',0,0]))));
+    const status=$('#input-status');if(status)status.textContent=`${state.voices.size} active note${state.voices.size===1?'':'s'} · Sustain ${state.pedals.size?'on':'off'}`;
+  },
+  onError:error=>toast(error.message,true)
+});
+function durationTicks(record,milliseconds){return Math.max(1,Math.min(1e8,Math.round(milliseconds/1000*record.tempo/60*960)));}
 const el=(tag,classes='',text='')=>{const e=document.createElement(tag);e.className=classes;e.textContent=text;return e;};
 function toast(message,error=false){const box=$('#toast');box.textContent=message;box.classList.toggle('error',error);box.classList.remove('hidden');clearTimeout(toast.timer);toast.timer=setTimeout(()=>box.classList.add('hidden'),6000);}
 async function api(path,options={}){const response=await fetch(path,{...options,headers:{'Content-Type':'application/json',...options.headers}});const result=await response.json();if(!response.ok)throw new Error(result.error??'Request failed');return result;}
@@ -81,31 +118,21 @@ function renderRoll(){
   }
 }
 function renderTakes(){const box=$('#takes');box.replaceChildren();for(const t of project.tracks.filter(t=>t.kind==='audio')){const take=el('div','take',t.name);const player=document.createElement('audio');player.controls=true;player.src='/api/assets/'+t.assetId;take.append(player);box.append(take);}}
-async function noteOn(pitch,velocity=.7,source='keys',velocity16=Math.round(velocity*65535)){
-  if(sessionBusy)return;
-  const key=source+':'+pitch;if(held.has(key))return;
-  const pending={release:()=>{},started:performance.now()};held.set(key,pending);
-  try {await audio.ready();}catch(error){held.delete(key);throw error;}
-  const t=track();const instrument=source==='pad'?'drums':t?.instrument??'keys';
-  let buffer;if(t?.assetId&&t.kind==='notes')buffer=await audio.loadAsset(t.assetId);
-  if(held.get(key)!==pending)return;
-  const release=audio.voice(pitch,velocity,instrument,audio.context.currentTime,null,buffer,t?.sampleRoot??60);
-  let note;
-  if(audio.playing&&t?.armed&&!t.locked&&t.kind==='notes'){
-    remember();note={id:crypto.randomUUID(),pitch,startTick:Math.round(audio.tick()/120)*120,durationTicks:120,velocity16:Math.max(1,velocity16),expression:[]};
-    t.notes.push(note);changed();
-  }
-  held.set(key,{release,note,started:performance.now()});$$(`[data-pitch="${pitch}"]`).forEach(e=>e.classList.add('hit'));
+function noteOn(pitch,velocity=.7,sourceId='screen',extra={}){
+  if(sessionBusy||!project)return;
+  const t=track();
+  return input.noteOn({...localAddress(sourceId),pitch,velocity16:Math.round(velocity*65535),...extra,track:t,instrument:sourceId==='pads'?'drums':t?.instrument??'keys'});
 }
-function noteOff(pitch,source='keys'){const key=source+':'+pitch,h=held.get(key);if(!h)return;h.release();if(h.note){h.note.durationTicks=Math.max(120,Math.round((performance.now()-h.started)/1000*project.tempo/60*960/120)*120);changed();}held.delete(key);$$(`[data-pitch="${pitch}"]`).forEach(e=>e.classList.remove('hit'));}
-function panic(){for(const key of [...held.keys()]){const separator=key.lastIndexOf(':');noteOff(Number(key.slice(separator+1)),key.slice(0,separator));}audio.stop();$$('.hit').forEach(e=>e.classList.remove('hit'));$('#play').textContent='▶ Play';}
+function noteOff(pitch,sourceId='screen',voiceId){input.noteOff({...localAddress(sourceId),pitch,voiceId});}
+function panic(){input.panic();audio.stop();$('#play').textContent='▶ Play';}
+function setLocalSustain(down){for(const sourceId of ['computer','screen'])input.sustain(localAddress(sourceId),down);}
 function makePerformance(){
   const pads=$('#pads'),names=['KICK','SNARE','CLAP','HAT','LOW','TOM','RIM','OPEN','PERC','BELL','TICK','SHAKE','SNAP','RIDE','CRASH','TONE'],pitches=[36,38,39,42,41,43,37,46,60,56,75,70,40,51,49,64];
-  names.forEach((name,i)=>{const button=el('button','pad',String(i+1).padStart(2,'0'));button.append(el('small','',name));button.dataset.pitch=pitches[i];button.setAttribute('aria-label',name+' pad');button.onpointerdown=e=>{button.setPointerCapture(e.pointerId);noteOn(pitches[i],.8,'pad').catch(e=>toast(e.message,true));};button.onpointerup=()=>{noteOff(pitches[i],'pad');};button.onpointercancel=button.onpointerup;pads.append(button);});
+  names.forEach((name,i)=>{const button=el('button','pad',String(i+1).padStart(2,'0'));button.append(el('small','',name));button.dataset.pitch=pitches[i];button.setAttribute('aria-label',name+' pad');bindKey(button,pitches[i],'pads');pads.append(button);});
   const keyboard=$('#keyboard'),whites=[60,62,64,65,67,69,71,72,74,76,77,79,81,83],keys=['A','S','D','F','G','H','J','K','','','','','',''];
   for(const [i,pitch]of whites.entries()){const button=el('button','piano-key',keys[i]|| (pitch%12===0?'C'+(pitch/12-1):''));button.dataset.pitch=pitch;button.setAttribute('aria-label','Play note '+pitch);bindKey(button,pitch);keyboard.append(button);}
   for(const [i,pitch]of whites.entries())if([0,2,5,7,9].includes(pitch%12)){const button=el('button','piano-key sharp');button.style.left=((i+1)/whites.length*100-2.35)+'%';button.dataset.pitch=pitch+1;button.setAttribute('aria-label','Play note '+(pitch+1));bindKey(button,pitch+1);keyboard.append(button);}
-  function bindKey(button,pitch){button.onpointerdown=e=>{button.setPointerCapture(e.pointerId);noteOn(pitch).catch(e=>toast(e.message,true));};button.onpointerup=()=>noteOff(pitch);button.onpointercancel=button.onpointerup;}
+  function bindKey(button,pitch,sourceId='screen'){const pointers=new Map();button.onpointerdown=e=>{if(e.button!==0)return;e.preventDefault();button.setPointerCapture(e.pointerId);pointers.set(e.pointerId,noteOn(pitch,sourceId==='pads'?.8:.7,sourceId));};button.onpointerup=e=>{const voiceId=pointers.get(e.pointerId);if(voiceId)noteOff(pitch,sourceId,voiceId);pointers.delete(e.pointerId);};button.onpointercancel=button.onpointerup;button.onlostpointercapture=button.onpointerup;}
 }
 async function generate(pluginId,capability){
   await save();await post('/api/jobs',{projectId:project.id,projectRevision:project.revision,pluginId,capability,input:{prompt:$('#idea').value,seed:Number($('#seed').value),density:Number($('#density').value)/100,brightness:Number($('#density').value)/100}});await refreshJobs();
@@ -128,7 +155,7 @@ function renderJobs(){
     if(j.state==='succeeded'&&j.decision==='pending'){
       if(j.result?.tracks?.some(t=>t.notes.length))action('▶ Audition',async()=>{await audio.play({...project,tracks:j.result.tracks});$('#play').textContent='■ Stop';});
       if(j.result?.assetId)action('▶ Sample',async()=>{await audio.ready();const buffer=await audio.loadAsset(j.result.assetId);audio.voice(60,.8,'sample',audio.context.currentTime,2,buffer);});
-      action('Accept',async()=>{await save();const accepted=await post('/api/jobs/'+j.id+'/accept',{expectedRevision:project.revision});remember();project=accepted.project;selectedId=project.tracks.at(-1)?.id;renderStudio();await refreshJobs();toast('Added to your session');},true);
+      action('Accept',async()=>{panic();await flushSaves();const accepted=await post('/api/jobs/'+j.id+'/accept',{expectedRevision:project.revision});remember();project=accepted.project;selectedId=project.tracks.at(-1)?.id;renderStudio();await refreshJobs();toast('Added to your session');},true);
       action('Discard',async()=>{await post('/api/jobs/'+j.id+'/reject',{});await refreshJobs();});
     }else if(['queued','running'].includes(j.state))action('Cancel',async()=>{await post('/api/jobs/'+j.id+'/cancel',{});await refreshJobs();});
     card.append(actions);box.append(card);
@@ -161,22 +188,44 @@ async function recordVoice(){
     }catch(e){toast(e.message,true);}
   };recorder.start(1000);
 }
-function midiNote(status,pitch,velocity,velocity16){const kind=status&0xf0;if(kind===0x90&&velocity>0)noteOn(pitch,velocity,'midi',velocity16).catch(e=>toast(e.message,true));else if(kind===0x80||kind===0x90)noteOff(pitch,'midi');}
+function recordPacket(packet,source,receivedTimeMs,hostTime){
+  const t=track();if(sessionBusy||!audio.playing||!t?.armed||t.locked||t.kind!=='notes')return;
+  const event={...packet,...source,receivedTimeMs,tick:Math.floor(audio.tick()),trackId:t.id};
+  if(hostTime!==undefined)event.hostTime=hostTime;
+  const retained=appendCapture(project,event);changed(false);
+  if(!retained&&project.inputCapture.droppedEvents===1)toast('Raw MIDI capture is full. Notes still record; back up this session and start a new one for more raw events.',true);
+}
+function receiveMIDI(event,source){
+  if(!event||sessionBusy||!project)return;
+  const addressed={...event,...source};
+  if(event.kind==='on')noteOn(event.pitch,event.velocity16/65535,source.sourceId,addressed);
+  if(event.kind==='off')input.noteOff(addressed);
+  if(event.kind==='control')input.control(addressed);
+}
 window.omniuNative=message=>{
   if(message.type==='status')$('#midi-status').textContent=message.message;
-  if(message.type==='ump')for(let i=0;i<message.words.length;){
-    const w=message.words[i]>>>0,mt=w>>>28;
-    if(mt===2){midiNote((w>>>16)&255,(w>>>8)&127,(w&127)/127,Math.round((w&127)/127*65535));i++;}
-    else if(mt===4&&i+1<message.words.length){const vel=(message.words[i+1]>>>16)&65535;midiNote((w>>>16)&255,(w>>>8)&127,vel/65535,vel);i+=2;}
-    else i+=[1,1,1,2,2,4,1,1,2,2,2,3,3,4,4,4][mt];
-  }
+  if(message.type==='midi-reset'){for(const sourceId of nativeSources)input.releaseSource(sourceId,'connection-reset');nativeSources.clear();}
+  if(message.type==='ump')try{
+    const source={sourceId:'coremidi:'+message.sourceId,sourceName:(message.sourceName??'CoreMIDI input').slice(0,160)},receivedTimeMs=performance.now();nativeSources.add(source.sourceId);
+    for(const packet of decodeUMP(message.words)){
+      recordPacket({format:'ump',words:packet.words},source,receivedTimeMs,message.hostTime);
+      receiveMIDI(packet.event,source);
+    }
+  }catch(error){toast(error.message,true);}
 };
 async function connectMIDI(){
   await audio.ready();
   if(window.webkit?.messageHandlers?.omniu){window.webkit.messageHandlers.omniu.postMessage({action:'connectMIDI'});return;}
   if(!navigator.requestMIDIAccess)throw new Error('Use the Mac app or Chrome for MIDI input. The on-screen keys are ready here.');
-  midiAccess=await navigator.requestMIDIAccess({sysex:false});
-  const bind=()=>{for(const input of midiAccess.inputs.values())input.onmidimessage=e=>midiNote(e.data[0],e.data[1],e.data[2]/127,Math.round(e.data[2]/127*65535));$('#midi-status').textContent=`${midiAccess.inputs.size} MIDI 1 input(s) · Web MIDI`;};bind();midiAccess.onstatechange=bind;
+  midiAccess??=await navigator.requestMIDIAccess({sysex:false});
+  const bind=()=>{
+    const next=new Map([...midiAccess.inputs.values()].filter(port=>port.state==='connected').map(port=>['webmidi:'+port.id,port]));
+    for(const [id,port]of midiConnected)if(!next.has(id)){port.onmidimessage=null;input.releaseSource(id);}
+    for(const [sourceId,port]of next)port.onmidimessage=e=>{
+      try{const source={sourceId,sourceName:(port.name??'MIDI input').slice(0,160)};recordPacket({format:'midi1',bytes:Array.from(e.data)},source,e.timeStamp);receiveMIDI(decodeMIDI1(e.data),source);}catch(error){toast(error.message,true);}
+    };
+    midiConnected.clear();for(const [id,port]of next)midiConnected.set(id,port);$('#midi-status').textContent=`${next.size} MIDI 1 input(s) · Web MIDI`;
+  };bind();midiAccess.onstatechange=bind;
 }
 async function boot(){
   [catalog,plugins,selections]=await Promise.all([api('/api/catalog'),api('/api/plugins'),api('/api/selections')]);
@@ -187,14 +236,15 @@ async function boot(){
   const guarded=(selector,fn)=>{$(selector).onclick=()=>Promise.resolve().then(fn).catch(e=>toast(e.message,true));};
   guarded('#save',save);guarded('#play',async()=>{if(audio.playing)panic();else{await audio.play(project);$('#play').textContent='■ Stop';}});guarded('#panic',async()=>panic());
   guarded('#sketch',()=>generate('local.sketch','compose'));guarded('#instrument',()=>generate('local.instrument','instrument'));guarded('#lyrics',()=>generate($('#use-ollama').checked?'ollama.lyrics':'local.lyric-cards','lyrics'));guarded('#transcribe',transcribeSelected);guarded('#record',recordVoice);guarded('#midi-connect',connectMIDI);
-  guarded('#undo',async()=>{if(!undoStack.length)return;const revision=project.revision;project=undoStack.pop();project.revision=revision;selectedId=track()?.id;changed();});
-  guarded('#clear-track',async()=>{if(track()?.locked)return;remember();track().notes=[];changed();});
+  guarded('#undo',async()=>{if(!undoStack.length)return;panic();const revision=project.revision;project=undoStack.pop();project.revision=revision;selectedId=track()?.id;changed();});
+  guarded('#clear-track',async()=>{if(track()?.locked)return;panic();remember();track().notes=[];changed();});
   guarded('#add-track',async()=>{remember();const t={id:crypto.randomUUID(),name:'Instrument '+(project.tracks.length+1),kind:'notes',instrument:'keys',gain:.65,muted:false,locked:false,notes:[]};project.tracks.push(t);selectedId=t.id;changed();});
   guarded('#new-project',()=>sessionTransition(async()=>useProject(await post('/api/projects',{name:'Untitled session'}))));
   $('#project-picker').onchange=()=>{const id=$('#project-picker').value;sessionTransition(async()=>useProject(await api('/api/projects/'+id))).catch(e=>{$('#project-picker').value=project.id;toast(e.message,true);});};
   guarded('#import-project',async()=>{if(recording)throw new Error('Finish your vocal take before restoring a backup');$('#archive-file').click();});
   $('#archive-file').onchange=async()=>{const file=$('#archive-file').files[0];try{await restoreBackup(file);}catch(error){toast(error.message,true);}finally{$('#archive-file').value='';}};
-  $('#project-name').onchange=()=>{remember();project.name=$('#project-name').value.trim()||'Untitled session';changed();};
+  $('#project-name').onfocus=()=>remember();
+  $('#project-name').oninput=()=>{project.name=$('#project-name').value.trim()||'Untitled session';changed(false);};
   $('#tempo').onchange=()=>{const value=Number($('#tempo').value);if(value<30||value>300){toast('Choose a tempo from 30 to 300 BPM',true);$('#tempo').value=project.tempo;return;}remember();panic();project.tempo=value;changed();};
   $('#lyric-editor').oninput=()=>{if(project.lyricsLocked)return;project.lyrics=$('#lyric-editor').value;changed(false);};$('#lock-lyrics').onchange=()=>{remember();project.lyricsLocked=$('#lock-lyrics').checked;changed();};
   guarded('#export-project',()=>sessionTransition(async()=>{
@@ -202,12 +252,19 @@ async function boot(){
     if(!response.ok){const error=await response.json();throw new Error(error.error);}
     download(await response.blob(),(project.name.replace(/[^\p{L}\p{N} -]/gu,'').trim()||'OmniuSong')+'.omniusong','application/vnd.omniusong.project+gzip');toast('Complete project backup saved with its referenced audio');
   }));
-  guarded('#export-midi',async()=>{await save();const response=await fetch('/api/projects/'+project.id+'/midi');if(!response.ok)throw new Error('MIDI export failed');download(await response.blob(),'omniusong.mid','audio/midi');const warning=decodeURIComponent(response.headers.get('X-OmniuSong-Warnings')??'');toast(warning||'MIDI 1 exported. Your full expression data stays in the project.');});
-  guarded('#export-ump',async()=>{await save();download(await api('/api/projects/'+project.id+'/ump'),'omniusong.ump.json');toast('MIDI 2 UMP packet trace exported. Standard Clip File export is planned.');});
+  guarded('#export-midi',async()=>{panic();await flushSaves();const response=await fetch('/api/projects/'+project.id+'/midi');if(!response.ok)throw new Error('MIDI export failed');download(await response.blob(),'omniusong.mid','audio/midi');const warning=decodeURIComponent(response.headers.get('X-OmniuSong-Warnings')??'');toast(warning||'MIDI 1 exported. Your full expression data stays in the project.');});
+  guarded('#export-ump',async()=>{panic();await flushSaves();download(await api('/api/projects/'+project.id+'/ump'),'omniusong.ump.json');toast('MIDI 2 UMP packet trace exported. Standard Clip File export is planned.');});
   $('#model-search').oninput=renderModels;$('#model-category').onchange=renderModels;
-  const keys={a:60,s:62,d:64,f:65,g:67,h:69,j:71,k:72};
-  window.addEventListener('keydown',e=>{if(e.repeat||/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)||e.metaKey||e.ctrlKey||e.altKey)return;if(keys[e.key]){e.preventDefault();noteOn(keys[e.key]).catch(err=>toast(err.message,true));}if(e.code==='Space'){e.preventDefault();$('#play').click();}});
-  window.addEventListener('keyup',e=>{if(keys[e.key])noteOff(keys[e.key]);});window.addEventListener('blur',()=>{for(const key of [...held.keys()]){const [source,pitch]=key.split(':');noteOff(Number(pitch),source);}});
+  const keys={KeyA:60,KeyS:62,KeyD:64,KeyF:65,KeyG:67,KeyH:69,KeyJ:71,KeyK:72},pressed=new Map();
+  window.addEventListener('keydown',e=>{
+    if(e.repeat||/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)||e.metaKey||e.ctrlKey||e.altKey)return;
+    if(keys[e.code]!==undefined){e.preventDefault();pressed.set(e.code,noteOn(keys[e.code],.7,'computer'));}
+    if(e.code==='Space'){e.preventDefault();$('#play').click();}
+  });
+  window.addEventListener('keyup',e=>{const voiceId=pressed.get(e.code);if(voiceId)noteOff(keys[e.code],'computer',voiceId);pressed.delete(e.code);});
+  const releaseFocus=()=>{pressed.clear();input.panic('focus-lost');};
+  window.addEventListener('blur',releaseFocus);document.addEventListener('visibilitychange',()=>{if(document.hidden)releaseFocus();});
+  guarded('#sustain',async()=>setLocalSustain($('#sustain').getAttribute('aria-pressed')!=='true'));
   window.addEventListener('beforeunload',e=>{if(dirty||recording){e.preventDefault();e.returnValue='';}});
   setInterval(()=>{if(!document.hidden&&!dirty&&!savePromise&&!sessionBusy)refreshJobs().catch(()=>{});},1500);
 }

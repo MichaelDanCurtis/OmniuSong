@@ -23,7 +23,7 @@ The development app requires the local server to be running. It adds CoreMIDI UM
 ## Try a complete session
 
 1. Choose **Suggest an arrangement**, audition the candidate, then accept it.
-2. Select a track and click the piano roll. To capture a performance, arm the track with **R** and play keys while the transport runs. A through K play the white keys when a text field is not focused.
+2. Select a track and click the piano roll. To capture a performance, arm the track with **R** and play keys while the transport runs. A through K play the white keys when a text field is not focused. Use **Sustain** for the on-screen or computer keys, or CC64 on your MIDI pedal. **All notes off** clears held notes and sustain. New performances retain their timing without grid quantization.
 3. Choose **Make a glass instrument**, audition the sample, accept it, select its track, and play it on the keyboard.
 4. Record an original vocal take using **Record voice**. Recording requests microphone permission only when used. The full original take is available in its audio player; arrangement playback currently places it at the start of the loop.
    Select a vocal or sample track and choose **Turn selected audio into notes** to run local Basic Pitch transcription. Audition and accept the estimated notes separately; the original audio stays in the project.
@@ -44,7 +44,7 @@ Basic Pitch is installed in this checkout's isolated `.runtime/basic-pitch` envi
 - [Hardware and MIDI design](docs/HARDWARE-MIDI.md)
 - [Current implementation and verification](docs/STATUS.md)
 
-Projects, jobs, audio assets, and model selections live in the ignored `data/` directory. Project saves retain one previous revision in `data/backups/`. Complete `.omniusong` backups include referenced audio, source recordings used for transcription, expression data, and accepted-candidate provenance. Restore checks every audio checksum before publishing a new project and leaves existing sessions intact. See the [archive format and limits](docs/PROJECT-ARCHIVE.md).
+Projects, jobs, audio assets, and model selections live in the ignored `data/` directory. Project saves retain one previous revision in `data/backups/`. Complete `.omniusong` backups include referenced audio, source recordings used for transcription, expression data, raw MIDI capture, and accepted-candidate provenance. Restore checks every audio checksum before publishing a new project and leaves existing sessions intact. See the [archive format and limits](docs/PROJECT-ARCHIVE.md).
 
 ## Verification
 

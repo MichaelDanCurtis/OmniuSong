@@ -57,3 +57,5 @@ The service remains bound to loopback with its existing origin checks. Restoring
 The browser exported an actual 446,150-byte project with eight tracks, 95 notes, and two audio assets. The downloaded file was restored through the running local service, and musical data, accepted history, and audio bytes matched. The source session stayed unchanged. A note added to the restored copy survived switching sessions and reloading the studio.
 
 Automated file selection in Chrome is gated by the ChatGPT extension's file URL permission. The file chooser and download were exercised; selection of a restore file through that automation interface remains pending. Native Mac file dialogs and download handling are also pending qualification. The HTTP restore path is covered by automated checks and the live round-trip receipt.
+
+Optional note input metadata and `inputCapture` are included exactly with the project. Native host timestamps remain strings, and raw packet words stay unsigned integers. Archive tests include source/channel/group, physical key duration, release velocity, and raw UMP with a 64-bit host timestamp.

@@ -1,0 +1,76 @@
+{
+  "at": "2026-10-15T08:14:57.113Z",
+  "projectId": "e7f7515c-5e17-4173-b628-e7ebd8f3bb47",
+  "revision": 4,
+  "method": "On-screen gestures through Chrome UI; saved project read back from live local API",
+  "checks": {
+    "overlappingSamePitch": true,
+    "sustainRelease": true,
+    "stoppedTransportDidNotAddNotes": true,
+    "panicClearedInput": true
+  },
+  "notes": [
+    {
+      "id": "eec4daf9-a344-444e-a240-c807223a217d",
+      "pitch": 60,
+      "startTick": 339,
+      "durationTicks": 48314,
+      "velocity16": 45875,
+      "expression": [],
+      "input": {
+        "sourceId": "screen",
+        "sourceName": "On-screen keys",
+        "protocol": "local",
+        "group": 0,
+        "channel": 0,
+        "receivedTimeMs": 10791.400000095367,
+        "keyDurationTicks": 18,
+        "releaseVelocity16": 0,
+        "endReason": "pedal-release"
+      }
+    },
+    {
+      "id": "a2829b5f-eede-4859-9470-309fcb2326a6",
+      "pitch": 60,
+      "startTick": 778,
+      "durationTicks": 47882,
+      "velocity16": 45875,
+      "expression": [],
+      "input": {
+        "sourceId": "screen",
+        "sourceName": "On-screen keys",
+        "protocol": "local",
+        "group": 0,
+        "channel": 0,
+        "receivedTimeMs": 11055,
+        "keyDurationTicks": 13,
+        "releaseVelocity16": 0,
+        "endReason": "pedal-release"
+      }
+    },
+    {
+      "id": "4fd3dc21-ec6c-4904-9325-8d17cbf23fd0",
+      "pitch": 62,
+      "startTick": 1242,
+      "durationTicks": 47421,
+      "velocity16": 45875,
+      "expression": [],
+      "input": {
+        "sourceId": "screen",
+        "sourceName": "On-screen keys",
+        "protocol": "local",
+        "group": 0,
+        "channel": 0,
+        "receivedTimeMs": 11334.600000143051,
+        "keyDurationTicks": 15,
+        "releaseVelocity16": 0,
+        "endReason": "pedal-release"
+      }
+    }
+  ],
+  "limits": [
+    "No physical controller or microphone tested",
+    "No virtual CoreMIDI endpoint round trip yet",
+    "Timing is browser receipt and elapsed time, not sample alignment"
+  ]
+}

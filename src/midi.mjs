@@ -23,8 +23,9 @@ export function exportSMF(project) {
     const data = [0,255,3,...variableLength(name.length),...name,0,0xc0 | channel,program];
     const events = [];
     for (const n of track.notes) {
-      events.push({ tick: n.startTick, order: 1, bytes: [0x90 | channel,n.pitch,Math.max(1,Math.round(n.velocity16 / 65535 * 127))] });
-      events.push({ tick: n.startTick + n.durationTicks, order: 0, bytes: [0x80 | channel,n.pitch,0] });
+      events.push({ tick: n.startTick, order: 1, bytes: [0x90 | channel,n.pitch,Math.max(1,n.velocity16>>>9)] });
+      events.push({ tick: n.startTick + n.durationTicks, order: 0, bytes: [0x80 | channel,n.pitch,(n.input?.releaseVelocity16??0)>>>9] });
+      if(n.velocity16===0)warnings.push('MIDI 2 zero-velocity Note On changed to velocity 1 for MIDI 1 compatibility');
       if (n.expression?.length) warnings.push(`${track.name}: per-note expression retained in project; omitted from MIDI 1 export`);
     }
     events.sort((a,b) => a.tick-b.tick || a.order-b.order || a.bytes[1]-b.bytes[1]);
@@ -35,6 +36,7 @@ export function exportSMF(project) {
   });
   if (project.tracks.some(t => t.kind === 'audio')) warnings.push('Audio tracks do not become notes in a MIDI export');
   if (melodicIndex > 15) warnings.push('More than 15 melodic tracks reuse MIDI channels; split the export to preserve instrument programs');
+  if(project.inputCapture?.events.length)warnings.push('Raw input packets stay in the project; export uses edited notes with track-assigned channels and sustained durations');
   return { bytes: Buffer.concat([chunk('MThd', [...u16(1),...u16(tracks.length+1),...u16(PPQ)]),conductor,...tracks]), warnings: [...new Set(warnings)] };
 }
 export function noteUMP({ pitch, velocity16, channel=0, group=0, on=true }) {
@@ -58,11 +60,12 @@ export function exportUMPTrace(project) {
       packets.push({ tick:n.startTick, order:1, trackId:t.id, words:noteUMP({...n,...address}) });
       for (const lane of n.expression??[]) if(lane.type==='pitch') for (const p of lane.points)
         packets.push({tick:n.startTick+p.tick,order:2,trackId:t.id,words:perNotePitchUMP(n.pitch,p.value32,address.channel,address.group)});
-      packets.push({tick:n.startTick+n.durationTicks,order:0,trackId:t.id,words:noteUMP({...n,...address,on:false})});
+      packets.push({tick:n.startTick+n.durationTicks,order:0,trackId:t.id,words:noteUMP({...n,...address,velocity16:n.input?.releaseVelocity16??0,on:false})});
     }
   }
   return { format:'omniusong-ump-trace', version:1, protocol:'MIDI 2.0', ppq:PPQ, tempo:project.tempo,
     description:'Timestamped UMP JSON interchange. This is not a Standard MIDI Clip File.',
     warnings:project.tracks.flatMap(t=>t.notes).some(n=>n.expression?.some(e=>e.type!=='pitch'))?['Pressure and timbre lanes remain in the project; their UMP encoding is pending']:[],
+    rawInputCapture:project.inputCapture??null,
     packets:packets.sort((a,b)=>a.tick-b.tick||a.order-b.order).map(({order,...p})=>p) };
 }
