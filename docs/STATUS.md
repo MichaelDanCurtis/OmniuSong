@@ -1,6 +1,6 @@
 # OmniuSong implementation status
 
-October 15, 2026, approximately 3:45 AM America/Los_Angeles.
+October 15, 2026, approximately 4:17 AM America/Los_Angeles.
 
 ## Open the current build
 
@@ -23,7 +23,7 @@ The local studio is running as a detached process. Its PID and log are in `.runt
 - Bounded original MIDI 1/UMP capture while an armed selected track plays. Source IDs and receipt times are retained; the Mac bridge also carries native host-tick strings without rounding them through JavaScript numbers. This is wired and software tested; native endpoint delivery remains unverified.
 - Recording now has explicit permission, recording, finalization, saving, and recovery states. Session changes remain blocked through pending permission and storage; cancellation stops a late microphone stream. Failed saves retain the original in the tab for retry/download, and retries do not duplicate the track. Mocked recorder tests cover denial, disconnect, final data events, timers, and cleanup. Physical microphone operation remains untested because the Mac is locked.
 - Local audio import preserves original bytes and metadata, with a full-take player and original download. Imports are bounded to two minutes and 30 MiB and must decode in the browser. WAV is verified end to end; MP3/M4A/FLAC/Ogg/WebM depend on browser decoding. MP3 and FLAC byte delivery are covered by service tests.
-- A clearly labeled synthesized four-tone example exercises import and actual Basic Pitch transcription. Imported and unquantized note starts now appear in the piano roll without changing their saved timing. Detailed note-duration editing remains planned.
+- A clearly labeled synthesized four-tone example exercises import and actual Basic Pitch transcription. Imported and unquantized note starts now appear in the piano roll without changing their saved timing. Exact pitch, start, duration, and 16-bit velocity controls are now implemented. Repeated notes in one cell are separately selectable; locked notes can be inspected. Original musical values survive save/reload and backups through a validated snapshot, with Restore original and tab-local Undo. Shortening past existing expression points is rejected; raw input and model metadata remain unchanged. See NOTE-EDITING.
 - Audio delivery now supplies byte lengths and seek ranges, so the tested original player reports its 3.2-second duration and supports seeking.
 - Procedural arrangement sketches and an FM sample instrument, accurately labeled as procedural.
 - An optional local Ollama lyric adapter. No Ollama service was present during the initial check; no lyric-model inference has been claimed.
@@ -44,8 +44,8 @@ The local studio is running as a detached process. Its PID and log are in `.runt
 
 | Check | Result | Practical scope |
 | --- | --- | --- |
-| JavaScript syntax and catalog | Passed | 32 modules and 36 unique model entries |
-| Automated tests | 70 passed, no skips | Project, MIDI, persistence, queue, real model inference, and archive checks, plus source/channel/group isolation, repeated and sustained notes, pending audio cancellation, focus/device loss, control messages, bounded capture, zero-velocity MIDI 2 notes, release velocity, and raw-input backup round trips; recording lifecycle, cancellation, retained-original retries, audio byte delivery, seek-range checks, actual Aria inference, bounded invalid requests, cancellation before launch, phrase boundaries and budgets, exact answer placement, loop expansion, complete continuation archives, immediate audition, timeline bounds, queued-source revision conflicts, Magenta 25 Hz note projection, real generated PCM audio, generated-origin archive round trips, worker startup cancellation, scoped audio candidates, fractional-tempo boundaries, clip placement, loop-boundary/late scheduling, and placed-audio transcription |
+| JavaScript syntax and catalog | Passed | 34 modules and 36 unique model entries |
+| Automated tests | 77 passed, no skips | Project, MIDI, persistence, queue, real model inference, and archive checks, plus source/channel/group isolation, repeated and sustained notes, pending audio cancellation, focus/device loss, control messages, bounded capture, zero-velocity MIDI 2 notes, release velocity, and raw-input backup round trips; recording lifecycle, cancellation, retained-original retries, audio byte delivery, seek-range checks, actual Aria inference, bounded invalid requests, cancellation before launch, phrase boundaries and budgets, exact answer placement, loop expansion, complete continuation archives, immediate audition, timeline bounds, queued-source revision conflicts, Magenta 25 Hz note projection, real generated PCM audio, generated-origin archive round trips, worker startup cancellation, scoped audio candidates, fractional-tempo boundaries, clip placement, loop-boundary/late scheduling, and placed-audio transcription; precise note edits, expression-tail safeguards, original snapshot validation, journaled deletion, and edited-note archive round trips |
 | Mac release build | Passed | Native executable and local app bundle compiled; not a launch or hardware test |
 | Four-tone model inference | Passed | Real Basic Pitch ONNX checkpoint recovered MIDI pitches 60, 64, 67, 72 from a 3.2-second synthetic fixture; 231 contour points retained |
 | Aria local inference | Passed | 38 prompt tokens, 64 new tokens, and 21 new complete notes. Latest warm-filesystem receipt: 2.500 seconds total, 0.560 seconds generation, 2,719,036,048 bytes MLX peak allocation. One fixture, not a live-performance benchmark |
@@ -66,6 +66,7 @@ The local studio is running as a detached process. Its PID and log are in `.runt
 | Model observatory | Passed | Search and saved Keep selection through the UI |
 | Responsive layout | Checked | 1440- and 680-pixel viewports showed no page horizontal overflow |
 | Browser errors | None observed in tested flow | No captured error console entries |
+| Precise note editing | Passed in browser | Two repeated notes independently selectable; pending fields commit atomically on track changes; invalid shortening blocks the transition; exact pitch/start/length/velocity survive reload; persistent Restore original, deletion/Undo, locked inspection, and actual Basic Pitch estimate edit/restore verified. Downloaded 2,455,739-byte backup restored all tracks, snapshots, history, raw packets and two assets exactly. Independent Mido parse confirms 26 note-ons and exact edited timing; UMP trace retains full velocity and moved expression. See NOTE-EDITING and verification/note-editing.json |
 | Physical sound and input | Pending | Listening quality, real microphone take, real keyboard, controller expression, latency and dropouts |
 
 The initial cold model run took 10.755 seconds including imports and first-use preparation. A later automated fixture completed in approximately one second on this Mac. These are fixture observations, not a general performance benchmark. See `verification/basic-pitch.json`.
@@ -76,11 +77,11 @@ The initial SciPy 1.15.3 wheel failed to load a Fortran extension on this macOS 
 
 ## Remaining work
 
-Aria continuation and full timeline review are implemented and browser verified. Magenta Small is now qualified for short offline audio generation, including optional note guidance. Magenta is now integrated with the candidate queue and UI. Next improve direct note-duration and velocity editing so humans can refine model outputs precisely. Add explicit clip reposition/trim controls and a metronome after that; saved clip placement and offset-aware transcription already work. Keep sustained streaming and device-latency acceptance separate. Reliable session switching, complete backups, source-aware input, recording-state safeguards, and local audio import are implemented. Clip reposition/trim controls, recording alignment, and detailed note-duration editing remain useful follow-on work. Archive limits are in PROJECT-ARCHIVE; input semantics are in HARDWARE-MIDI; recording behavior is in RECORDING.
+Aria continuation, Magenta audio candidates, full timeline review, and precise note editing are implemented and browser verified. Next add explicit clip reposition/trim controls and a metronome; saved clip placement and offset-aware transcription already work. Keep sustained streaming and device-latency acceptance separate. Reliable session switching, complete backups, source-aware input, recording-state safeguards, and local audio import are implemented. Recording alignment, expression editing/playback, and durable general undo remain follow-on work. Archive limits are in PROJECT-ARCHIVE; input semantics are in HARDWARE-MIDI; recording behavior is in RECORDING; precise note editing and original snapshots are in NOTE-EDITING.
 
 Raw input is limited to 4,096 messages per project, with a visible warning and omission count when full. Recorded timing uses browser receipt and elapsed time; native host ticks are retained but not calibrated to the audio clock. Same-pitch MIDI note-offs pair FIFO within one source/group/channel. Original packets and generated edited-note exports remain distinct. Software source-loss tests do not establish a native or physical controller round trip. See `verification/input-session.json` for the browser save receipt.
 
-Then improve clip editing and recording alignment, note duration editing, per-note expression editing and playback, MIDI output, standard MIDI 2 Clip Files, and independent file validation. The preview stores expression that its current Web Audio synth does not yet perform.
+Then improve clip editing and recording alignment, per-note expression editing and playback, MIDI output, standard MIDI 2 Clip Files, and independent file validation. The preview stores expression that its current Web Audio synth does not yet perform.
 
 Aria's synthetic-source studio workflow does not qualify live takeover, simultaneous recording, hardware latency, listening quality, or general continuation quality on human performances. Response tokens are a compute/length budget, not an exact number of bars. Prompts over 15 seconds, 256 notes, or 1,024 tokens are rejected. Acceptance appends after the selected phrase and can overlap other existing tracks; it does not rearrange the song. Code/model identities and the compatibility fix are documented in ARIA-QUALIFICATION. The status endpoint reports installation separately from studio integration.
 
@@ -118,3 +119,6 @@ The continuation should preserve original performances, avoid paid or externally
 ![Magenta generated-audio preview with retained note guide](verification/magenta-studio.png)
 
 ![Magenta candidates and aligned Basic Pitch estimates](verification/magenta-candidates.png)
+
+
+![Exact note controls with saved original values](verification/note-editing.png)

@@ -1,0 +1,5152 @@
+{
+  "schemaVersion": 1,
+  "id": "f5d5e75a-8cb7-4dfb-8cbf-e09762778a68",
+  "revision": 1,
+  "ppq": 960,
+  "name": "Note editing qualification",
+  "tempo": 104,
+  "bars": 5,
+  "key": "C minor",
+  "lyrics": "",
+  "tracks": [
+    {
+      "id": "74859e3d-769b-4aca-8c94-a72706084643",
+      "name": "Expressive test phrase",
+      "kind": "notes",
+      "instrument": "keys",
+      "gain": 0.65,
+      "muted": false,
+      "locked": false,
+      "armed": false,
+      "notes": [
+        {
+          "id": "531adbce-b265-486f-85ca-af4aeaf1326d",
+          "pitch": 60,
+          "startTick": 123,
+          "durationTicks": 987,
+          "velocity16": 49123,
+          "expression": [
+            {
+              "type": "pitch",
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 700,
+                  "value32": 2271560481
+                }
+              ]
+            }
+          ],
+          "input": {
+            "sourceId": "synthetic:editor-fixture",
+            "sourceName": "Synthetic editor fixture",
+            "protocol": "midi2",
+            "group": 3,
+            "channel": 2,
+            "receivedTimeMs": 10.25,
+            "keyDurationTicks": 500,
+            "releaseVelocity16": 37155,
+            "endReason": "pedal-release"
+          },
+          "externalMetadata": {
+            "fixture": true,
+            "physicalRecording": false
+          }
+        },
+        {
+          "id": "67c9f0ec-dce7-4c14-882f-3dfe66dde56a",
+          "pitch": 60,
+          "startTick": 321,
+          "durationTicks": 987,
+          "velocity16": 49123,
+          "expression": [
+            {
+              "type": "pitch",
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 700,
+                  "value32": 2271560481
+                }
+              ]
+            }
+          ],
+          "input": {
+            "sourceId": "synthetic:editor-fixture",
+            "sourceName": "Synthetic editor fixture",
+            "protocol": "midi2",
+            "group": 3,
+            "channel": 2,
+            "receivedTimeMs": 10.25,
+            "keyDurationTicks": 500,
+            "releaseVelocity16": 37155,
+            "endReason": "pedal-release"
+          },
+          "externalMetadata": {
+            "fixture": true,
+            "physicalRecording": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "242c0108-5476-464b-b75a-e09ed4323326",
+      "name": "Locked source",
+      "kind": "notes",
+      "instrument": "drums",
+      "gain": 0.65,
+      "muted": false,
+      "locked": true,
+      "armed": false,
+      "notes": [
+        {
+          "id": "179ea59c-0062-40c5-8f60-4e0dd9f8c317",
+          "pitch": 67,
+          "startTick": 960,
+          "durationTicks": 960,
+          "velocity16": 40000,
+          "expression": []
+        }
+      ]
+    },
+    {
+      "id": "3c17fe04-478d-4db8-b94b-bfae4d238208",
+      "name": "Transcribed · Basic Pitch",
+      "kind": "notes",
+      "instrument": "keys",
+      "gain": 0.65,
+      "muted": true,
+      "locked": false,
+      "armed": false,
+      "notes": [
+        {
+          "id": "a39b3243-31c5-4c83-ba88-dde306b6fbf6",
+          "pitch": 63,
+          "startTick": 3956,
+          "durationTicks": 580,
+          "velocity16": 22395,
+          "expression": [
+            {
+              "type": "pitch",
+              "rangeSemitones": 2,
+              "estimated": true,
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 20,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 40,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 60,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 80,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 100,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 120,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 140,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 160,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 180,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 200,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 220,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 240,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 260,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 280,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 300,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 320,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 340,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 360,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 380,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 400,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 420,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 440,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 460,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 480,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 500,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 520,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 540,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 560,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 580,
+                  "value32": 2505397589
+                }
+              ]
+            }
+          ],
+          "sourceEstimate": {
+            "startSeconds": 0.06965986394557823,
+            "endSeconds": 0.4179591836734694,
+            "activationAmplitude": 0.3417225778102875,
+            "contourThirdSemitones": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "velocityIsEstimated": true
+          }
+        },
+        {
+          "id": "d186f4fd-c3aa-4b89-862e-119297d07f4f",
+          "pitch": 68,
+          "startTick": 3995,
+          "durationTicks": 869,
+          "velocity16": 37633,
+          "expression": [
+            {
+              "type": "pitch",
+              "rangeSemitones": 2,
+              "estimated": true,
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 20,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 40,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 59,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 79,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 99,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 118,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 138,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 158,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 178,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 198,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 217,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 237,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 257,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 276,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 296,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 316,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 336,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 356,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 375,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 395,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 415,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 434,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 454,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 474,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 494,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 514,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 533,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 553,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 573,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 592,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 612,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 632,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 652,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 672,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 691,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 711,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 731,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 750,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 770,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 790,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 810,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 830,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 849,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 869,
+                  "value32": 2505397589
+                }
+              ]
+            }
+          ],
+          "sourceEstimate": {
+            "startSeconds": 0.09287981859410431,
+            "endSeconds": 0.615328798185941,
+            "activationAmplitude": 0.5742376446723938,
+            "contourThirdSemitones": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "velocityIsEstimated": true
+          }
+        },
+        {
+          "id": "85370dc8-847f-4c30-89a0-8381bc9a5c6d",
+          "pitch": 39,
+          "startTick": 4033,
+          "durationTicks": 232,
+          "velocity16": 24307,
+          "expression": [
+            {
+              "type": "pitch",
+              "rangeSemitones": 2,
+              "estimated": true,
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 21,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 42,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 63,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 84,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 105,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 127,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 148,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 169,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 190,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 211,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 232,
+                  "value32": 2505397589
+                }
+              ]
+            }
+          ],
+          "sourceEstimate": {
+            "startSeconds": 0.11609977324263039,
+            "endSeconds": 0.25541950113378686,
+            "activationAmplitude": 0.3708963692188263,
+            "contourThirdSemitones": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "velocityIsEstimated": true
+          }
+        },
+        {
+          "id": "45e59460-d929-4bef-977a-fc34d39249df",
+          "pitch": 72,
+          "startTick": 4400,
+          "durationTicks": 1024,
+          "velocity16": 45349,
+          "expression": [
+            {
+              "type": "pitch",
+              "rangeSemitones": 2,
+              "estimated": true,
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 20,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 39,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 59,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 79,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 98,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 118,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 138,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 158,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 177,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 197,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 217,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 236,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 256,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 276,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 295,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 315,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 335,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 354,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 374,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 394,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 414,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 433,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 453,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 473,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 492,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 512,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 532,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 551,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 571,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 591,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 610,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 630,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 650,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 670,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 689,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 709,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 729,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 748,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 768,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 788,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 807,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 827,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 847,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 866,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 886,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 906,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 926,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 945,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 965,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 985,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1004,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1024,
+                  "value32": 2505397589
+                }
+              ]
+            }
+          ],
+          "sourceEstimate": {
+            "startSeconds": 0.33668934240362813,
+            "endSeconds": 0.9520181405895691,
+            "activationAmplitude": 0.6919853091239929,
+            "contourThirdSemitones": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "velocityIsEstimated": true
+          }
+        },
+        {
+          "id": "8c1563ff-5e8c-448b-946f-e35f0c0d9cd7",
+          "pitch": 68,
+          "startTick": 4864,
+          "durationTicks": 811,
+          "velocity16": 28844,
+          "expression": [
+            {
+              "type": "pitch",
+              "rangeSemitones": 2,
+              "estimated": true,
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 20,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 40,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 59,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 79,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 99,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 119,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 138,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 158,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 178,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 198,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 218,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 237,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 257,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 277,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 297,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 316,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 336,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 356,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 376,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 396,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 415,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 435,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 455,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 475,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 495,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 514,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 534,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 554,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 574,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 593,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 613,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 633,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 653,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 673,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 692,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 712,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 732,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 752,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 771,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 791,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 811,
+                  "value32": 2505397589
+                }
+              ]
+            }
+          ],
+          "sourceEstimate": {
+            "startSeconds": 0.615328798185941,
+            "endSeconds": 1.1029478458049886,
+            "activationAmplitude": 0.44013360142707825,
+            "contourThirdSemitones": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "velocityIsEstimated": true
+          }
+        },
+        {
+          "id": "842ed91d-85a5-41c7-a79c-b3a80efa1752",
+          "pitch": 39,
+          "startTick": 5250,
+          "durationTicks": 1449,
+          "velocity16": 23328,
+          "expression": [
+            {
+              "type": "pitch",
+              "rangeSemitones": 2,
+              "estimated": true,
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 20,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 39,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 59,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 78,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 98,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 117,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 137,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 157,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 176,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 196,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 215,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 235,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 255,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 274,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 294,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 313,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 333,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 352,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 372,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 392,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 411,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 431,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 450,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 470,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 490,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 509,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 529,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 548,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 568,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 587,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 607,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 627,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 646,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 666,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 685,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 705,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 724,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 744,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 764,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 783,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 803,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 822,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 842,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 862,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 881,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 901,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 920,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 940,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 959,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 979,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 999,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 1018,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 1038,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 1057,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 1077,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 1097,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1116,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1136,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1155,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1175,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1194,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1214,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1234,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1253,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1273,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1292,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1312,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1332,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1351,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1371,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1390,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1410,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1429,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1449,
+                  "value32": 2505397589
+                }
+              ]
+            }
+          ],
+          "sourceEstimate": {
+            "startSeconds": 0.8475283446712019,
+            "endSeconds": 1.7182766439909296,
+            "activationAmplitude": 0.3559666574001312,
+            "contourThirdSemitones": [
+              0,
+              0,
+              0,
+              0,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "velocityIsEstimated": true
+          }
+        },
+        {
+          "id": "9a12089c-0a2d-40bf-8adf-ee629c4dd6a2",
+          "pitch": 65,
+          "startTick": 5308,
+          "durationTicks": 1565,
+          "velocity16": 46570,
+          "expression": [
+            {
+              "type": "pitch",
+              "rangeSemitones": 2,
+              "estimated": true,
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 20,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 39,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 59,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 78,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 98,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 117,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 137,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 156,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 176,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 196,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 215,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 235,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 254,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 274,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 293,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 313,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 333,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 352,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 372,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 391,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 411,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 430,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 450,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 470,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 489,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 509,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 528,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 548,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 567,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 587,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 606,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 626,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 646,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 665,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 685,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 704,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 724,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 743,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 763,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 782,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 802,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 822,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 841,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 861,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 880,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 900,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 919,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 939,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 959,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 978,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 998,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1017,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1037,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1056,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1076,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1096,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1115,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1135,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1154,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1174,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1193,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1213,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1232,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1252,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1272,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1291,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1311,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1330,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1350,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1369,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1389,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1408,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1428,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1448,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1467,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1487,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1506,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1526,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1545,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1565,
+                  "value32": 2505397589
+                }
+              ]
+            }
+          ],
+          "sourceEstimate": {
+            "startSeconds": 0.8823582766439909,
+            "endSeconds": 1.822766439909297,
+            "activationAmplitude": 0.7106122374534607,
+            "contourThirdSemitones": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "velocityIsEstimated": true
+          }
+        },
+        {
+          "id": "f4172470-58f9-44b0-854b-e707139cac41",
+          "pitch": 32,
+          "startTick": 5463,
+          "durationTicks": 232,
+          "velocity16": 20599,
+          "expression": [
+            {
+              "type": "pitch",
+              "rangeSemitones": 2,
+              "estimated": true,
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 21,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 42,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 63,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 84,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 105,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 127,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 148,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 169,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 190,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 211,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 232,
+                  "value32": 2505397589
+                }
+              ]
+            }
+          ],
+          "sourceEstimate": {
+            "startSeconds": 0.9752380952380952,
+            "endSeconds": 1.1145578231292517,
+            "activationAmplitude": 0.3143247961997986,
+            "contourThirdSemitones": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "velocityIsEstimated": true
+          }
+        },
+        {
+          "id": "6ab3d937-230c-4a0e-b928-bb81363d44df",
+          "pitch": 56,
+          "startTick": 5753,
+          "durationTicks": 2842,
+          "velocity16": 25189,
+          "expression": [
+            {
+              "type": "pitch",
+              "rangeSemitones": 2,
+              "estimated": true,
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 19,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 39,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 58,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 77,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 97,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 116,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 135,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 155,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 174,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 193,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 213,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 232,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 251,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 271,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 290,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 309,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 329,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 348,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 367,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 387,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 406,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 425,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 445,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 464,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 483,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 503,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 522,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 541,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 561,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 580,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 599,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 619,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 638,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 657,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 677,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 696,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 715,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 735,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 754,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 773,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 793,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 812,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 831,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 851,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 870,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 889,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 909,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 928,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 947,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 967,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 986,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1005,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1025,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1044,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1063,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1083,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1102,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1121,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1141,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1160,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1179,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1199,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1218,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1237,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1257,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1276,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1295,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1315,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1334,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1353,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1373,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1392,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1411,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1431,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1450,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1469,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1489,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1508,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1527,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1547,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1566,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1585,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1605,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1624,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1643,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1663,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1682,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1701,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1721,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1740,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1759,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1779,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1798,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1817,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1837,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1856,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1875,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1895,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1914,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1933,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1953,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1972,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1991,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2011,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2030,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2049,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2069,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2088,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2107,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2127,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2146,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2165,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2185,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2204,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2223,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2243,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2262,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2281,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2301,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2320,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2339,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2359,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2378,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2397,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2417,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2436,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2455,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2475,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2494,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2513,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2533,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2552,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2571,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2591,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2610,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2629,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2649,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2668,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2687,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2707,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2726,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2745,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2765,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2784,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2803,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2823,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 2842,
+                  "value32": 2505397589
+                }
+              ]
+            }
+          ],
+          "sourceEstimate": {
+            "startSeconds": 1.1493877551020408,
+            "endSeconds": 2.857338321995465,
+            "activationAmplitude": 0.384366899728775,
+            "contourThirdSemitones": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "velocityIsEstimated": true
+          }
+        },
+        {
+          "id": "0fbc09f2-bede-4b6e-8459-a07aae9cc63a",
+          "pitch": 39,
+          "startTick": 6757,
+          "durationTicks": 427,
+          "velocity16": 23773,
+          "expression": [
+            {
+              "type": "pitch",
+              "rangeSemitones": 2,
+              "estimated": true,
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 19,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 39,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 58,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 78,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 97,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 116,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 136,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 155,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 175,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 194,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 214,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 233,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 252,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 272,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 291,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 311,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 330,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 349,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 369,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 388,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 408,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 427,
+                  "value32": 2505397589
+                }
+              ]
+            }
+          ],
+          "sourceEstimate": {
+            "startSeconds": 1.7531065759637188,
+            "endSeconds": 2.009809977324263,
+            "activationAmplitude": 0.3627544343471527,
+            "contourThirdSemitones": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "velocityIsEstimated": true
+          }
+        },
+        {
+          "id": "def0c604-76b2-4b94-9fbf-d3a125d1f113",
+          "pitch": 65,
+          "startTick": 6873,
+          "durationTicks": 1741,
+          "velocity16": 35327,
+          "expression": [
+            {
+              "type": "pitch",
+              "rangeSemitones": 2,
+              "estimated": true,
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 19,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 39,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 58,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 77,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 97,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 116,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 135,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 155,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 174,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 193,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 213,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 232,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 251,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 271,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 290,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 310,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 329,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 348,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 368,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 387,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 406,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 426,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 445,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 464,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 484,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 503,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 522,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 542,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 561,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 580,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 600,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 619,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 638,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 658,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 677,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 696,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 716,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 735,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 754,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 774,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 793,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 812,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 832,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 851,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 870,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 890,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 909,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 929,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 948,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 967,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 987,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1006,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1025,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1045,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1064,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1083,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1103,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1122,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1141,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1161,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1180,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1199,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1219,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1238,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1257,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1277,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1296,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1315,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1335,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1354,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1373,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1393,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1412,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1431,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1451,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1470,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1490,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1509,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1528,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1548,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1567,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1586,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1606,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1625,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1644,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1664,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1683,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1702,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1722,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1741,
+                  "value32": 2505397589
+                }
+              ]
+            }
+          ],
+          "sourceEstimate": {
+            "startSeconds": 1.822766439909297,
+            "endSeconds": 2.8689482993197277,
+            "activationAmplitude": 0.5390567779541016,
+            "contourThirdSemitones": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "velocityIsEstimated": true
+          }
+        },
+        {
+          "id": "79246b25-928c-4c89-996a-740679a49ffa",
+          "pitch": 68,
+          "startTick": 7165,
+          "durationTicks": 753,
+          "velocity16": 21748,
+          "expression": [
+            {
+              "type": "pitch",
+              "rangeSemitones": 2,
+              "estimated": true,
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 20,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 40,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 59,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 79,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 99,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 119,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 139,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 159,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 178,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 198,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 218,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 238,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 258,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 277,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 297,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 317,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 337,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 357,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 376,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 396,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 416,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 436,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 456,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 476,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 495,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 515,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 535,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 555,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 575,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 594,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 614,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 634,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 654,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 674,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 694,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 713,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 733,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 753,
+                  "value32": 2505397589
+                }
+              ]
+            }
+          ],
+          "sourceEstimate": {
+            "startSeconds": 1.9981999999999998,
+            "endSeconds": 2.450989115646258,
+            "activationAmplitude": 0.33185550570487976,
+            "contourThirdSemitones": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "velocityIsEstimated": true
+          }
+        },
+        {
+          "id": "7dec9e42-51ab-4957-8c7c-4b8dbf046830",
+          "pitch": 53,
+          "startTick": 7435,
+          "durationTicks": 251,
+          "velocity16": 28136,
+          "expression": [
+            {
+              "type": "pitch",
+              "rangeSemitones": 2,
+              "estimated": true,
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 21,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 42,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 63,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 84,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 105,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 126,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 146,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 167,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 188,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 209,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 230,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 251,
+                  "value32": 2505397589
+                }
+              ]
+            }
+          ],
+          "sourceEstimate": {
+            "startSeconds": 2.1607396825396825,
+            "endSeconds": 2.311669387755102,
+            "activationAmplitude": 0.42932334542274475,
+            "contourThirdSemitones": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "velocityIsEstimated": true
+          }
+        },
+        {
+          "id": "92b817e8-b531-475c-b8e9-f9634b5dcfd5",
+          "pitch": 58,
+          "startTick": 7571,
+          "durationTicks": 522,
+          "velocity16": 22495,
+          "expression": [
+            {
+              "type": "pitch",
+              "rangeSemitones": 2,
+              "estimated": true,
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 20,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 40,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 60,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 80,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 100,
+                  "value32": 357913941
+                },
+                {
+                  "tick": 120,
+                  "value32": 357913941
+                },
+                {
+                  "tick": 141,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 161,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 181,
+                  "value32": 357913941
+                },
+                {
+                  "tick": 201,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 221,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 241,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 261,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 281,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 301,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 321,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 341,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 361,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 381,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 402,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 422,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 442,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 462,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 482,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 502,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 522,
+                  "value32": 2505397589
+                }
+              ]
+            }
+          ],
+          "sourceEstimate": {
+            "startSeconds": 2.2420095238095237,
+            "endSeconds": 2.555478911564626,
+            "activationAmplitude": 0.3432576358318329,
+            "contourThirdSemitones": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              -5,
+              -5,
+              1,
+              1,
+              -5,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "velocityIsEstimated": true
+          }
+        },
+        {
+          "id": "36b1301f-9acd-40d1-a24b-2e0eb42a8832",
+          "pitch": 39,
+          "startTick": 8286,
+          "durationTicks": 560,
+          "velocity16": 27165,
+          "expression": [
+            {
+              "type": "pitch",
+              "rangeSemitones": 2,
+              "estimated": true,
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 20,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 40,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 60,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 80,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 100,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 120,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 140,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 160,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 180,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 200,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 220,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 240,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 260,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 280,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 300,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 320,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 340,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 360,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 380,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 400,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 420,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 440,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 460,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 480,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 500,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 520,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 540,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 560,
+                  "value32": 2505397589
+                }
+              ]
+            }
+          ],
+          "sourceEstimate": {
+            "startSeconds": 2.671578684807256,
+            "endSeconds": 3.0082680272108844,
+            "activationAmplitude": 0.4145068824291229,
+            "contourThirdSemitones": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "velocityIsEstimated": true
+          }
+        },
+        {
+          "id": "2bf20ca9-53c8-46c7-8416-05e9640a5cbe",
+          "pitch": 49,
+          "startTick": 8537,
+          "durationTicks": 715,
+          "velocity16": 31150,
+          "expression": [
+            {
+              "type": "pitch",
+              "rangeSemitones": 2,
+              "estimated": true,
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 20,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 40,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 60,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 79,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 99,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 119,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 139,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 159,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 179,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 199,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 218,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 238,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 258,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 278,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 298,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 318,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 338,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 358,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 377,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 397,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 417,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 437,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 457,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 477,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 497,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 516,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 536,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 556,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 576,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 596,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 616,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 636,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 655,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 675,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 695,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 715,
+                  "value32": 2505397589
+                }
+              ]
+            }
+          ],
+          "sourceEstimate": {
+            "startSeconds": 2.8225083900226755,
+            "endSeconds": 3.252077551020408,
+            "activationAmplitude": 0.47531262040138245,
+            "contourThirdSemitones": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "velocityIsEstimated": true
+          }
+        },
+        {
+          "id": "5bb60daa-cfba-422c-8d80-5876aa82a6d3",
+          "pitch": 65,
+          "startTick": 8884,
+          "durationTicks": 232,
+          "velocity16": 21566,
+          "expression": [
+            {
+              "type": "pitch",
+              "rangeSemitones": 2,
+              "estimated": true,
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 21,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 42,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 63,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 84,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 105,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 127,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 148,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 169,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 190,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 211,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 232,
+                  "value32": 2505397589
+                }
+              ]
+            }
+          ],
+          "sourceEstimate": {
+            "startSeconds": 3.0314879818594105,
+            "endSeconds": 3.1708077097505667,
+            "activationAmplitude": 0.3290831446647644,
+            "contourThirdSemitones": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "velocityIsEstimated": true
+          }
+        },
+        {
+          "id": "b00bc4ef-8fd9-4be3-808c-519da50b9c2a",
+          "pitch": 58,
+          "startTick": 9194,
+          "durationTicks": 270,
+          "velocity16": 22628,
+          "expression": [
+            {
+              "type": "pitch",
+              "rangeSemitones": 2,
+              "estimated": true,
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 21,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 42,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 62,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 83,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 104,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 125,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 145,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 166,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 187,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 208,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 228,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 249,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 270,
+                  "value32": 2505397589
+                }
+              ]
+            }
+          ],
+          "sourceEstimate": {
+            "startSeconds": 3.217247619047619,
+            "endSeconds": 3.3797873015873017,
+            "activationAmplitude": 0.3452775776386261,
+            "contourThirdSemitones": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "velocityIsEstimated": true
+          }
+        },
+        {
+          "id": "c1c8cf68-a320-4fda-93c2-3a5862f155fc",
+          "pitch": 34,
+          "startTick": 9599,
+          "durationTicks": 444,
+          "velocity16": 26437,
+          "expression": [
+            {
+              "type": "pitch",
+              "rangeSemitones": 2,
+              "estimated": true,
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 20,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 40,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 61,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 81,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 101,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 121,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 141,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 161,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 182,
+                  "value32": 2863311530
+                },
+                {
+                  "tick": 202,
+                  "value32": 2863311530
+                },
+                {
+                  "tick": 222,
+                  "value32": 2863311530
+                },
+                {
+                  "tick": 242,
+                  "value32": 2863311530
+                },
+                {
+                  "tick": 262,
+                  "value32": 2863311530
+                },
+                {
+                  "tick": 283,
+                  "value32": 2863311530
+                },
+                {
+                  "tick": 303,
+                  "value32": 2863311530
+                },
+                {
+                  "tick": 323,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 343,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 363,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 383,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 404,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 424,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 444,
+                  "value32": 2505397589
+                }
+              ]
+            }
+          ],
+          "sourceEstimate": {
+            "startSeconds": 3.461057142857143,
+            "endSeconds": 3.728086621315193,
+            "activationAmplitude": 0.40340209007263184,
+            "contourThirdSemitones": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "velocityIsEstimated": true
+          }
+        },
+        {
+          "id": "fd46a0f1-c82d-4418-a8e8-bc7375442097",
+          "pitch": 30,
+          "startTick": 9947,
+          "durationTicks": 232,
+          "velocity16": 20399,
+          "expression": [
+            {
+              "type": "pitch",
+              "rangeSemitones": 2,
+              "estimated": true,
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 1789569707
+                },
+                {
+                  "tick": 21,
+                  "value32": 1789569707
+                },
+                {
+                  "tick": 42,
+                  "value32": 1789569707
+                },
+                {
+                  "tick": 63,
+                  "value32": 1789569707
+                },
+                {
+                  "tick": 84,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 105,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 127,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 148,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 169,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 190,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 211,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 232,
+                  "value32": 2505397589
+                }
+              ]
+            }
+          ],
+          "sourceEstimate": {
+            "startSeconds": 3.6700367346938774,
+            "endSeconds": 3.809356462585034,
+            "activationAmplitude": 0.31126949191093445,
+            "contourThirdSemitones": [
+              -1,
+              -1,
+              -1,
+              -1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "velocityIsEstimated": true
+          }
+        },
+        {
+          "id": "a71a8373-9e28-426d-85e0-f1a7479d955c",
+          "pitch": 56,
+          "startTick": 9966,
+          "durationTicks": 483,
+          "velocity16": 20493,
+          "expression": [
+            {
+              "type": "pitch",
+              "rangeSemitones": 2,
+              "estimated": true,
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 20,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 40,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 60,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 80,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 101,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 121,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 141,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 161,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 181,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 201,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 221,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 242,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 262,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 282,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 302,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 322,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 342,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 362,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 382,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 402,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 423,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 443,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 463,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 483,
+                  "value32": 2505397589
+                }
+              ]
+            }
+          ],
+          "sourceEstimate": {
+            "startSeconds": 3.6816467120181406,
+            "endSeconds": 3.9718961451247163,
+            "activationAmplitude": 0.3127076327800751,
+            "contourThirdSemitones": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "velocityIsEstimated": true
+          }
+        },
+        {
+          "id": "c2b49345-b8ef-4226-8a97-f01545f96463",
+          "pitch": 58,
+          "startTick": 10082,
+          "durationTicks": 543,
+          "velocity16": 23849,
+          "expression": [
+            {
+              "type": "pitch",
+              "rangeSemitones": 2,
+              "estimated": true,
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 19,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 39,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 58,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 78,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 97,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 116,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 136,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 155,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 175,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 194,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 213,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 233,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 252,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 272,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 291,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 310,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 330,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 349,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 368,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 388,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 407,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 427,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 446,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 465,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 485,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 504,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 524,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 543,
+                  "value32": 2505397589
+                }
+              ]
+            }
+          ],
+          "sourceEstimate": {
+            "startSeconds": 3.7513065759637185,
+            "endSeconds": 4.077669841269841,
+            "activationAmplitude": 0.36391156911849976,
+            "contourThirdSemitones": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "velocityIsEstimated": true
+          }
+        },
+        {
+          "id": "c9e2df39-91b6-44a3-b883-825a5db8db9e",
+          "pitch": 32,
+          "startTick": 16462,
+          "durationTicks": 232,
+          "velocity16": 24278,
+          "expression": [
+            {
+              "type": "pitch",
+              "rangeSemitones": 2,
+              "estimated": true,
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 21,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 42,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 63,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 84,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 105,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 127,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 148,
+                  "value32": 1789569707
+                },
+                {
+                  "tick": 169,
+                  "value32": 1789569707
+                },
+                {
+                  "tick": 190,
+                  "value32": 1789569707
+                },
+                {
+                  "tick": 211,
+                  "value32": 1789569707
+                },
+                {
+                  "tick": 232,
+                  "value32": 2505397589
+                }
+              ]
+            }
+          ],
+          "sourceEstimate": {
+            "startSeconds": 7.585166893424036,
+            "endSeconds": 7.724486621315193,
+            "activationAmplitude": 0.3704594373703003,
+            "contourThirdSemitones": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              -1,
+              -1,
+              -1,
+              -1,
+              1
+            ],
+            "velocityIsEstimated": true
+          }
+        }
+      ],
+      "sourceAssetId": "8ad0794ad84807efe21662ac82269dd2c5cc1ae8b0c885adad0e47af9901afb9.wav",
+      "transcription": {
+        "model": "spotify/basic-pitch@0.4.0/icassp_2022/onnx",
+        "modelSha256": "2c3c1d144bfa61ad236e92e169c13535c880469a12a047d4e73451f2c059a0ec",
+        "elapsedSeconds": 0.963,
+        "sourceDurationSeconds": 8,
+        "sourceTrackId": "dc5a5fcd-a998-4adf-943d-230dc215b357",
+        "placementStartTick": 3840
+      },
+      "provenance": {
+        "jobId": "76f2376d-86a7-4d91-bc58-9891caaf62ac",
+        "pluginId": "spotify.basic-pitch",
+        "pluginVersion": "0.1.0",
+        "model": "spotify/basic-pitch@0.4.0/icassp_2022/onnx",
+        "modelRevision": null,
+        "modelSha256": "2c3c1d144bfa61ad236e92e169c13535c880469a12a047d4e73451f2c059a0ec",
+        "ai": true,
+        "input": {
+          "assetId": "5d4939418f1e98d1d8e0d946aad19de98525672c25707e71e7f98f690343d14b.wav",
+          "sourceAssetId": "8ad0794ad84807efe21662ac82269dd2c5cc1ae8b0c885adad0e47af9901afb9.wav",
+          "sourceTrackId": "dc5a5fcd-a998-4adf-943d-230dc215b357"
+        }
+      }
+    }
+  ],
+  "history": [],
+  "createdAt": "2026-10-15T11:05:49.635Z",
+  "updatedAt": "2026-10-15T11:05:49.644Z",
+  "inputCapture": {
+    "version": 1,
+    "droppedEvents": 0,
+    "events": [
+      {
+        "format": "ump",
+        "words": [
+          1133657091,
+          3219368909
+        ],
+        "sourceId": "synthetic:editor-fixture",
+        "sourceName": "Synthetic editor fixture",
+        "hostTime": "18446744073709551615",
+        "receivedTimeMs": 10.25,
+        "tick": 123,
+        "trackId": "74859e3d-769b-4aca-8c94-a72706084643"
+      }
+    ]
+  },
+  "providerMetadata": {
+    "qualification": "Synthetic input fixture plus actual prior Basic Pitch estimates",
+    "sourceProjectId": "9d43fd49-6847-4fab-8b6e-4c1fe6b2aa86"
+  }
+}

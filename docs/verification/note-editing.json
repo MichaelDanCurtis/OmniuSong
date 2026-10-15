@@ -1,0 +1,106 @@
+{
+  "at": "2026-10-15T11:16:29.760Z",
+  "projectId": "f5d5e75a-8cb7-4dfb-8cbf-e09762778a68",
+  "revision": 7,
+  "bars": 5,
+  "noteCount": 26,
+  "editedNote": {
+    "id": "531adbce-b265-486f-85ca-af4aeaf1326d",
+    "pitch": 65,
+    "startTick": 3957,
+    "durationTicks": 1201,
+    "velocity16": 51312
+  },
+  "checks": {
+    "exactEditing": true,
+    "repeatedNoteUnchanged": true,
+    "inputAndRawPacketsUnchanged": true,
+    "expressionUnchanged": true,
+    "lockedTrackUnchanged": true,
+    "actualTranscriptionRestoredExactly": true,
+    "restoreOriginalMatchesSourceTracks": true,
+    "sourceSessionUntouched": true
+  },
+  "browser": {
+    "repeatCellCycling": true,
+    "expressionShortenRejectedAt699": true,
+    "expressionTailTick": 700,
+    "saveAndReload": true,
+    "restoreAndUndo": true,
+    "deleteAndUndo": true,
+    "aiNoteEditAndRestore": true,
+    "enterSaves": true,
+    "barPageFollowsEditAndUndo": true,
+    "lockedInspection": true,
+    "viewports": [
+      1440,
+      680
+    ],
+    "horizontalOverflow": false,
+    "consoleErrors": [],
+    "downloadEvent": "First event wait timed out despite completed file; final backup verified via success UI and actual downloaded file",
+    "pendingFieldsSurviveTrackSwitch": true,
+    "multipleFieldsCommitAtomically": true,
+    "rejectedEditBlocksTrackSwitch": true,
+    "zeroVelocityAndUndo": true
+  },
+  "backup": {
+    "path": "/Users/michaelcurtis/Downloads/Note editing qualification (1).omniusong",
+    "bytes": 2455739,
+    "sha256": "20c19b5d4332e81c2cb60801fc4bfbb9a77ff92c5752350667a2b23734f6307b",
+    "assets": 2,
+    "restoredId": "85676b24-dfd4-4c6d-94ab-70de11a0c946",
+    "tracksAndHistoryExact": true,
+    "originalAndAnalysisBytesExact": true
+  },
+  "ump": {
+    "format": "omniusong-ump-trace",
+    "packets": 940,
+    "velocity51312AndMovedExpressionExact": true,
+    "standardClipFile": false
+  },
+  "tests": {
+    "modules": 34,
+    "catalogEntries": 36,
+    "passed": 77,
+    "skipped": 0
+  },
+  "limits": [
+    "Synthetic input fixture; no physical controller or microphone acceptance",
+    "No expression-curve editing or expression playback",
+    "Whole-project Undo remains tab-local; original note snapshots persist",
+    "Grid shows note starts; duration is edited numerically"
+  ],
+  "midi1": {
+    "parser": "Mido",
+    "ticksPerBeat": 960,
+    "noteOns": 26,
+    "editedTrackEvents": [
+      {
+        "tick": 321,
+        "type": "note_on",
+        "pitch": 60,
+        "velocity": 95
+      },
+      {
+        "tick": 1308,
+        "type": "note_off",
+        "pitch": 60,
+        "velocity": 72
+      },
+      {
+        "tick": 3957,
+        "type": "note_on",
+        "pitch": 65,
+        "velocity": 100
+      },
+      {
+        "tick": 5158,
+        "type": "note_off",
+        "pitch": 65,
+        "velocity": 72
+      }
+    ],
+    "precisionReduction": "Upper 7 bits of velocity 51312 produce MIDI 1 velocity 100; expression omitted with warning"
+  }
+}

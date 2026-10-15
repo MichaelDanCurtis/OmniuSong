@@ -13,6 +13,11 @@ export function validateNote(note) {
   demand(int(note.startTick, 0, 1e9), 'Invalid note start');
   demand(int(note.durationTicks, 1, 1e8), 'Invalid note duration');
   demand(int(note.velocity16, 0, 65535), 'Velocity must be 0–65535');
+  if(note.editSource!==undefined){
+    const source=note.editSource;
+    demand(source?.version===1&&source.editSource===undefined,'Invalid original note snapshot');
+    validateNote({id:note.id,pitch:source.pitch,startTick:source.startTick,durationTicks:source.durationTicks,velocity16:source.velocity16,expression:source.expression});
+  }
   if(note.input!==undefined){
     validateSource(note.input);
     demand(['local','midi1','midi2'].includes(note.input.protocol),'Invalid input protocol');
