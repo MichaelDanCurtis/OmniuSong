@@ -16,6 +16,17 @@ export function renderSample({pitch=60,seconds=2,brightness=0.4,seed=1}={}) {
   }
   return encodeWAV(samples,sr);
 }
+export function renderExamplePhrase(){
+  const sr=44100,samples=new Float32Array(sr*3.2);
+  for(const [n,pitch]of [60,64,67,72].entries()){
+    const frequency=440*2**((pitch-69)/12);
+    for(let i=0;i<sr*.65;i++){
+      const time=i/sr,envelope=Math.min(time/.02,1)*Math.min((.65-time)/.05,1);
+      samples[Math.round(n*.8*sr)+i]=.3*envelope*(Math.sin(2*Math.PI*frequency*time)+.3*Math.sin(4*Math.PI*frequency*time));
+    }
+  }
+  return encodeWAV(samples,sr);
+}
 export function renderProject(project) {
   const sr=44100, duration=project.bars*4*60/project.tempo;
   demand(duration<=120,'Offline demo render is limited to 120 seconds');

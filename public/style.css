@@ -5,3 +5,5 @@
 @media(max-width:680px){.session-library{gap:9px;margin-top:0}.session-library label{width:100%}.session-library select{min-width:0;max-width:100%;flex:1}.session-library #library-status{width:100%}}
 
 #sustain[aria-pressed="true"]{background:var(--green);color:#1b2a16}.keys-panel .panel-heading>div:last-child{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.keys-footer{flex-wrap:wrap;gap:8px}.pad{touch-action:none}
+
+.audio-import{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:0 20px 14px}.audio-import>span{font-size:10px;color:var(--muted);flex:1;min-width:170px}.original-audio{display:inline-block;color:var(--green);font-size:10px;margin-top:9px}

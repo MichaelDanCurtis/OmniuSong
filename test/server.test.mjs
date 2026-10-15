@@ -24,5 +24,16 @@ test('studio API supports real persistence, review, export and origin isolation'
   const midi=await fetch(base+'/api/projects/'+p.id+'/midi');assert.equal(midi.headers.get('content-type'),'audio/midi');assert.equal(Buffer.from(await midi.arrayBuffer()).toString('ascii',0,4),'MThd');
   const ump=await get('/api/projects/'+p.id+'/ump');assert.equal(ump.protocol,'MIDI 2.0');assert.ok(ump.packets.length>0);
   const badAsset=await fetch(base+'/api/assets/..%2Fprivate');assert.equal(badAsset.status,404);
+  const exampleResponse=await fetch(base+'/api/examples/four-tones.wav'),example=Buffer.from(await exampleResponse.arrayBuffer());assert.equal(example.length,282284);
+  const uploaded=await fetch(base+'/api/assets',{method:'POST',headers:{'Content-Type':'audio/wav'},body:example}),asset=await uploaded.json();assert.equal(uploaded.status,201);
+  const complete=await fetch(base+'/api/assets/'+asset.assetId);assert.equal(Number(complete.headers.get('Content-Length')),example.length);assert.equal(complete.headers.get('Accept-Ranges'),'bytes');assert.deepEqual(Buffer.from(await complete.arrayBuffer()),example);
+  for(const [range,start,end]of [['bytes=0-43',0,43],['bytes=-10',example.length-10,example.length-1],['bytes=100-',100,example.length-1]]){
+    const partial=await fetch(base+'/api/assets/'+asset.assetId,{headers:{Range:range}});assert.equal(partial.status,206);assert.equal(partial.headers.get('Content-Range'),`bytes ${start}-${end}/${example.length}`);assert.deepEqual(Buffer.from(await partial.arrayBuffer()),example.subarray(start,end+1));
+  }
+  for(const range of ['bytes=999999-','bytes=0-1,4-5','bytes=-0','bytes=9-3'])assert.equal((await fetch(base+'/api/assets/'+asset.assetId,{headers:{Range:range}})).status,416);
+  for(const [mime,extension]of [['audio/mpeg','mp3'],['audio/flac','flac']]){
+    const result=await(await fetch(base+'/api/assets',{method:'POST',headers:{'Content-Type':mime},body:Buffer.from('container-byte-preservation fixture')})).json();assert.ok(result.assetId.endsWith('.'+extension));
+    const original=await fetch(base+'/api/assets/'+result.assetId);assert.equal(original.headers.get('Content-Type'),mime);assert.equal(await original.text(),'container-byte-preservation fixture');
+  }
   const selections=await send('/api/selections',{'aria':'keep'},'PUT');assert.equal(selections.status,200);assert.equal((await get('/api/selections')).aria,'keep');
 });

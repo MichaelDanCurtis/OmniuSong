@@ -1,6 +1,6 @@
 # OmniuSong implementation status
 
-October 15, 2026, approximately 1:15 AM America/Los_Angeles.
+October 15, 2026, approximately 1:45 AM America/Los_Angeles.
 
 ## Open the current build
 
@@ -21,7 +21,10 @@ The local studio is running as a detached process. Its PID and log are in `.runt
 - Arrangement overview, piano roll, 16 pads, two-octave keyboard, track selection, mute, lock, explicit recording arm, local undo, tempo control, lyric editing, and a searchable model observatory.
 - Source-aware note input with distinct UUID voice lifetimes, channel/group separation, repeated-note pairing, sustain, physical key-release timing, release velocity, and safe cancellation during audio startup. Focus loss, panic, and device removal finalize held notes. A visible Sustain button supports the computer and on-screen keyboard.
 - Bounded original MIDI 1/UMP capture while an armed selected track plays. Source IDs and receipt times are retained; the Mac bridge also carries native host-tick strings without rounding them through JavaScript numbers. This is wired and software tested; native endpoint delivery remains unverified.
-- Original vocal capture flow and full-take preview. Capture is user initiated. Microphone operation has not been tested because the Mac is locked.
+- Recording now has explicit permission, recording, finalization, saving, and recovery states. Session changes remain blocked through pending permission and storage; cancellation stops a late microphone stream. Failed saves retain the original in the tab for retry/download, and retries do not duplicate the track. Mocked recorder tests cover denial, disconnect, final data events, timers, and cleanup. Physical microphone operation remains untested because the Mac is locked.
+- Local audio import preserves original bytes and metadata, with a full-take player and original download. Imports are bounded to two minutes and 30 MiB and must decode in the browser. WAV is verified end to end; MP3/M4A/FLAC/Ogg/WebM depend on browser decoding. MP3 and FLAC byte delivery are covered by service tests.
+- A clearly labeled synthesized four-tone example exercises import and actual Basic Pitch transcription. Imported and unquantized note starts now appear in the piano roll without changing their saved timing. Detailed note-duration editing remains planned.
+- Audio delivery now supplies byte lengths and seek ranges, so the tested original player reports its 3.2-second duration and supports seeking.
 - Procedural arrangement sketches and an FM sample instrument, accurately labeled as procedural.
 - An optional local Ollama lyric adapter. No Ollama service was present during the initial check; no lyric-model inference has been claimed.
 - Actual local Basic Pitch transcription through ONNX, with an isolated Python environment, bounded worker output, cancellation signal, model checksum, and raw contour estimates retained alongside converted expression values.
@@ -33,8 +36,8 @@ The local studio is running as a detached process. Its PID and log are in `.runt
 
 | Check | Result | Practical scope |
 | --- | --- | --- |
-| JavaScript syntax and catalog | Passed | 20 modules and 36 unique model entries |
-| Automated tests | 45 passed, no skips | Project, MIDI, persistence, queue, real model inference, and archive checks, plus source/channel/group isolation, repeated and sustained notes, pending audio cancellation, focus/device loss, control messages, bounded capture, zero-velocity MIDI 2 notes, release velocity, and raw-input backup round trips |
+| JavaScript syntax and catalog | Passed | 22 modules and 36 unique model entries |
+| Automated tests | 54 passed, no skips | Project, MIDI, persistence, queue, real model inference, and archive checks, plus source/channel/group isolation, repeated and sustained notes, pending audio cancellation, focus/device loss, control messages, bounded capture, zero-velocity MIDI 2 notes, release velocity, and raw-input backup round trips; recording lifecycle, cancellation, retained-original retries, audio byte delivery, and seek-range checks |
 | Mac release build | Passed | Native executable and local app bundle compiled; not a launch or hardware test |
 | Four-tone model inference | Passed | Real Basic Pitch ONNX checkpoint recovered MIDI pitches 60, 64, 67, 72 from a 3.2-second synthetic fixture; 231 contour points retained |
 | Model checkpoint identity | Captured | SHA256 `2c3c1d144bfa61ad236e92e169c13535c880469a12a047d4e73451f2c059a0ec` |
@@ -42,6 +45,8 @@ The local studio is running as a detached process. Its PID and log are in `.runt
 | Saved browser state | Observed | Original session: eight tracks, 95 notes, revision 4. Restored copy: eight tracks, 96 notes, revision 1 after a note edit and session-switch test. All material was created during development |
 | Complete backup | Passed | Downloaded 446,150-byte archive restored through the live service; all eight tracks, 95 notes, provenance, and two audio assets matched the source, including byte-for-byte media comparison |
 | Input browser flow | Passed | Three distinct notes, including two presses of C4, recorded under sustain. Pedal release cleared them; physical key durations and longer sustained durations survived save/reload. Panic cleared active input; keys played while stopped added no notes. The separate Input qualification session contains this test material |
+| Audio import and transcription | Passed in browser | Imported the procedural 3.2-second WAV, ran real local Basic Pitch, auditioned and accepted pitches 60, 64, 67, 72, then reloaded. Complete archive restored into an empty temporary store with all tracks/history and both original/analysis audio byte-identical |
+| Failed audio save recovery | Passed in browser | A separate temporary service deliberately failed its first write. UI blocked session changes, exposed retry/original download, downloaded exact original bytes, and retried into one audio track. The temporary service was stopped afterward |
 | Session switching | Passed in browser | A pending note edit saved before switching; original retained its state, restored copy retained the edit and reopened after reload |
 | Browser backup file selection | Permission limitation | Actual backup download verified; automated restore-file selection requires Chrome extension file URL permission. The restore service and complete bundle round trip are verified separately |
 | Model observatory | Passed | Search and saved Keep selection through the UI |
@@ -57,7 +62,7 @@ The initial SciPy 1.15.3 wheel failed to load a Fortran extension on this macOS 
 
 ## Remaining work
 
-The next useful slice is microphone-state reliability and audio import: keep session changes blocked while permission, recording, and take storage are pending; clean up failed capture; preserve every original asset. Then add clip offsets, recording alignment, and note duration editing. Complete backups, session switching, and software input lifetimes are implemented. Archive limits are in PROJECT-ARCHIVE; input semantics and limits are in HARDWARE-MIDI.
+The next useful slice is a bounded Aria MLX or Magenta RealTime 2 qualification: inspect resources and official runtime/model requirements, resolve license gates, and attempt actual inference in an isolated environment if feasible. Reliable session switching, complete backups, source-aware input, recording-state safeguards, and local audio import are implemented. Audio clip offsets, recording alignment, and detailed note-duration editing remain useful follow-on work. Archive limits are in PROJECT-ARCHIVE; input semantics are in HARDWARE-MIDI; recording behavior is in RECORDING.
 
 Raw input is limited to 4,096 messages per project, with a visible warning and omission count when full. Recorded timing uses browser receipt and elapsed time; native host ticks are retained but not calibrated to the audio clock. Same-pitch MIDI note-offs pair FIFO within one source/group/channel. Original packets and generated edited-note exports remain distinct. Software source-loss tests do not establish a native or physical controller round trip. See `verification/input-session.json` for the browser save receipt.
 
@@ -67,7 +72,9 @@ Native realtime audio, Audio Unit/VST3/CLAP hosting, secure third-party plugin e
 
 The Mac was locked when native UI access was attempted. Continue software work without retrying the locked desktop. Native launch, microphone capture, physical device checks, and the native file-dialog/download path remain separate acceptance work.
 
-The archive UI file chooser opens, but the automation extension cannot select a local file without its file URL permission. No extension permissions were changed. Continue independent work rather than repeatedly retrying this gate. Archive tests and the actual downloaded bundle receipt are in `verification/archive-roundtrip.json`.
+The archive UI file chooser opens, but the automation extension cannot select a local file without its file URL permission. The same limitation applies to selecting an external audio file. The example button exercises the real import pipeline with a local generated Blob; it does not close the file-selection gate. No extension permissions were changed. Continue independent work rather than repeatedly retrying this gate. Archive tests and the actual downloaded bundle receipt are in `verification/archive-roundtrip.json`.
+
+Recording recovery retains unsaved bytes in browser memory. It is not crash-durable pending-take storage: retry saving or download before closing. A recorder interruption retains the bytes it produced, without claiming that every interrupted container is playable. Codec decoding, real microphone privacy permission, and physical listening remain acceptance work. Receipts are in `verification/audio-import.json` and `verification/audio-recovery.json`.
 
 ## Overnight continuation
 
@@ -82,3 +89,6 @@ The continuation should preserve original performances, avoid paid or externally
 ![Saved-session selection and complete backup controls](verification/session-backup-preview.png)
 
 ![Studio with sustain and active-note controls](verification/input-preview.png)
+
+
+![Imported original and accepted local transcription](verification/audio-import-preview.png)

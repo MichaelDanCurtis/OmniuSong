@@ -1,0 +1,38 @@
+{
+  "at": "2026-10-15T08:39:32.744Z",
+  "method": "Separate temporary local service intentionally failed its first asset write; Chrome UI imported, downloaded the retained original, retried, and reloaded.",
+  "checks": {
+    "sessionControlsBlocked": true,
+    "retryAndDownloadVisible": true,
+    "downloadMatchesOriginal": true,
+    "singleAudioTrackAfterRetry": true,
+    "storedOriginalMatches": true
+  },
+  "originalBytes": 282284,
+  "sha256": "2a43aaacbb59bedceb5a15b4a99d5f70b880a8258cc788b09a8feddc12d74f55",
+  "track": {
+    "id": "5477c139-d33c-4ebb-aeda-c647eadd8d3e",
+    "name": "Example four-tone phrase",
+    "kind": "audio",
+    "instrument": "voice",
+    "gain": 0.7,
+    "muted": false,
+    "locked": false,
+    "notes": [],
+    "assetId": "2a43aaacbb59bedceb5a15b4a99d5f70b880a8258cc788b09a8feddc12d74f55.wav",
+    "audio": {
+      "origin": "import",
+      "mimeType": "audio/wav",
+      "durationSeconds": 3.2,
+      "byteLength": 282284,
+      "originalName": "Example four-tone phrase.wav",
+      "example": true,
+      "method": "procedural four-tone fixture"
+    }
+  },
+  "limits": [
+    "Controlled save failure, not a physical disk failure",
+    "Pending unsaved recovery stays in browser memory until saved or downloaded",
+    "No microphone access used"
+  ]
+}

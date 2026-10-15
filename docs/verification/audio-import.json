@@ -1,0 +1,46 @@
+{
+  "at": "2026-10-15T08:40:37.971Z",
+  "projectId": "01da31dc-76e5-4d3d-ae90-1a7b1552ac58",
+  "revision": 3,
+  "method": "Chrome UI imported procedural four-tone WAV, ran actual Basic Pitch, auditioned and accepted; downloaded archive restored into temporary empty store",
+  "originalTrack": {
+    "id": "d18c923d-5d47-4535-8891-7e0dfd961a7a",
+    "name": "Example four-tone phrase",
+    "kind": "audio",
+    "instrument": "voice",
+    "gain": 0.7,
+    "muted": false,
+    "locked": false,
+    "notes": [],
+    "assetId": "2a43aaacbb59bedceb5a15b4a99d5f70b880a8258cc788b09a8feddc12d74f55.wav",
+    "audio": {
+      "origin": "import",
+      "mimeType": "audio/wav",
+      "durationSeconds": 3.2,
+      "byteLength": 282284,
+      "originalName": "Example four-tone phrase.wav",
+      "example": true,
+      "method": "procedural four-tone fixture"
+    }
+  },
+  "originalSha256": "2a43aaacbb59bedceb5a15b4a99d5f70b880a8258cc788b09a8feddc12d74f55",
+  "estimatedPitches": [
+    60,
+    64,
+    67,
+    72
+  ],
+  "archiveBytes": 710490,
+  "archiveAssets": 2,
+  "checks": {
+    "originalBytesUnchanged": true,
+    "expectedFourPitches": true,
+    "tracksAndHistoryIdenticalAfterRestore": true,
+    "allMediaByteIdentical": true
+  },
+  "limits": [
+    "Synthesized fixture, not a human performance or general transcription accuracy test",
+    "File chooser automation remains restricted by Chrome extension file URL permission",
+    "Only WAV decode qualified in this browser flow; other containers depend on browser support"
+  ]
+}

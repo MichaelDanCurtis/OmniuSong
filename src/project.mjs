@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 export const PPQ = 960;
-export const ASSET_ID = /^[a-f0-9]{64}\.(wav|webm|mp4|ogg)$/;
+export const ASSET_ID = /^[a-f0-9]{64}\.(wav|webm|mp4|ogg|mp3|flac)$/;
 export const uid = () => randomUUID();
 export const copy = value => structuredClone(value);
 export function demand(condition, message) { if (!condition) throw new Error(message); }
@@ -74,6 +74,13 @@ export function validateProject(project) {
     demand(Array.isArray(t.notes) && t.notes.length <= 20000, 'Invalid notes');
     const noteIds = new Set();
     for (const n of t.notes) { validateNote(n); demand(!noteIds.has(n.id), 'Duplicate note id'); noteIds.add(n.id); }
+    if(t.audio!==undefined){
+      demand(['microphone','import'].includes(t.audio.origin),'Invalid audio origin');
+      demand(typeof t.audio.mimeType==='string'&&t.audio.mimeType.length<=100,'Invalid audio MIME');
+      demand(finite(t.audio.durationSeconds,.001,86400),'Invalid audio duration');
+      demand(int(t.audio.byteLength,1,30*1024*1024),'Invalid audio byte length');
+      if(t.audio.originalName!==undefined)demand(typeof t.audio.originalName==='string'&&t.audio.originalName.length<=512,'Invalid original audio name');
+    }
     if (t.assetId) demand(typeof t.assetId==='string'&&ASSET_ID.test(t.assetId), 'Invalid audio asset id');
     if (t.sourceAssetId) demand(typeof t.sourceAssetId==='string'&&ASSET_ID.test(t.sourceAssetId), 'Invalid source asset id');
   }

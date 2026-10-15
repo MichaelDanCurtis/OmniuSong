@@ -31,7 +31,7 @@ export class Store {
   });}
   async saveJob(job) {await atomicJSON(join(this.root,'jobs',this.id(job.id)+'.json'),job);return job;}
   async putAsset(bytes,extension='wav') {
-    demand(['wav','webm','mp4','ogg'].includes(extension),'Unsupported audio container');
+    demand(['wav','webm','mp4','ogg','mp3','flac'].includes(extension),'Unsupported audio container');
     const id=createHash('sha256').update(bytes).digest('hex')+'.'+extension;
     const path=join(this.root,'assets',id);
     let existing;try {existing=await readFile(path);}catch(error){if(error.code!=='ENOENT')throw error;}
