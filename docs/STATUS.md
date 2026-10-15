@@ -1,6 +1,6 @@
 # OmniuSong implementation status
 
-October 15, 2026, approximately 7:40 AM America/Los_Angeles.
+October 15, 2026, 8:00 AM America/Los_Angeles. Overnight implementation ended at the requested cutoff.
 
 ## Open the current build
 
@@ -112,9 +112,13 @@ Completed-original recovery is now disk backed after both its metadata and compl
 
 ## Overnight continuation
 
-The `OmniuSong overnight build` heartbeat is active every 30 minutes through 8:00 AM America/Los_Angeles on October 15. It resumes this chat and reads this file and IMPLEMENTATION-PLAN before choosing the next bounded slice. It should update this status after meaningful completed work and leave a morning review.
+The overnight run ended at 8:00 AM America/Los_Angeles on October 15. The automation was deleted through the app, and no new implementation started after the cutoff. The local studio remains running; its status endpoint responded during closeout. All implementation changes are committed locally, with no deployment, purchases, paid calls, personal-recording uploads, or changes to Fuego.
 
-The continuation should preserve original performances, avoid paid or externally published operations, keep runtime environments isolated, and report actual inference separately from installation. Stop starting work at the morning cutoff.
+The final completed build passes 116 tests with no skips, and syntax/catalog checks cover 42 modules and 36 entries. Real local inference is integrated for Basic Pitch transcription, Aria piano continuation, and short offline Magenta Small audio generation. Human control includes candidate audition/accept/discard, exact note edits, original restoration, locks, source-preserving trims/fades, waveform review, armed input, count-in, recovery and complete project backups. Procedural arrangement/instrument/lyric cards remain labeled separately. The optional Ollama lyric adapter has not been qualified with a real lyric model.
+
+Start the morning by opening **Magenta studio qualification** and **Aria studio qualification** from Saved sessions to hear the retained examples. Then use an unlocked Mac, keyboard/pads and microphone for a short human performance: check monitoring and recording alignment, transcribe a vocal line, compare an AI answer, save/reload and restore a complete backup. Actual microphone/controller delivery, measured latency and listening quality are the next acceptance gates. Native plugin hosting, choir rendering, Windows packaging and standard MIDI 2 Clip Files remain roadmap work. Active recording fragments still lack incremental crash protection.
+
+Review the [product specification](PRODUCT-SPEC.md), [model research](MODEL-RESEARCH.md), [roadmap](ROADMAP.md), and [implementation plan](IMPLEMENTATION-PLAN.md) alongside the capability evidence above.
 
 ## Studio preview
 
