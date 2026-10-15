@@ -1,0 +1,33 @@
+{
+  "verifiedAt": "2026-10-15T07:51:46.222Z",
+  "format": "omniusong-project-archive",
+  "version": 1,
+  "downloadedBytes": 446150,
+  "assetCount": 2,
+  "trackCount": 8,
+  "noteCount": 95,
+  "sourceRevision": 4,
+  "sourceProjectId": "feb682a3-3061-4435-93cf-5ab0584ffe3c",
+  "restoredProjectId": "8b9e66de-17f4-4958-9109-993375f1c642",
+  "checks": [
+    "Downloaded archive parsed and checked",
+    "Restored via live loopback service",
+    "New identity; original preserved",
+    "All tracks and expression preserved exactly",
+    "Accepted-candidate history preserved exactly",
+    "All referenced audio downloaded and byte-compared"
+  ],
+  "browserImportAutomation": "Blocked by Chrome extension file URL permission; local restore service verified",
+  "sessionSwitchCheck": {
+    "originalNotes": 95,
+    "originalRevision": 4,
+    "restoredNotesAfterEdit": 96,
+    "restoredRevisionAfterEdit": 1,
+    "rememberedAfterReload": true
+  },
+  "automatedTests": {
+    "passed": 31,
+    "failed": 0,
+    "skipped": 0
+  }
+}

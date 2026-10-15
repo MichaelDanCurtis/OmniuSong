@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { readFile, mkdir } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { dirname, join, resolve, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Store, atomicJSON } from './storage.mjs';
@@ -9,6 +9,7 @@ import { JobQueue } from './jobs.mjs';
 import { exportSMF, exportUMPTrace } from './midi.mjs';
 import { renderProject } from './wav.mjs';
 import { basicPitchAvailable } from './worker.mjs';
+import { exportArchive, importArchive, ARCHIVE_MIME, ARCHIVE_LIMITS } from './archive.mjs';
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.wav':'audio/wav','.webm':'audio/webm','.mp4':'audio/mp4','.ogg':'audio/ogg'};
@@ -32,10 +33,14 @@ export async function createServer({dataDir=process.env.OMNIUSONG_DATA_DIR??join
       if(req.method==='GET'&&path==='/api/catalog')return send(res,200,catalog);
       if(req.method==='GET'&&path==='/api/plugins')return send(res,200,plugins.list());
       if(path==='/api/projects'){
-        if(req.method==='GET')return send(res,200,(await store.list('projects')).map(({tracks,...p})=>({...p,trackCount:tracks.length})));
+        if(req.method==='GET')return send(res,200,(await store.list('projects')).map(p=>({id:p.id,name:p.name,revision:p.revision,createdAt:p.createdAt,updatedAt:p.updatedAt,trackCount:p.tracks.length})));
         if(req.method==='POST'){const input=await json(req);return send(res,201,await store.saveProject(newProject(input.name),null));}
       }
-      const projectMatch=path.match(/^\/api\/projects\/([a-zA-Z0-9-]+)(?:\/(midi|ump|wav))?$/);
+      if(path==='/api/archives'&&req.method==='POST'){
+        demand(req.headers['content-type']===ARCHIVE_MIME,'Expected an OmniuSong backup file');
+        return send(res,201,await importArchive(store,await body(req,ARCHIVE_LIMITS.compressedBytes)));
+      }
+      const projectMatch=path.match(/^\/api\/projects\/([a-zA-Z0-9-]+)(?:\/(midi|ump|wav|archive))?$/);
       if(projectMatch){
         const [,id,format]=projectMatch;
         if(req.method==='GET'){
@@ -43,6 +48,7 @@ export async function createServer({dataDir=process.env.OMNIUSONG_DATA_DIR??join
           if(format==='midi'){const out=exportSMF(p);res.setHeader('X-OmniuSong-Warnings',encodeURIComponent(out.warnings.join('; ')));return send(res,200,out.bytes,'audio/midi');}
           if(format==='ump')return send(res,200,exportUMPTrace(p));
           if(format==='wav')return send(res,200,renderProject(p),'audio/wav');
+          if(format==='archive')return send(res,200,await exportArchive(store,p),ARCHIVE_MIME);
           return send(res,200,p);
         }
         if(req.method==='PUT'&&!format){const input=await json(req);demand(input.project?.id===id,'Project id mismatch');validateProject(input.project);return send(res,200,await store.saveProject(input.project,input.expectedRevision));}

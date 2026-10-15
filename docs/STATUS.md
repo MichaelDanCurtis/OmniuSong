@@ -1,6 +1,6 @@
 # OmniuSong implementation status
 
-October 15, 2026, approximately 12:30 AM America/Los_Angeles.
+October 15, 2026, approximately 12:55 AM America/Los_Angeles.
 
 ## Open the current build
 
@@ -15,6 +15,8 @@ The local studio is running as a detached process. Its PID and log are in `.runt
 
 - Versioned, validated note projects with integer musical timing, 16-bit velocities, expression lanes, track and lyric locks, revision conflicts, and accepted-candidate provenance.
 - Local saves with atomic replacement and a previous-revision backup. Content-addressed audio assets and saved model selections.
+- Complete `.omniusong` backups include referenced audio, source recordings, expression, and accepted-candidate history. Restore validates the whole bundle and audio checksums before publishing a new session; existing projects remain intact.
+- A saved-session picker flushes pending edits before switching and remembers the active session after reload. Audio asset writes now use atomic replacement, and reads detect damaged content.
 - Developer plugin registry and durable generation queue with explicit audition/accept/discard, cancellation, restart interruption, and idempotent acceptance.
 - Arrangement overview, piano roll, 16 pads, two-octave keyboard, track selection, mute, lock, explicit recording arm, local undo, tempo control, lyric editing, and a searchable model observatory.
 - Original vocal capture flow and full-take preview. Capture is user initiated. Microphone operation has not been tested because the Mac is locked.
@@ -29,13 +31,16 @@ The local studio is running as a detached process. Its PID and log are in `.runt
 
 | Check | Result | Practical scope |
 | --- | --- | --- |
-| JavaScript syntax and catalog | Passed | 16 modules and 36 unique model entries |
-| Automated tests | 21 passed, no skips | Project data, MIDI packet layout, export chunks, persistence conflicts, locks, queue review, cancellation, restart recovery, HTTP origin checks, and real model inference |
+| JavaScript syntax and catalog | Passed | 18 modules and 36 unique model entries |
+| Automated tests | 31 passed, no skips | Previous project/MIDI/model checks plus archive restoration, exact expression/provenance round trips, missing and damaged audio, checksum failures, duplicate entries, traversal attempts, bounded gzip expansion, and HTTP backup/restore |
 | Mac release build | Passed | Native executable and local app bundle compiled; not a launch or hardware test |
 | Four-tone model inference | Passed | Real Basic Pitch ONNX checkpoint recovered MIDI pitches 60, 64, 67, 72 from a 3.2-second synthetic fixture; 231 contour points retained |
 | Model checkpoint identity | Captured | SHA256 `2c3c1d144bfa61ad236e92e169c13535c880469a12a047d4e73451f2c059a0ec` |
 | Browser session flow | Passed | Generate and audition a 92-note sketch, accept, add a note, save, reload, generate and accept a sample, play a sample key, transcribe the sample, accept notes |
-| Saved browser state | Observed | Eight tracks, 95 notes, revision 4; all test material was created during development |
+| Saved browser state | Observed | Original session: eight tracks, 95 notes, revision 4. Restored copy: eight tracks, 96 notes, revision 1 after a note edit and session-switch test. All material was created during development |
+| Complete backup | Passed | Downloaded 446,150-byte archive restored through the live service; all eight tracks, 95 notes, provenance, and two audio assets matched the source, including byte-for-byte media comparison |
+| Session switching | Passed in browser | A pending note edit saved before switching; original retained its state, restored copy retained the edit and reopened after reload |
+| Browser backup file selection | Permission limitation | Actual backup download verified; automated restore-file selection requires Chrome extension file URL permission. The restore service and complete bundle round trip are verified separately |
 | Model observatory | Passed | Search and saved Keep selection through the UI |
 | Responsive layout | Checked | 1440- and 680-pixel viewports showed no page horizontal overflow |
 | Browser errors | None observed in tested flow | No captured error console entries |
@@ -49,13 +54,15 @@ The initial SciPy 1.15.3 wheel failed to load a Fortran extension on this macOS 
 
 ## Remaining work
 
-The next useful slice is complete project archives with referenced audio and session switching. Current JSON export alone is not a complete audio-project backup. Add file import, missing-asset handling, and round-trip validation.
+The next useful slice is input reliability: sustain, source/channel identities, per-note identity, focus loss and panic, raw UMP retention, and fast note release during audio initialization. Then add audio import, clip offsets, recording alignment, and note duration editing. Complete project backup and saved-session switching are implemented; archive limits and validation are documented in PROJECT-ARCHIVE.
 
 Then improve audio clip offsets and recording alignment, sustain and source/channel identities, note duration editing, per-note expression editing and playback, MIDI output, standard MIDI 2 Clip Files, and independent file validation. The preview stores expression that its current Web Audio synth does not yet perform.
 
 Native realtime audio, Audio Unit/VST3/CLAP hosting, secure third-party plugin execution, large song-model workers, score-conditioned song editing, choir rendering, and Windows packaging remain roadmap work. No paid service, model gate acceptance, deployment, or personal-audio upload was performed.
 
-The Mac was locked when native UI access was attempted. Continue software work without retrying the locked desktop. Native launch, microphone capture, and physical device checks can resume after unlock.
+The Mac was locked when native UI access was attempted. Continue software work without retrying the locked desktop. Native launch, microphone capture, physical device checks, and the native file-dialog/download path remain separate acceptance work.
+
+The archive UI file chooser opens, but the automation extension cannot select a local file without its file URL permission. No extension permissions were changed. Continue independent work rather than repeatedly retrying this gate. Archive tests and the actual downloaded bundle receipt are in `verification/archive-roundtrip.json`.
 
 ## Overnight continuation
 
@@ -66,3 +73,5 @@ The continuation should preserve original performances, avoid paid or externally
 ## Studio preview
 
 ![OmniuSong studio with the accepted arrangement and Basic Pitch candidate](verification/studio-preview.png)
+
+![Saved-session selection and complete backup controls](verification/session-backup-preview.png)

@@ -102,6 +102,8 @@ Notes retain 16-bit attack velocity, duration, pitch, channel and group addressi
 
 Audio assets are content-addressed. Asset records include sample rate, channels, duration, originating task, source references, and the relationship to original recordings. Production projects use a portable archive containing project data, required assets, checksums, and a manifest. External model weights remain references rather than bundled copies by default.
 
+The preview implements `.omniusong` backups as versioned gzip JSON bundles with checksummed audio. Restoring creates a new project identity and retains the original session. Saved-session selection flushes pending edits before switching. [Archive format](PROJECT-ARCHIVE.md).
+
 The initial schema implements integer note timing, 16-bit velocity, expression lanes, track locks, lyric locks, immutable audio IDs, revision checks, and accepted-candidate provenance. Tempo maps, note identities for same-pitch overlaps, expression editing, and full asset manifests are later additions.
 
 ## AI task lifecycle

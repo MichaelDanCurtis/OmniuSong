@@ -1,15 +1,18 @@
-import { mkdir, readFile, writeFile, rename, open, readdir, copyFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, open, readdir, copyFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
-import { validateProject, copy, demand } from './project.mjs';
+import { validateProject, copy, demand, ASSET_ID } from './project.mjs';
 
 export class Conflict extends Error { constructor(message='Project changed. Reload before saving.') {super(message);this.status=409;} }
-export async function atomicJSON(path,value) {
+export async function atomicWrite(path,value) {
   const tmp=`${path}.${randomUUID()}.tmp`;
-  const handle=await open(tmp,'wx',0o600);
-  try {await handle.writeFile(JSON.stringify(value,null,2)+'\n');await handle.sync();} finally {await handle.close();}
-  await rename(tmp,path);
+  try {
+    const handle=await open(tmp,'wx',0o600);
+    try {await handle.writeFile(value);await handle.sync();} finally {await handle.close();}
+    await rename(tmp,path);
+  } finally {await unlink(tmp).catch(error=>{if(error.code!=='ENOENT')throw error;});}
 }
+export const atomicJSON=(path,value)=>atomicWrite(path,JSON.stringify(value,null,2)+'\n');
 export class Store {
   constructor(root) {this.root=root;this.tail=Promise.resolve();}
   async init() {for(const name of ['projects','assets','jobs','backups']) await mkdir(join(this.root,name),{recursive:true,mode:0o700});return this;}
@@ -30,8 +33,15 @@ export class Store {
   async putAsset(bytes,extension='wav') {
     demand(['wav','webm','mp4','ogg'].includes(extension),'Unsupported audio container');
     const id=createHash('sha256').update(bytes).digest('hex')+'.'+extension;
-    try {await writeFile(join(this.root,'assets',id),bytes,{flag:'wx',mode:0o600});}catch(e){if(e.code!=='EEXIST')throw e;}
+    const path=join(this.root,'assets',id);
+    let existing;try {existing=await readFile(path);}catch(error){if(error.code!=='ENOENT')throw error;}
+    // A validated restore also repairs an interrupted or damaged copy of the
+    // same content address. Complete bytes are committed before a project refers to them.
+    if(!existing?.equals(bytes))await atomicWrite(path,bytes);
     return id;
   }
-  async asset(id) {demand(/^[a-f0-9]{64}\.(wav|webm|mp4|ogg)$/.test(id),'Invalid asset id');return readFile(join(this.root,'assets',id));}
+  async asset(id) {
+    demand(ASSET_ID.test(id),'Invalid asset id');const bytes=await readFile(join(this.root,'assets',id));
+    demand(createHash('sha256').update(bytes).digest('hex')===id.split('.')[0],`Audio asset is damaged: ${id}`);return bytes;
+  }
 }

@@ -28,7 +28,8 @@ The development app requires the local server to be running. It adds CoreMIDI UM
 4. Record an original vocal take using **Record voice**. Recording requests microphone permission only when used. The full original take is available in its audio player; arrangement playback currently places it at the start of the loop.
    Select a vocal or sample track and choose **Turn selected audio into notes** to run local Basic Pitch transcription. Audition and accept the estimated notes separately; the original audio stays in the project.
 5. Review the **Model observatory** and save Keep, Explore, or Skip choices.
-6. Export a project, MIDI 1 file, or MIDI 2 UMP packet trace. The packet trace is an OmniuSong JSON format; Standard MIDI Clip File export is planned.
+6. Choose **Backup project** to download a complete `.omniusong` archive with its referenced audio. Use **Restore backup** to open it as a new session. Switch between saved work with **Saved sessions**; pending edits are saved before a switch.
+7. Export a MIDI 1 file or MIDI 2 UMP packet trace. The packet trace is an OmniuSong JSON format; Standard MIDI Clip File export is planned.
 
 To use a local AI lyric model, start an existing Ollama installation and set `OMNIUSONG_OLLAMA_MODEL` to an installed model before starting the studio. Then enable **Use my local AI lyric model**. The app does not install or select a model silently.
 
@@ -43,7 +44,7 @@ Basic Pitch is installed in this checkout's isolated `.runtime/basic-pitch` envi
 - [Hardware and MIDI design](docs/HARDWARE-MIDI.md)
 - [Current implementation and verification](docs/STATUS.md)
 
-Projects, jobs, audio assets, and model selections live in the ignored `data/` directory. Project saves retain one previous revision in `data/backups/`. Export project JSON and preserve its referenced assets together for a complete backup. A portable project archive is a planned follow-up.
+Projects, jobs, audio assets, and model selections live in the ignored `data/` directory. Project saves retain one previous revision in `data/backups/`. Complete `.omniusong` backups include referenced audio, source recordings used for transcription, expression data, and accepted-candidate provenance. Restore checks every audio checksum before publishing a new project and leaves existing sessions intact. See the [archive format and limits](docs/PROJECT-ARCHIVE.md).
 
 ## Verification
 

@@ -15,6 +15,7 @@ The first implementation is intentionally a development system. The production a
 | `src/project.mjs` | Project and note validation, IDs, non-destructive candidate merge |
 | `src/midi.mjs` | SMF MIDI 1 output, MIDI 2 note and per-note pitch UMP, trace output |
 | `src/storage.mjs` | Revision checks, serialized saves, atomic replacement, content-addressed audio |
+| `src/archive.mjs` | Complete project backup, bounded decoding, audio checksums, restore into a new session |
 | `src/plugins.mjs` | Versioned developer registry, trusted built-ins, local Ollama adapter |
 | `src/jobs.mjs` | Durable queue, cancellation, crash interruption, candidate review |
 | `src/composer.mjs` and `src/wav.mjs` | Explicitly procedural musical sketch and sample tools |
@@ -38,6 +39,7 @@ The first implementation is intentionally a development system. The production a
 - [x] Add the native Mac input shell and local application build.
 - [x] Verify browser arrangement, sample, note editing, model inference, candidate acceptance, and saving.
 - [x] Complete real Basic Pitch ONNX inference and preserve raw pitch estimates.
+- [x] Implement complete project archives and session switching; verify downloaded backup restoration through the local service.
 - [ ] Verify native launch after the Mac is unlocked.
 - [ ] Complete real controller and microphone acceptance independently.
 
@@ -46,7 +48,7 @@ The first implementation is intentionally a development system. The production a
 Read STATUS and the working tree before each continuation. Choose one bounded improvement, complete its implementation, run meaningful checks, and update the status with its practical limits. Prefer fixing musical data loss or broken flows over adding more model names.
 
 1. **Finish the full session loop.** Exercise arrangement generation, audition, acceptance, note editing, save/reload, sample playback, exports, model selections, native launch, and input connection. Fix discovered errors.
-2. **Portable archives and session switching.** Provide a complete archive containing referenced audio. Test missing assets, malformed archives, traversal, and round trips. Avoid marking JSON-only export as a complete project backup.
+2. **Portable archives and session switching.** Implemented: checksummed `.omniusong` bundles include all referenced audio, and restore creates a new session. HTTP round trips and the live downloaded bundle pass; browser switching saves edits and remembers the selected session. Automated browser file selection remains unverified because the Chrome extension lacks file URL permission. Native Mac file dialogs and download handling still need qualification.
 3. **Input reliability.** Add explicit recording arm, handling for fast press/release during audio initialization, sustain, source/channel identities, focus loss, panic, and overlapping voices. Capture original UMP data without downgrading it.
 4. **Extend transcription qualification.** The Basic Pitch ONNX adapter is implemented and passes a real four-tone inference test. Add audio import and evaluate original human singing and instruments when available. Retain raw estimates and source audio. Compare MuScriptor for mixed material without treating isolated-tone success as general transcription accuracy.
 5. **Aria or realtime model spike.** Compare official MLX runtime requirements, install in an isolated environment if feasible, and run one bounded inference. Preserve checkpoint identity and output. Do not treat imports as successful inference.

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 export const PPQ = 960;
+export const ASSET_ID = /^[a-f0-9]{64}\.(wav|webm|mp4|ogg)$/;
 export const uid = () => randomUUID();
 export const copy = value => structuredClone(value);
 export function demand(condition, message) { if (!condition) throw new Error(message); }
@@ -45,8 +46,8 @@ export function validateProject(project) {
     demand(Array.isArray(t.notes) && t.notes.length <= 20000, 'Invalid notes');
     const noteIds = new Set();
     for (const n of t.notes) { validateNote(n); demand(!noteIds.has(n.id), 'Duplicate note id'); noteIds.add(n.id); }
-    if (t.assetId) demand(/^[a-f0-9]{64}\.(wav|webm|mp4|ogg)$/.test(t.assetId), 'Invalid audio asset id');
-    if (t.sourceAssetId) demand(/^[a-f0-9]{64}\.(wav|webm|mp4|ogg)$/.test(t.sourceAssetId), 'Invalid source asset id');
+    if (t.assetId) demand(typeof t.assetId==='string'&&ASSET_ID.test(t.assetId), 'Invalid audio asset id');
+    if (t.sourceAssetId) demand(typeof t.sourceAssetId==='string'&&ASSET_ID.test(t.sourceAssetId), 'Invalid source asset id');
   }
   demand(Array.isArray(project.history) && project.history.length <= 5000, 'Invalid project history');
   return project;

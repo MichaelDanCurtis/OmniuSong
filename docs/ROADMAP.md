@@ -16,6 +16,8 @@ Exit when a musician can create a procedural arrangement, audition and accept it
 
 Add explicit arm and overdub controls, count-in, metronome, bar selection, clip offsets, audio import, waveform view, project archive import/export, session switching, durable undo, quantization choices, sustain pedal, note length editing, device selection, and recording latency measurement. Move project storage to a transaction-capable implementation when multiple related records require atomic commits.
 
+The first overnight continuation delivered complete project archive import/export and saved-session switching. Recording arm is also available. The remaining recording and editing work continues toward this stage's exit test.
+
 Exit with an independently performed session: create project, play keys, record a vocal, undo a bad take, align clips, save, restart, restore all assets, and render a mix without lost notes or recordings. Include fault-injection recovery and a hardware loopback report.
 
 ## Stage 2 Actual local models
