@@ -1,11 +1,23 @@
-const keys=['startTick','trimStartSeconds','trimEndSeconds'];
+const keys=['startTick','trimStartSeconds','trimEndSeconds','fadeInSeconds','fadeOutSeconds'];
 const demand=(condition,message)=>{if(!condition)throw new Error(message);};
 export function clipWindow(audio){
   demand(Number.isFinite(audio?.durationSeconds)&&audio.durationSeconds>=.001&&audio.durationSeconds<=86400,'Invalid audio duration');
   const startTick=audio.startTick===undefined?0:audio.startTick,start=audio.trimStartSeconds===undefined?0:audio.trimStartSeconds,end=audio.trimEndSeconds===undefined?audio.durationSeconds:audio.trimEndSeconds;
   demand(Number.isInteger(startTick)&&startTick>=0&&startTick<=1e9,'Invalid audio start');
   demand(Number.isFinite(start)&&Number.isFinite(end)&&start>=0&&end<=audio.durationSeconds&&end>start&&end-start+1e-9>=.001,'Choose a source window of at least 0.001 seconds within the original audio');
-  return {startTick,trimStartSeconds:start,trimEndSeconds:end,durationSeconds:end-start};
+  const fadeInSeconds=audio.fadeInSeconds===undefined?0:audio.fadeInSeconds,fadeOutSeconds=audio.fadeOutSeconds===undefined?0:audio.fadeOutSeconds;
+  demand(Number.isFinite(fadeInSeconds)&&Number.isFinite(fadeOutSeconds)&&fadeInSeconds>=0&&fadeOutSeconds>=0&&fadeInSeconds+fadeOutSeconds<=end-start+1e-9,'Fades must be zero or longer and fit together inside the selected source window');
+  return {startTick,trimStartSeconds:start,trimEndSeconds:end,fadeInSeconds,fadeOutSeconds,durationSeconds:end-start};
+}
+// Points use elapsed clip seconds, so a late scheduler resumes the existing envelope.
+// If the decoded source or loop cuts a clip short, scale both fades to fit its audible span.
+export function clipGainPoints(audio,durationSeconds,elapsedSeconds=0){
+  const view=clipWindow(audio);
+  demand(Number.isFinite(durationSeconds)&&durationSeconds>0&&durationSeconds<=view.durationSeconds+1e-9&&Number.isFinite(elapsedSeconds)&&elapsedSeconds>=0&&elapsedSeconds<durationSeconds,'Invalid audible clip window');
+  const scale=Math.min(1,durationSeconds/(view.fadeInSeconds+view.fadeOutSeconds||durationSeconds)),fadeIn=view.fadeInSeconds*scale,fadeOut=view.fadeOutSeconds*scale;
+  const level=seconds=>fadeIn>0&&seconds<fadeIn?seconds/fadeIn:fadeOut>0&&seconds>durationSeconds-fadeOut?(durationSeconds-seconds)/fadeOut:1;
+  const times=[elapsedSeconds,...[fadeIn,durationSeconds-fadeOut].filter(seconds=>seconds>elapsedSeconds&&seconds<durationSeconds),durationSeconds];
+  return [...new Set(times)].sort((a,b)=>a-b).map(seconds=>({seconds,level:Math.max(0,Math.min(1,level(seconds)))}));
 }
 export function originalClipAudio(audio){
   demand(audio.editSource?.version===1&&audio.editSource.original&&typeof audio.editSource.original==='object'&&!Array.isArray(audio.editSource.original),'Invalid original clip snapshot');
@@ -28,7 +40,7 @@ function saveEdit(project,trackId,audio,action){
 }
 export function editClip(project,trackId,patch){
   const track=selected(project,trackId);
-  demand(patch&&Object.keys(patch).every(key=>keys.includes(key)),'Only placement and source trim can be changed here');
+  demand(patch&&Object.keys(patch).every(key=>keys.includes(key)),'Only placement, source trim and fades can be changed here');
   demand(Object.values(patch).every(Number.isFinite),'Clip values must be finite numbers');
   const audio={...structuredClone(track.audio),...patch},before=clipWindow(track.audio),after=clipWindow(audio);
   if(keys.every(key=>before[key]===after[key]))return project;

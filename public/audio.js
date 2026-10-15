@@ -1,4 +1,4 @@
-import { clipWindow } from './clip-edit.js';
+import { clipWindow, clipGainPoints } from './clip-edit.js';
 import { transportSettings, transportClock } from './transport.js';
 export class StudioAudio {
   constructor(){this.voices=new Map();this.buffers=new Map();this.playing=false;this.timer=null;this.generation=0;this.phase='stopped';this.clock=null;this.onPosition=()=>{};}
@@ -72,6 +72,7 @@ export class StudioAudio {
               const stopAt=Math.min(at+view.durationSeconds,at+(buffer?.duration??0)-view.trimStartSeconds,this.startTime+(loop+1)*loopSeconds);
               if(buffer&&stopAt>startAt){
                 const src=this.context.createBufferSource();src.buffer=buffer;const g=this.context.createGain();g.gain.value=e.track.gain;src.connect(g);g.connect(this.master);
+                if(view.fadeInSeconds||view.fadeOutSeconds){const points=clipGainPoints(e.track.audio,Math.min(view.durationSeconds,stopAt-at),startAt-at);g.gain.setValueAtTime(points[0].level*e.track.gain,startAt);for(const point of points.slice(1))g.gain.linearRampToValueAtTime(point.level*e.track.gain,at+point.seconds);}
                 src.start(startAt,offset);src.stop(stopAt);const id=crypto.randomUUID();this.voices.set(id,{source:src,gain:g,trackId:e.track.id});src.onended=()=>{this.voices.delete(id);src.disconnect();g.disconnect();};
               }
             }

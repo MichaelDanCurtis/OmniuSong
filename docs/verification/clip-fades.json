@@ -1,0 +1,76 @@
+{
+  "at": "2026-10-15T14:08:05.074Z",
+  "sourceProjectId": "00ab7d77-d353-455c-843a-2211859f9609",
+  "restoredProjectId": "dfdf5d0e-334d-495a-a69a-a65ceeb1cab7",
+  "revision": 5,
+  "fixture": "procedural four-tone audio and locked synthetic expressive note; no microphone",
+  "clip": {
+    "startTick": 7680,
+    "sourceIn": 0.8,
+    "sourceOut": 2.4,
+    "fadeIn": 0.2,
+    "fadeOut": 0.4,
+    "originalSeconds": 3.2
+  },
+  "archive": {
+    "path": "/Users/michaelcurtis/Downloads/Clip fades qualification.omniusong",
+    "byteLength": 221097,
+    "assetCount": 1,
+    "sourceByteLength": 282284,
+    "sourceSHA256": "2a43aaacbb59bedceb5a15b4a99d5f70b880a8258cc788b09a8feddc12d74f55",
+    "exactTracks": true,
+    "exactHistory": true,
+    "emptyStoreRestore": true,
+    "mainStudioRestore": true,
+    "restoreOriginalExact": true
+  },
+  "browserChecks": [
+    "pending trim and fade fields committed together on track change",
+    "save and reload retain exact values",
+    "overlapping fades reject transition and restore saved fields",
+    "Restore original after reload restores full window and zero fades",
+    "Undo restores edited trim and fades",
+    "locked clip disables all five fields while audition remains available",
+    "clip audition and arrangement transport run without console errors",
+    "full source player remains 3.2 seconds",
+    "source-window expansion and longer fade commit together; Undo restores prior values"
+  ],
+  "engineTests": [
+    "linear gain ramps",
+    "late-start envelope level",
+    "loop-boundary cut",
+    "proportional fades on shortened audible span",
+    "source buffers unchanged",
+    "analysis window unaffected by fades"
+  ],
+  "limits": [
+    "no physical listening or microphone qualification",
+    "no crossfades, time stretch or waveform handles",
+    "existing WAV export renders note synth only; no audio mixdown"
+  ],
+  "automatedTests": 111,
+  "syntaxModules": 40,
+  "catalogEntries": 36,
+  "responsive": [
+    {
+      "viewport": 1440,
+      "documentWidth": 1425
+    },
+    {
+      "viewport": 680,
+      "documentWidth": 665
+    }
+  ],
+  "browserConsoleErrors": [],
+  "preservedQualificationSessions": [
+    "transport",
+    "clip-editing",
+    "note-editing",
+    "magenta-studio",
+    "aria-studio",
+    "voice-timing",
+    "recording-placement",
+    "take-recovery",
+    "recovery-choices"
+  ]
+}

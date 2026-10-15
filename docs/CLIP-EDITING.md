@@ -1,12 +1,12 @@
-# Audio clip placement and trim
+# Audio clip placement, trim and fades
 
 October 15, 2026. Implemented in the local development studio.
 
-Select an audio track to open its clip controls. **Start** places the clip in the arrangement, using exact integer ticks from the song's beginning. One quarter-note beat is 960 ticks and one 4/4 bar is 3,840 ticks. **Source in** and **Source out** choose seconds within the full recording. The out point is the end of the selected window.
+Select an audio track to open its clip controls. **Start** places the clip in the arrangement, using exact integer ticks from the song's beginning. One quarter-note beat is 960 ticks and one 4/4 bar is 3,840 ticks. **Source in** and **Source out** choose seconds within the full recording. The out point is the end of the selected window. **Fade in** and **Fade out** set linear fades in seconds within that window. Both default to zero; their combined length must fit inside the window. Save trim and fade changes together when resizing a clip.
 
 Press Enter or choose **Save clip** to commit all pending fields together. Changing tracks or sessions and using transport, generation, Undo, or export controls also commits pending edits first. Invalid values stop that action and return the fields to the saved clip. Pending fields survive incidental studio redraws and trigger the browser's leave-page warning.
 
-**Audition clip** plays the selected source window immediately in a separate preview, regardless of the track's mute switch. The main transport plays it at its saved start. Both respect source in/out and the loop boundary. The arrangement shows the clip's selected length and position. Placement can extend the loop, up to 128 bars. Restore and Undo do not automatically shorten a loop.
+**Audition clip** plays the selected source window immediately in a separate preview, regardless of the track's mute switch. The main transport plays it at its saved start. Both respect source in/out, saved fades and the loop boundary. Fades use elapsed clip time, so a late scheduler resumes the envelope at the matching level. If the loop or decoded end shortens a clip, fade out ends at that audible boundary; when necessary, both fade lengths scale proportionally to fit. Saved settings remain unchanged. The arrangement shows the clip's selected length and position. Placement can extend the loop, up to 128 bars. Restore and Undo do not automatically shorten a loop.
 
 ## Keep the original
 
@@ -19,11 +19,13 @@ The project keeps these optional fields within `audio`:
 | `startTick` | Position in the song; defaults to zero |
 | `trimStartSeconds` | Source in; defaults to zero |
 | `trimEndSeconds` | Source out; defaults to the full `durationSeconds` |
-| `editSource` | Version 1 snapshot of the original placement/trim fields, preserving omitted defaults |
+| `fadeInSeconds` | Linear fade from silence; defaults to zero |
+| `fadeOutSeconds` | Linear fade to silence; defaults to zero |
+| `editSource` | Version 1 snapshot of the original placement/trim/fade fields, preserving omitted defaults |
 
 The first edit saves the original settings. Later edits keep the same snapshot. **Restore original clip** restores them even after reload or backup restoration. Track locks disable editing while allowing inspection and audition. Each committed edit adds a before/after journal entry. General Undo remains the existing 40-entry browser-tab stack; the journal is not yet a durable undo interface.
 
-Windows must be finite, inside the full source, and at least one millisecond long. The preview adds no fades, crossfades, stretch, destructive render, waveform handles, or automatic recording-latency correction. Physical listening and timing acceptance remain separate work.
+Windows must be finite, inside the full source, and at least one millisecond long. Fades affect arrangement playback and clip audition. Full-source players/downloads and source-window transcription do not apply them. Complete archives retain both settings and the full source. The existing WAV export renders procedural note tracks only; it is not an audio-clip mixdown. Crossfades, stretch, destructive render, waveform handles, and automatic recording-latency correction remain unimplemented. Physical listening and timing acceptance remain separate work.
 
 ## Transcribe the selected window
 
@@ -44,3 +46,11 @@ The downloaded 469,328-byte complete backup restored all four tracks, original c
 The full suite passes 84 tests with no skips; syntax/catalog checks cover 36 JavaScript modules and 36 catalog entries. Responsive checks at 1,440 and 680 pixels found no horizontal page overflow, and the tested browser flow had no console errors. A second real browser transcription passed the checked-WAV contract and was discarded without changing the session. Prior Magenta and precise-note qualification sessions remained unchanged.
 
 Evidence: [receipt](verification/clip-editing.json), [source](verification/clip-editing-source.json), [saved project](verification/clip-editing-project.json), [MIDI 1](verification/clip-editing.mid), [UMP trace](verification/clip-editing.ump.json), and [studio screenshot](verification/clip-editing.png).
+
+## Fade verification
+
+The **Clip fades qualification** session retains the complete 3.2-second procedural source and a locked synthetic expressive note. Source in/out of 0.8–2.4 seconds and fades of 0.2/0.4 seconds committed together on a track change. Reload retained the exact values. Overlapping fades rejected the transition without changing the saved clip. Restore original returned to the full window with zero fades; Undo recovered the edits. All five fields disabled under a track lock, while audition remained available. The complete source player still reported 3.2 seconds. Clip audition and arrangement playback ran without browser console errors; this does not establish physical listening quality.
+
+The actual 221,097-byte downloaded backup restored all three tracks, history, original snapshot, and the exact 282,284-byte source into an empty store and a new main-studio session. The original source SHA256 is `2a43aaacbb59bedceb5a15b4a99d5f70b880a8258cc788b09a8feddc12d74f55`. Pure-envelope and scheduler checks cover linear ramps, late starts, the loop boundary, proportional shortening, source-buffer preservation and unchanged analysis frames. The full suite passes 111 tests with no skips; syntax/catalog checks cover 40 modules and 36 entries.
+
+Evidence: [fade receipt](verification/clip-fades.json), [source project](verification/clip-fades-source.json), [saved project](verification/clip-fades-project.json), and [studio review](verification/clip-fades.jpg).
