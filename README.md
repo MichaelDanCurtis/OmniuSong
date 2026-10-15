@@ -2,7 +2,7 @@
 
 A Mac-first music workstation where people play, sing, edit, and direct multiple AI models. Windows follows through the same portable project format and model adapters.
 
-The first development preview includes a playable studio, sixteen pads, a piano roll, vocal take capture, local projects, a model observatory, and generation candidates that require acceptance before they change the song. Basic Pitch performs real local audio-to-MIDI inference. Aria MLX creates local piano continuations from selected source bars, with separate audition, acceptance, and discard. The piano roll can navigate the complete session and MIDI pitch range. Arrangement and sample tools use musical rules and synthesis. The Ollama lyric adapter can use an installed local AI model. The remaining researched models are candidates for integration.
+The first development preview includes a playable studio, sixteen pads, a piano roll, vocal take capture, local projects, a model observatory, and generation candidates that require acceptance before they change the song. Basic Pitch performs real local audio-to-MIDI inference. Aria MLX creates local piano continuations from selected source bars, with separate audition, acceptance, and discard. The piano roll can navigate the complete session and MIDI pitch range. Arrangement and sample tools use musical rules and synthesis. Magenta Small also has a qualified local audio-generation worker and a saved listening preview; general generation controls are next. The Ollama lyric adapter can use an installed local AI model. The remaining researched models are candidates for integration.
 
 ## Start the studio
 
@@ -38,6 +38,8 @@ To use a local AI lyric model, start an existing Ollama installation and set `OM
 Basic Pitch is installed in this checkout's isolated `.runtime/basic-pitch` environment. To recreate it, use `scripts/setup-basic-pitch.sh` with uv and Python 3.11. This selects the ONNX runtime and avoids installing TensorFlow or CoreML. Exact resolved package versions are recorded in `workers/basic-pitch-resolved.txt`. The synthetic four-tone qualification and model checksum are in `docs/verification/basic-pitch.json`.
 
 Aria uses its own isolated `.runtime/aria` environment and a pinned 2.63 GB checkpoint. See [Aria qualification](docs/ARIA-QUALIFICATION.md) for the exact model, compatibility fix, measured fixture, setup, and MIDI/audio artifacts. The saved **Aria studio qualification** session demonstrates the complete flow with an unchanged locked procedural prompt, two different seeded answers (one discarded), and an accepted 21-note answer across five bars. Listening and human-performance quality checks remain open.
+
+Magenta RealTime 2 Small uses a separate `.runtime/magenta` environment and 1.04 GB of selected, checksummed model assets. See [Magenta qualification](docs/MAGENTA-QUALIFICATION.md) for setup, actual audio results, note guidance, and limitations. Open **Magenta Small · local audio preview** to compare the style-only and note-guided renders. These are generated audio files, separately labeled from human recordings.
 
 ## Project and planning documents
 

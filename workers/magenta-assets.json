@@ -1,0 +1,43 @@
+{
+  "repository": "google/magenta-realtime-2",
+  "revision": "010aa0dcb0dfd27b24f0ad07b4dad63e8f9521cc",
+  "sourceRepository": "https://github.com/magenta/magenta-realtime",
+  "sourceRevision": "694a545e4ba0b88bf1150137b129582166d3e07f",
+  "sequenceLayersRevision": "c85a637a1afae8f4f2d4edb458f2111b5f44ae52",
+  "model": "mrt2_small",
+  "weightLicense": "cc-by-4.0",
+  "modelCard": "https://huggingface.co/google/magenta-realtime-2",
+  "totalBytes": 1042112092,
+  "files": [
+    {
+      "path": "models/mrt2_small/mrt2_small.mlxfn",
+      "bytes": 455654550,
+      "sha256": "1a70b0de30b3e6ad054fe6a61a7765408f01127628e6362c1abc328809a3c422"
+    },
+    {
+      "path": "models/mrt2_small/mrt2_small_state.safetensors",
+      "bytes": 8676998,
+      "sha256": "23f1e05a6beea306fe39970bd61193f2d3e5fbd8f08af93570bda4ca9ec33255"
+    },
+    {
+      "path": "resources/musiccoca/mapper.tflite",
+      "bytes": 86166664,
+      "sha256": "2f9743cc8f121a588b69c7f4d79a2a4111ce81864cbde8830054cd5e97f3d717"
+    },
+    {
+      "path": "resources/musiccoca/pretrained_vector_quantizer.tflite",
+      "bytes": 72422108,
+      "sha256": "7a8a19e2119ad405818eae84a331a970f1a582b3389d4bfd27814f75b455a444"
+    },
+    {
+      "path": "resources/musiccoca/spm.model",
+      "bytes": 517448,
+      "sha256": "ff325a99b61ba5726cf6437cde6eefbb633dbaa363a684f7a97ed99b55202cca"
+    },
+    {
+      "path": "resources/musiccoca/text_encoder.tflite",
+      "bytes": 418674324,
+      "sha256": "e1222e3418cbe8cc2623939571bae8e9ab6f0d511404b0d83da69f4e6e11b272"
+    }
+  ]
+}

@@ -75,7 +75,7 @@ export function validateProject(project) {
     const noteIds = new Set();
     for (const n of t.notes) { validateNote(n); demand(!noteIds.has(n.id), 'Duplicate note id'); noteIds.add(n.id); }
     if(t.audio!==undefined){
-      demand(['microphone','import'].includes(t.audio.origin),'Invalid audio origin');
+      demand(['microphone','import','generated'].includes(t.audio.origin),'Invalid audio origin');
       demand(typeof t.audio.mimeType==='string'&&t.audio.mimeType.length<=100,'Invalid audio MIME');
       demand(finite(t.audio.durationSeconds,.001,86400),'Invalid audio duration');
       demand(int(t.audio.byteLength,1,30*1024*1024),'Invalid audio byte length');

@@ -1,0 +1,12 @@
+{
+  "prompt": "Warm electric piano, soft brushed drums, relaxed instrumental jazz, 104 BPM",
+  "seed": 42,
+  "durationSeconds": 4,
+  "tempo": 104,
+  "notes": [
+    {"pitch":60,"startTick":0,"durationTicks":900,"velocity16":51312,"expression":[]},
+    {"pitch":64,"startTick":960,"durationTicks":900,"velocity16":42000,"expression":[]},
+    {"pitch":67,"startTick":1920,"durationTicks":900,"velocity16":48000,"expression":[]},
+    {"pitch":72,"startTick":2880,"durationTicks":900,"velocity16":45000,"expression":[]}
+  ]
+}

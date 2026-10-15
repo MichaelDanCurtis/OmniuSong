@@ -61,3 +61,5 @@ Automated file selection in Chrome is gated by the ChatGPT extension's file URL 
 Optional note input metadata and `inputCapture` are included exactly with the project. Native host timestamps remain strings, and raw packet words stay unsigned integers. Archive tests include source/channel/group, physical key duration, release velocity, and raw UMP with a 64-bit host timestamp.
 
 Imported originals can use WAV, WebM, MP4/M4A, Ogg, MP3, or FLAC content addresses. The archive includes import origin, original filename, duration, MIME type, and byte length. Browser decoding support is separate from byte preservation and backup integrity. The complete browser WAV import/transcription archive was restored with both original and derived analysis audio intact; see `verification/audio-import.json`.
+
+Generated audio tracks can declare `audio.origin: "generated"`. Their exact model WAV bytes, source note guide, and model/runtime evidence are retained independently of microphone and imported-human audio. This origin survives validated complete backups.

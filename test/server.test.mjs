@@ -17,6 +17,7 @@ test('studio API supports real persistence, review, export and origin isolation'
   const page=await fetch(base+'/');assert.equal(page.status,200);assert.match(await page.text(),/piano-roll/);
   const noteView=await fetch(base+'/note-view.js');assert.equal(noteView.status,200);assert.match(noteView.headers.get('content-type'),/javascript/);
   assert.equal((await get('/api/status')).ariaStudioControls,true);
+  assert.equal((await get('/api/status')).magentaStudioControls,false);
   assert.ok((await get('/api/plugins')).some(p=>p.id==='eleutherai.aria-mlx'&&p.ai&&p.capabilities.includes('continue')));
   const blocked=await send('/api/projects',{name:'bad'},'POST',{Origin:'https://untrusted.example'});assert.equal(blocked.status,403);
   const old=p.revision;p.name='A real saved title';const savedResponse=await send('/api/projects/'+p.id,{project:p,expectedRevision:old},'PUT');assert.equal(savedResponse.status,200);const saved=await savedResponse.json();assert.equal(saved.revision,1);
