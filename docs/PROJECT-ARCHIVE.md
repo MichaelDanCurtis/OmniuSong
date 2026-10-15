@@ -4,6 +4,8 @@ The `.omniusong` file is a complete backup of one accepted project and its refer
 
 Model weights, credentials, provider accounts, pending generation jobs, the global model selection list, and application settings are outside this format. Accepted-candidate provenance embedded in the project is preserved. A restored project can reference its original job IDs as historical provenance without recreating or rerunning those jobs.
 
+Completed recordings/imports use a separate local recovery journal while session attachment is unfinished. Export blocks known unattached originals for the selected session, and blocks unreadable recovery metadata until reviewed. Already-attached originals can be included before recovery acknowledgment because their full source is already referenced. Pending/completed operational journals are outside this archive; recover the original first to include its track, source metadata, and audio normally. See [recording recovery](RECORDING.md).
+
 ## Version 1 format
 
 The file is gzip-compressed UTF-8 JSON. Its MIME type is `application/vnd.omniusong.project+gzip`. It has no extracted paths, scripts, or executable entries.
@@ -25,7 +27,7 @@ The file is gzip-compressed UTF-8 JSON. Its MIME type is `application/vnd.omnius
 }
 ```
 
-`project` is the complete versioned OmniuSong project, including unknown metadata. Each audio ID uses the SHA256 of its bytes followed by `wav`, `webm`, `mp4`, or `ogg`. The archive scanner collects content IDs throughout the project, including accepted provenance and source references, and writes each unique asset once.
+`project` is the complete versioned OmniuSong project, including unknown metadata. Each audio ID uses the SHA256 of its bytes followed by `wav`, `webm`, `mp4`, `ogg`, `mp3`, or `flac`. The archive scanner collects content IDs throughout the project, including accepted provenance and source references, and writes each unique asset once.
 
 ## Validation and limits
 

@@ -8,6 +8,17 @@ export function audioType(name='',type=''){
   if(AUDIO_TYPES[extension])return AUDIO_TYPES[extension];
   throw new Error('Choose WAV, MP3, M4A, FLAC, Ogg, or WebM audio');
 }
+export async function takeAssetId(blob,mimeType){
+  const extension={'audio/wav':'wav','audio/webm':'webm','audio/mp4':'mp4','audio/ogg':'ogg','audio/mpeg':'mp3','audio/flac':'flac'}[mimeType];
+  if(!extension||!blob.size||blob.size>AUDIO_LIMIT_BYTES)throw new Error('Choose supported original audio up to 30 MiB');
+  const hash=await crypto.subtle.digest('SHA-256',await blob.arrayBuffer());
+  return Array.from(new Uint8Array(hash),byte=>byte.toString(16).padStart(2,'0')).join('')+'.'+extension;
+}
+export function sameTakeSource(current,original){
+  return current?.kind==='audio'&&current.assetId===original.assetId&&
+    ['origin','mimeType','durationSeconds','byteLength','originalName','startedAt','interruption'].every(key=>current.audio?.[key]===original.audio[key])&&
+    JSON.stringify(current.audio?.recordingTiming)===JSON.stringify(original.audio.recordingTiming);
+}
 // These clocks locate the recorder start command, not the first captured sample.
 export function validateRecordingTiming(timing){
   const finite=(n,min,max)=>Number.isFinite(n)&&n>=min&&n<=max;
@@ -86,9 +97,13 @@ export class TakeCapture {
     await this.save(take);
   }
   async import(blob,context){
+    return this.recover(blob,{...context,origin:'import'});
+  }
+  async recover(blob,context){
     if(this.busy)throw new Error('Finish the current take first');
     if(!blob.size||blob.size>this.maxBytes)throw new Error('Choose audio between 1 byte and 30 MiB');
-    const take={context:{...context,origin:'import'},blob};this.take=take;await this.save(take);
+    if(!['microphone','import'].includes(context.origin))throw new Error('Choose an original take or imported audio');
+    const take={context:structuredClone(context),blob};this.take=take;await this.save(take);
   }
   async save(take){
     this.setPhase('saving');

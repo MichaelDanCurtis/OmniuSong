@@ -1,6 +1,6 @@
 import { StudioAudio, bufferWAV } from './audio.js';
 import { PerformanceInput, decodeMIDI1, decodeUMP, appendCapture } from './input.js';
-import { TakeCapture, audioType, AUDIO_LIMIT_BYTES, recordingTiming, takePlacement } from './recording.js';
+import { TakeCapture, audioType, AUDIO_LIMIT_BYTES, recordingTiming, takePlacement, takeAssetId, sameTakeSource } from './recording.js';
 import { rollWindow, candidateAudition } from './note-view.js';
 import { editNote, restoreNote, deleteNote } from './note-edit.js';
 import { clipWindow, editClip, restoreClip, analysisWindow } from './clip-edit.js';
@@ -58,6 +58,7 @@ async function save(){
   $('#save-status').textContent='Saving…';
   savePromise=api('/api/projects/'+project.id,{method:'PUT',body:JSON.stringify({project:snapshot,expectedRevision:revision})});
   try{const saved=await savePromise;project.revision=saved.revision;project.updatedAt=saved.updatedAt;if(sequence===editSequence){dirty=false;$('#save-status').textContent=noteFieldPending()?'Note edit pending':clipFieldPending()?'Clip edit pending':'Saved on this Mac';}else $('#save-status').textContent='Unsaved changes';$('#session-meta').textContent=`${project.bars} bars · ${project.tracks.reduce((s,t)=>s+t.notes.length,0)} notes · Revision ${project.revision}`;const option=[...$('#project-picker').options].find(o=>o.value===project.id);if(option)option.textContent=project.name;}
+  catch(error){$('#save-status').textContent='Save failed · changes retained';throw error;}
   finally{savePromise=null;}
 }
 async function flushSaves(){while(dirty||savePromise)await save();clearTimeout(saveTimer);}
@@ -317,7 +318,7 @@ const capture=new TakeCapture({
   atStart:context=>context.withSong?{recordingTiming:recordingTiming(audio.project,audio.clock,audio.context.currentTime)}:{},
   persist:persistTake,
   onState:updateCaptureControls,
-  onError:error=>toast(error.message,true)
+  onError:error=>{toast(error.message,true);refreshRecovery().catch(()=>{});}
 });
 function updateCaptureControls(){
   const phase=capture.phase,button=$('#record');
@@ -329,7 +330,32 @@ function updateCaptureControls(){
   $('#download-take').classList.toggle('hidden',phase!=='failed'||!capture.blob);
   $('#cancel-import').classList.toggle('hidden',phase!=='failed'||capture.take?.context.origin!=='import');
   const hints={idle:$('#voice-with-song').checked?'Voice starts with the song from bar 1 after permission. Use headphones; placement is estimated. Imports still use the chosen bar.':'Solo voice and imports use the chosen bar. Originals stay on this Mac · up to 2 minutes and 30 MiB.',requesting:'Waiting for microphone permission. You can cancel this request.',preparing:'Microphone ready. Loading the song before starting the take…',recording:capture.take?.context.withSong?'Recording with the song. Count-in stays in the full original; clip alignment is an uncalibrated estimate.':'Recording your original solo take · up to 2 minutes.',stopping:'Finishing audio and releasing the microphone…',saving:'Checking and saving the original audio with this session…',failed:'Original retained in this tab. Retry saving or download it before closing.'};
-  $('#capture-status').textContent=hints[phase];
+  $('#capture-status').textContent=phase==='failed'&&capture.take?.context.recoverySaved?'Original saved in local recovery. Retry now, or recover it after reloading.':hints[phase];
+  $$('.recover-take').forEach(button=>button.disabled=sessionBusy||capture.busy);
+}
+async function refreshRecovery(){
+  const box=$('#recovery-list'),entries=await api('/api/pending-takes');box.replaceChildren();$('#take-recovery').classList.toggle('hidden',!entries.length);
+  $('#recovery-status').textContent=`${entries.length} unfinished save${entries.length===1?'':'s'}. Originals stay on this Mac. Active recordings are protected only after their completed audio is stored.`;
+  for(const entry of entries){
+    const row=el('div','recovery-entry'),details=el('div');details.append(el('strong','',entry.track?.name??'Unreadable recovery entry'),el('p','',`${entry.projectName??'Original session'} · ${entry.message}`));row.append(details);
+    if(['ready','already-attached'].includes(entry.state)){
+      const button=el('button','quiet small recover-take',entry.state==='already-attached'?'Finish recovery':'Open session and recover');button.disabled=sessionBusy||capture.busy;
+      button.onclick=()=>recoverTake(entry).catch(error=>toast(error.message,true));row.append(button);
+    }
+    if(entry.track&&['ready','already-attached','identity-conflict','session-missing'].includes(entry.state)){
+      const link=el('a','original-audio','Download retained original');link.href='/api/assets/'+entry.track.assetId;link.download=entry.track.audio.originalName??('OmniuSong-retained.'+entry.track.assetId.split('.').at(-1));row.append(link);
+    }
+    box.append(row);
+  }
+}
+async function recoverTake(entry){
+  if(capture.busy||sessionBusy)throw new Error('Finish the current audio operation first');
+  await sessionTransition(async()=>{
+    await useProject(await api('/api/projects/'+entry.projectId));
+    const response=await fetch('/api/assets/'+entry.track.assetId);if(!response.ok)throw new Error('The retained original is unavailable; recovery metadata was kept');
+    const blob=await response.blob(),audioInfo=entry.track.audio;
+    await capture.recover(blob,{...structuredClone(audioInfo),projectId:entry.projectId,takeId:entry.id,assetId:entry.track.assetId,assetUploaded:true,proposedTrack:entry.track,recoverySaved:true});
+  });
 }
 function importMetadata(blob){
   return new Promise((resolve,reject)=>{
@@ -349,18 +375,26 @@ async function persistTake(blob,context){
     if(!Number.isFinite(decoded.duration)||decoded.duration<=0||decoded.duration>120)throw new Error('Choose audio no longer than two minutes');
     context.durationSeconds=decoded.duration;
   }
-  if(!context.assetId){
-    const response=await fetch('/api/assets',{method:'POST',headers:{'Content-Type':mimeType},body:blob}),result=await response.json();
-    if(!response.ok)throw new Error(result.error);context.assetId=result.assetId;
-  }
-  if(!project.tracks.some(t=>t.id===context.takeId)){
-    if(project.tracks.length>=64)throw new Error('This session already has 64 tracks. Download the original before making room.');
-    remember();const t={id:context.takeId,name:context.origin==='import'?(context.originalName.replace(/\.[^.]+$/,'').slice(0,150)||'Imported audio'):'Your voice · take '+(project.tracks.filter(t=>t.kind==='audio').length+1),kind:'audio',instrument:'voice',gain:.7,muted:false,locked:false,notes:[],assetId:context.assetId,
+  context.assetId??=await takeAssetId(blob,mimeType);
+  if(!context.proposedTrack){
+    context.proposedTrack={id:context.takeId,name:context.origin==='import'?(context.originalName.replace(/\.[^.]+$/,'').slice(0,150)||'Imported audio'):'Your voice · take '+(project.tracks.filter(t=>t.kind==='audio').length+1),kind:'audio',instrument:'voice',gain:.7,muted:false,locked:false,notes:[],assetId:context.assetId,
       audio:{origin:context.origin,mimeType,durationSeconds:context.durationSeconds,byteLength:blob.size,...takePlacement(context),...(context.originalName?{originalName:context.originalName}:{}),...(context.startedAt?{startedAt:context.startedAt}:{}),...(context.interruption?{interruption:context.interruption}:{}),...(context.example?{example:true,method:'procedural four-tone fixture'}:{})}};
+  }
+  await api('/api/pending-takes/'+context.takeId,{method:'PUT',body:JSON.stringify({projectId:context.projectId,track:context.proposedTrack})});
+  if(!context.assetUploaded){
+    const response=await fetch('/api/assets',{method:'POST',headers:{'Content-Type':mimeType},body:blob}),result=await response.json();
+    if(!response.ok)throw new Error(result.error);if(result.assetId!==context.assetId)throw new Error('Original checksum changed; retained the recovery entry');context.assetUploaded=true;
+  }
+  context.recoverySaved=true;updateCaptureControls();
+  const existing=project.tracks.find(t=>t.id===context.takeId);
+  if(existing&&!sameTakeSource(existing,context.proposedTrack))throw new Error('A different track uses this take identity. Download the retained original before reviewing the session.');
+  if(!existing){
+    if(project.tracks.length>=64)throw new Error('This session already has 64 tracks. Download the original before making room.');
+    remember();const t=structuredClone(context.proposedTrack);
     const view=clipWindow(t.audio),endTick=view.startTick+view.durationSeconds*project.tempo/60*project.ppq;
     project.bars=Math.max(project.bars,Math.min(128,Math.ceil(endTick/3840)));project.tracks.push(t);selectedId=t.id;changed();
   }
-  await flushSaves();toast(context.origin==='import'?'Original audio imported and saved locally':'Original vocal take saved locally');
+  await flushSaves();await post('/api/pending-takes/'+context.takeId+'/complete',{});await refreshRecovery();toast(context.origin==='import'?'Original audio imported and saved locally':'Original vocal take saved locally');
 }
 async function recordVoice(){
   if(capture.phase==='failed'){await capture.retry();return;}
@@ -421,11 +455,13 @@ async function boot(){
   const projects=await refreshLibrary();let lastId;try{lastId=localStorage.getItem('omniusong.activeProject');}catch{}project=await api('/api/projects/'+(projects.find(p=>p.id===lastId)??projects[0]).id);selectedId=project.tracks[0]?.id;$('#project-picker').value=project.id;
   for(const category of [...new Set(catalog.models.map(m=>m.category))]){const option=el('option','',category);option.value=category;$('#model-category').append(option);}
   makePerformance();renderStudio();renderModels();updateCaptureControls();await refreshJobs();
+  await refreshRecovery().catch(()=>{$('#take-recovery').classList.remove('hidden');$('#recovery-status').textContent='Local audio recovery could not be checked. Use Refresh recovery before closing an unsaved take.';});
   $$('.rail-button').forEach(b=>b.onclick=()=>{$$('.rail-button').forEach(x=>x.classList.toggle('active',x===b));$$('.view').forEach(v=>v.classList.toggle('hidden',v.id!==b.dataset.view+'-view'));});
   const guarded=(selector,fn)=>{$(selector).onclick=()=>Promise.resolve().then(()=>{
     const stopAction=selector==='#panic'||selector==='#play'&&audio.playing||selector==='#record'&&capture.busy;
     if(stopAction||commitPendingEdits())return fn();
   }).catch(e=>toast(e.message,true));};
+  guarded('#refresh-recovery',refreshRecovery);
   $('#voice-with-song').onchange=updateCaptureControls;
   guarded('#save',save);guarded('#play',async()=>{if(audio.playing)panic();else await startPlayback();});guarded('#panic',async()=>panic());
   guarded('#sketch',()=>generate('local.sketch','compose'));guarded('#instrument',()=>generate('local.instrument','instrument'));guarded('#lyrics',()=>generate($('#use-ollama').checked?'ollama.lyrics':'local.lyric-cards','lyrics'));guarded('#transcribe',transcribeSelected);guarded('#record',recordVoice);guarded('#midi-connect',connectMIDI);

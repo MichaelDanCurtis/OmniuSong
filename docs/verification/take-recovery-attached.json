@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "id": "5a98134d-ea9f-4d0d-a836-199690971ed7",
+  "revision": 2,
+  "ppq": 960,
+  "name": "Recovery restart qualification",
+  "tempo": 120,
+  "bars": 4,
+  "key": "C minor",
+  "lyrics": "",
+  "tracks": [
+    {
+      "id": "543bb884-11eb-4a13-b61d-166f863c9ba1",
+      "name": "Locked recovery source",
+      "kind": "notes",
+      "instrument": "keys",
+      "gain": 0.65,
+      "muted": true,
+      "locked": true,
+      "armed": false,
+      "notes": [
+        {
+          "id": "preserve-this-performance",
+          "pitch": 60,
+          "startTick": 123,
+          "durationTicks": 987,
+          "velocity16": 49123,
+          "expression": [
+            {
+              "type": "pressure",
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 42
+                },
+                {
+                  "tick": 700,
+                  "value32": 4294967295
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "b51d9be1-f867-445f-a5b8-816cc01d0ff5",
+      "name": "Pocket drums",
+      "kind": "notes",
+      "instrument": "drums",
+      "gain": 0.65,
+      "muted": false,
+      "locked": false,
+      "armed": false,
+      "notes": []
+    },
+    {
+      "id": "41991eca-bcba-48fa-8881-b48d47e9ea2b",
+      "name": "Example four-tone phrase",
+      "kind": "audio",
+      "instrument": "voice",
+      "gain": 0.7,
+      "muted": false,
+      "locked": false,
+      "notes": [],
+      "assetId": "2a43aaacbb59bedceb5a15b4a99d5f70b880a8258cc788b09a8feddc12d74f55.wav",
+      "audio": {
+        "origin": "import",
+        "mimeType": "audio/wav",
+        "durationSeconds": 3.2,
+        "byteLength": 282284,
+        "startTick": 7680,
+        "originalName": "Example four-tone phrase.wav",
+        "example": true,
+        "method": "procedural four-tone fixture"
+      }
+    }
+  ],
+  "history": [],
+  "createdAt": "2026-10-15T13:07:01.465Z",
+  "updatedAt": "2026-10-15T13:08:05.484Z"
+}

@@ -1,0 +1,50 @@
+{
+  "at": "2026-10-15T13:09:29.973Z",
+  "fixture": "Procedural four-tone WAV, isolated service with intentionally rejected project PUTs. No microphone or personal audio.",
+  "failedSessionRevision": 1,
+  "failedSessionTracks": 2,
+  "originalPersistedBeforeSessionFailure": true,
+  "serviceRestarted": true,
+  "browserReloaded": true,
+  "recoveryNoticeVerified": true,
+  "backupBlockedBeforeAttachment": true,
+  "recoveredTakeId": "41991eca-bcba-48fa-8881-b48d47e9ea2b",
+  "recoveredStartTick": 7680,
+  "originalSeconds": 3.2,
+  "originalBytes": 282284,
+  "originalSha256": "2a43aaacbb59bedceb5a15b4a99d5f70b880a8258cc788b09a8feddc12d74f55",
+  "lockedSourceExact": true,
+  "simulatedUnacknowledgedSave": true,
+  "finishRecoveryOpenedCorrectSession": true,
+  "duplicateTakeCount": 1,
+  "finishRecoveryDidNotChangeRevision": true,
+  "unrelatedSessionEmpty": true,
+  "pendingEntriesAfterCompletion": 0,
+  "archive": {
+    "path": "/Users/michaelcurtis/Downloads/Recovery restart qualification.omniusong",
+    "bytes": 220903,
+    "sha256": "714af2e4d9bbb4a779e7b1219cf84acefa27b4eb2385dcd436e1aeeb5c17cf60",
+    "assetCount": 1,
+    "emptyStoreRestoreExact": true,
+    "sourceBytesExact": true
+  },
+  "mainStudioSession": {
+    "id": "0f413c7d-3409-4d95-8baf-0700aae9e2e8",
+    "name": "Recovery restart qualification (restored)",
+    "revision": 0
+  },
+  "tests": 105,
+  "temporaryServiceStopped": true,
+  "responsive": [
+    {
+      "width": 1440,
+      "scrollWidth": 1425
+    },
+    {
+      "width": 680,
+      "scrollWidth": 665
+    }
+  ],
+  "browserConsoleErrors": [],
+  "earlierQualificationSessionsUnchanged": true
+}
