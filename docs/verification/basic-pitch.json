@@ -1,0 +1,15 @@
+{
+  "model": "spotify/basic-pitch@0.4.0/icassp_2022/onnx",
+  "modelSha256": "2c3c1d144bfa61ad236e92e169c13535c880469a12a047d4e73451f2c059a0ec",
+  "elapsedSeconds": 10.755,
+  "sourceDurationSeconds": 3.2,
+  "fixture": "Four synthetic harmonic tones, MIDI pitches 60 64 67 72, 3.2 seconds",
+  "detectedPitches": [
+    60,
+    64,
+    67,
+    72
+  ],
+  "expressionPoints": 231,
+  "qualification": "Synthetic fixture only. Human singing, dense polyphony, and listening quality remain unqualified."
+}

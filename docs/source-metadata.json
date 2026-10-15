@@ -1,0 +1,55 @@
+{
+  "minimax": {
+    "source": "https://huggingface.co/api/models/MiniMaxAI/MiniMax-Music3",
+    "revision": "fbdf52fbaaca799592917417eb05f1899f1255ec",
+    "license": null,
+    "gated": false,
+    "archived": null
+  },
+  "stable": {
+    "source": "https://huggingface.co/api/models/stabilityai/stable-audio-3-small-music",
+    "revision": "8bdfb53c6b0fbc62113cd571fd37373efe15fa14",
+    "license": "other",
+    "gated": "auto",
+    "archived": null
+  },
+  "muscriptor": {
+    "source": "https://api.github.com/repos/muscriptor/muscriptor",
+    "revision": "2026-10-14T10:35:17Z",
+    "license": {
+      "key": "mit",
+      "name": "MIT License",
+      "spdx_id": "MIT",
+      "url": "https://api.github.com/licenses/mit",
+      "node_id": "MDc6TGljZW5zZTEz"
+    },
+    "gated": null,
+    "archived": false
+  },
+  "magenta": {
+    "source": "https://api.github.com/repos/magenta/magenta-realtime",
+    "revision": "2026-10-02T16:59:17Z",
+    "license": {
+      "key": "apache-2.0",
+      "name": "Apache License 2.0",
+      "spdx_id": "Apache-2.0",
+      "url": "https://api.github.com/licenses/apache-2.0",
+      "node_id": "MDc6TGljZW5zZTI="
+    },
+    "gated": null,
+    "archived": false
+  },
+  "aria-amt": {
+    "source": "https://api.github.com/repos/EleutherAI/aria-amt",
+    "revision": "2025-12-16T10:56:40Z",
+    "license": {
+      "key": "apache-2.0",
+      "name": "Apache License 2.0",
+      "spdx_id": "Apache-2.0",
+      "url": "https://api.github.com/licenses/apache-2.0",
+      "node_id": "MDc6TGljZW5zZTI="
+    },
+    "gated": null,
+    "archived": false
+  }
+}

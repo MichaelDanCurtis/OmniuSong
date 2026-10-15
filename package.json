@@ -1,0 +1,15 @@
+{
+  "name": "omniusong",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A human-led music workstation with interchangeable AI models",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test test/*.test.mjs",
+    "check": "node scripts/check.mjs",
+    "mac:build": "python3 scripts/build-mac.py",
+    "demo": "node scripts/render-demo.mjs"
+  }
+}
