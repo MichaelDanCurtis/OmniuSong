@@ -1,3 +1,4 @@
+import { clipWindow } from './clip-edit.js';
 const BAR=3840;
 export function rollWindow(bars,page=0,topPitch=72){
   const pages=Math.ceil(bars/4),index=Math.max(0,Math.min(pages-1,page));
@@ -10,7 +11,7 @@ export function candidateAudition(project,result){
     for(const n of t.notes)n.startTick-=start;
     if(t.kind==='audio')t.audio={...t.audio,startTick:(t.audio?.startTick??0)-start};
   }
-  const end=Math.max(1,...preview.tracks.flatMap(t=>t.kind==='audio'?[(t.audio?.startTick??0)+(t.audio?.durationSeconds??0)*project.tempo/60*960]:t.notes.map(n=>n.startTick+n.durationTicks)));
+  const end=Math.max(1,...preview.tracks.flatMap(t=>t.kind==='audio'?[(t.audio?.startTick??0)+(t.audio?clipWindow(t.audio).durationSeconds:0)*project.tempo/60*960]:t.notes.map(n=>n.startTick+n.durationTicks)));
   preview.bars=result.auditionStartTick===undefined?Math.max(project.bars,Math.ceil(end/BAR)):Math.ceil(end/BAR);
   return preview;
 }

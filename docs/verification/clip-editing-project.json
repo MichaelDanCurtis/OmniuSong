@@ -1,0 +1,828 @@
+{
+  "schemaVersion": 1,
+  "id": "6dd1a6bf-4e6c-402d-a8e8-cb235c4fd4ec",
+  "revision": 6,
+  "ppq": 960,
+  "name": "Clip editing qualification",
+  "tempo": 104,
+  "bars": 3,
+  "key": "C minor",
+  "lyrics": "",
+  "tracks": [
+    {
+      "id": "2ec46f41-56b3-4299-9ab7-0c2dbff42f94",
+      "name": "Locked test performance",
+      "kind": "notes",
+      "instrument": "keys",
+      "gain": 0.65,
+      "muted": false,
+      "locked": true,
+      "armed": false,
+      "notes": [
+        {
+          "id": "a194f3d1-c746-4c29-998a-3631e1137c1b",
+          "pitch": 60,
+          "startTick": 123,
+          "durationTicks": 987,
+          "velocity16": 49123,
+          "expression": [
+            {
+              "type": "pitch",
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 700,
+                  "value32": 2271560481
+                }
+              ]
+            }
+          ],
+          "externalMetadata": {
+            "syntheticFixture": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ddb053de-3ba3-4ae6-b4e4-d5c0b28e83ad",
+      "name": "Pocket drums",
+      "kind": "notes",
+      "instrument": "drums",
+      "gain": 0.65,
+      "muted": false,
+      "locked": false,
+      "armed": false,
+      "notes": []
+    },
+    {
+      "id": "c20a1e1c-740f-4b12-9a1f-47a7329342aa",
+      "name": "Example four-tone phrase",
+      "kind": "audio",
+      "instrument": "voice",
+      "gain": 0.7,
+      "muted": false,
+      "locked": false,
+      "notes": [],
+      "assetId": "2a43aaacbb59bedceb5a15b4a99d5f70b880a8258cc788b09a8feddc12d74f55.wav",
+      "audio": {
+        "origin": "import",
+        "mimeType": "audio/wav",
+        "durationSeconds": 3.2,
+        "byteLength": 282284,
+        "originalName": "Example four-tone phrase.wav",
+        "example": true,
+        "method": "procedural four-tone fixture",
+        "startTick": 8001,
+        "trimStartSeconds": 0.8,
+        "trimEndSeconds": 2.4,
+        "editSource": {
+          "version": 1,
+          "original": {}
+        }
+      }
+    },
+    {
+      "id": "ed70f69c-34f7-43d0-84ff-73e291e33042",
+      "name": "Transcribed · Basic Pitch",
+      "kind": "notes",
+      "instrument": "keys",
+      "gain": 0.65,
+      "muted": true,
+      "locked": false,
+      "armed": false,
+      "notes": [
+        {
+          "id": "75c1ee00-6e3a-41d9-8d7a-861a06a0017b",
+          "pitch": 64,
+          "startTick": 8020,
+          "durationTicks": 1101,
+          "velocity16": 50220,
+          "expression": [
+            {
+              "type": "pitch",
+              "rangeSemitones": 2,
+              "estimated": true,
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 20,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 39,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 59,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 79,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 98,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 118,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 138,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 157,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 177,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 197,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 216,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 236,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 256,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 275,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 295,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 315,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 334,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 354,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 374,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 393,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 413,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 433,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 452,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 472,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 492,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 511,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 531,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 550,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 570,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 590,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 609,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 629,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 649,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 668,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 688,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 708,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 727,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 747,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 767,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 786,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 806,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 826,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 845,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 865,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 885,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 904,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 924,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 944,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 963,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 983,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1003,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1022,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1042,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1062,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1081,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1101,
+                  "value32": 2147483648
+                }
+              ]
+            }
+          ],
+          "sourceEstimate": {
+            "startSeconds": 0.011609977324263039,
+            "endSeconds": 0.6733786848072563,
+            "activationAmplitude": 0.766311764717102,
+            "contourThirdSemitones": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              0
+            ],
+            "velocityIsEstimated": true
+          }
+        },
+        {
+          "id": "0c890f00-1712-45d6-b8cf-930f513476f5",
+          "pitch": 67,
+          "startTick": 9276,
+          "durationTicks": 1159,
+          "velocity16": 50268,
+          "expression": [
+            {
+              "type": "pitch",
+              "rangeSemitones": 2,
+              "estimated": true,
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 20,
+                  "value32": 2863311530
+                },
+                {
+                  "tick": 39,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 59,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 79,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 98,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 118,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 138,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 157,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 177,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 196,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 216,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 236,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 255,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 275,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 295,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 314,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 334,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 354,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 373,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 393,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 413,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 432,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 452,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 471,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 491,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 511,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 530,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 550,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 570,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 589,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 609,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 629,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 648,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 668,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 688,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 707,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 727,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 746,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 766,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 786,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 805,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 825,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 845,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 864,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 884,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 904,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 923,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 943,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 963,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 982,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1002,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1021,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1041,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1061,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1080,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1100,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1120,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1139,
+                  "value32": 2505397589
+                },
+                {
+                  "tick": 1159,
+                  "value32": 2147483648
+                }
+              ]
+            }
+          ],
+          "sourceEstimate": {
+            "startSeconds": 0.7662585034013606,
+            "endSeconds": 1.4628571428571429,
+            "activationAmplitude": 0.76703941822052,
+            "contourThirdSemitones": [
+              1,
+              2,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              0
+            ],
+            "velocityIsEstimated": true
+          }
+        }
+      ],
+      "sourceAssetId": "2a43aaacbb59bedceb5a15b4a99d5f70b880a8258cc788b09a8feddc12d74f55.wav",
+      "transcription": {
+        "model": "spotify/basic-pitch@0.4.0/icassp_2022/onnx",
+        "modelSha256": "2c3c1d144bfa61ad236e92e169c13535c880469a12a047d4e73451f2c059a0ec",
+        "elapsedSeconds": 0.856,
+        "sourceDurationSeconds": 1.6,
+        "sourceTrackId": "c20a1e1c-740f-4b12-9a1f-47a7329342aa",
+        "placementStartTick": 8001,
+        "sourceWindow": {
+          "sampleRate": 96000,
+          "decodedLength": 307200,
+          "startFrame": 76800,
+          "endFrame": 230400,
+          "requestedStartSeconds": 0.8,
+          "requestedEndSeconds": 2.4,
+          "startSeconds": 0.8,
+          "endSeconds": 2.4
+        },
+        "estimateTimeOrigin": "analysis-window-start"
+      },
+      "provenance": {
+        "jobId": "56607b96-9ab7-42c0-8d35-ee1a95cccfea",
+        "pluginId": "spotify.basic-pitch",
+        "pluginVersion": "0.1.0",
+        "model": "spotify/basic-pitch@0.4.0/icassp_2022/onnx",
+        "modelRevision": null,
+        "modelSha256": "2c3c1d144bfa61ad236e92e169c13535c880469a12a047d4e73451f2c059a0ec",
+        "ai": true,
+        "input": {
+          "assetId": "2d9af65e42fc3d5eb186fbc328c5e847a1399648be4cbaafe3f70e3b93a4cbe1.wav",
+          "sourceAssetId": "2a43aaacbb59bedceb5a15b4a99d5f70b880a8258cc788b09a8feddc12d74f55.wav",
+          "sourceTrackId": "c20a1e1c-740f-4b12-9a1f-47a7329342aa",
+          "analysisWindow": {
+            "sampleRate": 96000,
+            "decodedLength": 307200,
+            "startFrame": 76800,
+            "endFrame": 230400,
+            "requestedStartSeconds": 0.8,
+            "requestedEndSeconds": 2.4,
+            "startSeconds": 0.8,
+            "endSeconds": 2.4
+          }
+        }
+      }
+    }
+  ],
+  "history": [
+    {
+      "id": "ef1d32d0-9b76-41b2-8da4-85c0257e3bf5",
+      "at": "2026-10-15T11:39:38.869Z",
+      "action": "edit-clip",
+      "trackId": "c20a1e1c-740f-4b12-9a1f-47a7329342aa",
+      "before": {
+        "startTick": 0,
+        "trimStartSeconds": 0,
+        "trimEndSeconds": 3.2,
+        "durationSeconds": 3.2
+      },
+      "after": {
+        "startTick": 8001,
+        "trimStartSeconds": 0.8,
+        "trimEndSeconds": 2.4,
+        "durationSeconds": 1.5999999999999999
+      }
+    },
+    {
+      "id": "14056ddb-b2e6-4b52-8e28-268571c1c8c9",
+      "at": "2026-10-15T11:40:35.013Z",
+      "action": "accept-candidate",
+      "provenance": {
+        "jobId": "56607b96-9ab7-42c0-8d35-ee1a95cccfea",
+        "pluginId": "spotify.basic-pitch",
+        "pluginVersion": "0.1.0",
+        "model": "spotify/basic-pitch@0.4.0/icassp_2022/onnx",
+        "modelRevision": null,
+        "modelSha256": "2c3c1d144bfa61ad236e92e169c13535c880469a12a047d4e73451f2c059a0ec",
+        "ai": true,
+        "input": {
+          "assetId": "2d9af65e42fc3d5eb186fbc328c5e847a1399648be4cbaafe3f70e3b93a4cbe1.wav",
+          "sourceAssetId": "2a43aaacbb59bedceb5a15b4a99d5f70b880a8258cc788b09a8feddc12d74f55.wav",
+          "sourceTrackId": "c20a1e1c-740f-4b12-9a1f-47a7329342aa",
+          "analysisWindow": {
+            "sampleRate": 96000,
+            "decodedLength": 307200,
+            "startFrame": 76800,
+            "endFrame": 230400,
+            "requestedStartSeconds": 0.8,
+            "requestedEndSeconds": 2.4,
+            "startSeconds": 0.8,
+            "endSeconds": 2.4
+          }
+        }
+      }
+    }
+  ],
+  "createdAt": "2026-10-15T11:39:18.122Z",
+  "updatedAt": "2026-10-15T11:40:36.055Z"
+}

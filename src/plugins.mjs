@@ -6,6 +6,7 @@ import { ariaPhrase, ariaCandidate } from './continuation.mjs';
 import { runMagenta } from './magenta.mjs';
 import { magentaScope, magentaCandidate } from './audio-generation.mjs';
 import { join } from 'node:path';
+import { clipWindow, validateAnalysisWindow } from '../public/clip-edit.js';
 
 export class PluginRegistry {
   constructor(){this.entries=new Map();}
@@ -55,19 +56,29 @@ export function createPlugins(store,config={}) {
   });
   registry.register({apiVersion:1,id:'spotify.basic-pitch',name:'Basic Pitch transcription',execution:'local',capabilities:['transcribe'],ai:true,version:'0.1.0',description:'Real local ONNX inference. Best on a single instrument or vocal.'},async({input,project,signal})=>{
     demand(typeof input.assetId==='string'&&input.assetId.endsWith('.wav'),'Transcription needs a WAV asset');
-    let startTick=0;
+    demand(input.analysisWindow===undefined||input.sourceTrackId!==undefined,'Source windows require a selected audio track');
+    let startTick=0,sourceWindow=null;
     if(input.sourceTrackId!==undefined){
       const source=project.tracks.find(t=>t.id===input.sourceTrackId);
       demand(source?.assetId===(input.sourceAssetId??input.assetId),'Source audio changed; select the audio track again');
-      if(source.kind==='audio')startTick=source.audio?.startTick??0;
+      if(source.kind==='audio'){
+        const view=clipWindow(source.audio);startTick=view.startTick;
+        if(input.analysisWindow!==undefined)sourceWindow=validateAnalysisWindow(source.audio,input.analysisWindow);
+        else demand(view.trimStartSeconds===0&&view.trimEndSeconds===source.audio.durationSeconds,'Prepare this trimmed clip for transcription first');
+      }else demand(input.analysisWindow===undefined,'Source windows require an audio clip');
     }
-    await store.asset(input.assetId);
+    const analysisBytes=await store.asset(input.assetId);
+    if(sourceWindow){
+      const frames=sourceWindow.endFrame-sourceWindow.startFrame;
+      demand(analysisBytes.length===44+frames*2&&analysisBytes.toString('ascii',0,4)==='RIFF'&&analysisBytes.readUInt32LE(4)===analysisBytes.length-8&&analysisBytes.toString('ascii',8,16)==='WAVEfmt '&&analysisBytes.readUInt32LE(16)===16&&analysisBytes.readUInt16LE(20)===1&&analysisBytes.readUInt16LE(22)===1&&analysisBytes.readUInt32LE(24)===sourceWindow.sampleRate&&analysisBytes.readUInt32LE(28)===sourceWindow.sampleRate*2&&analysisBytes.readUInt16LE(32)===2&&analysisBytes.readUInt16LE(34)===16&&analysisBytes.toString('ascii',36,40)==='data'&&analysisBytes.readUInt32LE(40)===frames*2,'Prepared analysis WAV does not match the declared source frames');
+    }
     const result=await runBasicPitch(join(store.root,'assets',input.assetId),project.tempo,signal);
+    if(sourceWindow)demand(Math.abs(result.sourceDurationSeconds-(sourceWindow.endSeconds-sourceWindow.startSeconds))<=1/sourceWindow.sampleRate,'Prepared audio duration does not match the selected source window');
     const notes=result.notes.map(n=>({...n,startTick:n.startTick+startTick})),minimumBars=Math.ceil(Math.max(1,...notes.map(n=>n.startTick+n.durationTicks))/3840);
     demand(minimumBars<=128,'Transcribed notes extend past 128 bars. Choose a shorter source or earlier placement.');
     const track=makeTrack('Transcribed · Basic Pitch','keys',notes);
     track.sourceAssetId=input.sourceAssetId??input.assetId;
-    track.transcription={model:result.model,modelSha256:result.modelSha256,elapsedSeconds:result.elapsedSeconds,sourceDurationSeconds:result.sourceDurationSeconds,sourceTrackId:input.sourceTrackId??null,placementStartTick:startTick};
+    track.transcription={model:result.model,modelSha256:result.modelSha256,elapsedSeconds:result.elapsedSeconds,sourceDurationSeconds:result.sourceDurationSeconds,sourceTrackId:input.sourceTrackId??null,placementStartTick:startTick,...(sourceWindow?{sourceWindow,estimateTimeOrigin:'analysis-window-start'}:{})};
     return {tracks:[track],model:result.model,modelSha256:result.modelSha256,minimumBars,auditionStartTick:startTick,summary:`${result.notes.length} estimated notes from real local Basic Pitch inference, aligned to bar ${startTick/3840+1}. Original audio retained; review pitches and timing.`};
   });
   registry.register({apiVersion:1,id:'eleutherai.aria-mlx',name:'Aria piano continuation',execution:'local',capabilities:['continue'],ai:true,version:'0.1.0',description:'Real local MLX piano continuation from selected source bars. Requires the qualified Apple Silicon runtime.'},async({input,project,signal})=>{

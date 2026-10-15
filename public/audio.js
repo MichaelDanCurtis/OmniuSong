@@ -1,3 +1,4 @@
+import { clipWindow } from './clip-edit.js';
 export class StudioAudio {
   constructor(){this.voices=new Map();this.buffers=new Map();this.playing=false;this.timer=null;this.generation=0;}
   async ready(){
@@ -49,8 +50,8 @@ export class StudioAudio {
         if(at>now+0.13)break;
         if(at>=now-0.05&&!this.mutes.get(e.track.id)){
           if(e.audio){
-            const buffer=this.buffers.get(e.track.assetId),startAt=Math.max(now,at),offset=Math.max(0,now-at);
-            const stopAt=Math.min(at+(buffer?.duration??0),this.startTime+(loop+1)*loopSeconds);
+            const buffer=this.buffers.get(e.track.assetId),view=clipWindow(e.track.audio??{durationSeconds:buffer?.duration}),startAt=Math.max(now,at),offset=view.trimStartSeconds+Math.max(0,now-at);
+            const stopAt=Math.min(at+view.durationSeconds,at+(buffer?.duration??0)-view.trimStartSeconds,this.startTime+(loop+1)*loopSeconds);
             if(buffer&&stopAt>startAt){
               const src=this.context.createBufferSource();src.buffer=buffer;const g=this.context.createGain();g.gain.value=e.track.gain;src.connect(g);g.connect(this.master);
               src.start(startAt,offset);src.stop(stopAt);const id=crypto.randomUUID();this.voices.set(id,{source:src,gain:g,trackId:e.track.id});src.onended=()=>{this.voices.delete(id);src.disconnect();g.disconnect();};
@@ -68,10 +69,11 @@ export class StudioAudio {
   setTrackMuted(id,muted){if(this.mutes)this.mutes.set(id,muted);if(muted&&this.context)for(const voice of this.voices.values())if(voice.trackId===id){voice.gain.gain.cancelScheduledValues(this.context.currentTime);voice.gain.gain.setTargetAtTime(0,this.context.currentTime,0.005);}}
   stop(){this.generation++;this.playing=false;clearTimeout(this.timer);for(const {source,gain}of this.voices.values()){try{gain.gain.cancelScheduledValues(0);gain.gain.value=0;source.stop();}catch{}}this.voices.clear();}
 }
-export function bufferWAV(buffer){
-  const length=buffer.length,bytes=new ArrayBuffer(44+length*2),view=new DataView(bytes),text=(at,s)=>{for(let i=0;i<s.length;i++)view.setUint8(at+i,s.charCodeAt(i));};
+export function bufferWAV(buffer,{startFrame=0,endFrame=buffer.length}={}){
+  if(!Number.isInteger(startFrame)||!Number.isInteger(endFrame)||startFrame<0||endFrame>buffer.length||endFrame<=startFrame)throw new Error('Invalid analysis audio window');
+  const length=endFrame-startFrame,bytes=new ArrayBuffer(44+length*2),view=new DataView(bytes),text=(at,s)=>{for(let i=0;i<s.length;i++)view.setUint8(at+i,s.charCodeAt(i));};
   text(0,'RIFF');view.setUint32(4,36+length*2,true);text(8,'WAVEfmt ');view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);view.setUint32(24,buffer.sampleRate,true);view.setUint32(28,buffer.sampleRate*2,true);view.setUint16(32,2,true);view.setUint16(34,16,true);text(36,'data');view.setUint32(40,length*2,true);
   const channels=Array.from({length:buffer.numberOfChannels},(_,i)=>buffer.getChannelData(i));
-  for(let i=0;i<length;i++){let sample=0;for(const channel of channels)sample+=channel[i]/channels.length;view.setInt16(44+i*2,Math.round(Math.max(-1,Math.min(1,sample))*32767),true);}
+  for(let i=0;i<length;i++){let sample=0;for(const channel of channels)sample+=channel[i+startFrame]/channels.length;view.setInt16(44+i*2,Math.round(Math.max(-1,Math.min(1,sample))*32767),true);}
   return bytes;
 }

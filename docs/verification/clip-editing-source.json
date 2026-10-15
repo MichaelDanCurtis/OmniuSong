@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "id": "6dd1a6bf-4e6c-402d-a8e8-cb235c4fd4ec",
+  "revision": 2,
+  "ppq": 960,
+  "name": "Clip editing qualification",
+  "tempo": 104,
+  "bars": 1,
+  "key": "C minor",
+  "lyrics": "",
+  "tracks": [
+    {
+      "id": "2ec46f41-56b3-4299-9ab7-0c2dbff42f94",
+      "name": "Locked test performance",
+      "kind": "notes",
+      "instrument": "keys",
+      "gain": 0.65,
+      "muted": false,
+      "locked": true,
+      "armed": false,
+      "notes": [
+        {
+          "id": "a194f3d1-c746-4c29-998a-3631e1137c1b",
+          "pitch": 60,
+          "startTick": 123,
+          "durationTicks": 987,
+          "velocity16": 49123,
+          "expression": [
+            {
+              "type": "pitch",
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 2147483648
+                },
+                {
+                  "tick": 700,
+                  "value32": 2271560481
+                }
+              ]
+            }
+          ],
+          "externalMetadata": {
+            "syntheticFixture": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ddb053de-3ba3-4ae6-b4e4-d5c0b28e83ad",
+      "name": "Pocket drums",
+      "kind": "notes",
+      "instrument": "drums",
+      "gain": 0.65,
+      "muted": false,
+      "locked": false,
+      "armed": false,
+      "notes": []
+    },
+    {
+      "id": "c20a1e1c-740f-4b12-9a1f-47a7329342aa",
+      "name": "Example four-tone phrase",
+      "kind": "audio",
+      "instrument": "voice",
+      "gain": 0.7,
+      "muted": false,
+      "locked": false,
+      "notes": [],
+      "assetId": "2a43aaacbb59bedceb5a15b4a99d5f70b880a8258cc788b09a8feddc12d74f55.wav",
+      "audio": {
+        "origin": "import",
+        "mimeType": "audio/wav",
+        "durationSeconds": 3.2,
+        "byteLength": 282284,
+        "originalName": "Example four-tone phrase.wav",
+        "example": true,
+        "method": "procedural four-tone fixture"
+      }
+    }
+  ],
+  "history": [],
+  "createdAt": "2026-10-15T11:39:18.122Z",
+  "updatedAt": "2026-10-15T11:39:26.270Z"
+}

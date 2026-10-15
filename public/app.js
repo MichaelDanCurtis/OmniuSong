@@ -3,8 +3,9 @@ import { PerformanceInput, decodeMIDI1, decodeUMP, appendCapture } from './input
 import { TakeCapture, audioType, AUDIO_LIMIT_BYTES } from './recording.js';
 import { rollWindow, candidateAudition } from './note-view.js';
 import { editNote, restoreNote, deleteNote } from './note-edit.js';
+import { clipWindow, editClip, restoreClip, analysisWindow } from './clip-edit.js';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],audio=new StudioAudio();
-let project,selectedId,catalog,plugins,selections={},jobs=[],dirty=false,editSequence=0,savePromise=null,saveTimer,undoStack=[],midiAccess,sessionBusy=false,rollPage=0,rollTop=null,selectedNoteId=null,noteDraft=null;
+let project,selectedId,catalog,plugins,selections={},jobs=[],dirty=false,editSequence=0,savePromise=null,saveTimer,undoStack=[],midiAccess,sessionBusy=false,rollPage=0,rollTop=null,selectedNoteId=null,noteDraft=null,clipDraft=null;
 const midiConnected=new Map(),nativeSources=new Set();
 const colors=['#bfdb9f','#e5b677','#97bec1','#cd9dad','#9eb7d5','#d6cb90'];
 const localAddress=sourceId=>({sourceId,sourceName:sourceId==='computer'?'Computer keyboard':'On-screen keys',group:0,channel:0,protocol:'local'});
@@ -55,7 +56,7 @@ async function save(){
   const sequence=editSequence,snapshot=structuredClone(project),revision=project.revision;
   $('#save-status').textContent='Saving…';
   savePromise=api('/api/projects/'+project.id,{method:'PUT',body:JSON.stringify({project:snapshot,expectedRevision:revision})});
-  try{const saved=await savePromise;project.revision=saved.revision;project.updatedAt=saved.updatedAt;if(sequence===editSequence){dirty=false;$('#save-status').textContent=noteFieldPending()?'Note edit pending':'Saved on this Mac';}else $('#save-status').textContent='Unsaved changes';$('#session-meta').textContent=`${project.bars} bars · ${project.tracks.reduce((s,t)=>s+t.notes.length,0)} notes · Revision ${project.revision}`;const option=[...$('#project-picker').options].find(o=>o.value===project.id);if(option)option.textContent=project.name;}
+  try{const saved=await savePromise;project.revision=saved.revision;project.updatedAt=saved.updatedAt;if(sequence===editSequence){dirty=false;$('#save-status').textContent=noteFieldPending()?'Note edit pending':clipFieldPending()?'Clip edit pending':'Saved on this Mac';}else $('#save-status').textContent='Unsaved changes';$('#session-meta').textContent=`${project.bars} bars · ${project.tracks.reduce((s,t)=>s+t.notes.length,0)} notes · Revision ${project.revision}`;const option=[...$('#project-picker').options].find(o=>o.value===project.id);if(option)option.textContent=project.name;}
   finally{savePromise=null;}
 }
 async function flushSaves(){while(dirty||savePromise)await save();clearTimeout(saveTimer);}
@@ -64,14 +65,14 @@ async function refreshLibrary(){
   const picker=$('#project-picker');picker.replaceChildren();for(const session of sessions){const option=el('option','',session.name);option.value=session.id;picker.append(option);}if(project)picker.value=project.id;return sessions;
 }
 async function useProject(next){
-  project=next;selectedId=next.tracks[0]?.id;selectedNoteId=null;noteDraft=null;rollPage=0;rollTop=null;$('#aria-start').value=1;$('#aria-bars').value=Math.min(2,next.bars);$('#magenta-start').value=1;undoStack=[];jobs=[];dirty=false;editSequence=0;clearTimeout(saveTimer);
+  project=next;selectedId=next.tracks[0]?.id;selectedNoteId=null;noteDraft=null;clipDraft=null;rollPage=0;rollTop=null;$('#aria-start').value=1;$('#aria-bars').value=Math.min(2,next.bars);$('#magenta-start').value=1;undoStack=[];jobs=[];dirty=false;editSequence=0;clearTimeout(saveTimer);
   try{localStorage.setItem('omniusong.activeProject',next.id);}catch{}
   renderStudio();renderJobs();await refreshLibrary();await refreshJobs();$('#save-status').textContent='Saved on this Mac';
 }
 async function sessionTransition(operation){
   if(sessionBusy)throw new Error('A session is already opening');
   if(capture.busy)throw new Error('Finish saving the original audio before changing sessions');
-  if(!commitPendingNote())throw new Error('Note edit rejected; review the note before changing sessions');
+  if(!commitPendingEdits())throw new Error('Edit rejected; review the selected track before changing sessions');
   sessionBusy=true;$('main').inert=true;for(const id of ['#project-picker','#new-project','#import-project','#export-project','#record','#play','#save','#tempo'])$(id).disabled=true;
   $('#library-status').textContent='Saving and opening…';
   try{panic();await flushSaves();await operation();}
@@ -96,27 +97,30 @@ function renderStudio(){
   project.tracks.forEach((t,index)=>{
     const row=el('div','track-row'+(t.id===selectedId?' selected':''));row.style.setProperty('--track-color',colors[index%colors.length]);const label=el('div','track-label');label.append(el('span','track-dot'));
     const select=el('button','track-select',t.name);select.title=t.name;select.onclick=()=>selectTrack(t.id);label.append(select);
-    for(const [field,text]of [['muted','M'],['locked','L']]){const button=el('button','track-switch'+(t[field]?' enabled':''),text);button.title=(field==='muted'?'Mute ':'Lock ')+t.name;button.setAttribute('aria-label',button.title);button.setAttribute('aria-pressed',String(t[field]));button.onclick=()=>{if(!commitPendingNote())return;const current=project.tracks.find(x=>x.id===t.id);remember();current[field]=!current[field];if(field==='muted')audio.setTrackMuted(current.id,current.muted);changed();};label.append(button);}
-    if(t.kind==='notes'){const arm=el('button','track-switch'+(t.armed?' enabled':''),'R');arm.title='Arm note recording for '+t.name;arm.setAttribute('aria-label',arm.title);arm.setAttribute('aria-pressed',String(Boolean(t.armed)));arm.onclick=()=>{if(!commitPendingNote())return;const current=project.tracks.find(x=>x.id===t.id);remember();current.armed=!current.armed;changed();};label.append(arm);}
+    for(const [field,text]of [['muted','M'],['locked','L']]){const button=el('button','track-switch'+(t[field]?' enabled':''),text);button.title=(field==='muted'?'Mute ':'Lock ')+t.name;button.setAttribute('aria-label',button.title);button.setAttribute('aria-pressed',String(t[field]));button.onclick=()=>{if(!commitPendingEdits())return;const current=project.tracks.find(x=>x.id===t.id);remember();current[field]=!current[field];if(field==='muted')audio.setTrackMuted(current.id,current.muted);changed();};label.append(button);}
+    if(t.kind==='notes'){const arm=el('button','track-switch'+(t.armed?' enabled':''),'R');arm.title='Arm note recording for '+t.name;arm.setAttribute('aria-label',arm.title);arm.setAttribute('aria-pressed',String(Boolean(t.armed)));arm.onclick=()=>{if(!commitPendingEdits())return;const current=project.tracks.find(x=>x.id===t.id);remember();current.armed=!current.armed;changed();};label.append(arm);}
     const lane=el('div','track-lane'+(t.notes.length||t.assetId?' has-notes':''));
     if(t.notes.length)for(const n of t.notes){const note=el('span','mini-note');note.style.left=(n.startTick/(project.bars*3840)*100)+'%';note.style.width=Math.max(.4,n.durationTicks/(project.bars*3840)*100)+'%';note.style.top=(5+(n.pitch%12)*2)+'px';lane.append(note);}
     else {
       const label=t.assetId?(t.kind==='audio'?(t.audio?.origin==='generated'?'◉ Generated AI audio':t.audio?.origin==='import'?'◉ Imported original audio':'◉ Original vocal take'):'◈ Playable sample'):'Your next idea goes here';
       const clip=el('span','empty-lane',label);
-      if(t.kind==='audio'&&t.audio){clip.classList.add('audio-clip');clip.style.left=((t.audio.startTick??0)/(project.bars*3840)*100)+'%';clip.style.width=(t.audio.durationSeconds*project.tempo/60*960/(project.bars*3840)*100)+'%';clip.title=label+` · bar ${((t.audio.startTick??0)/3840+1).toFixed(2)} · ${t.audio.durationSeconds} seconds`;}
+      if(t.kind==='audio'&&t.audio){const view=clipWindow(t.audio);clip.classList.add('audio-clip');clip.style.left=(view.startTick/(project.bars*3840)*100)+'%';clip.style.width=(view.durationSeconds*project.tempo/60*960/(project.bars*3840)*100)+'%';clip.title=label+` · bar ${(view.startTick/3840+1).toFixed(2)} · source ${view.trimStartSeconds}–${view.trimEndSeconds} seconds`;}
       lane.append(clip);
     }
     row.append(label,lane);arrangement.append(row);
   });
-  renderRoll();renderNoteInspector();renderTakes();
+  const isAudio=track()?.kind==='audio';$('#editor-mode').textContent=isAudio?'AUDIO CLIP':'NOTE EDITOR';
+  for(const selector of ['.roll-navigation','#piano-roll','#note-inspector','#clear-track','.editor-actions .tiny-tag'])$(selector).classList.toggle('hidden',isAudio);
+  $('#clip-inspector').classList.toggle('hidden',!isAudio);$('#editor-hint').textContent=isAudio?'Move or trim the arrangement clip. The complete source stays in its player and download.':'Click an empty cell to write; click a note to edit. Arm a track with R to capture keys while the transport runs.';
+  if(!isAudio)renderRoll();renderNoteInspector();renderClipInspector();renderTakes();
   $('#aria-source').textContent='Source: '+(track()?.name??'Select a pitched track');$('#aria-start').max=project.bars;
   $('#magenta-source').textContent='Selected guide: '+(track()?.name??'Select a pitched track');$('#magenta-start').max=project.bars;
   if(document.activeElement!==$('#lyric-editor'))$('#lyric-editor').value=project.lyrics;
   $('#lock-lyrics').checked=Boolean(project.lyricsLocked);$('#lyric-editor').disabled=Boolean(project.lyricsLocked);
 }
 function selectTrack(id){
-  if(!commitPendingNote())return;
-  selectedId=id;selectedNoteId=null;noteDraft=null;rollTop=null;const notes=track()?.notes??[];
+  if(!commitPendingEdits())return;
+  selectedId=id;selectedNoteId=null;noteDraft=null;clipDraft=null;rollTop=null;const notes=track()?.notes??[];
   rollPage=notes.length?Math.floor(Math.min(...notes.map(n=>n.startTick))/15360):0;renderStudio();
 }
 function renderRoll(){
@@ -136,7 +140,7 @@ function renderRoll(){
       cell.onclick=async()=>{
         try{
           if(note){selectNote(notes[(notes.findIndex(n=>n.id===selectedNoteId)+1)%notes.length].id);return;}
-          if(!commitPendingNote())return;
+          if(!commitPendingEdits())return;
           const current=track();if(!current||current.locked||current.kind!=='notes')return;
           panic();remember();const added={id:crypto.randomUUID(),pitch,startTick:at,durationTicks:480,velocity16:45000,expression:[]};current.notes.push(added);selectedNoteId=added.id;noteDraft=null;changed();
           await audio.ready();audio.voice(pitch,.6,current.instrument,audio.context.currentTime,.2,audio.buffers.get(current.assetId),current.sampleRoot??60);
@@ -153,7 +157,7 @@ function locateSelectedNote(){
   if(note){rollPage=Math.floor(note.startTick/15360);if(rollTop===null||note.pitch>rollTop||note.pitch<rollTop-24)rollTop=Math.min(127,Math.max(24,Math.ceil(note.pitch/12)*12));}
 }
 function selectNote(id){
-  if(!commitPendingNote())return;
+  if(!commitPendingEdits())return;
   selectedNoteId=id;noteDraft=null;locateSelectedNote();
   renderRoll();renderNoteInspector();
 }
@@ -188,6 +192,25 @@ function commitNotePatch(patch){
 }
 function transformSelectedNote(operation){
   panic();const next=operation(project,track()?.id,selectedNoteId);if(next!==project){remember();project=next;locateSelectedNote();changed();}
+}
+function clipFieldPending(){
+  const t=track();return Boolean(t?.audio&&clipDraft?.trackId===t.id&&Object.entries(clipDraft.patch).some(([key,value])=>value===''||Number(value)!==clipWindow(t.audio)[key]));
+}
+function commitPendingClip(){
+  if(!clipFieldPending()){if(clipDraft){clipDraft=null;if(!dirty&&!savePromise)$('#save-status').textContent='Saved on this Mac';}return true;}
+  try{
+    panic();const patch=Object.fromEntries(Object.entries(clipDraft.patch).map(([key,value])=>[key,value===''?NaN:Number(value)])),next=editClip(project,track()?.id,patch);clipDraft=null;
+    if(next!==project){remember();project=next;changed();}renderClipInspector();return true;
+  }catch(error){clipDraft=null;renderClipInspector();$('#clip-edit-status').textContent=error.message;if(!dirty&&!savePromise)$('#save-status').textContent='Saved on this Mac';toast(error.message,true);return false;}
+}
+function commitPendingEdits(){return commitPendingNote()&&commitPendingClip();}
+function renderClipInspector(){
+  const t=track(),view=t?.kind==='audio'&&t.audio?clipWindow(t.audio):null;
+  for(const field of $$('[data-clip-field]')){const key=field.dataset.clipField,draft=clipDraft?.trackId===t?.id?clipDraft?.patch:{};field.value=draft&&Object.hasOwn(draft,key)?draft[key]:view?.[key]??'';field.disabled=!view||t.locked;if(key!=='startTick')field.max=t?.audio?.durationSeconds??86400;}
+  $('#clip-save').disabled=!view||t.locked;$('#clip-restore').disabled=!view||t.locked||!t.audio.editSource;$('#clip-preview').disabled=!view;
+  $('#clip-position').textContent=view?`Bar ${(view.startTick/3840+1).toFixed(4)} · beat ${(view.startTick/960+1).toFixed(4)} · ${view.durationSeconds.toFixed(4)} seconds in the arrangement`:'';
+  $('#clip-source').textContent=view?`Full ${t.audio.origin==='generated'?'AI-generated':t.audio.origin==='import'?'imported':'recorded'} source: ${t.audio.durationSeconds.toFixed(4)} seconds. ${t.audio.editSource?'Original placement and trim kept. ':''}The source file and its metadata stay intact.`:'';
+  $('#clip-edit-status').textContent=t?.locked?'Track locked · clip can be inspected and auditioned.':clipFieldPending()?'Save clip or press Enter. Changing tracks also saves.':'960 ticks = 1 beat. Source in/out use seconds from the full recording.';
 }
 function renderTakes(){const box=$('#takes');box.replaceChildren();for(const t of project.tracks.filter(t=>t.kind==='audio')){const take=el('div','take',t.name);const player=document.createElement('audio');player.controls=true;player.src='/api/assets/'+t.assetId;player.setAttribute('aria-label',t.name);const original=el('a','original-audio',t.audio?.origin==='generated'?'Download generated WAV':'Download original');original.href=player.src;original.download=t.audio?.originalName??('OmniuSong-original.'+t.assetId.split('.').at(-1));take.append(player,original);box.append(take);}}
 function noteOn(pitch,velocity=.7,sourceId='screen',extra={}){
@@ -226,8 +249,9 @@ async function transcribeSelected(){
     const selected=track();if(!selected?.assetId)throw new Error('Select a recorded vocal, imported audio, or a sample track first');
     $('#library-status').textContent='Preparing audio for local transcription…';
     await audio.ready();const buffer=await audio.loadAsset(selected.assetId);if(buffer.duration>120)throw new Error('Choose a take shorter than two minutes');
-    const response=await fetch('/api/assets',{method:'POST',headers:{'Content-Type':'audio/wav'},body:bufferWAV(buffer)}),result=await response.json();if(!response.ok)throw new Error(result.error);
-    await post('/api/jobs',{projectId:project.id,projectRevision:project.revision,pluginId:'spotify.basic-pitch',capability:'transcribe',input:{assetId:result.assetId,sourceAssetId:selected.assetId,sourceTrackId:selected.id}});await refreshJobs();
+    const window=selected.kind==='audio'&&selected.audio?analysisWindow(buffer,selected.audio):undefined;
+    const response=await fetch('/api/assets',{method:'POST',headers:{'Content-Type':'audio/wav'},body:bufferWAV(buffer,window)}),result=await response.json();if(!response.ok)throw new Error(result.error);
+    await post('/api/jobs',{projectId:project.id,projectRevision:project.revision,pluginId:'spotify.basic-pitch',capability:'transcribe',input:{assetId:result.assetId,sourceAssetId:selected.assetId,sourceTrackId:selected.id,...(window?{analysisWindow:window}:{})}});await refreshJobs();
   });
 }
 function renderJobs(){
@@ -364,7 +388,7 @@ async function boot(){
   for(const category of [...new Set(catalog.models.map(m=>m.category))]){const option=el('option','',category);option.value=category;$('#model-category').append(option);}
   makePerformance();renderStudio();renderModels();updateCaptureControls();await refreshJobs();
   $$('.rail-button').forEach(b=>b.onclick=()=>{$$('.rail-button').forEach(x=>x.classList.toggle('active',x===b));$$('.view').forEach(v=>v.classList.toggle('hidden',v.id!==b.dataset.view+'-view'));});
-  const guarded=(selector,fn)=>{$(selector).onclick=()=>Promise.resolve().then(()=>{if(commitPendingNote())return fn();}).catch(e=>toast(e.message,true));};
+  const guarded=(selector,fn)=>{$(selector).onclick=()=>Promise.resolve().then(()=>{if(commitPendingEdits())return fn();}).catch(e=>toast(e.message,true));};
   guarded('#save',save);guarded('#play',async()=>{if(audio.playing)panic();else{await audio.play(project);$('#play').textContent='■ Stop';}});guarded('#panic',async()=>panic());
   guarded('#sketch',()=>generate('local.sketch','compose'));guarded('#instrument',()=>generate('local.instrument','instrument'));guarded('#lyrics',()=>generate($('#use-ollama').checked?'ollama.lyrics':'local.lyric-cards','lyrics'));guarded('#transcribe',transcribeSelected);guarded('#record',recordVoice);guarded('#midi-connect',connectMIDI);
   guarded('#aria-continue',continuePiano);
@@ -377,8 +401,12 @@ async function boot(){
   for(const field of $$('[data-note-field]')){
     field.oninput=()=>{if(!selectedNote())return;if(noteDraft?.noteId!==selectedNoteId||noteDraft?.trackId!==track()?.id)noteDraft={noteId:selectedNoteId,trackId:track()?.id,patch:{}};noteDraft.patch[field.dataset.noteField]=field.value;$('#note-edit-status').textContent='Save note or press Enter. Leaving this note also saves.';$('#save-status').textContent='Note edit pending';};
   }
-  $('#note-inspector').onsubmit=e=>{e.preventDefault();commitPendingNote();};
+  $('#note-inspector').onsubmit=e=>{e.preventDefault();commitPendingEdits();};
   guarded('#note-restore',()=>transformSelectedNote(restoreNote));guarded('#note-delete',()=>transformSelectedNote(deleteNote));
+  for(const field of $$('[data-clip-field]'))field.oninput=()=>{if(!track()?.audio)return;if(clipDraft?.trackId!==track().id)clipDraft={trackId:track().id,patch:{}};clipDraft.patch[field.dataset.clipField]=field.value;$('#clip-edit-status').textContent='Save clip or press Enter. Changing tracks also saves.';$('#save-status').textContent='Clip edit pending';};
+  $('#clip-inspector').onsubmit=e=>{e.preventDefault();commitPendingEdits();};
+  guarded('#clip-restore',()=>{panic();const next=restoreClip(project,track()?.id);if(next!==project){remember();project=next;changed();}});
+  guarded('#clip-preview',async()=>{const t=track(),preview=candidateAudition(project,{tracks:[t],auditionStartTick:t.audio.startTick??0});for(const copy of preview.tracks)copy.muted=false;await audio.play(preview);$('#play').textContent='■ Stop';});
   guarded('#add-track',async()=>{remember();const t={id:crypto.randomUUID(),name:'Instrument '+(project.tracks.length+1),kind:'notes',instrument:'keys',gain:.65,muted:false,locked:false,notes:[]};project.tracks.push(t);selectedId=t.id;selectedNoteId=null;rollTop=null;rollPage=0;changed();});
   guarded('#new-project',()=>sessionTransition(async()=>useProject(await post('/api/projects',{name:'Untitled session'}))));
   $('#project-picker').onchange=()=>{const id=$('#project-picker').value;sessionTransition(async()=>useProject(await api('/api/projects/'+id))).catch(e=>{$('#project-picker').value=project.id;toast(e.message,true);});};
@@ -412,7 +440,7 @@ async function boot(){
   const releaseFocus=()=>{pressed.clear();input.panic('focus-lost');};
   window.addEventListener('blur',releaseFocus);document.addEventListener('visibilitychange',()=>{if(document.hidden)releaseFocus();});
   guarded('#sustain',async()=>setLocalSustain($('#sustain').getAttribute('aria-pressed')!=='true'));
-  window.addEventListener('beforeunload',e=>{if(dirty||capture.busy||sessionBusy||noteFieldPending()){e.preventDefault();e.returnValue='';}});
+  window.addEventListener('beforeunload',e=>{if(dirty||capture.busy||sessionBusy||noteFieldPending()||clipFieldPending()){e.preventDefault();e.returnValue='';}});
   setInterval(()=>{if(!document.hidden&&!dirty&&!savePromise&&!sessionBusy)refreshJobs().catch(()=>{});},1500);
 }
 boot().then(()=>{document.body.inert=false;$('#save-status').textContent='Saved on this Mac';}).catch(e=>{document.body.inert=false;toast('Could not open studio: '+e.message,true);});

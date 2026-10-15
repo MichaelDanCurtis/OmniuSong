@@ -86,7 +86,7 @@ export async function createServer({dataDir=process.env.OMNIUSONG_DATA_DIR??join
         if(req.method==='GET'){try{return send(res,200,JSON.parse(await readFile(target,'utf8')));}catch(e){if(e.code!=='ENOENT')throw e;return send(res,200,{});}}
         if(req.method==='PUT'){const input=await json(req);demand(input&&typeof input==='object'&&!Array.isArray(input),'Invalid selections');for(const [id,status]of Object.entries(input))demand(catalog.models.some(m=>m.id===id)&&['keep','explore','skip'].includes(status),'Invalid model selection');await atomicJSON(target,input);return send(res,200,input);}
       }
-      const staticFiles={'/':'index.html','/app.js':'app.js','/audio.js':'audio.js','/input.js':'input.js','/recording.js':'recording.js','/note-view.js':'note-view.js','/note-edit.js':'note-edit.js','/style.css':'style.css'};
+      const staticFiles={'/':'index.html','/app.js':'app.js','/audio.js':'audio.js','/input.js':'input.js','/recording.js':'recording.js','/note-view.js':'note-view.js','/note-edit.js':'note-edit.js','/clip-edit.js':'clip-edit.js','/style.css':'style.css'};
       if(req.method==='GET'&&staticFiles[path])return send(res,200,await readFile(join(root,'public',staticFiles[path])),mime[extname(staticFiles[path])]);
       send(res,404,{error:'Not found'});
     }catch(error){send(res,error.status??(error.code==='ENOENT'?404:400),{error:error.code==='ENOENT'?'Not found':error.message});}
