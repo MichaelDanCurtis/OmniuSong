@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "id": "b5982252-5a28-4c6e-a1f6-0eb9d1565fc8",
+  "revision": 1,
+  "ppq": 960,
+  "name": "Waveform review qualification",
+  "tempo": 120,
+  "bars": 4,
+  "key": "C minor",
+  "lyrics": "",
+  "tracks": [
+    {
+      "id": "c79437f1-23bf-47f6-8aca-94c24b4badf1",
+      "name": "Locked expressive source",
+      "kind": "notes",
+      "instrument": "keys",
+      "gain": 0.65,
+      "muted": true,
+      "locked": true,
+      "armed": false,
+      "notes": [
+        {
+          "id": "unchanged-guide",
+          "pitch": 60,
+          "startTick": 123,
+          "durationTicks": 987,
+          "velocity16": 49123,
+          "expression": [
+            {
+              "type": "pressure",
+              "points": [
+                {
+                  "tick": 0,
+                  "value32": 42
+                },
+                {
+                  "tick": 700,
+                  "value32": 4294967295
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "d7c0180a-a623-430a-ae17-1a3f80a3b329",
+      "name": "Pocket drums",
+      "kind": "notes",
+      "instrument": "drums",
+      "gain": 0.65,
+      "muted": false,
+      "locked": false,
+      "armed": false,
+      "notes": []
+    },
+    {
+      "id": "fade-source",
+      "name": "Four-tone original · procedural",
+      "kind": "audio",
+      "instrument": "voice",
+      "gain": 0.7,
+      "muted": false,
+      "locked": false,
+      "notes": [],
+      "assetId": "2a43aaacbb59bedceb5a15b4a99d5f70b880a8258cc788b09a8feddc12d74f55.wav",
+      "audio": {
+        "origin": "import",
+        "mimeType": "audio/wav",
+        "durationSeconds": 3.2,
+        "byteLength": 282284,
+        "startTick": 7680,
+        "originalName": "Recovery choice - procedural tones.wav",
+        "example": true,
+        "method": "procedural four-tone management fixture",
+        "trimStartSeconds": 0.8,
+        "trimEndSeconds": 2.4,
+        "fadeInSeconds": 0.2,
+        "fadeOutSeconds": 0.4,
+        "editSource": {
+          "version": 1,
+          "original": {
+            "startTick": 7680
+          }
+        }
+      }
+    }
+  ],
+  "history": [],
+  "createdAt": "2026-10-15T14:32:53.193Z",
+  "updatedAt": "2026-10-15T14:32:53.200Z"
+}

@@ -19,6 +19,9 @@ test('studio API supports real persistence, review, export and origin isolation'
   const noteEdit=await fetch(base+'/note-edit.js');assert.equal(noteEdit.status,200);assert.match(noteEdit.headers.get('content-type'),/javascript/);
   assert.equal((await fetch(base+'/clip-edit.js')).status,200);
   assert.equal((await fetch(base+'/transport.js')).status,200);
+  // A missing transitive browser module prevents the entire studio from starting.
+  const browserModules=new Set(['/app.js']);
+  for(const path of browserModules){const response=await fetch(base+path);assert.equal(response.status,200,path);assert.match(response.headers.get('content-type'),/javascript/,path);const source=await response.text();for(const match of source.matchAll(/\b(?:from|import)\s*['"]([.][^'"]+)['"]/g))browserModules.add(new URL(match[1],base+path).pathname);}
   assert.equal((await get('/api/status')).ariaStudioControls,true);
   assert.equal((await get('/api/status')).magentaStudioControls,true);
   assert.ok((await get('/api/plugins')).some(p=>p.id==='eleutherai.aria-mlx'&&p.ai&&p.capabilities.includes('continue')));

@@ -27,6 +27,14 @@ The first edit saves the original settings. Later edits keep the same snapshot. 
 
 Windows must be finite, inside the full source, and at least one millisecond long. Fades affect arrangement playback and clip audition. Full-source players/downloads and source-window transcription do not apply them. Complete archives retain both settings and the full source. The existing WAV export renders procedural note tracks only; it is not an audio-clip mixdown. Crossfades, stretch, destructive render, waveform handles, and automatic recording-latency correction remain unimplemented. Physical listening and timing acceptance remain separate work.
 
+## Review the source waveform
+
+Choose **Show waveform** to decode the selected original locally. The overview uses real peak ranges from every decoded channel. Gray shows the full source, green highlights the chosen source window, and the gold line shows the linear clip-gain envelope. The source scale includes the full declared or decoded duration, whichever is longer; the status reports the actual decoded duration and format. A source window beyond the decoded end is explicitly reported as containing no decoded samples. Loop boundaries can shorten arrangement playback beyond what the source overview shows.
+
+Valid pending fields update an **Unsaved window preview** immediately. The saved placement/length remains labeled **Saved clip** above it. Invalid drafts show the saved window with a warning. Previewing the waveform does not save an edit; Save clip, Enter, and existing transition rules still control commits. Locks allow waveform review while disabling editing. Hide waveform releases the view; Cancel waveform ignores a pending decode. Switching tracks or sessions also ignores a late result. Decode failures leave the original and saved project intact and can be retried by hiding/showing the view.
+
+This is a peak overview, not a sample editor. It has no dragging, zoom, crossfades, pitch display, or destructive rendering. The overview accepts at most two minutes and 32 channels, with a total cap of 32 × 1,024 × 1,024 decoded samples (128 MiB of float samples) and 256 peak bins. The waveform cache retains up to eight small summaries; decoded audio shares the existing playback cache. Waveform data is regenerated from the archived original rather than stored in the project. No audio is uploaded.
+
 ## Transcribe the selected window
 
 **Turn selected audio into notes** decodes the full source locally, extracts only the selected frames into a separate mono analysis WAV, and runs real local Basic Pitch inference. Estimated notes are placed at the clip's saved start. The original file remains referenced separately.
@@ -54,3 +62,11 @@ The **Clip fades qualification** session retains the complete 3.2-second procedu
 The actual 221,097-byte downloaded backup restored all three tracks, history, original snapshot, and the exact 282,284-byte source into an empty store and a new main-studio session. The original source SHA256 is `2a43aaacbb59bedceb5a15b4a99d5f70b880a8258cc788b09a8feddc12d74f55`. Pure-envelope and scheduler checks cover linear ramps, late starts, the loop boundary, proportional shortening, source-buffer preservation and unchanged analysis frames. The full suite passes 111 tests with no skips; syntax/catalog checks cover 40 modules and 36 entries.
 
 Evidence: [fade receipt](verification/clip-fades.json), [source project](verification/clip-fades-source.json), [saved project](verification/clip-fades-project.json), and [studio review](verification/clip-fades.jpg).
+
+## Waveform verification
+
+The **Waveform review qualification** session uses the same procedural four-tone original and locked synthetic expressive note. The browser decoded the complete 3.2-second mono source at 96 kHz. Live fields previewed source 0.9–2.3 seconds and fades 0.25/0.35 seconds while the saved project remained at its prior revision. A reversed window fell back to the saved overview with an explicit warning, and Save rejected it. A valid edit saved and survived reload. Locked review, Hide/Show, Restore original and Undo updated the graph correctly. The existing Magenta studio session also showed its full eight-second, two-channel source without modifying its tracks or history.
+
+The actual 221,100-byte browser backup restores all three tracks, history, trim/fade settings and the exact 282,284-byte original into an empty store and a new studio session. Ten earlier qualification sessions retain identical tracks and history.
+
+The final suite passes 116 tests with no skips, including stereo transient preservation, final-bin coverage, decoded-source immutability, format bounds, shortened source envelopes, failed-load retry, an eight-summary cache, and stale decode isolation after track changes or cancellation. The HTTP test also checks the studio's complete transitive module graph. Syntax/catalog checks cover 42 modules and 36 model entries. Browser, backup and preservation receipts are in [waveform verification](verification/waveform.json), with a [saved project](verification/waveform-project.json) and [studio review](verification/waveform.jpg). Physical listening, recording alignment and waveform dragging remain separate work.

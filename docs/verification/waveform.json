@@ -1,0 +1,69 @@
+{
+  "at": "2026-10-15T14:39:49.205Z",
+  "projectId": "b5982252-5a28-4c6e-a1f6-0eb9d1565fc8",
+  "revision": 4,
+  "restoredProjectId": "d9693739-0f5d-407d-a7ff-725f7917593f",
+  "fixtures": [
+    "procedural 3.2-second mono four-tone source",
+    "existing actual 8-second stereo Magenta Small result"
+  ],
+  "browserDecodedRate": 96000,
+  "browserChecks": [
+    "real peak overview with selected source and fades",
+    "live unsaved preview leaves stored revision/tracks/history unchanged",
+    "invalid draft explicitly shows saved window and rejects save",
+    "save/reload preserves exact trims and fades",
+    "locked waveform inspection and Hide/Show",
+    "Restore original and Undo redraw correctly",
+    "full-source player retains 3.2 seconds",
+    "existing Magenta stereo clip shows 8 seconds and two channels without editing",
+    "restored archive regenerates the waveform from original audio"
+  ],
+  "archive": {
+    "path": "/Users/michaelcurtis/Downloads/Waveform review qualification.omniusong",
+    "byteLength": 221100,
+    "assets": 1,
+    "originalBytes": 282284,
+    "exactTracks": true,
+    "exactHistory": true,
+    "exactOriginal": true,
+    "emptyStoreRestore": true,
+    "mainStudioRestore": true
+  },
+  "preservedSessions": [
+    "transport",
+    "clip-editing",
+    "clip-fades",
+    "note-editing",
+    "magenta-studio",
+    "aria-studio",
+    "voice-timing",
+    "recording-placement",
+    "take-recovery",
+    "recovery-choices"
+  ],
+  "automatedTests": 116,
+  "checkedModules": 42,
+  "catalogEntries": 36,
+  "limits": [
+    "peak overview only; no dragging, zoom or destructive edits",
+    "256 bins, two minutes, 32 channels and 33554432 total decoded samples",
+    "at most eight peak summaries; decoded audio shares existing playback cache",
+    "no hardware, latency or listening qualification",
+    "no new inference, download or external audio upload"
+  ],
+  "responsive": [
+    {
+      "viewport": 1440,
+      "documentWidth": 1425,
+      "waveformWidth": 891
+    },
+    {
+      "viewport": 680,
+      "documentWidth": 665,
+      "waveformWidth": 545
+    }
+  ],
+  "browserConsoleErrors": [],
+  "moduleRouteRegression": "Complete transitive browser-module graph responds with JavaScript; missing waveform route fixed before final review."
+}

@@ -4,10 +4,12 @@ import { TakeCapture, audioType, AUDIO_LIMIT_BYTES, recordingTiming, takePlaceme
 import { rollWindow, candidateAudition } from './note-view.js';
 import { editNote, restoreNote, deleteNote } from './note-edit.js';
 import { clipWindow, editClip, restoreClip, analysisWindow } from './clip-edit.js';
+import { WaveformReview, waveformWindow } from './clip-waveform.js';
 import { transportSettings } from './transport.js';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],audio=new StudioAudio();
 let project,selectedId,catalog,plugins,selections={},jobs=[],dirty=false,editSequence=0,savePromise=null,saveTimer,undoStack=[],midiAccess,sessionBusy=false,rollPage=0,rollTop=null,selectedNoteId=null,noteDraft=null,clipDraft=null;
 const midiConnected=new Map(),nativeSources=new Set();
+const waveform=new WaveformReview({load:async id=>{await audio.ready();return audio.loadAsset(id);},onChange:()=>renderClipWaveform()});
 const colors=['#bfdb9f','#e5b677','#97bec1','#cd9dad','#9eb7d5','#d6cb90'];
 const localAddress=sourceId=>({sourceId,sourceName:sourceId==='computer'?'Computer keyboard':'On-screen keys',group:0,channel:0,protocol:'local'});
 const input=new PerformanceInput({
@@ -210,9 +212,33 @@ function renderClipInspector(){
   const t=track(),view=t?.kind==='audio'&&t.audio?clipWindow(t.audio):null;
   for(const field of $$('[data-clip-field]')){const key=field.dataset.clipField,draft=clipDraft?.trackId===t?.id?clipDraft?.patch:{};field.value=draft&&Object.hasOwn(draft,key)?draft[key]:view?.[key]??'';field.disabled=!view||t.locked;if(key!=='startTick')field.max=t?.audio?.durationSeconds??86400;}
   $('#clip-save').disabled=!view||t.locked;$('#clip-restore').disabled=!view||t.locked||!t.audio.editSource;$('#clip-preview').disabled=!view;
-  $('#clip-position').textContent=view?`Bar ${(view.startTick/3840+1).toFixed(4)} · beat ${(view.startTick/960+1).toFixed(4)} · ${view.durationSeconds.toFixed(4)} seconds in the arrangement`:'';
+  $('#clip-position').textContent=view?`Saved clip · bar ${(view.startTick/3840+1).toFixed(4)} · beat ${(view.startTick/960+1).toFixed(4)} · ${view.durationSeconds.toFixed(4)} seconds in the arrangement`:'';
   $('#clip-source').textContent=view?`Full ${t.audio.example&&t.audio.recordingTiming?'simulated recording':t.audio.origin==='generated'?'AI-generated':t.audio.origin==='import'?'imported':'recorded'} source: ${t.audio.durationSeconds.toFixed(4)} seconds. ${t.audio.editSource?'Original placement, trim and fades kept. ':''}The source file and its metadata stay intact. ${t.audio.recordingTiming?(t.audio.recordingTiming.status==='estimated'?'Timing estimated from the recorder start command; microphone and encoder latency are unmeasured. Adjust Start / Source in after listening.':t.audio.recordingTiming.status==='ended-before-song'?'Take ended before the song boundary. Full source placed at bar 1 for review.':'Automatic timing was outside 128 bars. Full source placed at bar 1 for review.'):''}`:'';
   $('#clip-edit-status').textContent=t?.locked?'Track locked · clip can be inspected and auditioned.':clipFieldPending()?'Save clip or press Enter. Changing tracks also saves.':'960 ticks = 1 beat. Linear fades shape clip playback; full source and transcription stay unchanged.';
+  renderClipWaveform();
+}
+function renderClipWaveform(){
+  const t=track(),isAudio=t?.kind==='audio'&&t.audio&&t.assetId;
+  waveform.select(isAudio?`${project.id}/${t.id}/${t.assetId}`:null,isAudio?t.assetId:null);
+  const button=$('#clip-waveform-toggle'),box=$('#clip-waveform'),status=$('#clip-waveform-status');
+  button.disabled=!isAudio;button.textContent=waveform.loading?'Cancel waveform':waveform.expanded?'Hide waveform':'Show waveform';button.setAttribute('aria-expanded',String(waveform.expanded));
+  box.replaceChildren();box.classList.toggle('hidden',!waveform.data);
+  status.textContent=waveform.loading?'Decoding the original locally…':waveform.error?`Waveform unavailable: ${waveform.error}. Hide and show to retry.`:'Show the full source, selected window and clip fades. No audio is changed.';
+  if(!waveform.data||!isAudio)return;
+  let settings=t.audio,label='Saved window';
+  if(clipFieldPending())try{const patch=Object.fromEntries(Object.entries(clipDraft.patch).map(([key,value])=>[key,value===''?NaN:Number(value)]));settings={...t.audio,...patch};clipWindow(settings);label='Unsaved window preview';}catch{settings=t.audio;label='Invalid draft · showing saved window';}
+  const data=waveform.data,window=waveformWindow(settings,data),view=clipWindow(settings),x=seconds=>seconds/window.axisSeconds*1000,y=level=>82-level*64;
+  const svgElement=(tag,attributes)=>{const node=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [key,value]of Object.entries(attributes))node.setAttribute(key,String(value));return node;};
+  const svg=svgElement('svg',{viewBox:'0 0 1000 100',role:'img','aria-label':`${label}: source ${window.sourceIn} to ${window.sourceOut} seconds. Fade in ${view.fadeInSeconds} seconds; fade out ${view.fadeOutSeconds} seconds. Full decoded waveform ${data.durationSeconds} seconds. Green is the selected source; gold is the fade envelope.`});
+  const path=data.peaks.map((peak,index)=>{const px=x((index+.5)/data.peaks.length*data.durationSeconds).toFixed(3);return `M${px},${(50-Math.min(1,peak.max)*32).toFixed(3)}L${px},${(50-Math.max(-1,peak.min)*32).toFixed(3)}`;}).join('');
+  svg.append(svgElement('rect',{x:x(window.sourceIn),y:0,width:x(window.sourceOut-window.sourceIn),height:100,class:'waveform-window'}));
+  svg.append(svgElement('path',{d:path,class:'waveform-peaks'}));
+  const selectedPeaks=svgElement('svg',{x:x(window.sourceIn),y:0,width:x(window.sourceOut-window.sourceIn),height:100,viewBox:`${x(window.sourceIn)} 0 ${x(window.sourceOut-window.sourceIn)} 100`,preserveAspectRatio:'none',overflow:'hidden','aria-hidden':'true'});
+  selectedPeaks.append(svgElement('path',{d:path,class:'waveform-peaks selected'}));svg.append(selectedPeaks);
+  for(const seconds of [window.sourceIn,window.sourceOut])svg.append(svgElement('line',{x1:x(seconds),x2:x(seconds),y1:0,y2:100,class:'waveform-boundary'}));
+  if(window.fadePoints.length)svg.append(svgElement('polyline',{points:window.fadePoints.map(point=>`${x(point.seconds)},${y(point.level)}`).join(' '),class:'waveform-envelope'}));
+  box.append(svg);const scale=el('div','waveform-scale');scale.append(el('span','','0 s'),el('span','',`${window.axisSeconds.toFixed(4)} s · full source`));box.append(scale);
+  status.textContent=`${label} · ${window.sourceIn.toFixed(4)}–${window.sourceOut.toFixed(4)} s. Green: selected source. Gold: clip fades. Decoded ${data.numberOfChannels} channel${data.numberOfChannels===1?'':'s'} at ${data.sampleRate.toLocaleString()} Hz, ${data.durationSeconds.toFixed(4)} s. ${window.audibleSeconds?'Loop boundaries may shorten playback.':'No decoded samples in this window.'}`;
 }
 function renderTakes(){const box=$('#takes');box.replaceChildren();for(const t of project.tracks.filter(t=>t.kind==='audio')){const take=el('div','take',t.name);const player=document.createElement('audio');player.controls=true;player.src='/api/assets/'+t.assetId;player.setAttribute('aria-label',t.name);const original=el('a','original-audio',t.audio?.origin==='generated'?'Download generated WAV':'Download original');original.href=player.src;original.download=t.audio?.originalName??('OmniuSong-original.'+t.assetId.split('.').at(-1));take.append(player,original);box.append(take);}}
 function noteOn(pitch,velocity=.7,sourceId='screen',extra={}){
@@ -492,7 +518,8 @@ async function boot(){
   }
   $('#note-inspector').onsubmit=e=>{e.preventDefault();commitPendingEdits();};
   guarded('#note-restore',()=>transformSelectedNote(restoreNote));guarded('#note-delete',()=>transformSelectedNote(deleteNote));
-  for(const field of $$('[data-clip-field]'))field.oninput=()=>{if(!track()?.audio)return;if(clipDraft?.trackId!==track().id)clipDraft={trackId:track().id,patch:{}};clipDraft.patch[field.dataset.clipField]=field.value;$('#clip-edit-status').textContent='Save clip or press Enter. Changing tracks also saves.';$('#save-status').textContent='Clip edit pending';};
+  for(const field of $$('[data-clip-field]'))field.oninput=()=>{if(!track()?.audio)return;if(clipDraft?.trackId!==track().id)clipDraft={trackId:track().id,patch:{}};clipDraft.patch[field.dataset.clipField]=field.value;$('#clip-edit-status').textContent='Save clip or press Enter. Changing tracks also saves.';$('#save-status').textContent='Clip edit pending';renderClipWaveform();};
+  $('#clip-waveform-toggle').onclick=()=>waveform.expanded?waveform.close():waveform.open();
   $('#clip-inspector').onsubmit=e=>{e.preventDefault();commitPendingEdits();};
   guarded('#clip-restore',()=>{panic();const next=restoreClip(project,track()?.id);if(next!==project){remember();project=next;changed();}});
   guarded('#clip-preview',async()=>{const t=track(),preview=candidateAudition(project,{tracks:[t],auditionStartTick:t.audio.startTick??0});for(const copy of preview.tracks)copy.muted=false;await startPlayback(preview,'audition');});
