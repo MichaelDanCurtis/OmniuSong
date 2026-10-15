@@ -37,7 +37,7 @@ export class StudioAudio {
     const secondsPerTick=60/project.tempo/project.ppq,loopTicks=project.bars*4*project.ppq,loopSeconds=loopTicks*secondsPerTick;
     const events=[];
     for(const t of project.tracks){
-      if(t.kind==='audio'&&t.assetId)events.push({tick:0,track:t,audio:true});
+      if(t.kind==='audio'&&t.assetId){const tick=t.audio?.startTick??0;if(tick<loopTicks)events.push({tick,track:t,audio:true});}
       else for(const n of t.notes)if(n.startTick<loopTicks)events.push({tick:n.startTick,track:t,note:n});
     }
     events.sort((a,b)=>a.tick-b.tick);let loop=0,index=0;
@@ -48,7 +48,14 @@ export class StudioAudio {
         const e=events[index],at=this.startTime+loop*loopSeconds+e.tick*secondsPerTick;
         if(at>now+0.13)break;
         if(at>=now-0.05&&!this.mutes.get(e.track.id)){
-          if(e.audio){const src=this.context.createBufferSource();src.buffer=this.buffers.get(e.track.assetId);const g=this.context.createGain();g.gain.value=e.track.gain;src.connect(g);g.connect(this.master);src.start(Math.max(now,at));src.stop(Math.max(now,at)+Math.min(src.buffer.duration,loopSeconds));const id=crypto.randomUUID();this.voices.set(id,{source:src,gain:g,trackId:e.track.id});src.onended=()=>{this.voices.delete(id);src.disconnect();g.disconnect();};}
+          if(e.audio){
+            const buffer=this.buffers.get(e.track.assetId),startAt=Math.max(now,at),offset=Math.max(0,now-at);
+            const stopAt=Math.min(at+(buffer?.duration??0),this.startTime+(loop+1)*loopSeconds);
+            if(buffer&&stopAt>startAt){
+              const src=this.context.createBufferSource();src.buffer=buffer;const g=this.context.createGain();g.gain.value=e.track.gain;src.connect(g);g.connect(this.master);
+              src.start(startAt,offset);src.stop(stopAt);const id=crypto.randomUUID();this.voices.set(id,{source:src,gain:g,trackId:e.track.id});src.onended=()=>{this.voices.delete(id);src.disconnect();g.disconnect();};
+            }
+          }
           else this.voice(e.note.pitch,e.note.velocity16/65535,e.track.instrument,Math.max(now,at),Math.min(e.note.durationTicks*secondsPerTick,loopSeconds),this.buffers.get(e.track.assetId),e.track.sampleRoot??60,e.track.gain,e.track.id);
         }
         index++;if(index===events.length){index=0;loop++;}

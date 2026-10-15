@@ -78,6 +78,7 @@ export function validateProject(project) {
       demand(['microphone','import','generated'].includes(t.audio.origin),'Invalid audio origin');
       demand(typeof t.audio.mimeType==='string'&&t.audio.mimeType.length<=100,'Invalid audio MIME');
       demand(finite(t.audio.durationSeconds,.001,86400),'Invalid audio duration');
+      if(t.audio.startTick!==undefined)demand(int(t.audio.startTick,0,1e9),'Invalid audio start');
       demand(int(t.audio.byteLength,1,30*1024*1024),'Invalid audio byte length');
       if(t.audio.originalName!==undefined)demand(typeof t.audio.originalName==='string'&&t.audio.originalName.length<=512,'Invalid original audio name');
     }

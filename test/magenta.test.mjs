@@ -6,8 +6,11 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { magentaInstalled, magentaPython, runMagenta } from '../src/magenta.mjs';
 import { Store } from '../src/storage.mjs';
-import { newProject, makeTrack } from '../src/project.mjs';
+import { newProject } from '../src/project.mjs';
 import { exportArchive, importArchive } from '../src/archive.mjs';
+import { createPlugins } from '../src/plugins.mjs';
+import { JobQueue } from '../src/jobs.mjs';
+import { candidateAudition } from '../public/note-view.js';
 
 const installed=await magentaInstalled();
 test('Magenta projects short, repeated and sustained notes at explicit 25 Hz without changing the source',{skip:!installed},()=>{
@@ -25,16 +28,21 @@ for changes in [{'durationSeconds':9},{'seed':True},{'prompt':''},{'notes':[{'pi
 print('25 Hz projection and bounds verified')`;
   const result=spawnSync(magentaPython,['-c',code],{cwd:new URL('../',import.meta.url),encoding:'utf8'});assert.equal(result.status,0,result.stderr);
 });
-test('real Magenta Small generates bounded note-guided stereo audio and survives a complete backup',{skip:!installed,timeout:120000},async t=>{
+test('real Magenta Small runs through scoped candidates, acceptance and complete backups',{skip:!installed,timeout:120000},async t=>{
   const request=JSON.parse(await readFile(new URL('../docs/verification/magenta-prompt.json',import.meta.url),'utf8')),before=structuredClone(request);
-  const {result,audio}=await runMagenta(request,new AbortController().signal);
+  const dir=await mkdtemp(join(tmpdir(),'omniusong-magenta-test-'));t.after(()=>rm(dir,{recursive:true,force:true}));
+  const store=await new Store(dir).init(),p=newProject('Generated Magenta qualification');p.bars=2;p.tempo=request.tempo;p.tracks[0].locked=true;
+  p.tracks[0].notes=request.notes.map((n,i)=>({...n,id:'source'+i,startTick:n.startTick+3840}));const source=structuredClone(p.tracks[0]);await store.saveProject(p,null);
+  const queue=await new JobQueue(store,createPlugins(store)).init(),job=await queue.submit({projectId:p.id,projectRevision:0,pluginId:'google.magenta-small',capability:'generate-audio',input:{prompt:request.prompt,seed:42,durationSeconds:4,startBar:2,guideWithNotes:true,sourceTrackId:source.id}});
+  const deadline=Date.now()+100000;while(['queued','running'].includes(queue.jobs.get(job.id).state)&&Date.now()<deadline)await new Promise(r=>setTimeout(r,50));
+  const completed=queue.jobs.get(job.id);assert.equal(completed.state,'succeeded',completed.error);const candidate=completed.result,result=candidate.tracks[0].generation,audio=await store.asset(candidate.tracks[0].assetId);
   assert.deepEqual(request,before);assert.equal(result.channels,2);assert.equal(result.sampleRate,48000);assert.equal(audio.length,768044);
   assert.equal(result.conditioning.sourceNoteCount,4);assert.equal(result.conditioning.trace.flatMap(f=>f.onsets).length,4);
   assert.ok(result.rmsAmplitude>0.001);assert.equal(result.clippedSampleCount,0);assert.equal(result.generationFrames,100);
-  const dir=await mkdtemp(join(tmpdir(),'omniusong-magenta-test-'));t.after(()=>rm(dir,{recursive:true,force:true}));
-  const store=await new Store(dir).init(),assetId=await store.putAsset(audio),p=newProject('Generated Magenta qualification');
-  const track={...makeTrack('AI audio · Magenta Small','sample'),kind:'audio',assetId,audio:{origin:'generated',mimeType:'audio/wav',durationSeconds:4,byteLength:audio.length},provenance:{ai:true,model:result.model,modelRevision:result.modelRevision,evidence:result}};
-  p.tracks.push(track);const saved=await store.saveProject(p,null),restored=await importArchive(store,await exportArchive(store,saved));
+  assert.equal((await store.read('projects',p.id)).tracks.length,2);assert.equal(candidateAudition(p,candidate).tracks[0].audio.startTick,0);
+  const saved=(await queue.decide(job.id,'accepted',0)).project;assert.equal(saved.bars,3);assert.deepEqual(saved.tracks[0],source);assert.equal(saved.tracks.at(-1).audio.startTick,3840);
+  assert.deepEqual(saved.tracks.at(-1).generation.scope.guideNotes,request.notes.map(({pitch,startTick,durationTicks})=>({pitch,startTick,durationTicks})));
+  const restored=await importArchive(store,await exportArchive(store,saved));
   assert.deepEqual(restored.project.tracks,saved.tracks);assert.deepEqual(await store.asset(restored.project.tracks.at(-1).assetId),audio);
 });
 test('Magenta rejects over-budget and canceled requests before producing audio',{skip:!installed,timeout:10000},async()=>{

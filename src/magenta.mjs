@@ -35,6 +35,7 @@ export async function runMagenta(request,signal){
     });
     signal.throwIfAborted();
     demand(result.backend==='mlx-exported-function'&&result.modelRevision===magentaManifest.revision&&result.sourceRevision===magentaManifest.sourceRevision,'Unqualified Magenta result');
+    demand(result.modelSha256===magentaManifest.files.find(f=>f.path==='models/mrt2_small/mrt2_small.mlxfn').sha256,'Magenta exported model identity mismatch');
     demand(result.assetManifestSha256===createHash('sha256').update(await readFile(manifestPath)).digest('hex'),'Magenta asset manifest identity mismatch');
     demand(result.durationSeconds===request.durationSeconds&&Number.isInteger(result.durationSeconds)&&result.durationSeconds>=1&&result.durationSeconds<=8,'Invalid Magenta duration');
     demand(result.sampleRate===48000&&result.channels===2&&result.sampleFrames===48000*result.durationSeconds,'Invalid Magenta audio format');

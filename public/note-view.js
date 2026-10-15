@@ -6,8 +6,11 @@ export function rollWindow(bars,page=0,topPitch=72){
 export function candidateAudition(project,result){
   const preview=structuredClone(project),start=result.auditionStartTick??0;
   preview.tracks=structuredClone(result.tracks??[]);
-  for(const t of preview.tracks)for(const n of t.notes)n.startTick-=start;
-  const end=Math.max(1,...preview.tracks.flatMap(t=>t.notes.map(n=>n.startTick+n.durationTicks)));
+  for(const t of preview.tracks){
+    for(const n of t.notes)n.startTick-=start;
+    if(t.kind==='audio')t.audio={...t.audio,startTick:(t.audio?.startTick??0)-start};
+  }
+  const end=Math.max(1,...preview.tracks.flatMap(t=>t.kind==='audio'?[(t.audio?.startTick??0)+(t.audio?.durationSeconds??0)*project.tempo/60*960]:t.notes.map(n=>n.startTick+n.durationTicks)));
   preview.bars=result.auditionStartTick===undefined?Math.max(project.bars,Math.ceil(end/BAR)):Math.ceil(end/BAR);
   return preview;
 }

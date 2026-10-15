@@ -125,7 +125,7 @@ Continuously steer instrumental music through a live streaming connection. Contr
 
 **[Magenta RealTime 2](https://github.com/magenta/magenta-realtime) · Keep**
 
-Open-weight live music generation with Apple Silicon model variants. Controls and inputs: Live audio and text steering, local streaming. The Small model is locally qualified for short offline text/note-guided audio, with exact pinned assets and a saved preview. General studio generation controls, listening quality, and live latency remain pending. See [local qualification](MAGENTA-QUALIFICATION.md).
+Open-weight live music generation with Apple Silicon model variants. Controls and inputs: Live audio and text steering, local streaming. The Small model is locally qualified for short offline text/note-guided audio, with exact pinned assets and a saved preview. Studio candidate controls and clip placement are implemented. Listening quality and live latency remain pending. See [local qualification](MAGENTA-QUALIFICATION.md).
 
 ### Neural instruments
 

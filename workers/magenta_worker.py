@@ -124,6 +124,7 @@ def main():
         peak_memory = mx.get_peak_memory()
     audio_bytes = Path(sys.argv[2]).read_bytes()
     print(json.dumps({'model': manifest['repository'] + '/mrt2_small', 'modelRevision': manifest['revision'],
+        'modelSha256': next(entry['sha256'] for entry in manifest['files'] if entry['path'] == 'models/mrt2_small/mrt2_small.mlxfn'),
         'sourceRevision': manifest['sourceRevision'], 'sequenceLayersRevision': manifest['sequenceLayersRevision'],
         'backend': 'mlx-exported-function', 'assetManifestSha256': hashlib.sha256(MANIFEST.read_bytes()).hexdigest(),
         'runtimeVersions': {name: importlib.metadata.version(name) for name in ['magenta-rt', 'mlx', 'numpy', 'ai-edge-litert', 'jax']},

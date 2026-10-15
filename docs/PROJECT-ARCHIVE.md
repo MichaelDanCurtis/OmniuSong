@@ -63,3 +63,5 @@ Optional note input metadata and `inputCapture` are included exactly with the pr
 Imported originals can use WAV, WebM, MP4/M4A, Ogg, MP3, or FLAC content addresses. The archive includes import origin, original filename, duration, MIME type, and byte length. Browser decoding support is separate from byte preservation and backup integrity. The complete browser WAV import/transcription archive was restored with both original and derived analysis audio intact; see `verification/audio-import.json`.
 
 Generated audio tracks can declare `audio.origin: "generated"`. Their exact model WAV bytes, source note guide, and model/runtime evidence are retained independently of microphone and imported-human audio. This origin survives validated complete backups.
+
+Optional integer `audio.startTick` placement, projected model note guides, source revisions, graph/manifest identities, and generation evidence survive complete backups. Playback position does not alter stored WAV bytes.

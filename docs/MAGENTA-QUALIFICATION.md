@@ -1,6 +1,6 @@
 # Magenta RealTime 2 Small qualification
 
-October 15, 2026. Actual local audio generation now runs through a bounded worker on this Apple Silicon Mac. Two four-second renders and a saved studio preview are available. General studio generation controls and live accompaniment are still pending.
+October 15, 2026. Actual local audio generation now runs through a bounded worker on this Apple Silicon Mac. Two four-second renders and a saved studio preview are available. Studio generation controls now use the candidate queue; live accompaniment remains pending.
 
 ## Identity and installation
 
@@ -49,7 +49,7 @@ The preview contains two separate generated audio tracks. Only the note-guided r
 
 `workers/magenta_worker.py` validates input before loading models, checks both official source revisions and all six asset checksums, and generates no more than eight whole seconds. It never downloads from the Hub or accepts external audio. The Node wrapper uses private temporary input/output paths, an isolated environment, a two-minute timeout, cancellation, bounded output, and independent PCM WAV/header/size/checksum checks. Temporary files are removed after success or failure. Installation presence and studio controls are reported separately by `/api/status`.
 
-Automated checks cover short/repeated/sustained note projection, invalid pitches and budgets, cancellation before launch and during worker startup, actual note-conditioned inference, source preservation, generated-origin metadata, and complete backups. The complete suite passes **65 tests without skips** on this Mac. Browser checks verified session selection, generated-audio labels, transport start/stop, both four-second media durations, raw-player keyboard playback, and no captured console errors. Keyboard shortcuts now leave media controls and focused buttons' Space behavior intact.
+Automated checks cover short/repeated/sustained note projection, invalid pitches and budgets, cancellation before launch and during worker startup, actual note-conditioned inference, source preservation, generated-origin metadata, and complete backups. The complete suite passes **70 tests without skips** on this Mac. Browser checks verified session selection, generated-audio labels, transport start/stop, both four-second media durations, raw-player keyboard playback, and no captured console errors. Keyboard shortcuts now leave media controls and focused buttons' Space behavior intact.
 
 ## Reproduce and listen
 
@@ -67,4 +67,30 @@ node scripts/qualify-magenta.mjs
 - `verification/magenta-project.json`: editable preview project and model provenance.
 - `verification/magenta-studio.png`: saved studio preview.
 
-The **Magenta Small · local audio preview** session is ready for listening. Listening quality, exact tempo/note adherence, human-played guidance, microphones, streaming interaction, and audio-context conditioning remain unqualified. Next, put this bounded audio worker behind the existing candidate queue with clear scope, source retention, and audition/accept/discard; then evaluate sustained streaming as a separate stage.
+The **Magenta Small · local audio preview** session is ready for listening. Listening quality, exact tempo/note adherence, human-played guidance, microphones, streaming interaction, and audio-context conditioning remain unqualified. The bounded worker is now integrated with studio candidates. Sustained streaming remains a separate stage.
+
+
+## Studio candidate integration
+
+Open **Make audio with Magenta · local AI** and describe the desired sound in the main idea field. Choose 2, 4, or 8 seconds and a start bar. Enable **Guide with selected notes** to use the overlapping notes from the selected pitched track. The guide window begins at the placement bar, stops at the existing session boundary, and crops context only; the source performance, locks, velocity, expression, and original timing stay intact. Empty guide windows and more than 256 guide notes fail clearly. Generation can extend the session up to 128 bars.
+
+Candidates audition immediately through a temporary copy starting at zero. Acceptance appends a generated audio track at its saved `audio.startTick`; discard stops audition without editing the project. Source revisions are protected by the same stale-project checks as other model adapters. Accepted metadata retains the projected note guide, render clock trace, source scope, model revision, exported-graph checksum, asset-manifest checksum, runtime versions, and audio checksum. The graph checksum and asset-manifest checksum are distinct identities.
+
+Playback honors clip position and stops at the loop boundary. A late scheduled audio event skips the elapsed prefix and still stops at the absolute loop end. Full raw players and downloads retain the entire original generated WAV. Basic Pitch transcription of a placed clip now offsets its estimated notes to the same position while keeping raw source estimates relative to the source audio. The independent full-file player always starts from the file beginning.
+
+The **Magenta studio qualification** session contains a locked, muted 12-note procedural source and one accepted eight-second generated clip at bar two. A prior four-second candidate was auditioned and discarded while the session stayed at two bars and 12 notes. Accepting the eight-second clip extended the loop to five bars. The source and generated bytes are checked again through complete backup restoration. Browser and job receipts are in `verification/magenta-studio-flow.json`; the source and accepted project snapshots are separate files. Subjective listening and exact note/tempo adherence remain open.
+
+
+The browser also generated a two-second style-only candidate with an audio track selected, then discarded it. Basic Pitch transcribed the accepted eight-second clip into **23 estimated notes aligned to bar two**. The estimates were accepted as a separate, muted track so the generated audio remains the default listening layer. Reload retained five bars, 35 total notes, and the clip position. The original 12-note source is unchanged. A complete 2,456,521-byte archive restored all tracks, generation/transcription evidence, and both original/analysis audio assets byte-for-byte.
+
+Mido independently parsed the exported MIDI 1 file using UTF-8 track names: 12 guide notes and 23 estimated notes, with the transcription's first onset at tick 3,956 (after bar two begins at 3,840). The UMP export contains 954 note/expression packets in OmniuSong's JSON trace format. This is neither a standard MIDI 2 Clip File nor evidence of physical MIDI 2 gesture accuracy. Estimates from mixed generated music still require musical correction and listening.
+
+Additional artifacts:
+
+- `verification/magenta-studio-source.json`: untouched source before UI generation.
+- `verification/magenta-studio-project.json`: accepted clip and aligned transcription.
+- `verification/magenta-studio-flow.json`: jobs, source comparison, browser checks, archive receipt and independent MIDI parsing.
+- `verification/magenta-studio-accepted.wav`: complete eight-second generated WAV.
+- `verification/magenta-studio.mid`: MIDI 1 notes; audio is not embedded in MIDI.
+- `verification/magenta-studio.ump.json`: own UMP trace, not a standard Clip File.
+- `verification/magenta-candidates.png`: completed model chain in the studio.

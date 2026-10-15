@@ -63,7 +63,7 @@ async function refreshLibrary(){
   const picker=$('#project-picker');picker.replaceChildren();for(const session of sessions){const option=el('option','',session.name);option.value=session.id;picker.append(option);}if(project)picker.value=project.id;return sessions;
 }
 async function useProject(next){
-  project=next;selectedId=next.tracks[0]?.id;rollPage=0;rollTop=null;$('#aria-start').value=1;$('#aria-bars').value=Math.min(2,next.bars);undoStack=[];jobs=[];dirty=false;editSequence=0;clearTimeout(saveTimer);
+  project=next;selectedId=next.tracks[0]?.id;rollPage=0;rollTop=null;$('#aria-start').value=1;$('#aria-bars').value=Math.min(2,next.bars);$('#magenta-start').value=1;undoStack=[];jobs=[];dirty=false;editSequence=0;clearTimeout(saveTimer);
   try{localStorage.setItem('omniusong.activeProject',next.id);}catch{}
   renderStudio();renderJobs();await refreshLibrary();await refreshJobs();$('#save-status').textContent='Saved on this Mac';
 }
@@ -98,11 +98,17 @@ function renderStudio(){
     if(t.kind==='notes'){const arm=el('button','track-switch'+(t.armed?' enabled':''),'R');arm.title='Arm note recording for '+t.name;arm.setAttribute('aria-label',arm.title);arm.setAttribute('aria-pressed',String(Boolean(t.armed)));arm.onclick=()=>{remember();t.armed=!t.armed;changed();};label.append(arm);}
     const lane=el('div','track-lane'+(t.notes.length||t.assetId?' has-notes':''));
     if(t.notes.length)for(const n of t.notes){const note=el('span','mini-note');note.style.left=(n.startTick/(project.bars*3840)*100)+'%';note.style.width=Math.max(.4,n.durationTicks/(project.bars*3840)*100)+'%';note.style.top=(5+(n.pitch%12)*2)+'px';lane.append(note);}
-    else lane.append(el('span','empty-lane',t.assetId?(t.kind==='audio'?(t.audio?.origin==='generated'?'◉ Generated AI audio':t.audio?.origin==='import'?'◉ Imported original audio':'◉ Original vocal take'):'◈ Playable sample'):'Your next idea goes here'));
+    else {
+      const label=t.assetId?(t.kind==='audio'?(t.audio?.origin==='generated'?'◉ Generated AI audio':t.audio?.origin==='import'?'◉ Imported original audio':'◉ Original vocal take'):'◈ Playable sample'):'Your next idea goes here';
+      const clip=el('span','empty-lane',label);
+      if(t.kind==='audio'&&t.audio){clip.classList.add('audio-clip');clip.style.left=((t.audio.startTick??0)/(project.bars*3840)*100)+'%';clip.style.width=(t.audio.durationSeconds*project.tempo/60*960/(project.bars*3840)*100)+'%';clip.title=label+` · bar ${((t.audio.startTick??0)/3840+1).toFixed(2)} · ${t.audio.durationSeconds} seconds`;}
+      lane.append(clip);
+    }
     row.append(label,lane);arrangement.append(row);
   });
   renderRoll();renderTakes();
   $('#aria-source').textContent='Source: '+(track()?.name??'Select a pitched track');$('#aria-start').max=project.bars;
+  $('#magenta-source').textContent='Selected guide: '+(track()?.name??'Select a pitched track');$('#magenta-start').max=project.bars;
   if(document.activeElement!==$('#lyric-editor'))$('#lyric-editor').value=project.lyrics;
   $('#lock-lyrics').checked=Boolean(project.lyricsLocked);$('#lyric-editor').disabled=Boolean(project.lyricsLocked);
 }
@@ -155,13 +161,19 @@ async function continuePiano(){
     await refreshJobs();toast('Aria is preparing a separate piano answer on this Mac');
   });
 }
+async function generateAudio(){
+  await sessionTransition(async()=>{
+    await post('/api/jobs',{projectId:project.id,projectRevision:project.revision,pluginId:'google.magenta-small',capability:'generate-audio',input:{prompt:$('#idea').value,seed:Number($('#seed').value),durationSeconds:Number($('#magenta-duration').value),startBar:Number($('#magenta-start').value),guideWithNotes:$('#magenta-guide').checked,sourceTrackId:track()?.id}});
+    await refreshJobs();toast('Magenta is preparing a separate audio candidate on this Mac');
+  });
+}
 async function transcribeSelected(){
   await sessionTransition(async()=>{
     const selected=track();if(!selected?.assetId)throw new Error('Select a recorded vocal, imported audio, or a sample track first');
     $('#library-status').textContent='Preparing audio for local transcription…';
     await audio.ready();const buffer=await audio.loadAsset(selected.assetId);if(buffer.duration>120)throw new Error('Choose a take shorter than two minutes');
     const response=await fetch('/api/assets',{method:'POST',headers:{'Content-Type':'audio/wav'},body:bufferWAV(buffer)}),result=await response.json();if(!response.ok)throw new Error(result.error);
-    await post('/api/jobs',{projectId:project.id,projectRevision:project.revision,pluginId:'spotify.basic-pitch',capability:'transcribe',input:{assetId:result.assetId,sourceAssetId:selected.assetId}});await refreshJobs();
+    await post('/api/jobs',{projectId:project.id,projectRevision:project.revision,pluginId:'spotify.basic-pitch',capability:'transcribe',input:{assetId:result.assetId,sourceAssetId:selected.assetId,sourceTrackId:selected.id}});await refreshJobs();
   });
 }
 function renderJobs(){
@@ -174,10 +186,10 @@ function renderJobs(){
     const actions=el('div','candidate-buttons');
     function action(label,handler,primary=false){const b=el('button',primary?'primary':'quiet',label);b.onclick=()=>handler().catch(e=>toast(e.message,true));actions.append(b);}
     if(j.state==='succeeded'&&j.decision==='pending'){
-      if(j.result?.tracks?.some(t=>t.notes.length))action('▶ Audition',async()=>{await audio.play(candidateAudition(project,j.result));$('#play').textContent='■ Stop';});
+      if(j.result?.tracks?.some(t=>t.notes.length||t.kind==='audio'))action('▶ Audition',async()=>{await audio.play(candidateAudition(project,j.result));$('#play').textContent='■ Stop';});
       if(j.result?.assetId)action('▶ Sample',async()=>{await audio.ready();const buffer=await audio.loadAsset(j.result.assetId);audio.voice(60,.8,'sample',audio.context.currentTime,2,buffer);});
       action('Accept',()=>sessionTransition(async()=>{const accepted=await post('/api/jobs/'+j.id+'/accept',{expectedRevision:project.revision});remember();project=accepted.project;selectTrack(project.tracks.at(-1)?.id);await refreshJobs();toast('Added to your session');}),true);
-      action('Discard',async()=>{await post('/api/jobs/'+j.id+'/reject',{});await refreshJobs();});
+      action('Discard',async()=>{panic();await post('/api/jobs/'+j.id+'/reject',{});await refreshJobs();});
     }else if(['queued','running'].includes(j.state))action('Cancel',async()=>{await post('/api/jobs/'+j.id+'/cancel',{});await refreshJobs();});
     card.append(actions);box.append(card);
   }
@@ -302,6 +314,7 @@ async function boot(){
   guarded('#save',save);guarded('#play',async()=>{if(audio.playing)panic();else{await audio.play(project);$('#play').textContent='■ Stop';}});guarded('#panic',async()=>panic());
   guarded('#sketch',()=>generate('local.sketch','compose'));guarded('#instrument',()=>generate('local.instrument','instrument'));guarded('#lyrics',()=>generate($('#use-ollama').checked?'ollama.lyrics':'local.lyric-cards','lyrics'));guarded('#transcribe',transcribeSelected);guarded('#record',recordVoice);guarded('#midi-connect',connectMIDI);
   guarded('#aria-continue',continuePiano);
+  guarded('#magenta-generate',generateAudio);
   guarded('#roll-prev',async()=>{rollPage--;renderRoll();});guarded('#roll-next',async()=>{rollPage++;renderRoll();});
   $('#roll-page').onchange=()=>{rollPage=Number($('#roll-page').value);renderRoll();};$('#roll-pitch').onchange=()=>{rollTop=Number($('#roll-pitch').value);renderRoll();};
   guarded('#undo',async()=>{if(!undoStack.length)return;panic();const revision=project.revision;project=undoStack.pop();project.revision=revision;selectedId=track()?.id;changed();});

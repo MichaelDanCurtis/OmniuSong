@@ -3,6 +3,8 @@ import { compose } from './composer.mjs';
 import { renderSample } from './wav.mjs';
 import { runBasicPitch, runAria } from './worker.mjs';
 import { ariaPhrase, ariaCandidate } from './continuation.mjs';
+import { runMagenta } from './magenta.mjs';
+import { magentaScope, magentaCandidate } from './audio-generation.mjs';
 import { join } from 'node:path';
 
 export class PluginRegistry {
@@ -53,17 +55,30 @@ export function createPlugins(store,config={}) {
   });
   registry.register({apiVersion:1,id:'spotify.basic-pitch',name:'Basic Pitch transcription',execution:'local',capabilities:['transcribe'],ai:true,version:'0.1.0',description:'Real local ONNX inference. Best on a single instrument or vocal.'},async({input,project,signal})=>{
     demand(typeof input.assetId==='string'&&input.assetId.endsWith('.wav'),'Transcription needs a WAV asset');
+    let startTick=0;
+    if(input.sourceTrackId!==undefined){
+      const source=project.tracks.find(t=>t.id===input.sourceTrackId);
+      demand(source?.assetId===(input.sourceAssetId??input.assetId),'Source audio changed; select the audio track again');
+      if(source.kind==='audio')startTick=source.audio?.startTick??0;
+    }
     await store.asset(input.assetId);
     const result=await runBasicPitch(join(store.root,'assets',input.assetId),project.tempo,signal);
-    const track=makeTrack('Transcribed · Basic Pitch','keys',result.notes);
+    const notes=result.notes.map(n=>({...n,startTick:n.startTick+startTick})),minimumBars=Math.ceil(Math.max(1,...notes.map(n=>n.startTick+n.durationTicks))/3840);
+    demand(minimumBars<=128,'Transcribed notes extend past 128 bars. Choose a shorter source or earlier placement.');
+    const track=makeTrack('Transcribed · Basic Pitch','keys',notes);
     track.sourceAssetId=input.sourceAssetId??input.assetId;
-    track.transcription={model:result.model,modelSha256:result.modelSha256,elapsedSeconds:result.elapsedSeconds,sourceDurationSeconds:result.sourceDurationSeconds};
-    return {tracks:[track],model:result.model,modelSha256:result.modelSha256,summary:`${result.notes.length} estimated notes from real local Basic Pitch inference. Original audio retained; review pitches and timing.`};
+    track.transcription={model:result.model,modelSha256:result.modelSha256,elapsedSeconds:result.elapsedSeconds,sourceDurationSeconds:result.sourceDurationSeconds,sourceTrackId:input.sourceTrackId??null,placementStartTick:startTick};
+    return {tracks:[track],model:result.model,modelSha256:result.modelSha256,minimumBars,auditionStartTick:startTick,summary:`${result.notes.length} estimated notes from real local Basic Pitch inference, aligned to bar ${startTick/3840+1}. Original audio retained; review pitches and timing.`};
   });
   registry.register({apiVersion:1,id:'eleutherai.aria-mlx',name:'Aria piano continuation',execution:'local',capabilities:['continue'],ai:true,version:'0.1.0',description:'Real local MLX piano continuation from selected source bars. Requires the qualified Apple Silicon runtime.'},async({input,project,signal})=>{
     const {request,scope}=ariaPhrase(project,input);
     const result=await runAria(request,signal);
     return ariaCandidate(project,scope,result);
+  });
+  registry.register({apiVersion:1,id:'google.magenta-small',name:'Magenta audio generation',execution:'local',capabilities:['generate-audio'],ai:true,version:'0.1.0',description:'Real local MLX audio from a style prompt and optional note guide. Short offline clips; not live accompaniment.'},async({input,project,signal})=>{
+    const {request,scope}=magentaScope(project,input),{result,audio}=await runMagenta(request,signal);
+    signal.throwIfAborted();const assetId=await store.putAsset(audio);
+    return magentaCandidate(project,scope,result,assetId);
   });
   return registry;
 }

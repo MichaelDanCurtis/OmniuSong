@@ -30,7 +30,7 @@ export async function createServer({dataDir=process.env.OMNIUSONG_DATA_DIR??join
       const origin=req.headers.origin;
       if(origin&&origin!==`http://${host}`){send(res,403,{error:'Cross-origin requests are not allowed'});return;}
       const url=new URL(req.url,`http://${host}`),path=url.pathname;
-      if(req.method==='GET'&&path==='/api/status')return send(res,200,{name:'OmniuSong',version:'0.1.0',cloudEnabled:false,ollamaConfigured:Boolean(ollamaModel),basicPitchInstalled:await basicPitchAvailable(),ariaInstalled:await ariaInstalled(),ariaStudioControls:true,magentaInstalled:await magentaInstalled(),magentaStudioControls:false,midi2:'UMP encode and native input; physical hardware qualification pending'});
+      if(req.method==='GET'&&path==='/api/status')return send(res,200,{name:'OmniuSong',version:'0.1.0',cloudEnabled:false,ollamaConfigured:Boolean(ollamaModel),basicPitchInstalled:await basicPitchAvailable(),ariaInstalled:await ariaInstalled(),ariaStudioControls:true,magentaInstalled:await magentaInstalled(),magentaStudioControls:true,midi2:'UMP encode and native input; physical hardware qualification pending'});
       if(req.method==='GET'&&path==='/api/catalog')return send(res,200,catalog);
       if(req.method==='GET'&&path==='/api/examples/four-tones.wav')return send(res,200,renderExamplePhrase(),'audio/wav');
       if(req.method==='GET'&&path==='/api/plugins')return send(res,200,plugins.list());

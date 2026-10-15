@@ -164,7 +164,7 @@
       "category": "Live accompaniment",
       "summary": "Open-weight live music generation with Apple Silicon model variants.",
       "controls": "Live audio and text steering, local streaming",
-      "caveat": "Small is locally qualified for bounded text/note-guided audio with a saved preview. General generation controls, listening quality, and live latency remain pending; no MIDI 2 precision claim.",
+      "caveat": "Small is locally qualified for bounded text/note-guided audio with a saved preview. Studio candidates, note scope, clip placement, and backups are integrated. Listening quality and live latency remain pending; no MIDI 2 precision claim.",
       "source": "https://github.com/magenta/magenta-realtime",
       "recommendation": "keep",
       "status": "research",
