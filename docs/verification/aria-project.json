@@ -1,0 +1,426 @@
+{
+  "schemaVersion": 1,
+  "id": "ee61a6db-cf38-46fe-99fe-be99e7dd6beb",
+  "revision": 0,
+  "ppq": 960,
+  "name": "Aria piano · local model preview",
+  "tempo": 104,
+  "bars": 5,
+  "key": "C minor",
+  "lyrics": "",
+  "tracks": [
+    {
+      "id": "cb9f7240-89a0-4f41-afff-5921df881032",
+      "name": "Procedural prompt",
+      "kind": "notes",
+      "instrument": "keys",
+      "gain": 0.65,
+      "muted": false,
+      "locked": true,
+      "armed": false,
+      "notes": [
+        {
+          "pitch": 60,
+          "startTick": 0,
+          "durationTicks": 390,
+          "velocity16": 40000,
+          "id": "prompt-0",
+          "expression": []
+        },
+        {
+          "pitch": 63,
+          "startTick": 480,
+          "durationTicks": 410,
+          "velocity16": 43000,
+          "id": "prompt-1",
+          "expression": []
+        },
+        {
+          "pitch": 67,
+          "startTick": 960,
+          "durationTicks": 430,
+          "velocity16": 46000,
+          "id": "prompt-2",
+          "expression": []
+        },
+        {
+          "pitch": 70,
+          "startTick": 1440,
+          "durationTicks": 390,
+          "velocity16": 49000,
+          "id": "prompt-3",
+          "expression": []
+        },
+        {
+          "pitch": 67,
+          "startTick": 1920,
+          "durationTicks": 410,
+          "velocity16": 40000,
+          "id": "prompt-4",
+          "expression": []
+        },
+        {
+          "pitch": 63,
+          "startTick": 2400,
+          "durationTicks": 430,
+          "velocity16": 43000,
+          "id": "prompt-5",
+          "expression": []
+        },
+        {
+          "pitch": 62,
+          "startTick": 2880,
+          "durationTicks": 390,
+          "velocity16": 46000,
+          "id": "prompt-6",
+          "expression": []
+        },
+        {
+          "pitch": 65,
+          "startTick": 3360,
+          "durationTicks": 410,
+          "velocity16": 49000,
+          "id": "prompt-7",
+          "expression": []
+        },
+        {
+          "pitch": 68,
+          "startTick": 3840,
+          "durationTicks": 430,
+          "velocity16": 40000,
+          "id": "prompt-8",
+          "expression": []
+        },
+        {
+          "pitch": 72,
+          "startTick": 4320,
+          "durationTicks": 390,
+          "velocity16": 43000,
+          "id": "prompt-9",
+          "expression": []
+        },
+        {
+          "pitch": 68,
+          "startTick": 4800,
+          "durationTicks": 410,
+          "velocity16": 46000,
+          "id": "prompt-10",
+          "expression": []
+        },
+        {
+          "pitch": 65,
+          "startTick": 5280,
+          "durationTicks": 430,
+          "velocity16": 49000,
+          "id": "prompt-11",
+          "expression": []
+        }
+      ]
+    },
+    {
+      "id": "1ca48d8e-5c93-434a-a91a-770f1a54f8fc",
+      "name": "AI answer · Aria MLX",
+      "kind": "notes",
+      "instrument": "keys",
+      "gain": 0.65,
+      "muted": false,
+      "locked": false,
+      "armed": false,
+      "notes": [
+        {
+          "id": "328943eb-02ea-49c2-ab9d-0400c5cd869d",
+          "pitch": 62,
+          "startTick": 5950,
+          "durationTicks": 383,
+          "velocity16": 46291,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 3470,
+            "endMilliseconds": 3700,
+            "velocity7": 90
+          }
+        },
+        {
+          "id": "2cbbaffc-edb7-4988-aec2-c77d8104bf6d",
+          "pitch": 65,
+          "startTick": 6416,
+          "durationTicks": 416,
+          "velocity16": 46291,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 3750,
+            "endMilliseconds": 4000,
+            "velocity7": 90
+          }
+        },
+        {
+          "id": "0eb21abe-75c2-4ae5-8ffd-eff0184248c4",
+          "pitch": 68,
+          "startTick": 6898,
+          "durationTicks": 416,
+          "velocity16": 46291,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 4040,
+            "endMilliseconds": 4290,
+            "velocity7": 90
+          }
+        },
+        {
+          "id": "f929eb66-f03f-4b95-ba72-a4d894566bba",
+          "pitch": 72,
+          "startTick": 7381,
+          "durationTicks": 383,
+          "velocity16": 41090,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 4330,
+            "endMilliseconds": 4560,
+            "velocity7": 80
+          }
+        },
+        {
+          "id": "fb7a3f3f-f730-42dd-abbd-9c120aa0c499",
+          "pitch": 68,
+          "startTick": 7864,
+          "durationTicks": 416,
+          "velocity16": 46291,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 4620,
+            "endMilliseconds": 4870,
+            "velocity7": 90
+          }
+        },
+        {
+          "id": "df2c0b18-db45-42f8-9f5b-53cbe83451a6",
+          "pitch": 65,
+          "startTick": 8346,
+          "durationTicks": 433,
+          "velocity16": 46291,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 4910,
+            "endMilliseconds": 5170,
+            "velocity7": 90
+          }
+        },
+        {
+          "id": "8a4095a3-fd26-4306-989b-38876f31cf52",
+          "pitch": 74,
+          "startTick": 8829,
+          "durationTicks": 399,
+          "velocity16": 41090,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 5200,
+            "endMilliseconds": 5440,
+            "velocity7": 80
+          }
+        },
+        {
+          "id": "a2ef7dee-9e1d-40b4-a4dd-a9544a242239",
+          "pitch": 70,
+          "startTick": 9311,
+          "durationTicks": 399,
+          "velocity16": 41090,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 5490,
+            "endMilliseconds": 5730,
+            "velocity7": 80
+          }
+        },
+        {
+          "id": "7a62e373-fbb2-46ab-9f15-769d4bf04f81",
+          "pitch": 67,
+          "startTick": 9794,
+          "durationTicks": 433,
+          "velocity16": 41090,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 5780,
+            "endMilliseconds": 6040,
+            "velocity7": 80
+          }
+        },
+        {
+          "id": "3f0f5d92-cdf0-4c9e-9134-cdd61d86f453",
+          "pitch": 70,
+          "startTick": 10276,
+          "durationTicks": 383,
+          "velocity16": 41090,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 6070,
+            "endMilliseconds": 6300,
+            "velocity7": 80
+          }
+        },
+        {
+          "id": "4c3a31ff-a4cd-45b8-b5b1-2b6773ce9086",
+          "pitch": 67,
+          "startTick": 10742,
+          "durationTicks": 433,
+          "velocity16": 41090,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 6350,
+            "endMilliseconds": 6610,
+            "velocity7": 80
+          }
+        },
+        {
+          "id": "d5ff78fd-b1b9-488b-8cb2-a597309d47c9",
+          "pitch": 63,
+          "startTick": 11225,
+          "durationTicks": 433,
+          "velocity16": 41090,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 6640,
+            "endMilliseconds": 6900,
+            "velocity7": 80
+          }
+        },
+        {
+          "id": "0b898a72-98e9-4dc0-ae92-84870fdb8b07",
+          "pitch": 60,
+          "startTick": 11707,
+          "durationTicks": 399,
+          "velocity16": 41090,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 6930,
+            "endMilliseconds": 7170,
+            "velocity7": 80
+          }
+        },
+        {
+          "id": "1379c4f6-3d1f-4346-b8f4-bb99e0b90b33",
+          "pitch": 63,
+          "startTick": 12190,
+          "durationTicks": 416,
+          "velocity16": 41090,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 7220,
+            "endMilliseconds": 7470,
+            "velocity7": 80
+          }
+        },
+        {
+          "id": "40a092c3-7006-4a34-a83e-c273d7bfb555",
+          "pitch": 67,
+          "startTick": 12673,
+          "durationTicks": 416,
+          "velocity16": 41090,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 7510,
+            "endMilliseconds": 7760,
+            "velocity7": 80
+          }
+        },
+        {
+          "id": "8f68ce81-902a-46e9-befc-49ed396639b2",
+          "pitch": 70,
+          "startTick": 13155,
+          "durationTicks": 399,
+          "velocity16": 46291,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 7800,
+            "endMilliseconds": 8040,
+            "velocity7": 90
+          }
+        },
+        {
+          "id": "a04d846a-4ef9-4e42-9220-3ed5c6e873a5",
+          "pitch": 67,
+          "startTick": 13638,
+          "durationTicks": 416,
+          "velocity16": 41090,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 8090,
+            "endMilliseconds": 8340,
+            "velocity7": 80
+          }
+        },
+        {
+          "id": "27757c22-d47e-4244-93c2-dabce04e4de6",
+          "pitch": 63,
+          "startTick": 14120,
+          "durationTicks": 416,
+          "velocity16": 41090,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 8380,
+            "endMilliseconds": 8630,
+            "velocity7": 80
+          }
+        },
+        {
+          "id": "4bf1bda8-50d1-43a3-bf02-f105bfd08287",
+          "pitch": 62,
+          "startTick": 14603,
+          "durationTicks": 383,
+          "velocity16": 41090,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 8670,
+            "endMilliseconds": 8900,
+            "velocity7": 80
+          }
+        },
+        {
+          "id": "2da55871-4add-4880-b36f-1610aa30d9c8",
+          "pitch": 65,
+          "startTick": 15085,
+          "durationTicks": 399,
+          "velocity16": 46291,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 8960,
+            "endMilliseconds": 9200,
+            "velocity7": 90
+          }
+        },
+        {
+          "id": "80b0d9c9-76a7-4c03-b048-bad5bb2d3c0e",
+          "pitch": 68,
+          "startTick": 15551,
+          "durationTicks": 433,
+          "velocity16": 41090,
+          "expression": [],
+          "modelEstimate": {
+            "startMilliseconds": 9240,
+            "endMilliseconds": 9500,
+            "velocity7": 80
+          }
+        }
+      ],
+      "provenance": {
+        "ai": true,
+        "model": "loubb/aria-medium-base/model-gen.safetensors",
+        "modelRevision": "5a1ef36c5007ee10fbe57d61d96725a7244bd2b2",
+        "modelSha256": "5e6b07ee2680f0044deea30da613d89b12e3e30d012d1812b388d6b8d8306c90",
+        "sourceRevision": "c2f67bc90b49335543c0249fe00fb84a9337faf8"
+      }
+    }
+  ],
+  "history": [
+    {
+      "id": "aria-qualification",
+      "action": "qualification-preview",
+      "provenance": {
+        "ai": true,
+        "model": "loubb/aria-medium-base/model-gen.safetensors",
+        "modelSha256": "5e6b07ee2680f0044deea30da613d89b12e3e30d012d1812b388d6b8d8306c90",
+        "promptOrigin": "procedural qualification phrase"
+      }
+    }
+  ],
+  "createdAt": "2026-10-15T09:15:53.678Z"
+}

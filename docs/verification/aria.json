@@ -1,0 +1,763 @@
+{
+  "at": "2026-10-15T09:15:53.704Z",
+  "hardware": {
+    "platform": "darwin",
+    "arch": "arm64"
+  },
+  "method": "Official pinned Aria MLX model; procedural original prompt; generated notes isolated by subtracting the tokenized prompt multiset",
+  "result": {
+    "model": "loubb/aria-medium-base/model-gen.safetensors",
+    "modelRevision": "5a1ef36c5007ee10fbe57d61d96725a7244bd2b2",
+    "modelSha256": "5e6b07ee2680f0044deea30da613d89b12e3e30d012d1812b388d6b8d8306c90",
+    "sourceRevision": "c2f67bc90b49335543c0249fe00fb84a9337faf8",
+    "utilsRevision": "7c815755c6889a784b6a1b3343e9e8daa3e7d128",
+    "backend": "mlx",
+    "runtimeVersions": {
+      "python": "3.11.15",
+      "mlx": "0.25.2",
+      "torch": "2.8.0",
+      "numpy": "2.2.6"
+    },
+    "runtimeCompatibility": "Explicit attention-cache boundary and scalar RoPE offset in adapter subclass; upstream source unchanged",
+    "elapsedSeconds": 2.5,
+    "generationSeconds": 0.56,
+    "peakMLXBytes": 2719036048,
+    "seed": 42,
+    "promptTokens": 38,
+    "generatedTokens": 64,
+    "decodedPromptNotes": 12,
+    "firstGeneratedOnsetMilliseconds": 3470,
+    "timingPolicy": "New notes only. First generated onset translated to zero; original model times retained. Prompt velocity projected to 7 bits.",
+    "notes": [
+      {
+        "id": "328943eb-02ea-49c2-ab9d-0400c5cd869d",
+        "pitch": 62,
+        "startTick": 0,
+        "durationTicks": 383,
+        "velocity16": 46291,
+        "expression": [],
+        "modelEstimate": {
+          "startMilliseconds": 3470,
+          "endMilliseconds": 3700,
+          "velocity7": 90
+        }
+      },
+      {
+        "id": "2cbbaffc-edb7-4988-aec2-c77d8104bf6d",
+        "pitch": 65,
+        "startTick": 466,
+        "durationTicks": 416,
+        "velocity16": 46291,
+        "expression": [],
+        "modelEstimate": {
+          "startMilliseconds": 3750,
+          "endMilliseconds": 4000,
+          "velocity7": 90
+        }
+      },
+      {
+        "id": "0eb21abe-75c2-4ae5-8ffd-eff0184248c4",
+        "pitch": 68,
+        "startTick": 948,
+        "durationTicks": 416,
+        "velocity16": 46291,
+        "expression": [],
+        "modelEstimate": {
+          "startMilliseconds": 4040,
+          "endMilliseconds": 4290,
+          "velocity7": 90
+        }
+      },
+      {
+        "id": "f929eb66-f03f-4b95-ba72-a4d894566bba",
+        "pitch": 72,
+        "startTick": 1431,
+        "durationTicks": 383,
+        "velocity16": 41090,
+        "expression": [],
+        "modelEstimate": {
+          "startMilliseconds": 4330,
+          "endMilliseconds": 4560,
+          "velocity7": 80
+        }
+      },
+      {
+        "id": "fb7a3f3f-f730-42dd-abbd-9c120aa0c499",
+        "pitch": 68,
+        "startTick": 1914,
+        "durationTicks": 416,
+        "velocity16": 46291,
+        "expression": [],
+        "modelEstimate": {
+          "startMilliseconds": 4620,
+          "endMilliseconds": 4870,
+          "velocity7": 90
+        }
+      },
+      {
+        "id": "df2c0b18-db45-42f8-9f5b-53cbe83451a6",
+        "pitch": 65,
+        "startTick": 2396,
+        "durationTicks": 433,
+        "velocity16": 46291,
+        "expression": [],
+        "modelEstimate": {
+          "startMilliseconds": 4910,
+          "endMilliseconds": 5170,
+          "velocity7": 90
+        }
+      },
+      {
+        "id": "8a4095a3-fd26-4306-989b-38876f31cf52",
+        "pitch": 74,
+        "startTick": 2879,
+        "durationTicks": 399,
+        "velocity16": 41090,
+        "expression": [],
+        "modelEstimate": {
+          "startMilliseconds": 5200,
+          "endMilliseconds": 5440,
+          "velocity7": 80
+        }
+      },
+      {
+        "id": "a2ef7dee-9e1d-40b4-a4dd-a9544a242239",
+        "pitch": 70,
+        "startTick": 3361,
+        "durationTicks": 399,
+        "velocity16": 41090,
+        "expression": [],
+        "modelEstimate": {
+          "startMilliseconds": 5490,
+          "endMilliseconds": 5730,
+          "velocity7": 80
+        }
+      },
+      {
+        "id": "7a62e373-fbb2-46ab-9f15-769d4bf04f81",
+        "pitch": 67,
+        "startTick": 3844,
+        "durationTicks": 433,
+        "velocity16": 41090,
+        "expression": [],
+        "modelEstimate": {
+          "startMilliseconds": 5780,
+          "endMilliseconds": 6040,
+          "velocity7": 80
+        }
+      },
+      {
+        "id": "3f0f5d92-cdf0-4c9e-9134-cdd61d86f453",
+        "pitch": 70,
+        "startTick": 4326,
+        "durationTicks": 383,
+        "velocity16": 41090,
+        "expression": [],
+        "modelEstimate": {
+          "startMilliseconds": 6070,
+          "endMilliseconds": 6300,
+          "velocity7": 80
+        }
+      },
+      {
+        "id": "4c3a31ff-a4cd-45b8-b5b1-2b6773ce9086",
+        "pitch": 67,
+        "startTick": 4792,
+        "durationTicks": 433,
+        "velocity16": 41090,
+        "expression": [],
+        "modelEstimate": {
+          "startMilliseconds": 6350,
+          "endMilliseconds": 6610,
+          "velocity7": 80
+        }
+      },
+      {
+        "id": "d5ff78fd-b1b9-488b-8cb2-a597309d47c9",
+        "pitch": 63,
+        "startTick": 5275,
+        "durationTicks": 433,
+        "velocity16": 41090,
+        "expression": [],
+        "modelEstimate": {
+          "startMilliseconds": 6640,
+          "endMilliseconds": 6900,
+          "velocity7": 80
+        }
+      },
+      {
+        "id": "0b898a72-98e9-4dc0-ae92-84870fdb8b07",
+        "pitch": 60,
+        "startTick": 5757,
+        "durationTicks": 399,
+        "velocity16": 41090,
+        "expression": [],
+        "modelEstimate": {
+          "startMilliseconds": 6930,
+          "endMilliseconds": 7170,
+          "velocity7": 80
+        }
+      },
+      {
+        "id": "1379c4f6-3d1f-4346-b8f4-bb99e0b90b33",
+        "pitch": 63,
+        "startTick": 6240,
+        "durationTicks": 416,
+        "velocity16": 41090,
+        "expression": [],
+        "modelEstimate": {
+          "startMilliseconds": 7220,
+          "endMilliseconds": 7470,
+          "velocity7": 80
+        }
+      },
+      {
+        "id": "40a092c3-7006-4a34-a83e-c273d7bfb555",
+        "pitch": 67,
+        "startTick": 6723,
+        "durationTicks": 416,
+        "velocity16": 41090,
+        "expression": [],
+        "modelEstimate": {
+          "startMilliseconds": 7510,
+          "endMilliseconds": 7760,
+          "velocity7": 80
+        }
+      },
+      {
+        "id": "8f68ce81-902a-46e9-befc-49ed396639b2",
+        "pitch": 70,
+        "startTick": 7205,
+        "durationTicks": 399,
+        "velocity16": 46291,
+        "expression": [],
+        "modelEstimate": {
+          "startMilliseconds": 7800,
+          "endMilliseconds": 8040,
+          "velocity7": 90
+        }
+      },
+      {
+        "id": "a04d846a-4ef9-4e42-9220-3ed5c6e873a5",
+        "pitch": 67,
+        "startTick": 7688,
+        "durationTicks": 416,
+        "velocity16": 41090,
+        "expression": [],
+        "modelEstimate": {
+          "startMilliseconds": 8090,
+          "endMilliseconds": 8340,
+          "velocity7": 80
+        }
+      },
+      {
+        "id": "27757c22-d47e-4244-93c2-dabce04e4de6",
+        "pitch": 63,
+        "startTick": 8170,
+        "durationTicks": 416,
+        "velocity16": 41090,
+        "expression": [],
+        "modelEstimate": {
+          "startMilliseconds": 8380,
+          "endMilliseconds": 8630,
+          "velocity7": 80
+        }
+      },
+      {
+        "id": "4bf1bda8-50d1-43a3-bf02-f105bfd08287",
+        "pitch": 62,
+        "startTick": 8653,
+        "durationTicks": 383,
+        "velocity16": 41090,
+        "expression": [],
+        "modelEstimate": {
+          "startMilliseconds": 8670,
+          "endMilliseconds": 8900,
+          "velocity7": 80
+        }
+      },
+      {
+        "id": "2da55871-4add-4880-b36f-1610aa30d9c8",
+        "pitch": 65,
+        "startTick": 9135,
+        "durationTicks": 399,
+        "velocity16": 46291,
+        "expression": [],
+        "modelEstimate": {
+          "startMilliseconds": 8960,
+          "endMilliseconds": 9200,
+          "velocity7": 90
+        }
+      },
+      {
+        "id": "80b0d9c9-76a7-4c03-b048-bad5bb2d3c0e",
+        "pitch": 68,
+        "startTick": 9601,
+        "durationTicks": 433,
+        "velocity16": 41090,
+        "expression": [],
+        "modelEstimate": {
+          "startMilliseconds": 9240,
+          "endMilliseconds": 9500,
+          "velocity7": 80
+        }
+      }
+    ],
+    "tokenTrace": [
+      [
+        "prefix",
+        "instrument",
+        "piano"
+      ],
+      "<S>",
+      [
+        "piano",
+        60,
+        80
+      ],
+      [
+        "onset",
+        0
+      ],
+      [
+        "dur",
+        230
+      ],
+      [
+        "piano",
+        63,
+        80
+      ],
+      [
+        "onset",
+        290
+      ],
+      [
+        "dur",
+        250
+      ],
+      [
+        "piano",
+        67,
+        90
+      ],
+      [
+        "onset",
+        580
+      ],
+      [
+        "dur",
+        260
+      ],
+      [
+        "piano",
+        70,
+        90
+      ],
+      [
+        "onset",
+        860
+      ],
+      [
+        "dur",
+        230
+      ],
+      [
+        "piano",
+        67,
+        80
+      ],
+      [
+        "onset",
+        1150
+      ],
+      [
+        "dur",
+        250
+      ],
+      [
+        "piano",
+        63,
+        80
+      ],
+      [
+        "onset",
+        1440
+      ],
+      [
+        "dur",
+        260
+      ],
+      [
+        "piano",
+        62,
+        90
+      ],
+      [
+        "onset",
+        1730
+      ],
+      [
+        "dur",
+        230
+      ],
+      [
+        "piano",
+        65,
+        90
+      ],
+      [
+        "onset",
+        2020
+      ],
+      [
+        "dur",
+        250
+      ],
+      [
+        "piano",
+        68,
+        80
+      ],
+      [
+        "onset",
+        2310
+      ],
+      [
+        "dur",
+        260
+      ],
+      [
+        "piano",
+        72,
+        80
+      ],
+      [
+        "onset",
+        2600
+      ],
+      [
+        "dur",
+        230
+      ],
+      [
+        "piano",
+        68,
+        90
+      ],
+      [
+        "onset",
+        2890
+      ],
+      [
+        "dur",
+        250
+      ],
+      [
+        "piano",
+        65,
+        90
+      ],
+      [
+        "onset",
+        3170
+      ],
+      [
+        "dur",
+        260
+      ],
+      [
+        "piano",
+        62,
+        90
+      ],
+      [
+        "onset",
+        3470
+      ],
+      [
+        "dur",
+        230
+      ],
+      [
+        "piano",
+        65,
+        90
+      ],
+      [
+        "onset",
+        3750
+      ],
+      [
+        "dur",
+        250
+      ],
+      [
+        "piano",
+        68,
+        90
+      ],
+      [
+        "onset",
+        4040
+      ],
+      [
+        "dur",
+        250
+      ],
+      [
+        "piano",
+        72,
+        80
+      ],
+      [
+        "onset",
+        4330
+      ],
+      [
+        "dur",
+        230
+      ],
+      [
+        "piano",
+        68,
+        90
+      ],
+      [
+        "onset",
+        4620
+      ],
+      [
+        "dur",
+        250
+      ],
+      [
+        "piano",
+        65,
+        90
+      ],
+      [
+        "onset",
+        4910
+      ],
+      [
+        "dur",
+        260
+      ],
+      "<T>",
+      [
+        "piano",
+        74,
+        80
+      ],
+      [
+        "onset",
+        200
+      ],
+      [
+        "dur",
+        240
+      ],
+      [
+        "piano",
+        70,
+        80
+      ],
+      [
+        "onset",
+        490
+      ],
+      [
+        "dur",
+        240
+      ],
+      [
+        "piano",
+        67,
+        80
+      ],
+      [
+        "onset",
+        780
+      ],
+      [
+        "dur",
+        260
+      ],
+      [
+        "piano",
+        70,
+        80
+      ],
+      [
+        "onset",
+        1070
+      ],
+      [
+        "dur",
+        230
+      ],
+      [
+        "piano",
+        67,
+        80
+      ],
+      [
+        "onset",
+        1350
+      ],
+      [
+        "dur",
+        260
+      ],
+      [
+        "piano",
+        63,
+        80
+      ],
+      [
+        "onset",
+        1640
+      ],
+      [
+        "dur",
+        260
+      ],
+      [
+        "piano",
+        60,
+        80
+      ],
+      [
+        "onset",
+        1930
+      ],
+      [
+        "dur",
+        240
+      ],
+      [
+        "piano",
+        63,
+        80
+      ],
+      [
+        "onset",
+        2220
+      ],
+      [
+        "dur",
+        250
+      ],
+      [
+        "piano",
+        67,
+        80
+      ],
+      [
+        "onset",
+        2510
+      ],
+      [
+        "dur",
+        250
+      ],
+      [
+        "piano",
+        70,
+        90
+      ],
+      [
+        "onset",
+        2800
+      ],
+      [
+        "dur",
+        240
+      ],
+      [
+        "piano",
+        67,
+        80
+      ],
+      [
+        "onset",
+        3090
+      ],
+      [
+        "dur",
+        250
+      ],
+      [
+        "piano",
+        63,
+        80
+      ],
+      [
+        "onset",
+        3380
+      ],
+      [
+        "dur",
+        250
+      ],
+      [
+        "piano",
+        62,
+        80
+      ],
+      [
+        "onset",
+        3670
+      ],
+      [
+        "dur",
+        230
+      ],
+      [
+        "piano",
+        65,
+        90
+      ],
+      [
+        "onset",
+        3960
+      ],
+      [
+        "dur",
+        240
+      ],
+      [
+        "piano",
+        68,
+        80
+      ],
+      [
+        "onset",
+        4240
+      ],
+      [
+        "dur",
+        260
+      ]
+    ]
+  },
+  "answerOffsetTicks": 5950,
+  "artifacts": {
+    "midiSha256": "cfdd8cccc3a9a3d679f497c1c8c4a33f353c2f8119e0a3fe9180acbd8a6ad08a",
+    "wavSha256": "49eac7a87d80ba28ad7e0746669995769f8375c3cccd1383ddfa2d61e20b0236"
+  },
+  "limits": [
+    "Warm-filesystem single fixture, not a live-performance benchmark",
+    "Original prompt is procedural, not a human playing test",
+    "7-bit model velocity and tokenizer timing are not physical MIDI 2 precision",
+    "Studio continuation controls and hardware input/output qualification remain pending",
+    "Audio preview uses the procedural preview synth; listening quality is not accepted"
+  ],
+  "independentMIDI1Read": {
+    "reader": "mido 1.3.3",
+    "tracks": 3,
+    "noteOns": 33,
+    "ticksPerBeat": 960
+  }
+}

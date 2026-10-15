@@ -51,5 +51,16 @@
     },
     "gated": null,
     "archived": false
+  },
+  "aria-qualified": {
+    "source": "https://huggingface.co/loubb/aria-medium-base",
+    "modelRevision": "5a1ef36c5007ee10fbe57d61d96725a7244bd2b2",
+    "filename": "model-gen.safetensors",
+    "bytes": 2634170640,
+    "sha256": "5e6b07ee2680f0044deea30da613d89b12e3e30d012d1812b388d6b8d8306c90",
+    "gated": false,
+    "license": "apache-2.0",
+    "codeRevision": "c2f67bc90b49335543c0249fe00fb84a9337faf8",
+    "utilsRevision": "7c815755c6889a784b6a1b3343e9e8daa3e7d128"
   }
 }

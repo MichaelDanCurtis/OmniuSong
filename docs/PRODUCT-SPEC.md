@@ -26,7 +26,7 @@ The initial audience is one musician and their collaborators. A private, local s
 
 The main screen combines a transport, arrangement, selected clip editor, performance pads, keyboard, and a compact co-producer panel. Track colors and instrument roles stay consistent across views. The interface should feel like an instrument: the next action is usually play, record, edit, audition, or accept.
 
-Clips can contain audio, notes, automation, or a reference to a model's musical plan. Scenes let the musician launch combinations of clips on bar boundaries. The arrangement captures a scene performance as an editable timeline. Initial implementation uses a four-bar loop; scene launch, arbitrary timeline ranges, and song sections are later milestones.
+Clips can contain audio, notes, automation, or a reference to a model's musical plan. Scenes let the musician launch combinations of clips on bar boundaries. The arrangement captures a scene performance as an editable timeline. The preview transport loops the project bar span, while the initial piano-roll editor shows the first four bars. Full timeline navigation, scene launch, and song sections are later milestones.
 
 ### Songbook
 
@@ -104,7 +104,7 @@ Audio assets are content-addressed. Asset records include sample rate, channels,
 
 The preview implements `.omniusong` backups as versioned gzip JSON bundles with checksummed audio. Restoring creates a new project identity and retains the original session. Saved-session selection flushes pending edits before switching. [Archive format](PROJECT-ARCHIVE.md).
 
-The initial schema implements integer note timing, 16-bit velocity, expression lanes, track locks, lyric locks, immutable audio IDs, revision checks, and accepted-candidate provenance. Tempo maps, note identities for same-pitch overlaps, expression editing, and full asset manifests are later additions.
+The initial schema implements integer note timing, 16-bit attack/release velocity, source/group/channel metadata, internal voice identities, bounded raw input capture, expression lanes, locks, immutable audio IDs, revision checks, and accepted-candidate provenance. Complete archives include checksummed asset manifests. Tempo maps, clock calibration, detailed expression editing, and native MIDI 2 end-to-end acceptance remain separate work.
 
 ## AI task lifecycle
 

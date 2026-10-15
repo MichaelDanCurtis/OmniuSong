@@ -187,7 +187,7 @@ Piano transcription candidate for expressive piano recordings. Controls and inpu
 
 **[Aria](https://github.com/EleutherAI/aria) · Keep**
 
-Expressive piano MIDI continuation with an official MLX implementation. Controls and inputs: Human MIDI phrase, continuation, expressive timing. A particularly good Mac-first candidate. MIDI 2 transport is an OmniuSong responsibility.
+Expressive piano MIDI continuation with an official MLX implementation. Controls and inputs: Human MIDI phrase, continuation, expressive timing. The development Mac now runs the pinned generation checkpoint: a 12-note procedural prompt produced 21 new notes from 64 tokens. The bounded worker and preview are qualified; general studio continuation controls and live performance remain pending. [Qualification evidence](ARIA-QUALIFICATION.md). MIDI 2 transport is an OmniuSong responsibility.
 
 **[Anticipatory Music Transformer](https://github.com/jthickstun/anticipation) · Explore**
 

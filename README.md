@@ -2,7 +2,7 @@
 
 A Mac-first music workstation where people play, sing, edit, and direct multiple AI models. Windows follows through the same portable project format and model adapters.
 
-The first development preview includes a playable studio, sixteen pads, a piano roll, vocal take capture, local projects, a model observatory, and generation candidates that require acceptance before they change the song. Basic Pitch performs real local audio-to-MIDI inference. Arrangement and sample tools use musical rules and synthesis. The Ollama lyric adapter can use an installed local AI model. The other researched models are candidates for integration.
+The first development preview includes a playable studio, sixteen pads, a piano roll, vocal take capture, local projects, a model observatory, and generation candidates that require acceptance before they change the song. Basic Pitch performs real local audio-to-MIDI inference. Aria MLX now has a qualified local piano-continuation worker and a playable saved preview; general studio continuation controls are next. Arrangement and sample tools use musical rules and synthesis. The Ollama lyric adapter can use an installed local AI model. The remaining researched models are candidates for integration.
 
 ## Start the studio
 
@@ -35,6 +35,8 @@ The development app requires the local server to be running. It adds CoreMIDI UM
 To use a local AI lyric model, start an existing Ollama installation and set `OMNIUSONG_OLLAMA_MODEL` to an installed model before starting the studio. Then enable **Use my local AI lyric model**. The app does not install or select a model silently.
 
 Basic Pitch is installed in this checkout's isolated `.runtime/basic-pitch` environment. To recreate it, use `scripts/setup-basic-pitch.sh` with uv and Python 3.11. This selects the ONNX runtime and avoids installing TensorFlow or CoreML. Exact resolved package versions are recorded in `workers/basic-pitch-resolved.txt`. The synthetic four-tone qualification and model checksum are in `docs/verification/basic-pitch.json`.
+
+Aria uses its own isolated `.runtime/aria` environment and a pinned 2.63 GB checkpoint. See [Aria qualification](docs/ARIA-QUALIFICATION.md) for the exact model, compatibility fix, measured fixture, setup, and MIDI/audio artifacts. The saved **Aria piano · local model preview** session contains an unchanged procedural prompt and its separate AI answer.
 
 ## Project and planning documents
 

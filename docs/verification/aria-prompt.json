@@ -1,0 +1,79 @@
+{
+  "tempo": 104,
+  "seed": 42,
+  "maxNewTokens": 64,
+  "notes": [
+    {
+      "pitch": 60,
+      "startTick": 0,
+      "durationTicks": 390,
+      "velocity16": 40000
+    },
+    {
+      "pitch": 63,
+      "startTick": 480,
+      "durationTicks": 410,
+      "velocity16": 43000
+    },
+    {
+      "pitch": 67,
+      "startTick": 960,
+      "durationTicks": 430,
+      "velocity16": 46000
+    },
+    {
+      "pitch": 70,
+      "startTick": 1440,
+      "durationTicks": 390,
+      "velocity16": 49000
+    },
+    {
+      "pitch": 67,
+      "startTick": 1920,
+      "durationTicks": 410,
+      "velocity16": 40000
+    },
+    {
+      "pitch": 63,
+      "startTick": 2400,
+      "durationTicks": 430,
+      "velocity16": 43000
+    },
+    {
+      "pitch": 62,
+      "startTick": 2880,
+      "durationTicks": 390,
+      "velocity16": 46000
+    },
+    {
+      "pitch": 65,
+      "startTick": 3360,
+      "durationTicks": 410,
+      "velocity16": 49000
+    },
+    {
+      "pitch": 68,
+      "startTick": 3840,
+      "durationTicks": 430,
+      "velocity16": 40000
+    },
+    {
+      "pitch": 72,
+      "startTick": 4320,
+      "durationTicks": 390,
+      "velocity16": 43000
+    },
+    {
+      "pitch": 68,
+      "startTick": 4800,
+      "durationTicks": 410,
+      "velocity16": 46000
+    },
+    {
+      "pitch": 65,
+      "startTick": 5280,
+      "durationTicks": 430,
+      "velocity16": 49000
+    }
+  ]
+}
