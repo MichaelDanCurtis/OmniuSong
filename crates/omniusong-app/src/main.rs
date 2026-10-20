@@ -1997,6 +1997,7 @@ mod tests {
                 "recording-track",
                 "Original recording",
                 TakeClip {
+                    edit_source: None,
                     id: "declared-clip".into(),
                     source: TakeReference {
                         take_id: TakeId("original-take".into()),

@@ -91,6 +91,7 @@ fn publication(project: &ProjectDocument, source: &SealedJournal) -> TakePublica
         track_id: TrackId("recorded-track".into()),
         track_name: "Original microphone take".into(),
         clip: TakeClip {
+            edit_source: None,
             id: "recorded-clip".into(),
             source: TakeReference {
                 take_id: source.descriptor().take_id.clone(),

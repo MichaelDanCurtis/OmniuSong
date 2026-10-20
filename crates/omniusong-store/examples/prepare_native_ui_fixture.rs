@@ -141,6 +141,7 @@ fn main() -> Outcome<()> {
             track_id: TrackId("synthetic-native-recording".into()),
             track_name: "Synthetic sealed original · inspection only".into(),
             clip: TakeClip {
+                edit_source: None,
                 id: "synthetic-four-frame-clip".into(),
                 source: TakeReference {
                     take_id: descriptor.take_id.clone(),

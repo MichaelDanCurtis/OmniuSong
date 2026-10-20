@@ -501,6 +501,7 @@ impl AudioUi {
             track_id: TrackId(uuid::Uuid::new_v4().to_string()),
             track_name: "Solo recorded original".into(),
             clip: TakeClip {
+                edit_source: None,
                 id: uuid::Uuid::new_v4().to_string(),
                 source: TakeReference {
                     take_id: TakeId(take.take_id.clone()),

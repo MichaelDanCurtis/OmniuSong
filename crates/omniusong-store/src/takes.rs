@@ -89,6 +89,10 @@ impl TakePublication {
             "Invalid native recording track name",
         )?;
         self.clip.validate()?;
+        require(
+            self.clip.edit_source.is_none(),
+            "Publishing an original take cannot supply a claimed edit snapshot",
+        )?;
         Ok(())
     }
 }
@@ -304,6 +308,14 @@ fn check_reference(object: &TakeObject, reference: &TakeReference) -> Result<()>
 }
 
 fn check_clip(object: &TakeObject, clip: &TakeClip) -> Result<()> {
+    check_clip_window(object, clip)?;
+    if let Some(original) = clip.original_view()? {
+        check_clip_window(object, &original)?;
+    }
+    Ok(())
+}
+
+fn check_clip_window(object: &TakeObject, clip: &TakeClip) -> Result<()> {
     clip.validate()?;
     check_reference(object, &clip.source)?;
     let stream = object
@@ -701,6 +713,7 @@ mod tests {
             track_id: TrackId("event-track".into()),
             track_name: "Original event extent".into(),
             clip: TakeClip {
+                edit_source: None,
                 id: "event-clip".into(),
                 source: TakeReference {
                     take_id: source.descriptor().take_id.clone(),

@@ -253,6 +253,7 @@ impl RecoveryUi {
             track_id: choice.track_id.clone(),
             track_name: format!("Recovered original · {}", choice.audio.stream_id),
             clip: TakeClip {
+                edit_source: None,
                 id: choice.clip_id.clone(),
                 source: TakeReference {
                     take_id: TakeId(choice.take_id.clone()),

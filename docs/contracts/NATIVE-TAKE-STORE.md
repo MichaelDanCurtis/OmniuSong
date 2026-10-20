@@ -43,7 +43,11 @@ fields. Nested musical fields retain their core schema's representation.
 `TakePublication` contains identities and a non-destructive view, without an
 external source path. Validation checks identities, a publishable signed-SQL
 revision boundary, track name, and the core clip structure. Availability and
-source interpretation require store admission as well.
+source interpretation require store admission as well. New publication rejects a
+caller-supplied original-edit snapshot; only a later finite edit may create one.
+For edited audio views, resolution authenticates both current and retained-original
+ranges against the same sealed take/manifest/stream and PCM rate. See
+[the clip contract](NATIVE-CLIP-EDITING.md) for payload-version and Restore rules.
 
 Logical identity is `TakeId` plus the recording manifest's domain-separated
 `sha256`. `object_sha256` is a plain SHA-256 over every byte of the owned SQLite

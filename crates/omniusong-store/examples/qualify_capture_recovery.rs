@@ -145,6 +145,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         track_id: TrackId("recovered-original".into()),
         track_name: "Recovered software prefix · unknown tail".into(),
         clip: TakeClip {
+            edit_source: None,
             id: "recovered-prefix".into(),
             source: TakeReference {
                 take_id: TakeId(recovered.take_id.clone()),

@@ -11,6 +11,7 @@ use std::collections::BTreeSet;
 
 pub const NATIVE_SCHEMA_VERSION: u64 = 2;
 pub const RECORDING_PAYLOAD_VERSION: u32 = 1;
+pub const EDITED_RECORDING_PAYLOAD_VERSION: u32 = 2;
 pub const MAX_NATIVE_PROJECT_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_NATIVE_BARS: u64 = u32::MAX as u64;
 pub const MAX_TAKE_CLIPS: usize = 16_384;
@@ -121,9 +122,15 @@ pub struct TakeClip {
     pub position: TimelinePosition,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fades: Option<AudioFades>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub edit_source: Option<Value>,
 }
 impl TakeClip {
     pub fn validate(&self) -> Result<()> {
+        self.original_view().map(|_| ())
+    }
+
+    fn validate_current(&self) -> Result<()> {
         identifier(&self.id, "clip identity")?;
         self.source.validate()?;
         self.range.end()?;
@@ -155,6 +162,63 @@ impl TakeClip {
         }
         Ok(())
     }
+
+    /// A semantic view of the original settings; never a replacement serializer
+    /// for the raw document. Opaque snapshot extensions remain in edit_source.
+    pub fn original_view(&self) -> Result<Option<TakeClip>> {
+        self.validate_current()?;
+        let Some(source) = &self.edit_source else {
+            return Ok(None);
+        };
+        require(
+            source.is_object() && source["version"] == 1,
+            "Unsupported native original clip snapshot",
+        )?;
+        require(
+            source.get("editSource").is_none(),
+            "Native original clip snapshots cannot contain a nested snapshot",
+        )?;
+        let settings = source["original"]
+            .as_object()
+            .ok_or_else(|| DocumentError("Invalid native original clip settings".into()))?;
+        require(
+            settings.contains_key("range")
+                && settings.contains_key("position")
+                && settings
+                    .keys()
+                    .all(|key| matches!(key.as_str(), "range" | "position" | "fades")),
+            "Invalid native original clip setting keys",
+        )?;
+        let range: TakeRange = serde_json::from_value(settings["range"].clone())
+            .map_err(|error| DocumentError(format!("Invalid native original range: {error}")))?;
+        let position: TimelinePosition = serde_json::from_value(settings["position"].clone())
+            .map_err(|error| DocumentError(format!("Invalid native original position: {error}")))?;
+        let fades: Option<AudioFades> = match settings.get("fades") {
+            None | Some(Value::Null) => None,
+            Some(value) => Some(serde_json::from_value(value.clone()).map_err(|error| {
+                DocumentError(format!("Invalid native original fades: {error}"))
+            })?),
+        };
+        require(
+            matches!(self.range, TakeRange::AudioFrames { .. })
+                && matches!(range, TakeRange::AudioFrames { .. }),
+            "Only audio-frame clips can have original clip snapshots",
+        )?;
+        require(
+            position.sample_rate == self.position.sample_rate,
+            "Original clip sample rate differs from the immutable arrangement rate",
+        )?;
+        let original = TakeClip {
+            id: self.id.clone(),
+            source: self.source.clone(),
+            range,
+            position,
+            fades,
+            edit_source: None,
+        };
+        original.validate_current()?;
+        Ok(Some(original))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -166,7 +230,10 @@ pub struct RecordingPayload {
 impl RecordingPayload {
     pub fn validate(&self) -> Result<()> {
         require(
-            self.version == RECORDING_PAYLOAD_VERSION,
+            matches!(
+                self.version,
+                RECORDING_PAYLOAD_VERSION | EDITED_RECORDING_PAYLOAD_VERSION
+            ),
             "Unsupported native recording payload version",
         )?;
         require(
@@ -175,6 +242,10 @@ impl RecordingPayload {
         )?;
         let mut identities = BTreeSet::new();
         for clip in &self.clips {
+            require(
+                self.version != RECORDING_PAYLOAD_VERSION || clip.edit_source.is_none(),
+                "Recording payload version 1 cannot carry original clip snapshots",
+            )?;
             clip.validate()?;
             require(
                 identities.insert(&clip.id),
@@ -193,6 +264,19 @@ pub(crate) fn recording_payload(track: &Value) -> Result<RecordingPayload> {
     let payload: RecordingPayload = serde_json::from_value(track["recording"].clone())
         .map_err(|error| DocumentError(format!("Invalid native recording payload: {error}")))?;
     payload.validate()?;
+    // Option<Value> intentionally projects JSON null as None. Inspect the raw
+    // slot too, so explicit null cannot bypass version or snapshot validation.
+    for clip in track["recording"]["clips"]
+        .as_array()
+        .expect("validated recording clips")
+    {
+        if let Some(source) = clip.get("editSource") {
+            require(
+                payload.version == EDITED_RECORDING_PAYLOAD_VERSION && source.is_object(),
+                "Original clip snapshots require recording payload version 2 and a valid object",
+            )?;
+        }
+    }
     Ok(payload)
 }
 
@@ -238,6 +322,10 @@ impl ProjectDocument {
             "Appending a sealed take requires explicit schema-2 upgrade",
         )?;
         identifier(track_id, "track identity")?;
+        require(
+            clip.edit_source.is_none(),
+            "New recording publication cannot supply an original edit snapshot",
+        )?;
         clip.validate()?;
         require(
             !track_name.trim().is_empty() && track_name.chars().count() <= 160,
@@ -329,6 +417,7 @@ mod tests {
                 out_frames: 9_600,
                 curve: FadeCurve::EqualPower,
             }),
+            edit_source: None,
         }
     }
 
@@ -349,6 +438,7 @@ mod tests {
                 sample_rate: 96_000,
             },
             fades: None,
+            edit_source: None,
         }
     }
 
@@ -455,7 +545,7 @@ mod tests {
         for (path, replacement) in [
             ("/schemaVersion", json!(1)),
             ("/schemaVersion", json!(3)),
-            ("/tracks/2/recording/version", json!(2)),
+            ("/tracks/2/recording/version", json!(3)),
             ("/tracks/2/recording", Value::Null),
             ("/tracks/2/recording/clips/0/range/unit", json!("seconds")),
             ("/tracks/2/recording/clips/0/range/start", json!(-1)),
@@ -639,5 +729,62 @@ mod tests {
         let mut excessive = native_project().value().clone();
         excessive["vendor:large"] = Value::String("x".repeat(MAX_NATIVE_PROJECT_BYTES));
         assert!(ProjectDocument::from_value(excessive).is_err());
+    }
+
+    #[test]
+    fn original_snapshots_are_versioned_audio_only_and_keep_opaque_extensions() {
+        let mut project = native_project();
+        project
+            .append_take_clip("recording", "Take", audio_clip("clip-1"))
+            .unwrap();
+        let path = "/tracks/2/recording/clips/0";
+        let current = project.value().pointer(path).unwrap();
+        let snapshot = json!({"version":1,"original":{"range":current["range"],"position":current["position"],"fades":null},
+            "vendor":serde_json::from_str::<Value>(r#"{"integer":1844674407370955161600001,"decimal":0.12345678901234567890123456789}"#).unwrap()});
+        for version in [1, 2] {
+            let mut invalid = project.value().clone();
+            invalid["tracks"][2]["recording"]["version"] = version.into();
+            invalid.pointer_mut(path).unwrap()["editSource"] = Value::Null;
+            assert!(ProjectDocument::from_value(invalid).is_err());
+        }
+        let mut invalid = project.value().clone();
+        invalid.pointer_mut(path).unwrap()["editSource"] = snapshot.clone();
+        assert!(ProjectDocument::from_value(invalid).is_err());
+
+        let mut value = project.value().clone();
+        value["tracks"][2]["recording"]["version"] = EDITED_RECORDING_PAYLOAD_VERSION.into();
+        value.pointer_mut(path).unwrap()["editSource"] = snapshot.clone();
+        let valid = ProjectDocument::from_value(value.clone()).unwrap();
+        let typed = &valid.take_clips().unwrap()[0];
+        assert_eq!(typed.edit_source.as_ref(), Some(&snapshot));
+        let original = typed.original_view().unwrap().unwrap();
+        assert!(original.fades.is_none());
+        assert!(original.edit_source.is_none());
+        assert_eq!(original.range, typed.range);
+        for bad in [
+            json!({"version":2,"original":snapshot["original"]}),
+            json!({"version":1,"original":snapshot["original"],"editSource":{"version":1}}),
+            json!({"version":1,"original":{"range":current["range"]}}),
+            json!({"version":1,"original":{"range":current["range"],"position":current["position"],"editSource":{}}}),
+            json!({"version":1,"original":{"range":{"unit":"events","start":0,"count":1},"position":current["position"]}}),
+            json!({"version":1,"original":{"range":current["range"],"position":{"frame":0,"sampleRate":96000}}}),
+            json!({"version":1,"original":{"range":current["range"],"position":current["position"],"fades":{"inFrames":u64::MAX,"outFrames":1,"curve":"linear"}}}),
+        ] {
+            let mut invalid = value.clone();
+            invalid.pointer_mut(path).unwrap()["editSource"] = bad;
+            assert!(ProjectDocument::from_value(invalid).is_err());
+        }
+        let before = project.clone();
+        let mut supplied = audio_clip("new-clip");
+        supplied.edit_source = Some(snapshot);
+        assert!(
+            project
+                .append_take_clip("recording", "Take", supplied)
+                .is_err()
+        );
+        assert_eq!(project, before);
+        let mut typed_null = audio_clip("typed-null");
+        typed_null.edit_source = Some(Value::Null);
+        assert!(typed_null.validate().is_err());
     }
 }

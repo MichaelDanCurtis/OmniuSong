@@ -143,6 +143,7 @@ fn project() -> ProjectDocument {
 }
 fn clip(source: &SealedJournal, id: &str) -> TakeClip {
     TakeClip {
+        edit_source: None,
         id: id.into(),
         source: TakeReference {
             take_id: source.descriptor().take_id.clone(),

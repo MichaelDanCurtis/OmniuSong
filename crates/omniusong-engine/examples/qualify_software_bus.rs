@@ -154,6 +154,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         track_id: TrackId(uuid::Uuid::new_v4().to_string()),
         track_name: "Recorded internal bus · synthetic source".into(),
         clip: TakeClip {
+            edit_source: None,
             id: uuid::Uuid::new_v4().to_string(),
             source: TakeReference {
                 take_id: TakeId(capture.take_id.clone()),

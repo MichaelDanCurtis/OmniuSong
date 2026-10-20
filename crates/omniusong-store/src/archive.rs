@@ -7,8 +7,8 @@ use crate::{
     },
 };
 use omniusong_core::{
-    MAX_NATIVE_PROJECT_BYTES, MAX_PROJECT_BYTES, NoteTimelinePolicy, NoteValues, PPQ,
-    ProjectDocument,
+    ClipPatch, ClipTimelinePolicy, DocumentClipAddress, FieldChange, MAX_NATIVE_PROJECT_BYTES,
+    MAX_PROJECT_BYTES, NoteTimelinePolicy, NoteValues, PPQ, ProjectDocument, ValueChange,
     contracts::{EditOperation, EditScope, ProjectEditIntent, TakeId, Validate, WORKER_MAX_BYTES},
     native::TakeReference,
 };
@@ -329,6 +329,152 @@ fn validate_note_postimage(intent: &ProjectEditIntent, result: &ProjectDocument)
     Ok(())
 }
 
+/// Only explicit authored postconditions are provable from this result alone.
+/// Keep fields, source originality and the complete preimage require history;
+/// never infer them from a valid digest or a claimed editSource snapshot.
+fn validate_clip_postimage(intent: &ProjectEditIntent, result: &ProjectDocument) -> Result<()> {
+    let policy = match &intent.edit {
+        EditOperation::UpdateClip { timeline, .. } | EditOperation::RestoreClip { timeline } => {
+            *timeline
+        }
+        _ => return Ok(()),
+    };
+    let EditScope::DocumentClip { address } = &intent.scope else {
+        return Err(invalid("Archived clip operation has the wrong scope"));
+    };
+    let (track_id, kind) = match address {
+        DocumentClipAddress::LegacyAudio { track_id } => (track_id, "audio"),
+        DocumentClipAddress::NativeAudio { track_id, .. } => (track_id, "recording"),
+    };
+    let track = result
+        .tracks()
+        .iter()
+        .find(|track| track["id"].as_str() == Some(track_id.as_str()))
+        .ok_or_else(|| invalid("Archived clip operation lost its track"))?;
+    ensure(
+        track["kind"] == kind && track["locked"] == false,
+        "Archived clip operation requires an unlocked track of the declared kind",
+    )?;
+    let clip = match address {
+        DocumentClipAddress::LegacyAudio { .. } => &track["audio"],
+        DocumentClipAddress::NativeAudio { clip_id, .. } => {
+            let clips = track["recording"]["clips"]
+                .as_array()
+                .ok_or_else(|| invalid("Archived clip operation lost its payload"))?;
+            let clip = clips
+                .iter()
+                .find(|clip| clip["id"].as_str() == Some(clip_id.as_str()))
+                .ok_or_else(|| invalid("Archived clip operation lost its target"))?;
+            ensure(
+                clip["range"]["unit"] == "audio_frames",
+                "Archived audio edit targets a non-audio source range",
+            )?;
+            clip
+        }
+    };
+    let field_matches = |field: &str, change: &FieldChange<serde_json::Value>| -> Result<()> {
+        let matches = match change {
+            FieldChange::Keep => true,
+            FieldChange::Set { value } => clip.get(field) == Some(value),
+            FieldChange::Remove => clip.get(field).is_none(),
+        };
+        ensure(
+            matches,
+            "Archived clip field differs from the explicit request",
+        )
+    };
+    let as_value = |change: &FieldChange<serde_json::Number>| match change {
+        FieldChange::Keep => FieldChange::Keep,
+        FieldChange::Set { value } => FieldChange::Set {
+            value: serde_json::Value::Number(value.clone()),
+        },
+        FieldChange::Remove => FieldChange::Remove,
+    };
+    match &intent.edit {
+        EditOperation::UpdateClip {
+            patch: ClipPatch::LegacyAudio(patch),
+            ..
+        } => {
+            let start = match patch.start_tick {
+                FieldChange::Keep => FieldChange::Keep,
+                FieldChange::Set { value } => FieldChange::Set {
+                    value: value.into(),
+                },
+                FieldChange::Remove => FieldChange::Remove,
+            };
+            field_matches("startTick", &start)?;
+            for (field, change) in [
+                ("trimStartSeconds", &patch.trim_start_seconds),
+                ("trimEndSeconds", &patch.trim_end_seconds),
+                ("fadeInSeconds", &patch.fade_in_seconds),
+                ("fadeOutSeconds", &patch.fade_out_seconds),
+            ] {
+                field_matches(field, &as_value(change))?;
+            }
+        }
+        EditOperation::UpdateClip {
+            patch: ClipPatch::NativeAudio(patch),
+            ..
+        } => {
+            if let ValueChange::Set { value } = patch.position_frame {
+                ensure(
+                    clip["position"]["frame"] == value,
+                    "Archived clip placement differs from the explicit request",
+                )?;
+            }
+            if let ValueChange::Set { value } = &patch.source_window {
+                let expected = serde_json::json!({"unit":"audio_frames","start":value.start_frame,"count":value.frame_count});
+                ensure(
+                    clip["range"] == expected,
+                    "Archived clip source window differs from the explicit request",
+                )?;
+            }
+            let fades = match &patch.fades {
+                FieldChange::Keep => FieldChange::Keep,
+                FieldChange::Set { value } => FieldChange::Set {
+                    value: serde_json::to_value(value)
+                        .map_err(|error| invalid(error.to_string()))?,
+                },
+                FieldChange::Remove => FieldChange::Remove,
+            };
+            field_matches("fades", &fades)?;
+        }
+        EditOperation::RestoreClip { .. } => {
+            let original = clip
+                .get("editSource")
+                .and_then(|source| source.get("original"))
+                .and_then(serde_json::Value::as_object)
+                .ok_or_else(|| {
+                    invalid("Archived restore-clip result lost its original snapshot")
+                })?;
+            let fields: &[&str] = match address {
+                DocumentClipAddress::LegacyAudio { .. } => &[
+                    "startTick",
+                    "trimStartSeconds",
+                    "trimEndSeconds",
+                    "fadeInSeconds",
+                    "fadeOutSeconds",
+                ],
+                DocumentClipAddress::NativeAudio { .. } => &["range", "position", "fades"],
+            };
+            ensure(
+                fields
+                    .iter()
+                    .all(|field| clip.get(*field) == original.get(*field)),
+                "Archived restored clip settings differ from the retained original",
+            )?;
+        }
+        _ => return Err(invalid("Invalid clip postimage dispatch")),
+    }
+    if matches!(policy, ClipTimelinePolicy::ExtendLoop { .. }) {
+        ensure(
+            result.bars() >= result.clip_required_bars(address)?,
+            "Archived extended loop does not cover the clip extent",
+        )?;
+    }
+    Ok(())
+}
+
 pub(super) fn validate_request(
     request: &str,
     operation_id: &str,
@@ -387,12 +533,15 @@ pub(super) fn validate_request(
                     | EditOperation::UpdateNote { .. }
                     | EditOperation::DeleteNote
                     | EditOperation::RestoreNote { .. }
+                    | EditOperation::UpdateClip { .. }
+                    | EditOperation::RestoreClip { .. }
                     | EditOperation::Undo
                     | EditOperation::Redo
             ),
             "Unsupported operation in archive",
         )?;
         validate_note_postimage(&intent, result)?;
+        validate_clip_postimage(&intent, result)?;
     }
     Ok(())
 }

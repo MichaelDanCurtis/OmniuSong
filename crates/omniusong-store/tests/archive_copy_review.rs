@@ -796,6 +796,7 @@ fn operation_only_take_original_survives_branch_truncation_and_wrapped_request_m
         track_id: TrackId("source-first".into()),
         track_name: "Original recording".into(),
         clip: TakeClip {
+            edit_source: None,
             id: "source-first".into(),
             source: TakeReference {
                 take_id: take.take_id.clone(),
@@ -904,6 +905,7 @@ fn ancestor_proof_result_alone_keeps_original_in_export_copy_restore_and_retry_c
             "recording",
             "Original",
             TakeClip {
+                edit_source: None,
                 id: "proof-only-clip".into(),
                 source: TakeReference {
                     take_id: take.take_id.clone(),

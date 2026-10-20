@@ -168,6 +168,16 @@ impl NativeStore {
                 let next=match &intent.edit {EditOperation::RestoreNote{timeline}=>current.restore_note(address,*timeline),_=>current.delete_note(address)}.map_err(StoreError::EditRejected)?;
                 save_in_transaction(&tx,&self.root,&next,intent.expected_revision)?
             },
+            EditOperation::UpdateClip{patch,timeline}=>{
+                let EditScope::DocumentClip{address}=&intent.scope else{return Err(StoreError::Invalid("Clip edit requires document-clip scope".into()));};
+                let next=current.update_clip(address,patch,*timeline).map_err(StoreError::EditRejected)?;
+                save_in_transaction(&tx,&self.root,&next,intent.expected_revision)?
+            },
+            EditOperation::RestoreClip{timeline}=>{
+                let EditScope::DocumentClip{address}=&intent.scope else{return Err(StoreError::Invalid("Clip edit requires document-clip scope".into()));};
+                let next=current.restore_clip(address,*timeline).map_err(StoreError::EditRejected)?;
+                save_in_transaction(&tx,&self.root,&next,intent.expected_revision)?
+            },
             EditOperation::Undo|EditOperation::Redo=>navigate_in_transaction(&tx,&self.root,&intent.project_id.0,intent.expected_revision,matches!(intent.edit,EditOperation::Redo))?,
             EditOperation::ApplyPreparedEdit{..}|EditOperation::AcceptCandidate{..}=>return Err(StoreError::Invalid("Prepared edits and candidate acceptance are not implemented in the native store".into())),
         };

@@ -163,6 +163,7 @@ fn retained_capture_is_reviewed_recovered_retried_attached_and_archived_on_real_
         track_id: TrackId("recovered-track".into()),
         track_name: "Recovered software original".into(),
         clip: TakeClip {
+            edit_source: None,
             id: "recovered-clip".into(),
             source: TakeReference {
                 take_id: TakeId(receipt.take_id.clone()),
@@ -278,6 +279,7 @@ fn typed_revision_conflict_keeps_original_and_a_fresh_choice_is_explicit() {
         track_id: TrackId("rejected-track".into()),
         track_name: "Retained source".into(),
         clip: TakeClip {
+            edit_source: None,
             id: "rejected-clip".into(),
             source: TakeReference {
                 take_id: TakeId("service-retained-original".into()),

@@ -5,7 +5,10 @@
 //! target. Transport, queues, workers, and durable recording are not implemented
 //! by these definitions; see docs/contracts/NATIVE-PROTOCOLS.md.
 
-use crate::{DocumentNoteAddress, NoteTimelinePolicy, NoteValues};
+use crate::{
+    ClipPatch, ClipTimelinePolicy, DocumentClipAddress, DocumentNoteAddress, NoteTimelinePolicy,
+    NoteValues,
+};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use std::{collections::BTreeMap, error::Error, fmt};
@@ -904,6 +907,9 @@ pub enum EditScope {
     DocumentNote {
         address: DocumentNoteAddress,
     },
+    DocumentClip {
+        address: DocumentClipAddress,
+    },
     Tracks {
         track_ids: Vec<TrackId>,
         range: Option<TickRange>,
@@ -920,6 +926,7 @@ impl Validate for EditScope {
         match self {
             Self::Project => {}
             Self::DocumentNote { address } => address.validate()?,
+            Self::DocumentClip { address } => address.validate()?,
             Self::Tracks { track_ids, range } => {
                 require(
                     !track_ids.is_empty() && track_ids.len() <= 64,
@@ -993,6 +1000,13 @@ pub enum EditOperation {
     RestoreNote {
         timeline: NoteTimelinePolicy,
     },
+    UpdateClip {
+        patch: ClipPatch,
+        timeline: ClipTimelinePolicy,
+    },
+    RestoreClip {
+        timeline: ClipTimelinePolicy,
+    },
     /// Versioned semantic edit object, not an unrestricted JSON merge patch.
     ApplyPreparedEdit {
         edit: BlobRef,
@@ -1062,6 +1076,22 @@ impl Validate for ProjectEditIntent {
             EditOperation::DeleteNote | EditOperation::RestoreNote { .. } => require(
                 matches!(self.scope, EditScope::DocumentNote { .. }),
                 "Note edits require one exact document-note scope",
+            )?,
+            EditOperation::UpdateClip { patch, .. } => {
+                patch.validate()?;
+                let EditScope::DocumentClip { address } = &self.scope else {
+                    return Err(ContractError(
+                        "Clip edits require one exact document-clip scope".into(),
+                    ));
+                };
+                require(
+                    patch.matches_address(address),
+                    "Clip address and patch representations differ",
+                )?;
+            }
+            EditOperation::RestoreClip { .. } => require(
+                matches!(self.scope, EditScope::DocumentClip { .. }),
+                "Clip edits require one exact document-clip scope",
             )?,
             EditOperation::Undo | EditOperation::Redo => require(
                 matches!(self.scope, EditScope::Project),

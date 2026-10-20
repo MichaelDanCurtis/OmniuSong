@@ -3,10 +3,16 @@
 //! Opaque fields stay in the document. Typed projections are views, never a
 //! lossy replacement for a captured performance or a provider's metadata.
 
+pub mod clip_edit;
+pub mod clip_edit_types;
 pub mod contracts;
 pub mod native;
 pub mod note_edit;
 pub mod note_edit_types;
+pub use clip_edit_types::{
+    AudioSourceWindow, ClipPatch, ClipTimelinePolicy, DocumentClipAddress, FieldChange,
+    LegacyAudioClipPatch, NativeAudioClipPatch, ValueChange,
+};
 pub use note_edit_types::{DocumentNoteAddress, NoteTimelinePolicy, NoteValues};
 
 use serde_json::{Value, json};

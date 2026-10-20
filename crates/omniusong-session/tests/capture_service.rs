@@ -73,6 +73,7 @@ fn capture_attachment_routes_through_storage_worker_and_retry_returns_latest_ses
         track_id: TrackId("take-track".into()),
         track_name: "Original take".into(),
         clip: TakeClip {
+            edit_source: None,
             id: "take-clip".into(),
             source: TakeReference {
                 take_id: descriptor.take_id,

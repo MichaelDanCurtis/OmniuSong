@@ -122,6 +122,7 @@ fn publication(document: &ProjectDocument, source: &SealedJournal) -> TakePublic
         track_id: TrackId("recovered-track".into()),
         track_name: "Recovered verified prefix".into(),
         clip: TakeClip {
+            edit_source: None,
             id: "recovered-clip".into(),
             source: TakeReference {
                 take_id: source.descriptor().take_id.clone(),

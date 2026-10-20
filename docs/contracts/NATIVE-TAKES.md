@@ -1,4 +1,4 @@
-# Native musical take references, revision 1
+# Native musical take references, revision 2
 
 Musical schema 2 adds explicit references to sealed native recordings. It does not put long audio or raw event streams in project JSON. The types and document operations are in [`omniusong-core::native`](../../crates/omniusong-core/src/native.rs); immutable recording storage and source clocks remain governed by [NATIVE-PROTOCOLS.md](NATIVE-PROTOCOLS.md) and the recording journal.
 
@@ -53,8 +53,8 @@ The example hash is illustrative. The audio range represents 31 minutes at 48 kH
 | `TakeRange::Events { start, count }` | Half-open interval of source event ordinals. Neither value is an audio frame count or a musical tick. |
 | `TimelinePosition { frame: i64, sample_rate: u32 }` | Explicit signed arrangement placement in frames at the specified rate. Negative placement is permitted. |
 | `AudioFades { in_frames, out_frames, curve }` | Non-destructive gain envelopes in source audio frames; `linear` or `equal_power`. |
-| `TakeClip { id, source, range, position, fades }` | Arrangement view over an immutable source. Omitted/null fades mean no fade; raw event clips must have no audio fades. |
-| `RecordingPayload { version, clips }` | Version 1 list of typed views on a recording track. An empty list is allowed. |
+| `TakeClip { id, source, range, position, fades, edit_source }` | Arrangement view over an immutable source; optional versioned original settings exist only in edited payload 2. Omitted/null fades mean no fade. |
+| `RecordingPayload { version, clips }` | Version1 original views or version 2 edited audio views. Both remain readable; empty lists are allowed. |
 
 Source range count must be positive, and checked `start + count` must fit `i64::MAX`, matching the current journal's source counters. This bound does not truncate native host timestamps: their full domain-specific precision remains in the referenced original. Audio placement plus count must fit the signed arrangement timeline. Sample rates are 8,000 through 768,000 Hz. Fade lengths must add without overflow and fit within the selected audio window.
 
@@ -63,6 +63,23 @@ New recording track, clip and stream IDs contain 1–96 ASCII alphanumeric chara
 For audio, initial publication requires arrangement sample rate to equal the source PCM rate. No implicit resampling or time stretching is authorized. Changing trim, position or fade settings changes a view; it does not rewrite original chunks, host timestamps, manifest provenance, or the source range's units.
 
 For raw-event-only recordings, the signed arrangement position is an explicit user/application placement. It is not a measured calibration or a source audio alignment claim. Event ordinals do not supply a duration in frames. Retained host clocks/anchors must be resolved explicitly by a later scheduler. Adding this reference creates no audio stream, interpreted note, guessed pitch, editable expression estimate or synthesized timing evidence.
+
+## Versioned clip edits
+
+The [clip backend](NATIVE-CLIP-EDITING.md) now explicitly adds recording payload 2.
+Version1 rejects the new clip.editSource field even when null. Version2 admits a
+validated { version:1, original:{range,position,[fades]} } snapshot with exact raw
+presence and opaque outer extensions. Update/Restore retain the source reference,
+clip ID, audio-frame unit and sample rate; Restore retains the snapshot and v2.
+Only the selected raw view is updated, preserving sibling omitted/null fades.
+Both current and original windows must resolve against the same sealed stream.
+
+New publication/append remains version 1 and rejects caller-supplied snapshots;
+existing version 2 tracks retain their version when another original is appended.
+The optional projection is omitted from old canonical requests when absent.
+`original_view()` provides a validated semantic source view, not a replacement
+serializer for raw project data. The current 85ef… packaged note-editor binary
+predates this backend; native clip controls and their new build remain pending.
 
 ## Document operations and bounds
 

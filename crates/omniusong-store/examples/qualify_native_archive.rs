@@ -161,6 +161,7 @@ fn publication(
         track_id: TrackId(format!("recorded-{stream}")),
         track_name: format!("Synthetic {stream}"),
         clip: TakeClip {
+            edit_source: None,
             id: format!("clip-{stream}"),
             source: TakeReference {
                 take_id: snapshot.descriptor().take_id.clone(),

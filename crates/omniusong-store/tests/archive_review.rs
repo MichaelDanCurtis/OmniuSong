@@ -136,6 +136,7 @@ fn native_branch(fixture: &Fixture) -> (ProjectDocument, TakePublication, Sealed
         track_id: TrackId("recording".into()),
         track_name: "Original recording".into(),
         clip: TakeClip {
+            edit_source: None,
             id: "retained-clip".into(),
             source: TakeReference {
                 take_id: source.descriptor().take_id.clone(),

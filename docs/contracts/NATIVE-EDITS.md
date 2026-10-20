@@ -1,6 +1,6 @@
 # Native edit admission and durable receipts
 
-October 20, 2026. `NativeStore::apply_edit(&ProjectEditIntent) -> EditReceipt` admits project rename, tempo, paired `UpdateSession { name, tempo }`, undo and redo. The pair commits one revision, one history step and one receipt. `publish_take(&TakePublication) -> EditReceipt` uses the same global operation ledger for explicit [sealed native take publication](NATIVE-TAKES.md). Both follow the operation-ledger boundary in [native protocols](NATIVE-PROTOCOLS.md). Prepared semantic edit objects and candidate acceptance return an explicit unavailable error; no inference, scope/lock or candidate gate is passed by these APIs.
+October 20, 2026. `NativeStore::apply_edit(&ProjectEditIntent) -> EditReceipt` admits project rename, tempo, paired `UpdateSession { name, tempo }`, exact [note edits](NATIVE-NOTE-EDITING.md), finite [clip edits](NATIVE-CLIP-EDITING.md), undo and redo. The pair commits one revision, one history step and one receipt. `publish_take(&TakePublication) -> EditReceipt` uses the same global operation ledger for explicit [sealed native take publication](NATIVE-TAKES.md). Both follow the operation-ledger boundary in [native protocols](NATIVE-PROTOCOLS.md). Prepared semantic edit objects and candidate acceptance return an explicit unavailable error; these APIs perform no inference or candidate acceptance.
 
 ## Transaction and retry behavior
 
@@ -24,7 +24,7 @@ Ingestion completes a durable SQLite backup before registering an owned content-
 
 ## Integration limits
 
-The native draft editor now submits one `UpdateSession` intent through the [background session service](NATIVE-SESSION-SERVICE.md); save, Undo and Redo retain stable durable action IDs for explicit retries. The direct save/history API remains available for callers and migration fixtures. Prepared edits, candidate ledger and recording/capture integration remain pending. An IPC/session-service request ID is not a durable operation ID.
+The native metadata and note editors submit typed intents through the [background session service](NATIVE-SESSION-SERVICE.md); save, Undo and Redo retain stable durable action IDs for explicit retries. The clip backend follows the same path, with its native controls pending. Only pure pre-write note/clip semantic errors become `EditRejected`; source authentication, SQL failures and unknown outcomes retain conservative handling. The direct save/history API remains available for callers and migration fixtures. Prepared edits and candidate acceptance remain pending; capture attachment uses its separately qualified publication/recovery flow. An IPC/session-service request ID is not a durable operation ID.
 
 Complete native archives retain operation and copy-proof results even after redo history is truncated, because those snapshots can be the last reference to an original. Identity-preserving restore carries the same live receipts; copy restore remaps typed identities and retains all immutable ancestry. Both enforce the live operation namespace. See [native archives](NATIVE-ARCHIVE.md).
 

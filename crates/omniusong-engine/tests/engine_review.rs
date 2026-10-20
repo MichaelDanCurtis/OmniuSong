@@ -688,6 +688,7 @@ fn sealed_clip_preparation_preserves_source_window_signed_placement_fade_and_ori
         .upgrade_native()
         .unwrap();
     let clip = TakeClip {
+        edit_source: None,
         id: "native-clip".into(),
         source: TakeReference {
             take_id: sealed.descriptor().take_id.clone(),
