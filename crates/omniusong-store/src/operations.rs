@@ -9,7 +9,7 @@ use super::{
 };
 use omniusong_core::{
     ProjectDocument,
-    contracts::{EditOperation, ProjectEditIntent, Validate, WORKER_MAX_BYTES},
+    contracts::{EditOperation, EditScope, ProjectEditIntent, Validate, WORKER_MAX_BYTES},
     native::MAX_NATIVE_PROJECT_BYTES,
 };
 use rusqlite::{OptionalExtension, TransactionBehavior, params};
@@ -158,6 +158,16 @@ impl NativeStore {
                 next.set_tempo(*tempo)?;
                 save_in_transaction(&tx, &self.root, &next, intent.expected_revision)?
             }
+            EditOperation::AddNote {values,timeline}|EditOperation::UpdateNote {values,timeline}=>{
+                let EditScope::DocumentNote{address}=&intent.scope else{return Err(StoreError::Invalid("Note edit requires document-note scope".into()));};
+                let next=if matches!(intent.edit,EditOperation::AddNote{..}){current.add_note(address,*values,*timeline)}else{current.update_note(address,*values,*timeline)}.map_err(StoreError::EditRejected)?;
+                save_in_transaction(&tx,&self.root,&next,intent.expected_revision)?
+            },
+            EditOperation::DeleteNote|EditOperation::RestoreNote{..}=>{
+                let EditScope::DocumentNote{address}=&intent.scope else{return Err(StoreError::Invalid("Note edit requires document-note scope".into()));};
+                let next=match &intent.edit {EditOperation::RestoreNote{timeline}=>current.restore_note(address,*timeline),_=>current.delete_note(address)}.map_err(StoreError::EditRejected)?;
+                save_in_transaction(&tx,&self.root,&next,intent.expected_revision)?
+            },
             EditOperation::Undo|EditOperation::Redo=>navigate_in_transaction(&tx,&self.root,&intent.project_id.0,intent.expected_revision,matches!(intent.edit,EditOperation::Redo))?,
             EditOperation::ApplyPreparedEdit{..}|EditOperation::AcceptCandidate{..}=>return Err(StoreError::Invalid("Prepared edits and candidate acceptance are not implemented in the native store".into())),
         };

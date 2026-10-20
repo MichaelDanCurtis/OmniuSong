@@ -357,6 +357,8 @@ pub struct Completion {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FailureKind {
     Rejected,
+    /// A pure semantic edit was rejected before transaction publication.
+    EditRejected,
     /// The project transaction rejected its expected revision and did not commit.
     RevisionConflict,
     Backend,
@@ -402,6 +404,13 @@ fn fatal_sqlite_primary(extended_code: i32) -> bool {
     matches!(extended_code & 0xff, 10 | 11 | 26)
 }
 fn store_failure(error: omniusong_store::StoreError, outcome_unknown: bool) -> ServiceError {
+    if matches!(error, omniusong_store::StoreError::EditRejected(_)) {
+        return ServiceError {
+            kind: FailureKind::EditRejected,
+            message: error.to_string(),
+            outcome_unknown: false,
+        };
+    }
     if matches!(error, omniusong_store::StoreError::Conflict) {
         return ServiceError {
             kind: FailureKind::RevisionConflict,
@@ -920,7 +929,12 @@ impl Backend for NativeBackend {
             }
         })();
         result.map_err(|mut error: ServiceError| {
-            if command.mutates() && error.kind != FailureKind::RevisionConflict {
+            if command.mutates()
+                && !matches!(
+                    error.kind,
+                    FailureKind::RevisionConflict | FailureKind::EditRejected
+                )
+            {
                 error.outcome_unknown = true;
             }
             error

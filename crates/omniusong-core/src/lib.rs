@@ -5,6 +5,9 @@
 
 pub mod contracts;
 pub mod native;
+pub mod note_edit;
+pub mod note_edit_types;
+pub use note_edit_types::{DocumentNoteAddress, NoteTimelinePolicy, NoteValues};
 
 use serde_json::{Value, json};
 use std::{collections::BTreeSet, error::Error, fmt};

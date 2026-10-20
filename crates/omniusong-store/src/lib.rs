@@ -40,6 +40,9 @@ const STORE_SCHEMA_VERSION: u32 = 4;
 #[derive(Debug)]
 pub enum StoreError {
     Document(DocumentError),
+    /// A pure note mutation rejected before project/history/receipt writes.
+    /// Never use this for damaged reads, replay verification or commit errors.
+    EditRejected(DocumentError),
     Database(rusqlite::Error),
     Io(io::Error),
     Recording(omniusong_recording::RecordingError),
@@ -50,7 +53,7 @@ pub enum StoreError {
 impl fmt::Display for StoreError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Document(e) => e.fmt(f),
+            Self::Document(e) | Self::EditRejected(e) => e.fmt(f),
             Self::Database(e) => e.fmt(f),
             Self::Io(e) => e.fmt(f),
             Self::Recording(e) => e.fmt(f),

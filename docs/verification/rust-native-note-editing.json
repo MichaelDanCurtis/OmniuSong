@@ -1,0 +1,136 @@
+{
+  "audioDeviceOpened": false,
+  "authoredNoteId": "dc63fa3c-3d48-47c5-a480-a6a17437fa86",
+  "checks": {
+    "archivedOldOperationReplayReturnsOriginalSnapshot": true,
+    "copyChangesOnlyRootProjectIdentity": true,
+    "copyOfCopyArchiveReopenExact": true,
+    "deleteUndoRedoExact": true,
+    "exactFourFieldEditsAndVelocities": true,
+    "explicitSchemaPromotionUndoRedo": true,
+    "identityRestoreExact": true,
+    "immutableFirstSnapshotRetainedOnRestore": true,
+    "noInlineHistoryFabrication": true,
+    "noInventedInputForAuthoredNote": true,
+    "originalProjectUnchanged": true,
+    "rawUmpAndHostClockExact": true,
+    "refusedImplicitPromotionDidNotPublish": true,
+    "relativeExpressionAndInputIdentityUnchanged": true,
+    "reopenExact": true,
+    "replayDoesNotOverwriteLatest": true,
+    "sourceFilesUnchanged": true,
+    "unknownNumbersExact": true
+  },
+  "copiedArchive": {
+    "byteLength": 225280,
+    "path": "/Volumes/Main External/Development/OmniuSong/.runtime/rust-note-edit-qualification/copied-complete.omniusong-native",
+    "sha256": "3cca7051626a8c3096d64fb2da8ef6c1a6ffb6dc491c656191551c0220d23a68"
+  },
+  "editedArchive": {
+    "byteLength": 208896,
+    "historyRows": 5,
+    "operationRows": 11,
+    "path": "/Volumes/Main External/Development/OmniuSong/.runtime/rust-note-edit-qualification/edited-complete.omniusong-native",
+    "sha256": "0ce1e1034c867c9a631ca078ed5dfc9cac0dc46b16a11550ebf1ddb79de90385"
+  },
+  "editedProjectId": "cc48838b-1ad7-4f34-a1ea-d171a14b1841",
+  "exactDocumentNoteKey": "\u0000expressive-original",
+  "exactDocumentTrackKey": "鍵盤\u0000synthetic-source",
+  "fixtureRoot": ".runtime/rust-note-edit-qualification",
+  "format": "omniusong.native-note-edit-qualification",
+  "guiOperated": false,
+  "immutableEditSourceSha256": "a62e6f14079fc2b81b981ad75ae43bd85a85c0c0371a4ce82f24ee925a2c9ac9",
+  "limits": [
+    "Synthetic library/storage/archive fixture only. Not a GUI note editor or dirty/navigation/focus qualification.",
+    "Raw UMP is fixture data, not physical controller delivery. No microphone, audible playback, MIDI expression delivery, inference, latency, power-loss or Windows acceptance.",
+    "The CLI retains fresh fixture files and receipts. It never reads or edits the live native catalog."
+  ],
+  "modelInference": false,
+  "nativeStore": ".runtime/rust-note-edit-qualification/store",
+  "opaqueMetadataSha256": "9f869fd99d8288ca6d7a16261ede09c6849f60fa11d9d316a06d2426cd1d31a6",
+  "originalProjectId": "ad27d2fa-046e-4f93-ac37-1abdc8536ffa",
+  "physicalInputOpened": false,
+  "projects": {
+    "deleted": {
+      "bars": 4,
+      "byteLength": 1553,
+      "path": ".runtime/rust-note-edit-qualification/deleted-current.json",
+      "projectId": "cc48838b-1ad7-4f34-a1ea-d171a14b1841",
+      "revision": 3,
+      "schemaVersion": 1,
+      "sha256": "e4efe071632f64093d42588ae6d80ea6695c0f25d437946bc4533dc1fcdfa55f"
+    },
+    "final": {
+      "bars": 129,
+      "byteLength": 4540,
+      "path": ".runtime/rust-note-edit-qualification/final-project.json",
+      "projectId": "cc48838b-1ad7-4f34-a1ea-d171a14b1841",
+      "revision": 11,
+      "schemaVersion": 2,
+      "sha256": "2bcb2522a3e453f10d20f99b6df3c5af74fcc705c8a8976174f2f3a804e37995"
+    },
+    "firstEdit": {
+      "bars": 4,
+      "byteLength": 4096,
+      "path": ".runtime/rust-note-edit-qualification/edited-first.json",
+      "projectId": "cc48838b-1ad7-4f34-a1ea-d171a14b1841",
+      "revision": 1,
+      "schemaVersion": 1,
+      "sha256": "9dcdb20a64f6c132585955f6a45f22b016232ec50cb103dd75154dbe0cd0c43d"
+    },
+    "initialCopy": {
+      "bars": 4,
+      "byteLength": 3102,
+      "path": ".runtime/rust-note-edit-qualification/copied-initial.json",
+      "projectId": "cc48838b-1ad7-4f34-a1ea-d171a14b1841",
+      "revision": 0,
+      "schemaVersion": 1,
+      "sha256": "ab80923e4322d0baa8dd0da92790da0a8034a327a397318da9253ec0ac186f1e"
+    },
+    "original": {
+      "bars": 4,
+      "byteLength": 3102,
+      "path": ".runtime/rust-note-edit-qualification/original-project.json",
+      "projectId": "ad27d2fa-046e-4f93-ac37-1abdc8536ffa",
+      "revision": 0,
+      "schemaVersion": 1,
+      "sha256": "33ba0475e9c604f8c0be533403935e1f91616083518819b11ed4a54f220e4f5a"
+    },
+    "restoredCopy": {
+      "bars": 129,
+      "byteLength": 4540,
+      "path": ".runtime/rust-note-edit-qualification/restored-copy-project.json",
+      "projectId": "9bb35d7b-0585-48ac-ba64-8c788a0de699",
+      "revision": 11,
+      "schemaVersion": 2,
+      "sha256": "e9577ade41ce151beadd591729977d5c5df3b52ec3a797dfdf5f142cffba6755"
+    },
+    "restoredOriginalValues": {
+      "bars": 4,
+      "byteLength": 4098,
+      "path": ".runtime/rust-note-edit-qualification/restored-original-values.json",
+      "projectId": "cc48838b-1ad7-4f34-a1ea-d171a14b1841",
+      "revision": 7,
+      "schemaVersion": 1,
+      "sha256": "352dc78f1eb9d89a90b6afb0dc345705c406b6cc94f1a10e76020ff329431fd2"
+    },
+    "secondEdit": {
+      "bars": 4,
+      "byteLength": 4100,
+      "path": ".runtime/rust-note-edit-qualification/edited-second.json",
+      "projectId": "cc48838b-1ad7-4f34-a1ea-d171a14b1841",
+      "revision": 2,
+      "schemaVersion": 1,
+      "sha256": "0577bfd6c37e3b76d785a959acf438e8ac94d212b304a3443b41f59f3aa27c7e"
+    }
+  },
+  "restoredCopyProjectId": "9bb35d7b-0585-48ac-ba64-8c788a0de699",
+  "retainedInputCaptureSha256": "edd6b28b9546044f78192daab2d65f1bc524a9c29d754de2327257d74354ff15",
+  "sourceArchive": {
+    "byteLength": 110592,
+    "path": "/Volumes/Main External/Development/OmniuSong/.runtime/rust-note-edit-qualification/original-source.omniusong-native",
+    "sha256": "fa3b48c925bf89bcaddf219531131fdc57a8af901441487bd9d94ce90b59d74d"
+  },
+  "syntheticOnly": true,
+  "version": 1
+}

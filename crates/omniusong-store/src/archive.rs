@@ -7,8 +7,9 @@ use crate::{
     },
 };
 use omniusong_core::{
-    MAX_NATIVE_PROJECT_BYTES, MAX_PROJECT_BYTES, ProjectDocument,
-    contracts::{EditOperation, ProjectEditIntent, TakeId, Validate, WORKER_MAX_BYTES},
+    MAX_NATIVE_PROJECT_BYTES, MAX_PROJECT_BYTES, NoteTimelinePolicy, NoteValues, PPQ,
+    ProjectDocument,
+    contracts::{EditOperation, EditScope, ProjectEditIntent, TakeId, Validate, WORKER_MAX_BYTES},
     native::TakeReference,
 };
 use rusqlite::{Connection, OpenFlags, OptionalExtension, TransactionBehavior, params};
@@ -231,6 +232,103 @@ impl Destination<'_> {
     }
 }
 
+// Verify only the declared note postimage. A receipt alone cannot establish
+// a historical preimage, prior loop length, or whether a schema upgrade was needed.
+fn validate_note_postimage(intent: &ProjectEditIntent, result: &ProjectDocument) -> Result<()> {
+    if !matches!(
+        &intent.edit,
+        EditOperation::AddNote { .. }
+            | EditOperation::UpdateNote { .. }
+            | EditOperation::DeleteNote
+            | EditOperation::RestoreNote { .. }
+    ) {
+        return Ok(());
+    }
+    let EditScope::DocumentNote { address } = &intent.scope else {
+        return Err(invalid("Archived note operation has the wrong scope"));
+    };
+    let track = result
+        .tracks()
+        .iter()
+        .find(|track| track["id"].as_str() == Some(address.track_id.as_str()))
+        .ok_or_else(|| invalid("Archived note operation lost its track"))?;
+    ensure(
+        track["kind"] == "notes" && track["locked"] == false,
+        "Archived note operation requires an unlocked note track",
+    )?;
+    let notes = track["notes"]
+        .as_array()
+        .ok_or_else(|| invalid("Archived note operation has invalid notes"))?;
+    let note = notes
+        .iter()
+        .find(|note| note["id"].as_str() == Some(address.note_id.as_str()));
+    if matches!(&intent.edit, EditOperation::DeleteNote) {
+        ensure(
+            note.is_none(),
+            "Archived delete-note result still contains the target",
+        )?;
+        return Ok(());
+    }
+    let note = note.ok_or_else(|| invalid("Archived note operation lost its target"))?;
+    let values_match = |values: &NoteValues| {
+        note["pitch"].as_u64() == Some(u64::from(values.pitch))
+            && note["startTick"].as_u64() == Some(values.start_tick)
+            && note["durationTicks"].as_u64() == Some(values.duration_ticks)
+            && note["velocity16"].as_u64() == Some(u64::from(values.velocity16))
+    };
+    let policy = match &intent.edit {
+        EditOperation::AddNote { values, timeline } => {
+            let expected = serde_json::json!({"id":address.note_id,"pitch":values.pitch,"startTick":values.start_tick,"durationTicks":values.duration_ticks,"velocity16":values.velocity16,"expression":[]});
+            ensure(
+                note == &expected,
+                "Archived add-note result is not the exact authored note",
+            )?;
+            *timeline
+        }
+        EditOperation::UpdateNote { values, timeline } => {
+            ensure(
+                values_match(values),
+                "Archived update-note values differ from the request",
+            )?;
+            *timeline
+        }
+        EditOperation::RestoreNote { timeline } => {
+            let source = note.get("editSource").ok_or_else(|| {
+                invalid("Archived restore-note result lost its original snapshot")
+            })?;
+            ensure(
+                ["pitch", "startTick", "durationTicks", "velocity16"]
+                    .iter()
+                    .all(|field| note.get(*field) == source.get(*field))
+                    && note.get("expression") == source.get("expression"),
+                "Archived restore-note fields/expression differ from the retained original",
+            )?;
+            *timeline
+        }
+        _ => return Err(invalid("Invalid note postimage dispatch")),
+    };
+    if matches!(policy, NoteTimelinePolicy::ExtendLoop { .. }) {
+        let end = note["startTick"]
+            .as_u64()
+            .and_then(|start| {
+                note["durationTicks"]
+                    .as_u64()
+                    .and_then(|duration| start.checked_add(duration))
+            })
+            .ok_or_else(|| invalid("Archived note end tick overflow"))?;
+        let loop_end = result
+            .bars()
+            .checked_mul(PPQ)
+            .and_then(|ticks| ticks.checked_mul(4))
+            .ok_or_else(|| invalid("Archived loop tick overflow"))?;
+        ensure(
+            loop_end >= end,
+            "Archived extended loop does not cover the note",
+        )?;
+    }
+    Ok(())
+}
+
 pub(super) fn validate_request(
     request: &str,
     operation_id: &str,
@@ -285,11 +383,16 @@ pub(super) fn validate_request(
                 EditOperation::Rename { .. }
                     | EditOperation::SetTempo { .. }
                     | EditOperation::UpdateSession { .. }
+                    | EditOperation::AddNote { .. }
+                    | EditOperation::UpdateNote { .. }
+                    | EditOperation::DeleteNote
+                    | EditOperation::RestoreNote { .. }
                     | EditOperation::Undo
                     | EditOperation::Redo
             ),
             "Unsupported operation in archive",
         )?;
+        validate_note_postimage(&intent, result)?;
     }
     Ok(())
 }

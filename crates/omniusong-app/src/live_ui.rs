@@ -691,6 +691,7 @@ impl LiveUi {
                 .min_size(egui::vec2(72.0, 42.0)),
         );
         self.focus_ids.push(response.id);
+        Self::focus_performance_interaction(&response);
         let down = response.is_pointer_button_down_on()
             && response
                 .interact_pointer_pos()
@@ -708,6 +709,23 @@ impl LiveUi {
             && !repeated_or_modified
         {
             self.pulse(key, patch, port);
+        }
+    }
+    fn focus_performance_interaction(response: &egui::Response) {
+        // egui can surrender the previously focused control on either press
+        // or click. A real enabled performance hit owns the new focus before
+        // input() applies its strict focus-zone guard. Hover alone is not enough.
+        if response.enabled()
+            && (response.clicked()
+                || (response.is_pointer_button_down_on()
+                    && response
+                        .interact_pointer_pos()
+                        .is_some_and(|position| response.rect.contains(position))
+                    && response
+                        .ctx
+                        .input(|input| input.pointer.button_pressed(egui::PointerButton::Primary))))
+        {
+            response.request_focus();
         }
     }
     pub(super) fn ui(&mut self, ui: &mut egui::Ui, port: &mut dyn EnginePort) {
@@ -798,6 +816,7 @@ impl LiveUi {
                 egui::Checkbox::new(&mut self.sustain_latch, "Keys sustain"),
             );
             self.focus_ids.push(sustain_response.id);
+            Self::focus_performance_interaction(&sustain_response);
             if sustain_response.changed() {
                 self.sustain(port);
             }
@@ -1010,6 +1029,45 @@ mod tests {
             events,
             ..Default::default()
         }
+    }
+    fn interactive_frame(
+        live: &mut LiveUi,
+        port: &mut Port,
+        ctx: &egui::Context,
+        events: Vec<egui::Event>,
+    ) {
+        // Match native_ui: build every widget, then apply the input guard in
+        // the same egui pass, before end_pass can reconcile keyboard focus.
+        let mut output = ctx.run_ui(raw(events), |ui| {
+            live.ui(ui, port);
+            live.input(ui.ctx(), false, port);
+        });
+        output.textures_delta.clear();
+    }
+    fn pointer_button(position: egui::Pos2, pressed: bool) -> egui::Event {
+        egui::Event::PointerButton {
+            pos: position,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        }
+    }
+    fn click_performance(live: &mut LiveUi, port: &mut Port, ctx: &egui::Context, index: usize) {
+        let position = ctx
+            .read_response(live.focus_ids[index])
+            .unwrap()
+            .rect
+            .center();
+        interactive_frame(
+            live,
+            port,
+            ctx,
+            vec![
+                egui::Event::PointerMoved(position),
+                pointer_button(position, true),
+            ],
+        );
+        interactive_frame(live, port, ctx, vec![pointer_button(position, false)]);
     }
     #[test]
     fn ordered_on_off_on_and_source_handles_preserve_full_velocities_while_control_busy() {
@@ -1400,5 +1458,251 @@ mod tests {
         key(&mut live, &mut port, egui::Key::A, true);
         assert_eq!(live.event_count, 0);
         assert!(port.batches.is_empty());
+    }
+    #[test]
+    fn real_pointer_key_with_armed_computer_and_sustain_keeps_performance_focus() {
+        for surrender in [
+            egui::SurrenderFocusOn::Clicks,
+            egui::SurrenderFocusOn::Presses,
+        ] {
+            let (mut live, mut port) = active();
+            let ctx = egui::Context::default();
+            ctx.options_mut(|options| options.input_options.surrender_focus_on = surrender);
+            interactive_frame(&mut live, &mut port, &ctx, vec![]);
+            interactive_frame(&mut live, &mut port, &ctx, vec![]);
+            click_performance(&mut live, &mut port, &ctx, 0);
+            assert!(live.keyboard_armed);
+            click_performance(&mut live, &mut port, &ctx, 1);
+            assert!(live.sustain_latch);
+            assert_eq!(live.sustain_effective, [true, true]);
+            assert!(port.panics.is_empty());
+            let scope = live.ready.as_ref().unwrap().scope;
+            let id = live.focus_ids[2];
+            let position = ctx.read_response(id).unwrap().rect.center();
+            interactive_frame(
+                &mut live,
+                &mut port,
+                &ctx,
+                vec![
+                    egui::Event::PointerMoved(position),
+                    pointer_button(position, true),
+                ],
+            );
+            assert_eq!(ctx.memory(|memory| memory.focused()), Some(id));
+            assert!(
+                live.held
+                    .iter()
+                    .any(|held| held.origin == Origin::PointerKey(0))
+            );
+            assert!(live.keyboard_armed && live.sustain_latch);
+            assert!(port.panics.is_empty());
+            interactive_frame(
+                &mut live,
+                &mut port,
+                &ctx,
+                vec![pointer_button(position, false)],
+            );
+            assert!(live.held.is_empty());
+            assert!(live.keyboard_armed && live.sustain_latch);
+            assert_eq!(live.ready.as_ref().unwrap().scope, scope);
+            assert!(port.panics.is_empty());
+            let key = |key, pressed| egui::Event::Key {
+                key,
+                physical_key: Some(key),
+                pressed,
+                repeat: false,
+                modifiers: egui::Modifiers::NONE,
+            };
+            interactive_frame(&mut live, &mut port, &ctx, vec![key(egui::Key::A, true)]);
+            interactive_frame(&mut live, &mut port, &ctx, vec![key(egui::Key::A, false)]);
+            assert!(live.keyboard_armed && live.sustain_latch);
+            // Space on the now-focused note remains one bounded pulse, not
+            // computer sustain or a second pointer NoteOn.
+            interactive_frame(
+                &mut live,
+                &mut port,
+                &ctx,
+                vec![key(egui::Key::Space, true)],
+            );
+            interactive_frame(
+                &mut live,
+                &mut port,
+                &ctx,
+                vec![key(egui::Key::Space, false)],
+            );
+            let sent = events(&port);
+            assert_eq!(
+                sent.iter()
+                    .filter(|event| matches!(event.event, LiveEventKind::NoteOn { .. }))
+                    .count(),
+                2
+            );
+            assert_eq!(
+                sent.iter()
+                    .filter(|event| matches!(event.event, LiveEventKind::NoteOff { .. }))
+                    .count(),
+                2
+            );
+            assert_eq!(
+                sent.iter()
+                    .filter(|event| matches!(
+                        event.event,
+                        LiveEventKind::Pulse {
+                            duration_frames: 4800,
+                            ..
+                        }
+                    ))
+                    .count(),
+                1
+            );
+            click_performance(&mut live, &mut port, &ctx, 1);
+            assert!(!live.sustain_latch);
+            assert_eq!(live.sustain_effective, [false, false]);
+            assert!(live.keyboard_armed);
+            assert!(port.panics.is_empty());
+        }
+    }
+    #[test]
+    fn unrelated_pointer_click_still_cleans_up_armed_sustain_and_text_focus_is_protected() {
+        let (mut live, mut port) = active();
+        let ctx = egui::Context::default();
+        interactive_frame(&mut live, &mut port, &ctx, vec![]);
+        interactive_frame(&mut live, &mut port, &ctx, vec![]);
+        click_performance(&mut live, &mut port, &ctx, 0);
+        click_performance(&mut live, &mut port, &ctx, 1);
+        let elsewhere = egui::pos2(1550.0, 1150.0);
+        interactive_frame(
+            &mut live,
+            &mut port,
+            &ctx,
+            vec![
+                egui::Event::PointerMoved(elsewhere),
+                pointer_button(elsewhere, true),
+            ],
+        );
+        interactive_frame(
+            &mut live,
+            &mut port,
+            &ctx,
+            vec![pointer_button(elsewhere, false)],
+        );
+        assert_eq!(port.panics.len(), 1);
+        assert!(!live.keyboard_armed && !live.sustain_latch);
+        assert!(live.held.is_empty());
+        let (mut live, mut port) = active();
+        let ctx = egui::Context::default();
+        interactive_frame(&mut live, &mut port, &ctx, vec![]);
+        interactive_frame(&mut live, &mut port, &ctx, vec![]);
+        click_performance(&mut live, &mut port, &ctx, 0);
+        click_performance(&mut live, &mut port, &ctx, 1);
+        let mut text = String::new();
+        let field = egui::Id::unique("unrelated-live-text");
+        let render = |live: &mut LiveUi, port: &mut Port, text: &mut String, events| {
+            let mut output = ctx.run_ui(raw(events), |ui| {
+                live.ui(ui, port);
+                ui.add(egui::TextEdit::singleline(text).id(field));
+                live.input(ui.ctx(), false, port);
+            });
+            output.textures_delta.clear();
+        };
+        render(&mut live, &mut port, &mut text, vec![]);
+        let position = ctx.read_response(field).unwrap().rect.center();
+        render(
+            &mut live,
+            &mut port,
+            &mut text,
+            vec![
+                egui::Event::PointerMoved(position),
+                pointer_button(position, true),
+            ],
+        );
+        render(
+            &mut live,
+            &mut port,
+            &mut text,
+            vec![
+                pointer_button(position, false),
+                egui::Event::Text("a".into()),
+                egui::Event::Key {
+                    key: egui::Key::A,
+                    physical_key: Some(egui::Key::A),
+                    pressed: true,
+                    repeat: false,
+                    modifiers: egui::Modifiers::NONE,
+                },
+            ],
+        );
+        assert_eq!(text, "a");
+        assert!(!live.keyboard_armed && !live.sustain_latch);
+        assert_eq!(port.panics.len(), 1);
+        assert!(
+            events(&port)
+                .iter()
+                .all(|event| matches!(event.event, LiveEventKind::Sustain { .. })),
+            "Text entry must never create a note"
+        );
+    }
+    #[test]
+    fn accessible_performance_activation_claims_focus_but_hover_does_not() {
+        for armed in [false, true] {
+            let (mut live, mut port) = active();
+            let ctx = egui::Context::default();
+            ctx.enable_accesskit();
+            interactive_frame(&mut live, &mut port, &ctx, vec![]);
+            interactive_frame(&mut live, &mut port, &ctx, vec![]);
+            if armed {
+                click_performance(&mut live, &mut port, &ctx, 0);
+                click_performance(&mut live, &mut port, &ctx, 1);
+            }
+            ctx.memory_mut(|memory| {
+                if let Some(id) = memory.focused() {
+                    memory.surrender_focus(id);
+                }
+            });
+            let target = live.focus_ids[2];
+            let scope = live.ready.as_ref().unwrap().scope;
+            interactive_frame(
+                &mut live,
+                &mut port,
+                &ctx,
+                vec![egui::Event::AccessKitActionRequest(
+                    egui::accesskit::ActionRequest {
+                        action: egui::accesskit::Action::Click,
+                        target_tree: egui::accesskit::TreeId::ROOT,
+                        target_node: target.accesskit_id(),
+                        data: None,
+                    },
+                )],
+            );
+            assert_eq!(ctx.memory(|memory| memory.focused()), Some(target));
+            assert_eq!(live.keyboard_armed, armed);
+            assert_eq!(live.sustain_latch, armed);
+            assert_eq!(live.ready.as_ref().unwrap().scope, scope);
+            assert!(port.panics.is_empty());
+            assert_eq!(
+                events(&port)
+                    .iter()
+                    .filter(|event| matches!(event.event, LiveEventKind::Pulse { .. }))
+                    .count(),
+                1
+            );
+            if armed {
+                let unrelated = egui::Id::unique("outside-performance-focus");
+                ctx.memory_mut(|memory| memory.request_focus(unrelated));
+                let hover = ctx.read_response(target).unwrap().rect.center();
+                interactive_frame(
+                    &mut live,
+                    &mut port,
+                    &ctx,
+                    vec![egui::Event::PointerMoved(hover)],
+                );
+                assert!(!live.keyboard_armed && !live.sustain_latch);
+                assert_eq!(
+                    port.panics.len(),
+                    1,
+                    "Hover must not steal unrelated focus or suppress cleanup"
+                );
+            }
+        }
     }
 }

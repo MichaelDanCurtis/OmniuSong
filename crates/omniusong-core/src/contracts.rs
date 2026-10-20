@@ -5,6 +5,7 @@
 //! target. Transport, queues, workers, and durable recording are not implemented
 //! by these definitions; see docs/contracts/NATIVE-PROTOCOLS.md.
 
+use crate::{DocumentNoteAddress, NoteTimelinePolicy, NoteValues};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use std::{collections::BTreeMap, error::Error, fmt};
@@ -899,6 +900,10 @@ pub struct NoteAddress {
 )]
 pub enum EditScope {
     Project,
+    /// Exact legacy document keys; not transport or filesystem identities.
+    DocumentNote {
+        address: DocumentNoteAddress,
+    },
     Tracks {
         track_ids: Vec<TrackId>,
         range: Option<TickRange>,
@@ -914,6 +919,7 @@ impl Validate for EditScope {
     fn validate(&self) -> Result<()> {
         match self {
             Self::Project => {}
+            Self::DocumentNote { address } => address.validate()?,
             Self::Tracks { track_ids, range } => {
                 require(
                     !track_ids.is_empty() && track_ids.len() <= 64,
@@ -975,6 +981,18 @@ pub enum EditOperation {
         name: String,
         tempo: f64,
     },
+    AddNote {
+        values: NoteValues,
+        timeline: NoteTimelinePolicy,
+    },
+    UpdateNote {
+        values: NoteValues,
+        timeline: NoteTimelinePolicy,
+    },
+    DeleteNote,
+    RestoreNote {
+        timeline: NoteTimelinePolicy,
+    },
     /// Versioned semantic edit object, not an unrestricted JSON merge patch.
     ApplyPreparedEdit {
         edit: BlobRef,
@@ -1030,6 +1048,21 @@ impl Validate for ProjectEditIntent {
             }
             EditOperation::ApplyPreparedEdit { edit } => edit.validate()?,
             EditOperation::AcceptCandidate { candidate_id } => candidate_id.validate()?,
+            EditOperation::AddNote { values, .. } | EditOperation::UpdateNote { values, .. } => {
+                values.validate()?;
+                let EditScope::DocumentNote { address } = &self.scope else {
+                    return Err(ContractError(
+                        "Note edits require one exact document-note scope".into(),
+                    ));
+                };
+                if matches!(self.edit, EditOperation::AddNote { .. }) {
+                    NoteId(address.note_id.clone()).validate()?;
+                }
+            }
+            EditOperation::DeleteNote | EditOperation::RestoreNote { .. } => require(
+                matches!(self.scope, EditScope::DocumentNote { .. }),
+                "Note edits require one exact document-note scope",
+            )?,
             EditOperation::Undo | EditOperation::Redo => require(
                 matches!(self.scope, EditScope::Project),
                 "History navigation requires project scope",

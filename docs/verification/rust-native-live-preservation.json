@@ -1,7 +1,7 @@
 {
   "format": "omniusong.native-live-preservation",
-  "version": 1,
-  "recordedAtUtc": "2026-10-20T22:10:32.949296+00:00",
+  "version": 3,
+  "recordedAtUtc": "2026-10-20T22:42:11.007081+00:00",
   "baselineSnapshot": ".runtime/rust-live-ui/pre-audition-store.json",
   "baselineSnapshotSha256": "2148fe8279b41e8c5bbc62d3736984aa7944b130a0353e73c14464a38f911633",
   "nativeProjectCount": 10,
@@ -30,10 +30,11 @@
   ],
   "originalPrototypeFilesExact": 30,
   "integrityAndForeignKeysPassed": true,
-  "nativeLiveAuditionExercised": false,
+  "nativeLiveAuditionExercised": true,
   "nativeInputOpened": false,
   "limits": [
-    "Audit covers build, device-free tests/qualifier and native loading attempts; actual live UI is still pending.",
-    "Isolated synthetic capture/archive data resides under .runtime/rust-live-bus-final and does not touch the live catalog."
+    "Audit covers both actual 358\u2026 and corrected 2dd\u2026 output-only walkthroughs, Stop and process restart/source reopening. No live catalog writes were requested.",
+    "All ten tables, catalog bytes, three immutable takes and all 30 prototype files remain exact.",
+    "The note-edit qualifier uses an isolated synthetic note-only store/archive; no audio asset, human recording or device qualification is implied."
   ]
 }
