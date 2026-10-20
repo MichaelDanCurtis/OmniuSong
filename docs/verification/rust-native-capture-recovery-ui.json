@@ -1,30 +1,327 @@
 {
   "format": "omniusong.native-capture-recovery-ui-verification",
-  "version": 1,
-  "recordedAtUtc": "2026-10-20T21:12:52.250592+00:00",
-  "sourceGate": "docs/verification/rust-native-capture-recovery-tests.json",
-  "binary": {
-    "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
-    "sha256": "cb64ddf5577398993ed2c141ab78eb1f235808102c525883c79ba19b69be6b43",
-    "byteLength": 81710352
-  },
+  "version": 2,
+  "recordedAtUtc": "2026-10-20T21:32:37.029275+00:00",
   "completed": false,
-  "liveProcessId": 95586,
-  "observed": [
-    "Observed old audio-only build still in native loading; closed its idle loading window through its Close control. A subsequent pgrep found no native app process.",
-    "Built and signature-verified the recovery-enabled bundle, then launched it through computer control.",
-    "Observed the native loading window, explanatory drive-access text and accessible Close control. No audio or recovery control was reached.",
-    "Sampled the matched live process: omniusong-sessions worker waits in SQLite openDatabase -> macOS __open. Retained AX/screenshot/process sample."
-  ],
-  "waitingOn": "External-file open has not completed. If the already-authorized macOS external-drive prompt is visible, it requires human handling; computer control cannot operate that system prompt.",
-  "actualRecoveryControlsVerified": false,
-  "nativeOutputVerified": false,
+  "scope": "Completed actual Mac normal-output and recovery/archive walkthrough on cb64 binary; latest fault/wording rebuild has separate pending drive-open/reopen check.",
+  "walkthrough": {
+    "completed": true,
+    "binary": {
+      "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+      "sha256": "cb64ddf5577398993ed2c141ab78eb1f235808102c525883c79ba19b69be6b43",
+      "byteLength": 81710352,
+      "retainedPath": "dist/OmniuSong Native.previous-20261020T143018.app/Contents/MacOS/OmniuSongNative"
+    },
+    "sourceGate": "docs/verification/rust-native-capture-recovery-tests.json",
+    "guiPid": 95586,
+    "audioWorkerPid": 99321,
+    "outputDeviceName": "MacBook Pro Speakers",
+    "sampleRate": 48000,
+    "outputChannels": 2,
+    "observed": [
+      "User drive access completed; full studio listed all eight pre-existing sessions.",
+      "Audio devices enumeration and output selection; no input stream opened.",
+      "Synthetic four-note session played; observed 3072 frames and peak 0.024; normal playback_finished at 108000 frames, zero reported xruns.",
+      "Saved software-bus original played to 108000 frames at 48k stereo; explicit early Stop separately acknowledged and released session controls.",
+      "Empty explicit capture Scan returned zero stages without creating captures directory.",
+      "Created separate synthetic UI project; read-only Scan/Inspect preserved dirty paired name/tempo draft.",
+      "Fresh synthetic retained stage inspected: one checked 12000-frame mono prefix, zero known gaps, damaged second chunk, unknown tail. Physical journal SHA unchanged by Scan/Inspect.",
+      "Explicit Recover requested Save/Discard/Cancel; Save and continue saved paired edits at revision1, then sealed prefix without attachment.",
+      "Second dirty tempo edit: explicit attachment Save and continue saved revision2, then attached at revision3.",
+      "Undo removed only attachment at revision4; Redo restored exact source/range/placement/manifest at revision5.",
+      "Malformed external archive rejected as ordinary completed error without quarantine or session loss. Subsequent successful export cleared error/status.",
+      "Created270336-byte complete archive; inspected and restored as a new session, retaining original/history/damaged raw rows. Renamed restored copy at revision6.",
+      "Restored copy played12000 frames through48k stereo output with zero reported xruns.",
+      "Closed the original process; actual same-binary relaunch listed both new saved sessions. Closed idle relaunch and confirmed no GUI or worker process before rebuilding."
+    ],
+    "fixture": ".runtime/rust-capture-recovery/ui/fixture.json",
+    "stageId": "7fde6beb-49fb-4242-b737-08d75fc2388f",
+    "takeId": "a57501ca-e552-478e-a667-ad08d243a94c",
+    "sourceProjectId": "03761621-ac96-4236-9be0-14bac87232d8",
+    "sourceRevision": 5,
+    "restoredProjectId": "24a9d7b5-db89-41a2-a2c2-968c73c431e5",
+    "restoredRevision": 6,
+    "tempo": 113,
+    "sourceRange": {
+      "start": 0,
+      "frames": 12000,
+      "sampleRate": 48000,
+      "channels": 1
+    },
+    "unknownTail": true,
+    "manifestSha256": "62fc48bee083c42da5eccda25275d21498fbcaa9940dd8a6a09cc038ae967b39",
+    "archive": {
+      "path": ".runtime/rust-capture-recovery/ui/recovered-ui.omniusong-native",
+      "sha256": "dabdf90ccfdeae294f47004d8a634f97ba5429f5477d39e84ef7a6412d3f392e",
+      "byteLength": 270336
+    },
+    "noNativeInputOpened": true,
+    "actualConflictOrUncertainAttachmentUiVerified": false,
+    "sourceWordingIssueObserved": "Old pre-recovery inspection remained above new sealed receipt; fixed in latest source/headless test, needs new-binary visual check."
+  },
+  "currentRebuild": {
+    "binary": {
+      "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+      "sha256": "00d73c25efb1062e892746d755e1d8352e33636e0188822b5b966f83b483ed46",
+      "byteLength": 81711008
+    },
+    "sourceGate": "docs/verification/rust-native-output-tests.json",
+    "liveProcessId": 5875,
+    "launchVerified": true,
+    "fullStudioVerified": false,
+    "nativeOutputVerified": false,
+    "actualRecoveryControlsVerified": false,
+    "waitingOn": "Matched omniusong-sessions worker waits at SQLite openDatabase -> macOS __open. New app drive-access prompt, if shown, requires manual handling. Prior user authorization remains in force.",
+    "pendingUserActionRequested": true
+  },
   "nativeInputVerified": false,
   "physicalMicrophoneOpened": false,
   "noCaptureStartedDuringScanOrRecovery": true,
   "headlessUiTests": 34,
-  "all80SourceSnapshotsAndBinaryMatch": true,
+  "preservation": "docs/verification/rust-native-output-preservation.json",
   "artifacts": [
+    {
+      "path": ".runtime/rust-capture-recovery/ui/archive-created.ax.txt",
+      "sha256": "d031db44a768823e818f2271af0aae553af5c8fc31b45214e3f69abf04f52738",
+      "byteLength": 815
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/archive-created.png",
+      "sha256": "813515fa59e2fafa98665b8bc662dcb1045abfafdba8bc6270d66c1da40d7821",
+      "byteLength": 278838
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/archive-restored.ax.txt",
+      "sha256": "22e304e0a9e3e60fa2b63e521aa1ddc2e2af81c5b90b048f5c1b505711f3aa71",
+      "byteLength": 2122
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/archive-restored.png",
+      "sha256": "7209a234b369a87aeba763d35e45a646451c176171cd3fff7cac89af65c5c2a0",
+      "byteLength": 287941
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/attached-after-save.ax.txt",
+      "sha256": "a21f8df418c2c472460df781c13caa3d619a0deb12c423185ed666a198ff1be3",
+      "byteLength": 714
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/attached-after-save.png",
+      "sha256": "a99a128ba2b9e518de2570060b5d6cc31ed90f25d010c2131fde5006ad818633",
+      "byteLength": 275903
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/attachment-redone-inspected.ax.txt",
+      "sha256": "affc64dc430191f9e2c444ff0cbbcfcd17413cb0d1bb85cd9020349d8bbcad59",
+      "byteLength": 1119
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/attachment-redone-inspected.png",
+      "sha256": "6d13b4bc6a35915f9aecf94385a62be3d66f9ddcc57aa199609144ac9bb17c52",
+      "byteLength": 272475
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/attachment-undone.ax.txt",
+      "sha256": "1bb4addd16fa65c6902ad2e4aa3d874197367df57b8a53b1c977345cbd8da1d8",
+      "byteLength": 464
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/attachment-undone.png",
+      "sha256": "83fb06dea025de447af22a219eeb3010e378647f28cb3f0b56886495c7be51c9",
+      "byteLength": 273941
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/dirty-draft-after-scan.ax.txt",
+      "sha256": "837d22ccfe09306f6767d8ce4451f1dd102e2aeafbd1bce7bc944ed3e2a7709c",
+      "byteLength": 93
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/dirty-draft-after-scan.png",
+      "sha256": "3d7793207874dea94bffa33f29870a8a0283fdd83f1f2c642ca9f055a5aee219",
+      "byteLength": 197555
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/fixture.json",
+      "sha256": "dc6817caee13edd54266f23d96221246b04f58eb58a8eca9f2776f9f49b91494",
+      "byteLength": 4446
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/inspected-stage.ax.txt",
+      "sha256": "97ad43cdaa50e4778f6604da68bbe359a0f63bcdf48e543d1579fd64d43687c2",
+      "byteLength": 1884
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/inspected-stage.png",
+      "sha256": "9c7d95599acd7919a968e5696b5e9d28ec88497cdb4c15f719dff9d9a3ed8ef8",
+      "byteLength": 261290
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/invalid-backup-rejected.ax.txt",
+      "sha256": "94d0b8ace2ae90d31fcca1090ebfcd09c8f4cb0167fdf01d55eb7bc68204da35",
+      "byteLength": 773
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/invalid-backup-rejected.png",
+      "sha256": "f8522139ac3728ecd032e51297622877abbaada3c176042f79ee56cea1819436",
+      "byteLength": 285311
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/invalid-backup.ax.txt",
+      "sha256": "10485aaf2f41e5927e4ce685da358a7fafdb3ec97d9303a4a126f09d1f810793",
+      "byteLength": 621
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/invalid-backup.png",
+      "sha256": "c090b52ad853ec2aebf8b4c42a2a7f890e3408794954347eb6f29443f702d759",
+      "byteLength": 179406
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/output-explicit-stop.ax.txt",
+      "sha256": "b160f334fad6b2938008463fa32ea0d87c94cb9da2bf639c7c310c34490e9e35",
+      "byteLength": 2139
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/output-explicit-stop.png",
+      "sha256": "c9d12202e0458ddb7c5115211a5646f23142b2849837052b8952f19be3e404ee",
+      "byteLength": 184893
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/output-finished.ax.txt",
+      "sha256": "160c28bbe7b5a0c5452a7373e44b6ed6a9fdaf8718303f399720dcb3a4b95774",
+      "byteLength": 3130
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/output-finished.png",
+      "sha256": "75b3b6f2fda4c2566aa2537066eed2961f9e9f010beba2f850ee9e2cd2a43689",
+      "byteLength": 205381
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/output-start.ax.txt",
+      "sha256": "a478136863a874031c5d709e14e0ff751442070577696bae5191ba8ad8a7e270",
+      "byteLength": 4139
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/output-start.png",
+      "sha256": "aa6d22f9607da6c9738fa2a4c96500de0b44692e00441375418d2bb29650e7f2",
+      "byteLength": 205525
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/prepare-fixture-final.log",
+      "sha256": "5754340ac3e54ab6d0ee5637ac3dbf386b5a5069d84fd9cd185884fdf18be10b",
+      "byteLength": 4955
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/prepare-fixture.log",
+      "sha256": "e5aa896c9e22179554db134781256e46d25eb37bf4ec4e8ee63dae0b79354d05",
+      "byteLength": 919
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/rebuilt-launch.ax.txt",
+      "sha256": "837d22ccfe09306f6767d8ce4451f1dd102e2aeafbd1bce7bc944ed3e2a7709c",
+      "byteLength": 93
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/rebuilt-launch.png",
+      "sha256": "7a97b1a21d40813e821b8a09ffbd5d3f56e94b517e7aaa7546ba59d326e625b8",
+      "byteLength": 52044
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/rebuilt-loading-sample.txt",
+      "sha256": "3f64eddbcbf41fc5ef934a08a9112c645e061cfdf96bcd2e3cf23942a1bdc7ea",
+      "byteLength": 414328
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/rebuilt-sample-command.log",
+      "sha256": "64d73709057a5fccd0757246acd373bd652ced1762e3203ce5d078680fdaa674",
+      "byteLength": 233
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/recovered-prefix.ax.txt",
+      "sha256": "7ca2ac91b420b331d1c9e0be8e380b1d5c4520fbd2813d5970f1a1010bd37e49",
+      "byteLength": 1956
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/recovered-prefix.png",
+      "sha256": "87424abf6ec733cc380e71fa79db0d5a6fed32bc8ab45900bed4ca3ee92088da",
+      "byteLength": 275646
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/restored-copy-source.ax.txt",
+      "sha256": "f97e7a3e9feb825383d9b96f8c4751d357faab2e193b6ed2332ccc2575f52d22",
+      "byteLength": 1092
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/restored-copy-source.png",
+      "sha256": "32a42276dc0600ad6bba9937ee7c7536121aa31bcd0e112ad0f83ed4c5c5f339",
+      "byteLength": 282958
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/restored-prefix-playback.ax.txt",
+      "sha256": "9383f89a2645094ed030c6811ffdd43c64496e2ff204198a9374e326e3254375",
+      "byteLength": 2942
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/restored-prefix-playback.png",
+      "sha256": "9368d20e92bf3052610b132628e6771adea42ee2c15148bcea8e64224d83c24f",
+      "byteLength": 292637
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/scan-empty.ax.txt",
+      "sha256": "b3e1f2b8261aad577b315eab4e94750b52df0d4ce3868136db0a4110c7d39a43",
+      "byteLength": 454
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/scan-empty.png",
+      "sha256": "8540f1bfc24b1db71097cb6c3a5d57bfe8201d53266283ae8198e9cd76ccf5e4",
+      "byteLength": 183951
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/sealed-output-finished.ax.txt",
+      "sha256": "21658ff439d911da93b6a9ff2d4aef3a4a06343a8a08400185c3ccfb7c3e9c89",
+      "byteLength": 2270
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/sealed-output-finished.png",
+      "sha256": "a31611ec304e31bca371091486f45c222d3aa634a809861bc5deb37b480c0ab6",
+      "byteLength": 189997
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/sealed-output-start.ax.txt",
+      "sha256": "02c1b926e81e06de0bbb1a545fbdddabee71073e20d69f6ae6b4e80edd9bb0d0",
+      "byteLength": 2464
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/ui/sealed-output-start.png",
+      "sha256": "0895645b538b593aea489a8e7af3f0d079cd074c765188a1773fca3e488fc713",
+      "byteLength": 195583
+    },
+    {
+      "path": "docs/verification/rust-native-output-completed.png",
+      "sha256": "75b3b6f2fda4c2566aa2537066eed2961f9e9f010beba2f850ee9e2cd2a43689",
+      "byteLength": 205381
+    },
+    {
+      "path": "docs/verification/rust-native-recovery-inspected.png",
+      "sha256": "9c7d95599acd7919a968e5696b5e9d28ec88497cdb4c15f719dff9d9a3ed8ef8",
+      "byteLength": 261290
+    },
+    {
+      "path": "docs/verification/rust-native-recovery-attached.png",
+      "sha256": "6d13b4bc6a35915f9aecf94385a62be3d66f9ddcc57aa199609144ac9bb17c52",
+      "byteLength": 272475
+    },
+    {
+      "path": "docs/verification/rust-native-recovery-restored.png",
+      "sha256": "32a42276dc0600ad6bba9937ee7c7536121aa31bcd0e112ad0f83ed4c5c5f339",
+      "byteLength": 282958
+    },
+    {
+      "path": "docs/verification/rust-native-output-rebuilt-loading.png",
+      "sha256": "7a97b1a21d40813e821b8a09ffbd5d3f56e94b517e7aaa7546ba59d326e625b8",
+      "byteLength": 52044
+    }
+  ],
+  "previousLoadingArtifacts": [
     {
       "path": "docs/verification/rust-native-capture-recovery-loading-ax.txt",
       "sha256": "d1d9b23fe351c89109ac94f5dfb5be43915dc173d2c1d0cf4622b19835fa080b",
@@ -42,13 +339,14 @@
     }
   ],
   "nextActualChecks": [
-    "After the file-open wait clears, scan audio devices without starting input.",
-    "Choose an existing 48-kHz output and play/stop the retained software-bus example; no resampling or listening claim.",
-    "Inspect/recover/attach a dedicated synthetic stage through visible controls; exercise keep-local and known-conflict release, then restart and reopen.",
-    "No physical/native microphone capture: user authorized software loopback only."
+    "After current drive open completes: open the restored copy and verify saved revision6, tempo113, source/range/placement/manifest.",
+    "Current binary: enumerate/select48k output, play/Stop and confirm normal completion.",
+    "If verifying new pre-/post-recovery wording visually, use a fresh synthetic stage; a fresh sealed inspection after restart does not cover historical snapshot labels.",
+    "Known-conflict/uncertain attachment controls remain real-service/headless tested; do not fault-inject original live sessions."
   ],
   "limits": [
-    "Loading-window responsiveness is not completed studio/recovery/device UI qualification.",
-    "No physical input, listening, latency, 30-minute continuity, power-loss, inference, plugin, MIDI or Windows claim."
+    "Normal native output/counters do not establish listening quality, wall-clock or physical latency, or native input.",
+    "Unattached/retained stages are not automatically project-archive members and remain discoverable after attachment; no automatic reattachment.",
+    "No30-minute recording, power-loss, native MIDI/MPE, plugins, inference, installers or Windows qualification."
   ]
 }

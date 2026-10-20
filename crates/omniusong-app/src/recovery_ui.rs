@@ -492,9 +492,27 @@ impl RecoveryUi {
             }
         }
         if let Some(inspection) = &self.inspection {
+            let prior_snapshot = self.recovered.as_ref().is_some_and(|receipt| {
+                self.selected.as_deref() == Some(receipt.stage_id.as_str())
+                    && receipt.stage_id == inspection.stage_id
+                    && receipt.reviewed_inspection_sha256 == inspection.inspection_sha256
+            });
             ui.separator();
+            ui.strong(if prior_snapshot {
+                "Reviewed snapshot before recovery"
+            } else {
+                "Read-only journal inspection"
+            });
+            if prior_snapshot {
+                ui.small("This inspection is retained as evidence from before recovery. The confirmed sealed result is shown separately below.");
+            }
             ui.label(format!(
-                "{} · take {}",
+                "{}{} · take {}",
+                if prior_snapshot {
+                    "Before recovery: "
+                } else {
+                    ""
+                },
                 state_text(&inspection.state),
                 inspection.take_id
             ));
@@ -502,7 +520,11 @@ impl RecoveryUi {
                 "Original journal: {}",
                 inspection.journal_path.display()
             ));
-            ui.label(if inspection.unknown_tail {
+            ui.label(if prior_snapshot&&inspection.unknown_tail {
+                "Before recovery: unknown tail was present. Material after the reviewed prefix was unproven."
+            }else if prior_snapshot {
+                "Before recovery: the reviewed snapshot reported no unknown tail."
+            }else if inspection.unknown_tail {
                 "Unknown tail: yes. Material after the verified prefix is unproven."
             } else {
                 "Unknown tail: no, according to the verified sealed manifest."
@@ -538,7 +560,8 @@ impl RecoveryUi {
                 ));
             }
             ui.small(match &inspection.manifest_sha256 {
-                Some(hash) => format!("Verified sealed manifest: {hash}"),
+                Some(hash) => format!("{}verified sealed manifest: {hash}",if prior_snapshot {"Before recovery: "}else{""}),
+                None if prior_snapshot => "Before recovery: no sealed manifest. The confirmed sealed manifest appears in the recovery result below.".into(),
                 None => {
                     "No sealed manifest. Recovering requires a separate explicit action.".into()
                 }
@@ -558,6 +581,7 @@ impl RecoveryUi {
             .as_ref()
             .filter(|receipt| self.selected.as_deref() == Some(&receipt.stage_id));
         let audio = if let Some(receipt) = recovered {
+            ui.strong("Confirmed recovery result · current sealed original");
             ui.label(if receipt.replayed {
                 "Recovered original confirmed by its existing receipt."
             } else {
@@ -888,6 +912,7 @@ mod tests {
             matches!(click(&ctx,&mut recovery,"Inspect selected capture"),Some(RecoveryAction::Inspect(id))if id==STAGE)
         );
         recovery.inspected(inspection(false)).unwrap();
+        let original_review = serde_json::to_vec(&recovery.inspection).unwrap();
         let action = click(&ctx, &mut recovery, "Recover verified prefix").unwrap();
         let operation_id = operation(&action);
         recovery.started(&action);
@@ -902,7 +927,25 @@ mod tests {
         };
         assert_eq!(review.inspection_sha256, "b".repeat(64));
         recovery.recovered(receipt(&action)).unwrap();
-        assert!(frame(&ctx, &mut recovery, vec![]).1.is_none());
+        let (output, none) = frame(&ctx, &mut recovery, vec![]);
+        assert!(none.is_none());
+        let tree = output.platform_output.accesskit_update.unwrap();
+        let text: Vec<_> = tree
+            .nodes
+            .iter()
+            .flat_map(|(_, node)| [node.label(), node.value()].into_iter().flatten())
+            .collect();
+        assert!(text.contains(&"Reviewed snapshot before recovery"));
+        assert!(text.contains(&"Before recovery: no sealed manifest. The confirmed sealed manifest appears in the recovery result below."));
+        assert!(text.contains(&"Confirmed recovery result · current sealed original"));
+        assert!(
+            !text.contains(&"No sealed manifest. Recovering requires a separate explicit action.")
+        );
+        assert_eq!(
+            serde_json::to_vec(&recovery.inspection).unwrap(),
+            original_review,
+            "Relabelling must preserve every reviewed snapshot value"
+        );
         let choice = click(
             &ctx,
             &mut recovery,

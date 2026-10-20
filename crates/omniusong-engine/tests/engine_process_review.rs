@@ -3,7 +3,9 @@
 use omniusong_core::contracts::{
     Architecture, ContractError, Platform, Validate, WirePayload, WorkerRole,
 };
-use omniusong_engine::{DeviceInventory, EngineClient, EngineCommand, EngineReply, EngineResult};
+use omniusong_engine::{
+    DeviceInventory, EngineClient, EngineCommand, EngineReply, EngineResult, EngineStatus,
+};
 use omniusong_ipc::unix::{WorkerFacts, connect_inherited, default_worker_limits};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -39,6 +41,48 @@ impl WirePayload for ProbeResponse {
     const PROTOCOL: &'static str = "omniusong.engine-reply.v1";
     const MAX_BYTES: usize = 64 * 1024;
 }
+const HEARTBEAT_FAULT: &str = "Synthetic output callback fault observed by internal heartbeat";
+
+fn heartbeat_fault_then_remain_available(
+    peer: &mut omniusong_ipc::unix::WorkerConnection,
+    request: ProbeRequest,
+    marker: &Path,
+) {
+    assert_eq!(request.rest["action"]["action"], "command");
+    assert_eq!(request.rest["action"]["command"]["command"], "status");
+    peer.send_payload(
+        ProbeResponse {
+            reply: EngineReply {
+                request_id: request.request_id,
+                result: Err(HEARTBEAT_FAULT.into()),
+            },
+        },
+        Duration::from_secs(5),
+    )
+    .unwrap();
+    // A healthy peer remains present. An ignored fault would allow the actor to
+    // request a later idle status, hiding the one-shot device fault from the UI.
+    while let Ok(Some(request)) = peer.receive::<ProbeRequest>(Duration::from_secs(15)) {
+        std::fs::write(marker.with_extension("unexpected-request"), b"received").unwrap();
+        let _ = peer.send_payload(
+            ProbeResponse {
+                reply: EngineReply {
+                    request_id: request.payload.request_id,
+                    result: Ok(EngineResult::Status(EngineStatus {
+                        state: "idle".into(),
+                        capture: None,
+                        sample_rate: 0,
+                        channels: 0,
+                        frames: 0,
+                        peak: 0.0,
+                        xruns: 0,
+                    })),
+                },
+            },
+            Duration::from_secs(5),
+        );
+    }
+}
 
 // This test is only a subprocess entrypoint, selected by the owned wrapper.
 #[test]
@@ -48,7 +92,7 @@ fn private_worker_helper() {
     let marker = PathBuf::from(std::env::var_os("OMNIUSONG_ENGINE_REVIEW_PID").unwrap());
     let pending_marker = marker.with_extension("pending");
     std::fs::write(&pending_marker, std::process::id().to_string()).unwrap();
-    std::fs::rename(pending_marker, marker).unwrap();
+    std::fs::rename(pending_marker, &marker).unwrap();
     if mode == "actual" {
         omniusong_engine::run_worker().unwrap();
         return;
@@ -90,6 +134,10 @@ fn private_worker_helper() {
         .unwrap()
         .unwrap()
         .payload;
+    if mode == "heartbeat-error-immediate" {
+        heartbeat_fault_then_remain_available(&mut peer, request, &marker);
+        return;
+    }
     if mode == "eof" {
         return;
     }
@@ -116,6 +164,16 @@ fn private_worker_helper() {
         Duration::from_secs(5),
     )
     .unwrap();
+    if mode == "heartbeat-error" {
+        assert_eq!(request.rest["action"]["command"]["command"], "stop");
+        let heartbeat = peer
+            .receive::<ProbeRequest>(Duration::from_secs(5))
+            .unwrap()
+            .unwrap()
+            .payload;
+        heartbeat_fault_then_remain_available(&mut peer, heartbeat, &marker);
+        return;
+    }
     if mode == "complete-then-eof" {
         return;
     }
@@ -265,4 +323,47 @@ fn queued_normal_completion_cannot_hide_later_terminal_child_failure() {
     assert!(terminal.result.is_err());
     assert!(client.try_submit(EngineCommand::Stop).is_err());
     assert!(client.try_poll().is_none());
+}
+
+#[test]
+fn queued_normal_completion_cannot_hide_one_shot_heartbeat_device_error() {
+    let fixture = Fixture::new("heartbeat-error");
+    let mut client = fixture.client();
+    client.try_submit(EngineCommand::Stop).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !fixture.pid.exists() {
+        assert!(Instant::now() < deadline, "Private helper did not start");
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    // Keep the successful user reply queued until the supervisor has consumed
+    // the internal heartbeat fault and retired the still-responsive child.
+    assert_child_retires(&fixture.pid);
+    let completed = reply(&mut client);
+    assert_eq!(completed.request_id, 1);
+    assert_eq!(completed.result.unwrap(), EngineResult::Stopped);
+    assert!(client.try_submit(EngineCommand::Status).is_err());
+    let terminal = reply(&mut client);
+    assert_eq!(terminal.request_id, 0);
+    assert_eq!(terminal.result.unwrap_err(), HEARTBEAT_FAULT);
+    assert!(
+        client.try_poll().is_none(),
+        "Terminal cause is delivered once"
+    );
+    assert!(!fixture.pid.with_extension("unexpected-request").exists());
+}
+
+#[test]
+fn heartbeat_device_error_without_user_request_is_terminal_and_never_becomes_idle() {
+    let fixture = Fixture::new("heartbeat-error-immediate");
+    let mut client = fixture.client();
+    let terminal = reply(&mut client);
+    assert_eq!(terminal.request_id, 0);
+    assert_eq!(terminal.result.unwrap_err(), HEARTBEAT_FAULT);
+    assert!(client.try_submit(EngineCommand::Stop).is_err());
+    assert!(
+        client.try_poll().is_none(),
+        "Terminal cause is delivered once"
+    );
+    assert_child_retires(&fixture.pid);
+    assert!(!fixture.pid.with_extension("unexpected-request").exists());
 }

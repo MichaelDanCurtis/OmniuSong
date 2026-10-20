@@ -429,6 +429,12 @@ fn actor(
             replies
                 .send(Event::Completed(response))
                 .map_err(|_| "Audio UI receiver closed")?;
+        } else {
+            // An unsolicited heartbeat can consume a one-shot device fault.
+            // Retire before another status can replace that cause with idle;
+            // the supervisor retains this terminal error behind any queued
+            // completion until the UI can consume it.
+            response.result?;
         }
     }
 }

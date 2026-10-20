@@ -447,7 +447,7 @@ impl StudioApp {
                         match self.recovery.inspected(inspection) {Ok(())=>self.status="Retained original inspected without changing its bytes. Review the verified prefix and unknown tail.".into(),Err(error)=>{self.status="Inspection finished; the retained selection was kept.".into();self.error=Some(error);}}
                     }
                     Reply::CaptureRecovered(receipt)=>{
-                        match self.recovery.recovered(receipt) {Ok(())=>self.status="Verified prefix sealed and original rows retained. Choose an audio stream and attach explicitly; no session was changed.".into(),Err(error)=>{self.status="Recovery finished without a matching displayed receipt; no attachment was started.".into();self.error=Some(error);}}
+                        match self.recovery.recovered(receipt) {Ok(())=>self.status="Verified prefix sealed and original rows retained. Choose an audio stream and attach explicitly; recovery did not attach audio to the session.".into(),Err(error)=>{self.status="Recovery finished without a matching displayed receipt; no attachment was started.".into();self.error=Some(error);}}
                     }
                 }
                 if !matches!(active.action, Action::Refresh) {
