@@ -1,28 +1,48 @@
 {
   "format": "omniusong.native-note-editor-preservation",
-  "version": 1,
-  "recordedAtUtc": "2026-10-20T23:02:28.041750+00:00",
+  "version": 2,
+  "recordedAtUtc": "2026-10-20T23:25:16.818192+00:00",
   "baseline": {
     "path": ".runtime/rust-note-ui/pre-editor-store.json",
     "sha256": "c1477dd6960aee5e0acd8093e437464241b25d6dceb1e15fef8fb2da31eb777c",
     "byteLength": 8533
   },
-  "afterFixture": {
-    "path": ".runtime/rust-note-ui/after-fixture-store.json",
-    "sha256": "d37c222fb71aa7d36223f6be0615c48398a534e31957acb09b899b61c938ef2b",
-    "byteLength": 8653
+  "priorPreparationBoundary": {
+    "afterFixture": {
+      "path": ".runtime/rust-note-ui/after-fixture-store.json",
+      "sha256": "d37c222fb71aa7d36223f6be0615c48398a534e31957acb09b899b61c938ef2b",
+      "byteLength": 8653
+    },
+    "afterLoading": {
+      "path": ".runtime/rust-note-ui/after-editor-loading-store.json",
+      "sha256": "bd82e0ef9297bac34088cb4966da90147634d64dc2329c7791d924ceba9fe94b",
+      "byteLength": 8653
+    },
+    "onlyNewCatalogRowBeforeEditorChecks": {
+      "table": "projects",
+      "projectId": "ca0f6e4f-c40a-4d7b-a435-77d3a0ddbd19"
+    },
+    "catalogBytesUnchangedAfterFixture": true
   },
-  "afterLoading": {
-    "path": ".runtime/rust-note-ui/after-editor-loading-store.json",
-    "sha256": "bd82e0ef9297bac34088cb4966da90147634d64dc2329c7791d924ceba9fe94b",
-    "byteLength": 8653
+  "afterEditorWalkthrough": {
+    "path": ".runtime/rust-note-ui/after-editor-walkthrough-store.json",
+    "sha256": "ddf057e3292e6c37f0bf988111da9c5ea800a94cb2456a9d6c1428f8043b6b66",
+    "byteLength": 13942
   },
   "priorTenProjectsAndTheirClosureExact": true,
-  "onlyNewCatalogRowBeforeEditorChecks": {
-    "table": "projects",
-    "projectId": "ca0f6e4f-c40a-4d7b-a435-77d3a0ddbd19"
-  },
-  "catalogBytesUnchangedAfterFixture": true,
+  "baselineRowsRetainedExactlyInEveryTable": true,
+  "nativeProjectsBefore": 10,
+  "nativeProjectsAfter": 12,
+  "allowedNewProjectIds": [
+    "ca0f6e4f-c40a-4d7b-a435-77d3a0ddbd19",
+    "e13c17b4-7af4-413f-96ff-c10b945ec26b"
+  ],
+  "onlyEditedProjects": [
+    "ca0f6e4f-c40a-4d7b-a435-77d3a0ddbd19",
+    "e13c17b4-7af4-413f-96ff-c10b945ec26b"
+  ],
+  "sourceFixtureFinalRevision": 15,
+  "restoredCopyFinalRevision": 16,
   "ownedOriginalTakesExact": [
     {
       "path": ".runtime/native-studio/takes/679914498bf02ced1570f8b58ba441eb1f958e8dec54d2931a4eab9f3657ff6b.sqlite3",
@@ -41,16 +61,27 @@
     }
   ],
   "originalPrototypeFilesExact": 30,
-  "integrityAndForeignKeysPassed": true,
-  "actualEditorActionsPerformed": false,
-  "nativeInputOpened": false,
-  "limits": [
-    "No original native session was edited; only one new clearly labelled synthetic project was created by the reviewed fixture helper.",
-    "New native editor GUI remains at file-open; this is preparation/loading preservation, not edit/archive/restart acceptance."
-  ],
   "originalPrototypeManifest": {
     "path": "docs/verification/rust-migration-baseline.json",
     "sha256": "1169fdd5337f98798b0dbd6fb2b87c69ff5f8ab6759ad7454f4c587e3b25536e",
     "byteLength": 7170
-  }
+  },
+  "integrityAndForeignKeysPassed": true,
+  "actualEditorActionsPerformed": true,
+  "nativeInputOpened": false,
+  "sourceSnapshot": {
+    "path": ".runtime/rust-note-ui/note-editor-ui-2fa2de26-d4db-48e9-96b6-2055845bb0df/saved-r15-project.json",
+    "sha256": "092f277813220810021f649665b14c8d7c85e3622dab1b715aa3ff28951d6abe",
+    "byteLength": 7766
+  },
+  "reopenedCopySnapshot": {
+    "path": ".runtime/rust-note-ui/note-editor-ui-2fa2de26-d4db-48e9-96b6-2055845bb0df/reopened-r16-copy-project.json",
+    "sha256": "640e7b20976a24d1c630fed81a0ddf7bf23aae65ae844ccf01ce5d42362f83da",
+    "byteLength": 7762
+  },
+  "limits": [
+    "Catalog bytes intentionally changed only through new synthetic editor history and its explicit archive copy; all earlier row hashes and three owned originals remain exact.",
+    "All material edited in this walkthrough is explicitly synthetic. No microphone, physical input or personal upload was used.",
+    "No power-loss durability, physical latency, model inference, MIDI transport, plugin or Windows qualification is implied."
+  ]
 }

@@ -1,6 +1,6 @@
-# Native note editor UI — next packet
+# Native note editor UI
 
-October 20, 2026. **Design and acceptance contract; implementation source prepared, integrated qualification pending.** This packet exposes the existing [native note-edit operations](NATIVE-NOTE-EDITING.md) through the native application. Library and archive evidence does not establish a working editor in any packaged binary. The coordinator owns shared integration, dependencies, builds and actual UI operation. The delegated implementation owns the app-local `note_ui.rs` module and this packet's `main.rs` integration.
+October 20, 2026. **Implemented; bounded source/headless and actual Mac editor acceptance pass.** This packet exposes the existing [native note-edit operations](NATIVE-NOTE-EDITING.md) through the native application. The [394-entry source/build receipt](../verification/rust-native-note-editor-tests.json), [independent review](../reviews/RUST-NOTE-EDITOR-UI.md) and [actual 85ef… editor receipt](../verification/rust-native-note-editor-ui.json) identify separate evidence boundaries. Actual tests include edits, draft choices, history, originals, typed rejection/review, edited render/archive/copy, process restart/reopening and native output. Full workstation/milestone 2, accessibility keyboard/IME/scaling, uncertain/conflict UI and physical performance acceptance remain incomplete.
 
 ## Smallest musician-facing scope
 
@@ -69,4 +69,4 @@ Headless checks must exercise real egui actions plus injected worker completions
 
 The coordinator then uses a **fresh synthetic project only**, recording binary identity, AX/screenshot evidence and backend comparisons: select an expressive note; Save changed pitch/timing/zero velocity; cancel a dirty selection change; exercise Save/Discard continuation; Add/Delete/Restore; Undo/Redo; export/inspect/restore a copy; close, verify process exit, reopen and compare exact saved fields/source/snapshot/raw UMP. Verify original projects and source evidence unchanged. Include a visible out-of-loop note and explicit loop policy. Actual pointer/keyboard focus, field/action accessibility and readable light/dark layouts require observation; headless AX node presence alone is insufficient.
 
-Until those gates pass, the source candidate does not establish a qualified packaged note editor or completed milestone 2.
+The bounded synthetic editor gate now passes for the exact 85ef… development bundle. This does not close full milestone 2 or the remaining physical, accessibility, expressive editing and release requirements.

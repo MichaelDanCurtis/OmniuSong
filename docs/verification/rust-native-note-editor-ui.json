@@ -1,27 +1,42 @@
 {
   "format": "omniusong.native-note-editor-ui-verification",
-  "version": 1,
-  "recordedAtUtc": "2026-10-20T23:02:28.042302+00:00",
-  "completed": false,
+  "version": 2,
+  "recordedAtUtc": "2026-10-20T23:25:16.818192+00:00",
+  "completed": true,
+  "scope": "Bounded actual native note editor, synthetic committed render, edited complete archive/copy and same-binary process restart/reopen; no full workstation/release acceptance.",
   "binary": {
     "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
     "sha256": "85ef6cd710eb98aa391cac9468d262c2b34adb02e0305e98b310e602ffa02162",
     "byteLength": 85287456
   },
-  "processId": 63138,
-  "loadingWindowVerified": true,
-  "studioOpened": false,
-  "nativeEditorOperated": false,
+  "buildSourceCommit": "e1e8d9d",
+  "binaryRebuiltOrResignedDuringWalkthrough": false,
+  "priorLoadingObservation": "Responsive native loading window; matched session-worker sample is waiting in SQLite openDatabase -> macOS __open. The stack does not establish prompt presence or its cause. Conditional user action for any new drive-access prompt remains pending.",
+  "priorSessionWorkerSample": {
+    "path": ".runtime/rust-note-ui/editor-after-allow.sample.txt",
+    "sha256": "fe75bb069c003a89964b222892d0ce9a033c3ad265f35d8114b10485e89d3174",
+    "byteLength": 276109
+  },
+  "studioOpened": true,
+  "nativeEditorOperated": true,
   "nativeInputOpened": false,
   "physicalMicrophoneOpened": false,
-  "observation": "Responsive native loading window; matched session-worker sample is waiting in SQLite openDatabase -> macOS __open. The stack does not establish prompt presence or its cause. Conditional user action for any new drive-access prompt remains pending.",
+  "synthetic": true,
+  "humanPerformanceRecorded": false,
+  "modelInference": false,
+  "syntheticProjectId": "ca0f6e4f-c40a-4d7b-a435-77d3a0ddbd19",
+  "syntheticProjectName": "SYNTHETIC note editor walkthrough 5fa86e22",
+  "finalSourceRevision": 15,
   "fixture": {
     "path": ".runtime/rust-note-ui/fixture.json",
     "sha256": "76598ddf083590dd82c6dfe38b2cd00b25d9b6c9d6d83d3df68e229f37966598",
     "byteLength": 10569
   },
-  "syntheticProjectId": "ca0f6e4f-c40a-4d7b-a435-77d3a0ddbd19",
-  "syntheticProjectName": "SYNTHETIC note editor walkthrough 5fa86e22",
+  "originalProject": {
+    "byteLength": 6923,
+    "path": "/Volumes/Main External/Development/OmniuSong/.runtime/rust-note-ui/note-editor-ui-2fa2de26-d4db-48e9-96b6-2055845bb0df/source-project.json",
+    "sha256": "f20554424e51d664c6a2cfd67c43ccb786324bd335fa2fde34b454b0ead0290b"
+  },
   "sourceArchive": {
     "assetCount": 0,
     "byteLength": 114688,
@@ -31,53 +46,663 @@
     "sha256": "6ccd987a4c4a16d6c3587fdf4a845a27bee3c9b83f63a57cf3cfe2c42b6b4c06",
     "takeCount": 0
   },
+  "sourceSnapshotR1": {
+    "path": ".runtime/rust-note-ui/note-editor-ui-2fa2de26-d4db-48e9-96b6-2055845bb0df/saved-r1-project.json",
+    "sha256": "aafcf00b9c7c9c2e7b5dae2e91cd4a778224106326231070f32a6d072e89f237",
+    "byteLength": 7136
+  },
+  "sourceSnapshotR15": {
+    "path": ".runtime/rust-note-ui/note-editor-ui-2fa2de26-d4db-48e9-96b6-2055845bb0df/saved-r15-project.json",
+    "sha256": "092f277813220810021f649665b14c8d7c85e3622dab1b715aa3ff28951d6abe",
+    "byteLength": 7766
+  },
+  "checks": {
+    "exactCoincidentNoteSelectionIncludingZeroAndMaxVelocity": true,
+    "invalidIntegerFieldsPreventSave": true,
+    "dirtySelectionCancelRetainsDraft": true,
+    "discardContinuesWithoutPublishing": true,
+    "saveAndContinueTargetsExactNote": true,
+    "validPitchTickDurationAnd16BitVelocitySave": true,
+    "pointerFocusedNativeKeyboardTextEntry": true,
+    "durableUndoRedo": true,
+    "deleteExactNoteAndUndo": true,
+    "unsavedAddDiscardNoPublishedNote": true,
+    "newLocalNoteSave": true,
+    "restoreRetainsImmutableFirstSnapshot": true,
+    "legacyControlAndUnicodeIdentity": true,
+    "expressionInputAndOpaqueNumbersExact": true,
+    "expressionTailRejectionKnownUncommitted": true,
+    "exactRetryRetainsIntentAndRevision": true,
+    "explicitReviewAndNewCorrectedChoice": true,
+    "preserveLoopKeepsOutOfLoopNote": true,
+    "schemaUpgradeWithoutConsentRejected": true,
+    "explicitSchemaUpgradeTo129Bars": true,
+    "schemaUndoRedo": true,
+    "restoreDoesNotShrinkLoop": true,
+    "editedArchiveExportInspectAndCopy": true,
+    "actualCleanProcessExit": true,
+    "sameBinaryRestartAndSourceCopyReopen": true
+  },
+  "knownRejectedOperations": [
+    {
+      "operationId": "7678d93a-82ec-4544-ab6a-eacfe5e853fe",
+      "expectedRevision": 7,
+      "reason": "Expression tail at987; requested986 rejected, exact retry remains rejected; corrected1501 saved as a new operation."
+    },
+    {
+      "operationId": "e0d21af6-036a-47c4-970f-7b9ba735256e",
+      "expectedRevision": 10,
+      "reason": "129-bar extension without explicit native-format consent rejected; new explicit choice saved at r11."
+    }
+  ],
+  "renderAgreement": {
+    "receipt": {
+      "path": ".runtime/rust-note-ui/saved-r1-render.json",
+      "sha256": "81bcec61a1414357ad4d43ccdfddb1c74d1a4b47511afd4f9f28234351ef722c",
+      "byteLength": 5360
+    },
+    "uiCommittedRevision": 1,
+    "committedProjectSha256": "aafcf00b9c7c9c2e7b5dae2e91cd4a778224106326231070f32a6d072e89f237",
+    "verifiedAgainstLiveCatalogBeforeFurtherEdits": true,
+    "pipeline": "production render::prepare -> RenderCursor output limiting -> IEEE float32 WAV",
+    "originalAudio": {
+      "file_bytes": 675060,
+      "file_sha256": "0e6e9e80c892c71b4e091bce9c6d5787d5ed1edfad2ea07a0135a5cca0286d90",
+      "frames": 84377,
+      "path": "/Volumes/Main External/Development/OmniuSong/.runtime/rust-note-ui/saved-r1-render/original.wav",
+      "pcm_bytes": 675016,
+      "pcm_sha256": "967d6b42aa7df63f11106d620023eed964d0dadb2009ebe3e2d6ead71597841e",
+      "peak": 0.08914931,
+      "samples": 168754
+    },
+    "editedAudio": {
+      "file_bytes": 675060,
+      "file_sha256": "37f3fb9e7a83c61fb786fda33e6159a1e328a2031baf781cc7362334d0dac9a2",
+      "frames": 84377,
+      "path": "/Volumes/Main External/Development/OmniuSong/.runtime/rust-note-ui/saved-r1-render/edited.wav",
+      "pcm_bytes": 675016,
+      "pcm_sha256": "a401df68ca0b80b88e27292f8229b981e8c3a8bb273c7310a83c9341039a2dc4",
+      "peak": 0.05,
+      "samples": 168754
+    },
+    "difference": {
+      "edited_only_frames": 0,
+      "first_changed_frame": 3095,
+      "original_only_frames": 0,
+      "overlap_changed_frames": 24829,
+      "overlap_changed_samples": 49658
+    },
+    "nativeDeviceUsedForThisComparison": false,
+    "recheckWithBoundHelperIdentity": {
+      "receipt": {
+        "path": ".runtime/rust-note-ui/saved-r1-render-recheck.json",
+        "sha256": "67caa7bca943795c73d08c8325938ba8d74baa16ac63a2c810a04068019207e0",
+        "byteLength": 5384
+      },
+      "identity": {
+        "path": ".runtime/rust-note-ui/saved-r1-render-recheck-identity.json",
+        "sha256": "90aafe3ee19a398b4c60a85ab756b5609562378c9c954e079cbd211f9d71dad0",
+        "byteLength": 534
+      },
+      "log": {
+        "path": ".runtime/rust-note-ui/saved-r1-render-recheck.log",
+        "sha256": "67caa7bca943795c73d08c8325938ba8d74baa16ac63a2c810a04068019207e0",
+        "byteLength": 5384
+      },
+      "sameInputAndExactWavPcmHashes": true,
+      "scope": "The initial render preceded the independent clip-backend build. A fresh recheck binds the current helper executable before/after and reproduces both WAV/PCM hashes exactly; renderer/helper sources are unchanged, dependencies include new core clip validation. This is a separate offline helper, not the packaged editor."
+    }
+  },
+  "editedArchive": {
+    "path": ".runtime/rust-note-ui/note-editor-ui-2fa2de26-d4db-48e9-96b6-2055845bb0df/edited-r15.omniusong-native",
+    "sha256": "cef313896ce14d894124349a5a8a27a08b4f5a1887d03b7871512c0840153f74",
+    "byteLength": 393216,
+    "revision": 15,
+    "historyRows": 9,
+    "operationRows": 15,
+    "assetCount": 0,
+    "takeCount": 0,
+    "restoredAsCopy": true
+  },
+  "restoredCopy": {
+    "copyProjectId": "e13c17b4-7af4-413f-96ff-c10b945ec26b",
+    "revision": 15,
+    "payloadBytes": 7766,
+    "payloadSha256": "e2d08af2d7ff52c331dc1c4fa32ad5c73a0d8f33c39a4b7203c373e3117b9066",
+    "rootIdOnlyDifference": true,
+    "sourceProjectId": "ca0f6e4f-c40a-4d7b-a435-77d3a0ddbd19",
+    "historyRows": 9,
+    "operationRows": 15,
+    "distinctName": "SYNTHETIC note editor \u00b7 restored copy",
+    "renamedRevision": 16,
+    "renamedHistoryRows": 10,
+    "renamedOperationRows": 16,
+    "reopenedSnapshot": {
+      "path": ".runtime/rust-note-ui/note-editor-ui-2fa2de26-d4db-48e9-96b6-2055845bb0df/reopened-r16-copy-project.json",
+      "sha256": "640e7b20976a24d1c630fed81a0ddf7bf23aae65ae844ccf01ce5d42362f83da",
+      "byteLength": 7762
+    }
+  },
+  "processes": {
+    "initialGui": 63138,
+    "initialAudioWorker": 70220,
+    "accessibilityReopenedAfterFirstClose": [
+      73322,
+      73327
+    ],
+    "explicitClosePair": [
+      73322,
+      73327
+    ],
+    "noNativeProcessAfterExplicitClose": true,
+    "restartedGui": 74019,
+    "restartedAudioWorker": 74024
+  },
+  "nativeOutputAfterRestart": {
+    "projectId": "e13c17b4-7af4-413f-96ff-c10b945ec26b",
+    "revision": 16,
+    "device": "MacBook Pro Speakers",
+    "sampleRate": 48000,
+    "channels": 2,
+    "preparedFramesConsumed": 100478,
+    "reportedXruns": 0,
+    "completedNormally": true,
+    "stopReleasedGuard": true,
+    "physicalSoundCaptured": false,
+    "listeningAccepted": false,
+    "latencyMeasured": false
+  },
   "artifacts": [
     {
-      "path": ".runtime/rust-note-ui/opening.ax.txt",
-      "sha256": "d1d9b23fe351c89109ac94f5dfb5be43915dc173d2c1d0cf4622b19835fa080b",
-      "byteLength": 795
+      "path": ".runtime/rust-note-ui/editor-add-discarded.ax.txt",
+      "sha256": "bedfffe4604d47aaef5b17445fe002d3d2083ea667cecb25e94d6162efe77110",
+      "byteLength": 6372
     },
     {
-      "path": ".runtime/rust-note-ui/opening.jpg",
-      "sha256": "7a97b1a21d40813e821b8a09ffbd5d3f56e94b517e7aaa7546ba59d326e625b8",
-      "byteLength": 52044
+      "path": ".runtime/rust-note-ui/editor-add-unsaved.ax.txt",
+      "sha256": "c23099f0b43ef8a9dfc7f9480dd42e7269a15ec68a4efff25cfbdd58ca9885d1",
+      "byteLength": 7492
     },
     {
-      "path": ".runtime/rust-note-ui/opening-third.ax.txt",
-      "sha256": "d1d9b23fe351c89109ac94f5dfb5be43915dc173d2c1d0cf4622b19835fa080b",
-      "byteLength": 795
+      "path": ".runtime/rust-note-ui/editor-coincident-max.ax.txt",
+      "sha256": "1259b6ebb22d5d1b34e1b343c1fb7fc67e33eecc443a30f261056e43ad4c0457",
+      "byteLength": 7465
     },
     {
-      "path": ".runtime/rust-note-ui/opening-third.jpg",
-      "sha256": "7a97b1a21d40813e821b8a09ffbd5d3f56e94b517e7aaa7546ba59d326e625b8",
-      "byteLength": 52044
+      "path": ".runtime/rust-note-ui/editor-coincident-zero.ax.txt",
+      "sha256": "da6211200a4b6b857bc50dc13d421e8fc9fe8c296e07372dfd8ade9719257281",
+      "byteLength": 7457
     },
     {
-      "path": ".runtime/rust-note-ui/opening-worker.sample.txt",
-      "sha256": "de17df050b8e569d406bb6a8b63865b7bfc96d33470f4667a8896fd69022a7c0",
-      "byteLength": 371928
+      "path": ".runtime/rust-note-ui/editor-copy-expression-reopened.ax.txt",
+      "sha256": "363a055084b49e65c13a39ceb49bfe39922681bafe67f24114fcb90e47cf7641",
+      "byteLength": 7093
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-copy-native-output-completed.ax.txt",
+      "sha256": "684c8ce80a71d726cc499b2e912c4d0791d6a290c48a01ad42397ba596fb02f3",
+      "byteLength": 7950
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-copy-native-output-playing.ax.txt",
+      "sha256": "6f2376b9b4c4a48f1c3f894cc6a03f22500cfa164d91e154005dc3179ffd2102",
+      "byteLength": 8379
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-copy-output-stopped.ax.txt",
+      "sha256": "a09d53cde95a0b09f4b60e407928a7540aff553bec5aa3a279b533981d5d112b",
+      "byteLength": 7795
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-copy-renamed-for-reopening.ax.txt",
+      "sha256": "ff8c399cab9222f4fc93ee942fe280642b83485d01615fd232da106a9891c24d",
+      "byteLength": 8022
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-copy-reopened-r16.ax.txt",
+      "sha256": "8c6122945d371aa0898806424f60b7ea5618c9143865d3b57ef3c42dbc3b4254",
+      "byteLength": 7862
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-corrected-expression-edit.ax.txt",
+      "sha256": "95a0a6afd38841b5337c6dbaca2a2fdd0501c2a3d03f685175aa48e68e602cb9",
+      "byteLength": 8586
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-delete-exact-note.ax.txt",
+      "sha256": "703c0bc4640bb45757440dcf140b3fb8ecaeff63e1334367876f3b382f906d25",
+      "byteLength": 6309
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-dirty-cancel-retained.ax.txt",
+      "sha256": "4576a2dd05337dbb86a28b0997a2a17d29f9b6ee123c6a8a864896b5496171e7",
+      "byteLength": 7635
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-dirty-selection-dialog.ax.txt",
+      "sha256": "a23779cbc513f15eb50bcd90811daa00435553bd2dceca5f593189ec27ff9492",
+      "byteLength": 7881
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-edited-archive-restored-copy.ax.txt",
+      "sha256": "9ee43fe45d07c47fa0562f428450621213332c25ba530a41e868c35b52ab0ea2",
+      "byteLength": 8034
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-edited-backup-export.ax.txt",
+      "sha256": "e194e4568dbeff15041fe18837a98263bc8fcaa34cfcef0815e7bc116fa51b31",
+      "byteLength": 9317
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-edited-backup-inspection.ax.txt",
+      "sha256": "14ba664b0966848a1e9a7d0379b083e4a8946a2bc716c5d5c29bac5a35689a89",
+      "byteLength": 9698
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-exact-retry-rejected.ax.txt",
+      "sha256": "8262938c20a96ec683d02ba81cd63314bf62766f917ecce7dd218e05c6558ea8",
+      "byteLength": 9511
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-explicit-schema-extension.ax.txt",
+      "sha256": "44659c664ed8f2f8e12fcaf879ec7247935b8e7afa41d7d6c8314a2ff412856e",
+      "byteLength": 7207
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-expression-tail-rejected.ax.txt",
+      "sha256": "8262938c20a96ec683d02ba81cd63314bf62766f917ecce7dd218e05c6558ea8",
+      "byteLength": 9511
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-extend-before-consent.ax.txt",
+      "sha256": "4b6ae72397dc79bd036e5400b5f84ae852912fc15125579b1b31cb8e4b1edcbf",
+      "byteLength": 7606
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-final-ready.ax.txt",
+      "sha256": "411c4dae902026713acc1777521fc9e220a69d0b058e81fafff0fe1d84b34b99",
+      "byteLength": 8516
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-first-note-saved.ax.txt",
+      "sha256": "d8f259e4de59483f6894835a2661590c2e28596d3c5e5df919136a491c7ac304",
+      "byteLength": 7487
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-invalid-fields.ax.txt",
+      "sha256": "66b7ee6955ec3412453102987a3853ca3977d23ad681b40cb27b14235bcac1ee",
+      "byteLength": 7655
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-legacy-expression-inspection.ax.txt",
+      "sha256": "90d33af0b4eb651e150f94b7878066130dde74c315393ebe5d0a39d355b2e3a3",
+      "byteLength": 8352
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-legacy-original-restored.ax.txt",
+      "sha256": "7d3467fffef6ddee3a0962bf6627f9ab66e3bd83a47366e4aff1eb3b324d16ad",
+      "byteLength": 8582
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-native-pointer-text-entry.ax.txt",
+      "sha256": "3f30a62b5f3fe587fe1cb1b70f287cf0ff326d42e047c1a0f2cb2cfacf81d22e",
+      "byteLength": 8173
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-native-text-entry-attempt.ax.txt",
+      "sha256": "ac7f42ce8dfaea3390b1ebe8d06966959c89784502785899bbc7e1f0ae729c4c",
+      "byteLength": 7917
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-new-note-saved.ax.txt",
+      "sha256": "5a2bdb200f37f319afa3e98f3be2cb97692381c21d725b01b8d61215bce25fbb",
+      "byteLength": 7692
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-opened.ax.txt",
+      "sha256": "d0b5ddcb3de24ae62bf0485855d39938a9b08586223904e2cd21646eba9f7be8",
+      "byteLength": 4546
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-original-details.ax.txt",
+      "sha256": "ce5d323b55496f30a1741d071ac783ae1456cf7ddf98c2b525c806609f30d7dc",
+      "byteLength": 8159
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-output-device-scan.ax.txt",
+      "sha256": "630bd4b42b44b8e172bc297efd83b3d1aa20fc5a8bcc6b41ad4ae8948bece042",
+      "byteLength": 7106
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-outside-loop-preserved.ax.txt",
+      "sha256": "0ce4a11b05750bd09138a50da47d916ff603b219bb92579b0f7e8bde583205dc",
+      "byteLength": 7345
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-redo-first-save.ax.txt",
+      "sha256": "cfca6a66bdaae0273812c49df0a7ed6fa4ab539abdbef4f7a15b2daf33abaa55",
+      "byteLength": 7487
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-redo-schema-extension.ax.txt",
+      "sha256": "187ca22e0b52ab0574c3119ef394b8751a91c5f4756ba1efab01599c58babcab",
+      "byteLength": 7207
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-restarted-after-close.ax.txt",
+      "sha256": "1044bcd5593c9ff73d3a5e1dc5e5f239e2e56b2fb98c9d7489ac669991ca10ef",
+      "byteLength": 4687
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-restored-first-note.ax.txt",
+      "sha256": "50153860c8936eedc6c29cb31e405aec7d4cdb3510b1e537b8f8b80aff2bbb95",
+      "byteLength": 7496
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-restored-out-of-loop-original.ax.txt",
+      "sha256": "7d1d4d49079094fd0805d558a1470c2b1b13c908ee7a2fd004110dd0cf80b976",
+      "byteLength": 7207
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-review-known-rejection.ax.txt",
+      "sha256": "1bce43afc98d69e3f77b03b0fbfd47b6510b8f4fc0ab2e93395c4e46d67ff56f",
+      "byteLength": 9382
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-save-and-selection-continuation.ax.txt",
+      "sha256": "64db33e4277470948b714dac8830a60b94322a86a632780da4469d97192e35e1",
+      "byteLength": 8608
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-source-reopened-r15.ax.txt",
+      "sha256": "14a3c198289ecd875fb8f2aaf306afbf608f2f698c5b40d8ae91104a017c3625",
+      "byteLength": 6743
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-track-discard-continuation.ax.txt",
+      "sha256": "71d3e4bbb7e27088666f0d00f555d070147b1e9f49a401843543a06c62336c57",
+      "byteLength": 5862
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-track-guard.ax.txt",
+      "sha256": "a4eaeac3ce12a633e688e789ce4abe4eb537a7c20db5a742a2607ff6f129db62",
+      "byteLength": 8110
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-undo-delete.ax.txt",
+      "sha256": "8377d00cdaca59c46673036b7f0570f33478c4c36848dbb9d7417293622979c3",
+      "byteLength": 8159
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-undo-first-save.ax.txt",
+      "sha256": "cfd94c2c8e8a3b583828599914a1d962192a1e40f2979aeb9277710f7cbb619a",
+      "byteLength": 7466
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-undo-schema-extension.ax.txt",
+      "sha256": "8a086214be67decbfcfce0e87d5ab043f7d761dde649fb8da1baa46cfb013ac1",
+      "byteLength": 7348
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-upgrade-without-consent-rejected.ax.txt",
+      "sha256": "4658e8eb579504187d4320ba4a3d1fe76ae51901d9cb9811d2e0622cc14cb26b",
+      "byteLength": 8628
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-add-discarded.jpg",
+      "sha256": "4ed1b2e0968844e79f182ddeebed19d33d99074b8b3c8203103cbfdf8ee606ee",
+      "byteLength": 190607
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-add-unsaved.jpg",
+      "sha256": "b6604824436287eec2870c40f9fbaa32824df76ce96bd7c7077cda0af387313d",
+      "byteLength": 223648
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-coincident-max.jpg",
+      "sha256": "25c84536273d20d6a7e15fc212c1da1c5979c2e57fd063fd3f59f568fb6f47f9",
+      "byteLength": 221599
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-coincident-zero.jpg",
+      "sha256": "6ffb2bc37cebca7edbb3150da17eaab2094088a42a3b113e1346b5190ba7dee5",
+      "byteLength": 220635
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-copy-expression-reopened.jpg",
+      "sha256": "090f81fd0ba3fdc768442f10f85367ee266bdb1787978e9b9adc5a08b6dd76db",
+      "byteLength": 223957
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-copy-native-output-completed.jpg",
+      "sha256": "c853511010d79e5d25b654dddc8038a770d8c2331d22dfb62a413a2cee761198",
+      "byteLength": 225969
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-copy-native-output-playing.jpg",
+      "sha256": "c2e28a3f434395c5ab51b38157323386456a5556d22a5bc412643e9a51793887",
+      "byteLength": 209655
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-copy-output-stopped.jpg",
+      "sha256": "77f1ae9c9e2a72edc73ae5b89d7fe80a969add16c08beb888cac6c211a54e887",
+      "byteLength": 224439
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-copy-renamed-for-reopening.jpg",
+      "sha256": "a14ff091adf0d14fb7e4cabcb059e820efc3a194793e5c7ffa2bd472f601332c",
+      "byteLength": 225717
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-copy-reopened-r16.jpg",
+      "sha256": "121ca2c93969792301ce1f78f9744a8d51dc33045d2d6e5db879e057974f4cda",
+      "byteLength": 223725
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-corrected-expression-edit.jpg",
+      "sha256": "a3e158babcd8a5a86c308113108647d5637d49479595bb003428c6c396202a93",
+      "byteLength": 258145
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-delete-exact-note.jpg",
+      "sha256": "72f6fe31ba5a9aabefdf3b301bfb5bda84b8bc14e9b0345426983026cefd4a4d",
+      "byteLength": 194870
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-dirty-cancel-retained.jpg",
+      "sha256": "d62cc36b4821293dad8fabe0c8734bb8c72ee6153d42bfa0477859597c454e3e",
+      "byteLength": 233411
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-dirty-selection-dialog.jpg",
+      "sha256": "f24ad3756e87585bf535ab885bd63b00e0d9a7c2a74a2d8a4ab0471fb50d921a",
+      "byteLength": 204526
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-edited-archive-restored-copy.jpg",
+      "sha256": "1594560407c602a4c72f70738ec074b867877b0b028c7540501dc6b6498c7f9d",
+      "byteLength": 225685
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-edited-backup-export.jpg",
+      "sha256": "0148983db884c14de0458b531d863736dea2c73f58e7296b18def8178c5781f0",
+      "byteLength": 269362
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-edited-backup-inspection.jpg",
+      "sha256": "cab0dffeada8df59714a48fbe557a0d6bd71bb03de63377c39e13fc8ae1540fe",
+      "byteLength": 274644
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-exact-retry-rejected.jpg",
+      "sha256": "ccb2f29ac7b51c954870d0685afd21892312ac0aa39c97c4ecbfa3e7f6767c0a",
+      "byteLength": 277977
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-explicit-schema-extension.jpg",
+      "sha256": "3a0004a752396e875cea9fda946adb1fef59e09a5aa746c6aebeb5597e489339",
+      "byteLength": 234128
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-expression-tail-rejected.jpg",
+      "sha256": "8fa25ba2526a50e78c7035b74e1dd335226813500b4cbdddac8b89a4c7fb497d",
+      "byteLength": 278424
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-extend-before-consent.jpg",
+      "sha256": "bfc5be322644288fcca000279abe303a51ccb62736412af2fb0c76c276b74023",
+      "byteLength": 249633
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-final-ready.jpg",
+      "sha256": "d8677c5943c7f4ec397af6843fff687854c948fc49063375a24536c5fc92593d",
+      "byteLength": 239276
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-first-note-saved.jpg",
+      "sha256": "da048c79a369a147e74b8aaf150a613bf28286540784acaec71615cbce37a7d5",
+      "byteLength": 219366
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-invalid-fields.jpg",
+      "sha256": "b24efc01eb58fc15774b012fa7ce2035cfa48c12f6290f6d825641ad37322423",
+      "byteLength": 235677
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-legacy-expression-inspection.jpg",
+      "sha256": "8d9ea7db3717283100e3ebf29a8aa45b666c12a157adba99bc3dbd0f6815adb4",
+      "byteLength": 254974
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-legacy-original-restored.jpg",
+      "sha256": "aaf38de0cc41643f3c85230ca2f23fd6656732cbcbf655b22d9af90afdca744a",
+      "byteLength": 256977
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-native-pointer-text-entry.jpg",
+      "sha256": "901c018ec56e3b56730989259e4eb18c0f6785f94e219ed3dca2bc8543642a51",
+      "byteLength": 245687
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-native-text-entry-attempt.jpg",
+      "sha256": "c16982a9bedd000729c60bd8fea65dfcf9629f7cb57014686f77b7ffb1c14fca",
+      "byteLength": 232283
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-new-note-saved.jpg",
+      "sha256": "d822da7a864ab4f71ed6f6fffb5dcc6ff740ab2a1e182da1a8c4a97680228f89",
+      "byteLength": 224092
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-opened.jpg",
+      "sha256": "cae0eb495a7d30f9d75feabd054433fb6984a8a0935912a711443820d09862eb",
+      "byteLength": 142585
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-original-details.jpg",
+      "sha256": "3a40b4d125e682626b16608ed05db382898ec004af3713f3b5abe61f77e2b202",
+      "byteLength": 236190
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-output-device-scan.jpg",
+      "sha256": "633178ae56eb26270b5a77f0d5c0064ba32baf75b5a00515ec5cb1bc89338847",
+      "byteLength": 225000
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-outside-loop-preserved.jpg",
+      "sha256": "0afcc061d10503d0abb686b44e21d827fa6ec525090c2dc3364b0854c330028c",
+      "byteLength": 239283
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-redo-first-save.jpg",
+      "sha256": "34aeb1cad58bcd3c0550d73240cbc99b376794fb158d16bb87bf23e145eabf03",
+      "byteLength": 219635
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-redo-schema-extension.jpg",
+      "sha256": "0a1cd3a955809d491287173899faac910f76b8f3c1b544d3db3b76f84ec6d861",
+      "byteLength": 233857
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-restarted-after-close.jpg",
+      "sha256": "b94a7fcce33a52565116f12fcdc44f4b34d66f52194d86f93d387dc71e5fc282",
+      "byteLength": 142317
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-restored-first-note.jpg",
+      "sha256": "c73d516f902b87b6c8172f61bb817de161ce576cbae4049be8425c68cde4852f",
+      "byteLength": 220190
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-restored-out-of-loop-original.jpg",
+      "sha256": "37826b542b63490acf5d9d55b6fca9a5d02555aa7dac8aabf45e93207b6b53cf",
+      "byteLength": 233800
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-review-known-rejection.jpg",
+      "sha256": "fc468fa464bb976b6e1ac2482deb257933f0dd296e687b498e8ee88bd3b9c4ce",
+      "byteLength": 275932
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-save-and-selection-continuation.jpg",
+      "sha256": "0037e9541041152a47d707ed6a0332b8a0bca4d8d15de689c15038d337495f85",
+      "byteLength": 247729
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-source-reopened-r15.jpg",
+      "sha256": "40dbed816fb431bb5642c9a05153cf5cad759e198198353682f23866178599aa",
+      "byteLength": 194380
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-track-discard-continuation.jpg",
+      "sha256": "6ba286f77f1ff81c58908672a77d8da38f7f90fd858193c6f6f18f9502ef58f2",
+      "byteLength": 196161
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-track-guard.jpg",
+      "sha256": "1221fadf1592c7b3dc5f63ba57e9d04a8e776953e97fa3d2acf67720f510e77a",
+      "byteLength": 206956
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-undo-delete.jpg",
+      "sha256": "2e4df8a7d7f7c5488df7ebb9f570d2b36d385b2d088f025a790738b0f5b5073f",
+      "byteLength": 236174
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-undo-first-save.jpg",
+      "sha256": "3ae89bbdc3e8ce181046b047af548253b62d6425708639681f026c248912f6c3",
+      "byteLength": 220215
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-undo-schema-extension.jpg",
+      "sha256": "f216c002b2448fdc1c015706b1123c456773051e89382104aefb86480b9fbd2e",
+      "byteLength": 239478
+    },
+    {
+      "path": ".runtime/rust-note-ui/editor-upgrade-without-consent-rejected.jpg",
+      "sha256": "eeb76ed0293f8bbc82d44ab19d9e6221dc2a577a6031f3d607cf035dce4dd06d",
+      "byteLength": 281551
+    },
+    {
+      "path": ".runtime/rust-note-ui/note-editor-ui-2fa2de26-d4db-48e9-96b6-2055845bb0df/restored-copy-proof.json",
+      "sha256": "9c190ca83002b495d7bec5ce7a31d9fdc3f8ea79071470c7672f58196f905330",
+      "byteLength": 327
+    },
+    {
+      "path": "target/debug/examples/qualify_note_editor_render",
+      "sha256": "b6bf8ef2787a5b2db464efc9a0a003b839e696735fb3ab85735888e616775686",
+      "byteLength": 9409896
     }
   ],
   "softwareEvidence": [
     "docs/verification/rust-native-note-editor-tests.json",
     "docs/verification/rust-native-note-editing.json"
   ],
-  "renderPreflight": {
-    "path": ".runtime/rust-note-ui/render-preflight.json",
-    "sha256": "604cd7f7e85d9b80dd307293ceed8c6093a044542ffe10de4d63e27f4af9b568",
-    "byteLength": 4347
-  },
-  "renderPreflightScope": "Identical supplied synthetic r0 JSON renders identically through production prepare -> RenderCursor: 84377 stereo frames; two675060-byte WAVs. No UI edit, native device, performance capture or listening acceptance.",
   "preservation": "docs/verification/rust-native-note-editor-preservation.json",
-  "requiredNextChecks": [
-    "Retain this exact binary/path/signature through studio opening, synthetic editor walkthrough and actual restart.",
-    "Operate exact note selection, invalid/valid integer fields, Save/Discard/Cancel, Add/Delete/Restore and history with source/metadata comparisons.",
-    "Exercise an expressive legacy-key note and explicit out-of-loop/schema policy; no stripping expression for playback.",
-    "Bind an actual saved unmuted-note edit snapshot to production-render WAV/hash differences; current same-input preflight is not that evidence.",
-    "Export/inspect/restore a complete edited archive, clean close/process exit/restart/reopen, and verify existing projects/originals unchanged."
-  ],
   "limits": [
-    "All native editor interaction remains unqualified on85ef…; the earlier2dd… live-audition walkthrough is not transferred.",
-    "No physical input, microphone capture, MIDI2/MPE transport, expression audition, inference, plugin, installer, latency or Windows acceptance."
+    "The source/build gate for this exact85ef binary is the earlier394-entry note-editor receipt. The newer clip backend source is separately425-entry software-qualified and has not replaced this bundle.",
+    "Native AX setValue works; direct AX text-field click followed by typing did not change the value until genuine pointer focus. Pointer focus plus keyboard text entry passed. Full accessibility keyboard navigation, IME, display scaling, healthy live focus-loss and uncertain/conflict UI remain pending.",
+    "Rendered differences are offline f32 comparisons; speaker completion and zero reported xruns are not physical capture, subjective listening acceptance, or latency measurement.",
+    "No physical input, microphone capture, MIDI2/MPE transport, expression audition, native AI inference, plugin, installer,30-minute recording or Windows acceptance."
   ]
 }

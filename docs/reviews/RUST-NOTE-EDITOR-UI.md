@@ -61,3 +61,130 @@ The render preflight supplies that **same source JSON twice**. Both independentl
 For [preservation](../verification/rust-native-note-editor-preservation.json), the reviewer verified the three snapshot-file hashes, then compared their table columns and row-hash sets. All ten prior project rows remain, exactly one synthetic project row is added, and the other nine tables are unchanged. Every table and the catalog file hash agree between the after-fixture and after-loading snapshots. All three owned immutable take files were independently rehashed successfully. All **19 original prototype project files plus 11 asset files** independently match [rust-migration-baseline.json](../verification/rust-migration-baseline.json), whose own SHA-256 is `1169fdd5337f98798b0dbd6fb2b87c69ff5f8ab6759ad7454f4c587e3b25536e`. This audit compared retained SQL row snapshots and current original-file bytes; it did not open or repair the live catalog. Integrity/foreign-key checks are coordinator-recorded evidence.
 
 No inconsistency requiring a source or receipt correction was found in this final audit. The remaining gate is the explicitly pending new-binary synthetic editor interaction, actual changed-note render agreement, edited archive/copy and clean restart/preservation walkthrough.
+
+## Actual 85ef packaged walkthrough — independent artifact audit
+
+October 20, 2026. **The bounded actual-editor gate is accepted.** This appended
+audit supersedes the pending-UI disposition above; those earlier paragraphs
+retain the historical loading/preflight boundary. The version-2 [UI
+receipt](../verification/rust-native-note-editor-ui.json) and
+[preservation receipt](../verification/rust-native-note-editor-preservation.json)
+now describe the completed synthetic walkthrough. No discrepancy requiring a
+receipt or production correction was found. This lane inspected retained files,
+screenshots, read-only SQLite views and process information; it did not operate
+the app, rebuild, run Cargo, open a device or mutate a catalog.
+
+All **119 distinct fingerprinted files** directly referenced by those two receipts match
+their recorded byte lengths and SHA-256 values, including 47 AX transcripts and
+47 screenshots, both complete archives, source/render evidence, the render
+currently retained helper binary and the packaged executable. The two additional
+WAVs referenced inside the later recheck receipt also match. The executable remains 85,287,456
+bytes with SHA-256
+`85ef6cd710eb98aa391cac9468d262c2b34adb02e0305e98b310e602ffa02162`.
+All 104 source fingerprints in the earlier build receipt independently match
+committed **`e1e8d9d31c48170dfdfc831ff60a1d73c52c6190`**. The render preparer,
+callback cursor and render-helper source also match that commit; both fixture
+and render receipts' embedded source hashes match their actual example sources.
+The newer, uncommitted clip-edit backend is separate software work and is
+**not** attributed to this unchanged bundle.
+
+The five retained project snapshots independently match these identities:
+
+| Snapshot | Revision / schema / bars | UTF-8 bytes | SHA-256 prefix |
+| --- | --- | --- | --- |
+| Synthetic source `ca0f6e4f…`, r0 | 0 / 1 / 4 | 6,923 | `f20554424e51` |
+| UI-committed source r1 | 1 / 1 / 4 | 7,136 | `aafcf00b9c7c` |
+| Source r15 | 15 / 2 / 129 | 7,766 | `092f27781322` |
+| Restored copy `e13c17b4…`, r15 | 15 / 2 / 129 | 7,766 | `e2d08af2d7ff` |
+| Renamed/reopened copy r16 | 16 / 2 / 129 | 7,762 | `640e7b20976a` |
+
+The 393,216-byte edited OSARv2 archive matches
+`cef313896ce14d894124349a5a8a27a08b4f5a1887d03b7871512c0840153f74`.
+Its project payload is byte-identical to the r15 JSON. It contains nine contiguous
+history rows, fifteen operation rows and no audio assets/takes. Every retained
+history before/after checksum and operation request/result checksum passes.
+Revision 1's durable operation result is byte-identical to the r1 render input;
+history sequence 1's before-image is byte-identical to r0. This supplies the
+commit binding that the standalone render helper deliberately does not claim.
+
+The operation results independently establish the observed sequence: initial
+four-value Save with velocity zero; Undo/Redo; Restore; exact Delete/Undo; authored
+Add; corrected expressive-note Save/Restore; out-of-loop Preserve; explicit
+schema upgrade to 129 bars; schema Undo/Redo; Restore without shrinking; and the
+final authored-note velocity Save. The two recorded rejected operation IDs are
+absent from the durable ledger. Their rejection/retry/review screens retain the
+expected revision and ID; no duplicate admission is inferred from an unchanged
+error screen alone. Known semantic rejection is covered here; uncertain-outcome
+and true concurrent revision-conflict GUI workflows remain separately pending.
+
+The copy-r15 document differs from source r15 only at its owned root ID. The r16
+copy adds only the explicit root name/revision change. All fifteen copy operation
+mappings and all nine copied history rows retain exact source content after
+normalizing only their owned project/operation IDs. The source has nine history
+rows/fifteen operations; the renamed copy has ten/sixteen. Comparisons preserve
+raw unfamiliar numeric tokens, expression, immutable first snapshots, input
+release/key-duration metadata and synthetic UMP across all 33 archived
+history/result snapshots. No packet-to-note or physical timing claim is made.
+
+Both render WAVs independently parse as IEEE float32 stereo at 48 kHz, 84,377
+frames, 675,016 PCM bytes and 675,060 total bytes. Their PCM hashes match
+`967d6b42aa7df63f11106d620023eed964d0dadb2009ebe3e2d6ead71597841e`
+and `a401df68ca0b80b88e27292f8229b981e8c3a8bb273c7310a83c9341039a2dc4`.
+An independent byte comparison reproduces **49,658 changed samples across
+24,829 frames, first changed frame 3,095**, with no unmatched-length tail.
+The r1 note changed from 60/123/987/51313 to 61/137/1001/0, with a matching first
+snapshot and unchanged expression. The resolver catalog still matches its
+helper-recorded unchanged hash. This accepts actual saved-edit/offline production
+render agreement, not listening or realtime sample delivery.
+
+The initial render helper was subsequently relinked by a central test build, so
+the currently retained executable hash alone cannot identify the helper used by
+the initial run. The coordinator corrected this evidence boundary with a fresh
+recheck: `saved-r1-render-recheck-identity.json` records the helper before and
+after as **9,409,896 bytes**, SHA-256
+`b6bf8ef2787a5b2db464efc9a0a003b839e696735fb3ab85735888e616775686`,
+and exit zero. The identity file, recheck JSON and stdout log independently match
+their updated receipt fingerprints. Both new WAVs are byte-for-byte identical to
+the initial WAVs, and input identities, document facts and frame differences
+match. This recheck uses current clip-backend dependencies with unchanged
+renderer/helper sources; it is separate offline evidence and does not replace
+or extend the `85ef…` packaged binary's implementation scope.
+
+Preservation checks independently retain **all 67 baseline rows across all ten
+catalog tables**, including the ten prior projects and their closure. Fixture
+creation adds only the allowed source project; fixture-to-loading table and
+catalog-file hashes remain equal. The final live catalog, opened query-only,
+matches every after-walkthrough table hash and its complete file hash, and passes
+integrity/foreign-key checks. Only the two allowed synthetic project IDs are
+added. All three owned take files and all **19 prototype project plus 11 asset
+files** rehash exactly against their recorded baselines.
+
+Representative screenshots and AX transcripts agree on the coincident-note
+choices, saved four-field values, invalid draft/disabled Save, Save/Discard/Cancel
+dialog, retained expression-tail rejection, explicit upgrade, archive inspection
+and reopened source/copy. The pointer-focused velocity field visibly contains
+49123 while its saved roll still shows 65535; r15 subsequently commits 49123.
+The earlier direct AX-click/typing attempt left 65535 unchanged without focus.
+Thus pointer focus plus keyboard entry passed; a full keyboard/AX focus workflow
+did not. Expanded details retain escaped legacy keys and original expression
+values without displaying opaque source objects.
+
+Process close/relaunch is coordinator-recorded as initial **63138/70220**,
+intermediate **73322/73327**, explicit close of that pair with no native process
+remaining, then restart **74019/74024** from the same executable. The audit's
+read-only process inventory corroborates the older IDs absent and the new GUI /
+child pair present at that path; it cannot recreate the historical no-process
+interval. Reopened AX and exact catalog payloads bind source r15 and copy r16.
+The output-only follow-up reports MacBook Pro Speakers, 48 kHz stereo,
+`playback_finished`, **100,478 consumed frames / zero reported xruns**, followed
+by Stop and released editing guards. No captured physical sound or microphone
+operation follows from those counters.
+
+Acceptance remains bounded: the light-theme screenshots show weak contrast for
+gold **Unsaved edits** text; H07 is not fully accepted. Full keyboard navigation,
+IME, scaling, healthy live focus-loss and uncertain/conflict GUI paths remain
+open. Current native audio is one-shot full-content rendering, not demonstrated
+looping. Expression playback/editing, physical MIDI/MPE/input, native inference,
+plugins, long recording/power-loss qualification, listening, measured latency,
+installers and Windows remain outside this gate. This does not complete milestone
+2 or release acceptance.
