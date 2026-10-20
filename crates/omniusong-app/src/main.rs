@@ -2,10 +2,14 @@
 
 mod audio_ui;
 mod live_ui;
+#[cfg(test)]
+mod note_editor_review;
+mod note_ui;
 mod recovery_ui;
 
 use audio_ui::AudioUi;
 use eframe::egui;
+use note_ui::{NoteAction, NoteContext, NoteEditor, NoteSelection};
 use omniusong_core::ProjectDocument;
 use omniusong_core::contracts::{
     EditOperation, EditScope, OperationId, ProjectEditIntent, ProjectId,
@@ -115,6 +119,7 @@ enum Action {
         publication: Box<omniusong_store::TakePublication>,
     },
     Recovery(RecoveryAction),
+    Note(NoteAction),
     Close,
 }
 #[derive(Clone)]
@@ -124,6 +129,7 @@ struct Active {
     action: Action,
     context: Option<(String, u64)>,
     draft: Draft,
+    note_context: NoteContext,
     after: Option<Action>,
 }
 struct InspectedBackup {
@@ -147,7 +153,7 @@ struct StudioApp {
     draft: Draft,
     new_name: String,
     selected_track: usize,
-    selected_note: Option<usize>,
+    notes: NoteEditor,
     pending: Option<Action>,
     status: String,
     error: Option<String>,
@@ -161,6 +167,7 @@ struct StudioApp {
     audio_close_requested: bool,
     recovery: RecoveryUi,
     recovery_close_requested: bool,
+    note_close_requested: bool,
 }
 impl StudioApp {
     // Construction is pure. The first rendered loading frame starts the worker.
@@ -182,7 +189,7 @@ impl StudioApp {
             draft: Draft::default(),
             new_name: "My native session".into(),
             selected_track: 0,
-            selected_note: None,
+            notes: NoteEditor::default(),
             pending: None,
             status: "Opening your local studio.".into(),
             error: None,
@@ -196,6 +203,7 @@ impl StudioApp {
             audio_close_requested: false,
             recovery: RecoveryUi::new(),
             recovery_close_requested: false,
+            note_close_requested: false,
         }
     }
     fn with_audio_executable(mut self, executable: PathBuf) -> Self {
@@ -215,18 +223,35 @@ impl StudioApp {
             .as_ref()
             .is_some_and(SessionService::is_disconnected)
     }
-    fn dirty(&self) -> bool {
+    fn metadata_dirty(&self) -> bool {
         self.document
             .as_ref()
             .is_some_and(|doc| self.draft.is_dirty(doc))
     }
+    fn dirty(&self) -> bool {
+        self.metadata_dirty() || self.notes.dirty()
+    }
     fn install_document(&mut self, view: DocumentView) {
+        let old_track = self
+            .document
+            .as_ref()
+            .filter(|doc| doc.id() == view.document.id())
+            .and_then(|doc| doc.tracks().get(self.selected_track))
+            .and_then(|track| track["id"].as_str())
+            .map(str::to_owned);
+        self.notes.document_installed(&view.document);
         self.draft = Draft::from_document(&view.document);
+        self.selected_track = old_track
+            .and_then(|id| {
+                view.document
+                    .tracks()
+                    .iter()
+                    .position(|track| track["id"].as_str() == Some(&id))
+            })
+            .unwrap_or(0);
         self.document = Some(view.document);
         self.recordings = view.recordings;
         self.provenance = view.provenance;
-        self.selected_track = 0;
-        self.selected_note = None;
         self.roll_needs_center = true;
     }
     fn library(&mut self, library: Library) {
@@ -261,6 +286,7 @@ impl StudioApp {
     fn submit(&mut self, command: Command, action: Action, after: Option<Action>) -> AppResult<()> {
         let context = self.context();
         let draft = self.draft.clone();
+        let note_context = self.notes.context();
         let service = self
             .service
             .as_mut()
@@ -277,6 +303,7 @@ impl StudioApp {
                     action,
                     context,
                     draft,
+                    note_context,
                     after,
                 });
                 self.error = None;
@@ -289,6 +316,12 @@ impl StudioApp {
                 if let Action::Recovery(recovery) = &action {
                     self.recovery.failed(recovery);
                 }
+                if let Command::Edit { intent } = &error.command
+                    && matches!(intent.scope, EditScope::DocumentNote { .. })
+                {
+                    self.notes
+                        .not_admitted(intent.clone(), error.message.clone());
+                }
                 if error.command.retry_safe() {
                     self.retry = Some(Active {
                         id: RequestId {
@@ -299,6 +332,7 @@ impl StudioApp {
                         action,
                         context,
                         draft,
+                        note_context,
                         after,
                     });
                 }
@@ -328,6 +362,16 @@ impl StudioApp {
                     if matches!(active.action, Action::AttachCapture { .. }) {
                         self.audio.publication_failed();
                     }
+                    if let Command::Edit { intent } = &active.command
+                        && matches!(intent.scope, EditScope::DocumentNote { .. })
+                    {
+                        self.notes.failed_with_draft(
+                            intent.clone(),
+                            error.message.clone(),
+                            false,
+                            active.note_context.draft.clone(),
+                        );
+                    }
                     self.retry = Some(active);
                 }
                 if error.kind == FailureKind::Disconnected {
@@ -349,6 +393,20 @@ impl StudioApp {
         }
         match completion.result {
             Err(error) => {
+                if let Command::Edit { intent } = &active.command
+                    && matches!(intent.scope, EditScope::DocumentNote { .. })
+                {
+                    self.notes.failed_with_draft(
+                        intent.clone(),
+                        error.message.clone(),
+                        !error.outcome_unknown
+                            && matches!(
+                                error.kind,
+                                FailureKind::EditRejected | FailureKind::RevisionConflict
+                            ),
+                        active.note_context.draft.clone(),
+                    );
+                }
                 if let Action::Recovery(recovery) = &active.action {
                     self.recovery.failed(recovery);
                     if error.kind == FailureKind::RevisionConflict && !error.outcome_unknown {
@@ -400,13 +458,17 @@ impl StudioApp {
                         replayed,
                     } => {
                         self.library(library);
-                        if self.context() != active.context || self.draft != active.draft {
+                        if self.context() != active.context || self.draft != active.draft || self.notes.context()!=active.note_context {
                             if let Action::Recovery(recovery)=&active.action {self.recovery.failed(recovery);}
                             if matches!(active.action, Action::AttachCapture { .. }) {
                                 self.audio.publication_failed();
                             }
                             self.status="Action completed in storage; the newer local session/draft was kept.".into();
                             self.error=Some("The session or draft changed while this action ran. Its completion was retained in storage; your current draft was kept.".into());
+                            if let Command::Edit{intent}=&active.command
+                                && matches!(intent.scope,EditScope::DocumentNote {..}) {
+                                self.notes.failed_with_draft(intent.clone(),"The edit completed in storage, but the local context changed. Inspect the saved session or retry the exact receipt; newer local fields were preserved.".into(),false,active.note_context.draft.clone());
+                            }
                             return;
                         }
                         self.status = if replayed {
@@ -418,6 +480,7 @@ impl StudioApp {
                                 view.document.revision()
                             )
                         };
+                        if matches!(&active.command,Command::Edit{intent}if matches!(intent.scope,EditScope::DocumentNote{..})) {self.notes.succeeded();}
                         self.install_document(view);
                         if matches!(active.action, Action::AttachCapture { .. }) {
                             self.audio.publication_succeeded();
@@ -485,17 +548,54 @@ impl StudioApp {
             }
             return;
         }
-        if self.busy() {
+        if self
+            .notes
+            .failure
+            .as_ref()
+            .is_some_and(|failure| !failure.suspended)
+            && !matches!(
+                action,
+                Action::Close
+                    | Action::Refresh
+                    | Action::Note(
+                        NoteAction::Retry
+                            | NoteAction::Suspend
+                            | NoteAction::ReviewLatest
+                            | NoteAction::NewChoice
+                            | NoteAction::ReleaseRejected
+                    )
+            )
+            && !matches!(&action,Action::Recovery(recovery)if recovery.read_only())
+        {
+            self.error=Some("Keep the retained note draft locally or review its saved target before continuing. Its exact request will remain available.".into());
+            return;
+        }
+        let resolve = match &action {
+            Action::Note(
+                NoteAction::Select(_) | NoteAction::Track(_) | NoteAction::BeginMetadata,
+            ) => self.notes.dirty(),
+            Action::Note(
+                NoteAction::Save
+                | NoteAction::Discard
+                | NoteAction::Retry
+                | NoteAction::Suspend
+                | NoteAction::ReviewLatest
+                | NoteAction::NewChoice
+                | NoteAction::ReleaseRejected,
+            ) => false,
+            Action::Save | Action::Refresh => false,
+            Action::Recovery(recovery) if recovery.read_only() => false,
+            _ => self.dirty(),
+        };
+        // Even an outstanding read-only request cannot discard an unsent draft.
+        if resolve {
+            self.pending = Some(action);
+        } else if matches!(action, Action::Close) && self.notes.unresolved() {
+            self.note_close_requested = true;
+        } else if self.busy() {
             if matches!(action, Action::Close) {
                 self.closing = true;
             }
-            return;
-        }
-        if self.dirty()
-            && !matches!(action, Action::Save | Action::Refresh)
-            && !matches!(&action,Action::Recovery(recovery)if recovery.read_only())
-        {
-            self.pending = Some(action);
         } else {
             self.execute(action);
         }
@@ -518,6 +618,121 @@ impl StudioApp {
             && !matches!(&action,Action::Recovery(recovery)if recovery.read_only()||matches!(recovery,RecoveryAction::Attach {..}))
         {
             return Err("Resolve the retained capture attachment before this action".into());
+        }
+        if self
+            .notes
+            .failure
+            .as_ref()
+            .is_some_and(|failure| !failure.suspended)
+            && !matches!(
+                action,
+                Action::Close
+                    | Action::Refresh
+                    | Action::Note(
+                        NoteAction::Retry
+                            | NoteAction::Suspend
+                            | NoteAction::ReviewLatest
+                            | NoteAction::NewChoice
+                            | NoteAction::ReleaseRejected
+                    )
+            )
+            && !matches!(&action,Action::Recovery(recovery)if recovery.read_only())
+        {
+            return Err(
+                "Suspend or review the retained note edit before another session action".into(),
+            );
+        }
+        // Local choices never touch the service. Resolve guards run before here.
+        if let Action::Note(choice) = &action {
+            match choice {
+                NoteAction::Select(selection) => {
+                    let doc = self.document.as_ref().ok_or("No open session")?;
+                    self.notes.select(doc, selection.clone())?;
+                    return Ok(());
+                }
+                NoteAction::Track(id) => {
+                    let doc = self.document.as_ref().ok_or("No open session")?;
+                    self.selected_track = doc
+                        .tracks()
+                        .iter()
+                        .position(|track| track["id"].as_str() == Some(id))
+                        .ok_or("Track is no longer present")?;
+                    self.notes.selection = None;
+                    self.notes.draft = None;
+                    self.roll_needs_center = true;
+                    return Ok(());
+                }
+                NoteAction::Add(selection) => {
+                    if self.notes.unresolved() {
+                        return Err("Resolve the retained note intent first".into());
+                    }
+                    let doc = self.document.as_ref().ok_or("No open session")?;
+                    self.notes.add(doc, selection.clone())?;
+                    return Ok(());
+                }
+                NoteAction::BeginMetadata => {
+                    if self.notes.dirty() {
+                        return Err("Save or discard the note draft first".into());
+                    }
+                    return Ok(());
+                }
+                NoteAction::BeginNote => {
+                    if self.metadata_dirty() {
+                        return Err("Save or discard session details first".into());
+                    }
+                    return Ok(());
+                }
+                NoteAction::Discard => {
+                    let doc = self.document.as_ref().ok_or("No open session")?;
+                    self.notes.discard(doc);
+                    return Ok(());
+                }
+                NoteAction::Suspend => {
+                    self.notes.suspend();
+                    if let Some(retry) = &mut self.retry
+                        && matches!(&retry.command,Command::Edit{intent}if matches!(intent.scope,EditScope::DocumentNote {..}))
+                    {
+                        retry.after = None;
+                    }
+                    self.pending = None;
+                    return Ok(());
+                }
+                NoteAction::ReviewLatest => {
+                    let failure = self.notes.failure.as_ref().ok_or("No retained note edit")?;
+                    if !failure.known_rejected {
+                        return Err(
+                            "An uncertain result cannot be replaced with a new choice".into()
+                        );
+                    }
+                    let project_id = failure.intent.project_id.clone();
+                    self.notes.suspend();
+                    self.pending = None;
+                    if let Some(retry) = &mut self.retry {
+                        retry.after = None;
+                    }
+                    return self.submit(
+                        Command::Open {
+                            project_id: project_id.clone(),
+                        },
+                        Action::Open(project_id.0),
+                        None,
+                    );
+                }
+                NoteAction::NewChoice => {
+                    let doc = self.document.as_ref().ok_or("No open session")?;
+                    self.notes.new_choice(doc)?;
+                    self.retry = None;
+                    return Ok(());
+                }
+                NoteAction::ReleaseRejected => {
+                    let doc = self.document.as_ref().ok_or("No open session")?;
+                    self.notes.release_rejected(doc)?;
+                    self.retry = None;
+                    return Ok(());
+                }
+                NoteAction::Retry => return self.retry_note(),
+                _ => {}
+            }
         }
         let action = if let Action::Recovery(RecoveryAction::ChooseAttachment(choice)) = action {
             let document = self
@@ -558,6 +773,12 @@ impl StudioApp {
                 let document = self.document.as_ref().ok_or("No open session")?;
                 let edit = match &action {
                     Action::Save => {
+                        if self.notes.dirty() {
+                            return Err(
+                                "Save or discard the note draft before saving session details"
+                                    .into(),
+                            );
+                        }
                         let (name, tempo) = self.draft.values()?;
                         EditOperation::UpdateSession { name, tempo }
                     }
@@ -598,6 +819,17 @@ impl StudioApp {
                 publication: publication.as_ref().clone(),
             },
             Action::Recovery(recovery) => recovery.command()?,
+            Action::Note(choice) => {
+                if self.metadata_dirty() {
+                    return Err(
+                        "Save or discard session details before submitting a note edit".into(),
+                    );
+                }
+                let doc = self.document.as_ref().ok_or("No open session")?;
+                Command::Edit {
+                    intent: self.notes.intent(doc, choice)?,
+                }
+            }
             Action::Close => {
                 self.closing = true;
                 return Ok(());
@@ -641,6 +873,13 @@ impl StudioApp {
         let Some(active) = self.retry.clone() else {
             return;
         };
+        if matches!(&active.command,Command::Edit{intent}if matches!(intent.scope,EditScope::DocumentNote {..}))
+        {
+            if let Err(error) = self.retry_note() {
+                self.error = Some(error.to_string());
+            }
+            return;
+        }
         if self.context() != active.context || self.draft != active.draft {
             self.error = Some(
                 "Your draft changed. Keep these edits and choose a new save or reopen action."
@@ -650,6 +889,64 @@ impl StudioApp {
         }
         if let Err(error) = self.submit(active.command, active.action, active.after) {
             self.error = Some(error.to_string());
+        }
+    }
+    fn retry_note(&mut self) -> AppResult<()> {
+        let failure = self
+            .notes
+            .failure
+            .as_ref()
+            .ok_or("No retained note edit to retry")?;
+        if self.document.as_ref().map(ProjectDocument::id)
+            != Some(failure.intent.project_id.0.as_str())
+        {
+            return Err(
+                "Reopen the original target session before retrying this exact note edit".into(),
+            );
+        }
+        if self.metadata_dirty() {
+            return Err("Save or discard session details before exact note retry".into());
+        }
+        let intent = failure.intent.clone();
+        let after = self
+            .retry
+            .as_ref()
+            .filter(|active| {
+                !failure.suspended
+                    && active.context == self.context()
+                    && active.draft == self.draft
+                    && active.note_context == self.notes.context()
+            })
+            .and_then(|active| active.after.clone());
+        // Old expected revision belongs to the durable request; submit captures
+        // a fresh current UI context for this attempt independently.
+        self.submit(
+            Command::Edit { intent },
+            Action::Note(NoteAction::Retry),
+            after,
+        )
+    }
+    fn save_active_family(&mut self, after: Option<Action>) -> AppResult<()> {
+        if self.notes.dirty() {
+            self.dispatch(Action::Note(NoteAction::Save), after)
+        } else {
+            self.dispatch(Action::Save, after)
+        }
+    }
+    fn discard_active_family(&mut self) {
+        if let Some(doc) = &self.document {
+            if self.notes.dirty() {
+                if self.notes.unresolved() {
+                    self.notes.suspend();
+                    if let Some(retry) = &mut self.retry {
+                        retry.after = None;
+                    }
+                } else {
+                    self.notes.discard(doc);
+                }
+            } else {
+                self.draft = Draft::from_document(doc);
+            }
         }
     }
     fn loading_ui(&mut self, root: &mut egui::Ui) {
@@ -676,6 +973,8 @@ impl StudioApp {
         self.poll_audio();
         if !self.ready {
             self.loading_ui(root);
+            self.draft_guard_ui(&ctx);
+            self.note_close_guard_ui(&ctx);
             self.audio_close_guard_ui(&ctx);
             self.recovery_close_guard_ui(&ctx);
             if self.service.is_none() && self.error.is_none() && !self.closing {
@@ -725,6 +1024,7 @@ impl StudioApp {
             && !self.disconnected()
             && !self.audio.blocks_session()
             && !self.recovery.blocks_session();
+        let mut note_requested = None;
         egui::Panel::bottom("status").show(root, |ui| {
             if let Some(error) = &self.error {
                 ui.colored_label(egui::Color32::LIGHT_RED, error);
@@ -757,6 +1057,7 @@ impl StudioApp {
             ui.small(
                 "Native audio runs in a separate process. MIDI, plugins and model execution remain pending.",
             );
+            if let Some(choice)=self.notes.failure_ui(ui,available,self.document.as_ref()){note_requested=Some(Action::Note(choice));}
         });
         let recovery_available =
             !self.busy() && !self.disconnected() && !self.audio.blocks_session();
@@ -882,6 +1183,7 @@ impl StudioApp {
             });
         egui::CentralPanel::default().show(root, |ui| {
             if !available {ui.disable();}
+            egui::ScrollArea::vertical().id_salt("session-editor").show(ui,|ui|{
             if self.document.is_none() {
                 ui.add_space(60.0); ui.heading("Your music stays yours.");
                 ui.label("Create a native session, or bring in an existing OmniuSong project.");
@@ -891,13 +1193,14 @@ impl StudioApp {
             }
             ui.horizontal(|ui| {
                 ui.label("Session");
-                ui.add(egui::TextEdit::singleline(&mut self.draft.name).char_limit(160).desired_width(280.0)).accessible_name("Session name");
+                ui.add_enabled(!self.notes.dirty(),egui::TextEdit::singleline(&mut self.draft.name).char_limit(160).desired_width(280.0)).accessible_name("Session name");
                 ui.label("BPM");
-                ui.add(egui::TextEdit::singleline(&mut self.draft.tempo).char_limit(32).desired_width(65.0)).accessible_name("Tempo in BPM");
-                if ui.add_enabled(self.dirty(), egui::Button::new("Save changes")).clicked()
+                ui.add_enabled(!self.notes.dirty(),egui::TextEdit::singleline(&mut self.draft.tempo).char_limit(32).desired_width(65.0)).accessible_name("Tempo in BPM");
+                if ui.add_enabled(self.metadata_dirty()&&!self.notes.dirty(), egui::Button::new("Save changes")).clicked()
                     && let Err(error) = self.save() { self.error = Some(error.to_string()); }
-                if ui.add_enabled(self.dirty(), egui::Button::new("Discard edits")).clicked()
+                if ui.add_enabled(self.metadata_dirty()&&!self.notes.dirty(), egui::Button::new("Discard edits")).clicked()
                     && let Some(document) = &self.document { self.draft = Draft::from_document(document); }
+                if self.notes.dirty() && ui.button("Edit session details").clicked(){requested=Some(Action::Note(NoteAction::BeginMetadata));}
             });
             ui.horizontal(|ui| {
                 if ui.button("Undo saved change").clicked() { requested = Some(Action::Undo); }
@@ -927,8 +1230,8 @@ impl StudioApp {
                     ui.horizontal_wrapped(|ui| {
                         for (index, track) in tracks.iter().enumerate() {
                             let label = format!("{}{}", text(&track["name"]), if track["locked"] == true { " · locked" } else { "" });
-                            if ui.selectable_label(self.selected_track == index, label).clicked() {
-                                self.selected_track = index; self.selected_note = None; self.roll_needs_center = true;
+                            if ui.scope_builder(egui::UiBuilder::new().scope_id(egui::Id::unique(("track-selector",document.id(),text(&track["id"])))),|ui|ui.selectable_label(self.selected_track == index, label)).inner.clicked() {
+                                requested=Some(Action::Note(NoteAction::Track(track["id"].as_str().unwrap_or_default().into())));
                             }
                         }
                     });
@@ -942,7 +1245,14 @@ impl StudioApp {
                             ui.collapsing("Track provenance", |ui| { ui.monospace(provenance); });
                         }
                         if track["kind"] == "audio" { audio_details(ui, track); }
-                        else { piano_overview(ui, track, document.bars(), &mut self.selected_note, &mut self.roll_needs_center); }
+                        else if track["kind"]=="notes" {
+                            ui.columns(2,|columns|{
+                                if let Some(note_id)=piano_overview(&mut columns[0], document.id(), track, document.bars(), self.notes.selection.as_ref(), &mut self.roll_needs_center){requested=Some(Action::Note(NoteAction::Select(NoteSelection{project_id:document.id().into(),address:omniusong_core::DocumentNoteAddress{track_id:track["id"].as_str().unwrap_or_default().into(),note_id}})));}
+                                let metadata_dirty=self.draft.is_dirty(document);
+                                let selected_id=self.notes.selection.as_ref().map(|s|s.address.note_id.clone());
+                                if let Some(choice)=columns[1].scope_builder(egui::UiBuilder::new().scope_id(egui::Id::unique(("note-inspector",document.id(),text(&track["id"]),selected_id))),|ui|self.notes.ui(ui,document,track["id"].as_str().unwrap_or_default(),available,metadata_dirty)).inner{requested=Some(Action::Note(choice));}
+                            });
+                        }
                     }
                 }
                 ui.separator();
@@ -953,22 +1263,28 @@ impl StudioApp {
                     ui.add_enabled(false, egui::Button::new("Load audio plugin · pending"));
                 });
             }
+            });
         });
-        if let Some(action) = requested {
+        if let Some(action) = note_requested.or(requested) {
             self.request(action);
         }
+        self.draft_guard_ui(&ctx);
+        self.audio_close_guard_ui(&ctx);
+        self.recovery_close_guard_ui(&ctx);
+        self.note_close_guard_ui(&ctx);
+    }
+    fn draft_guard_ui(&mut self, ctx: &egui::Context) {
         if self.pending.is_some() {
             let mut resolution = 0;
-            let response = egui::Modal::new(egui::Id::unique("unsaved-edits")).show(&ctx, |ui| {
+            let response = egui::Modal::new(egui::Id::unique("unsaved-edits")).show(ctx, |ui| {
                 ui.heading("Save your edits?");
-                ui.label(
-                    "This session has unsaved changes. Save or discard them before continuing.",
-                );
+                ui.label(if self.notes.dirty(){"This note has unsaved changes. Save or discard this note draft before continuing."}else{"This session has unsaved changes. Save or discard them before continuing."});
+                if self.busy(){ui.label("Background work is still running. You can keep the window open or explicitly discard this local draft and close without waiting.");}
                 if let Some(error) = &self.error {
                     ui.colored_label(egui::Color32::LIGHT_RED, error);
                 }
                 ui.horizontal(|ui| {
-                    if ui.button("Save and continue").clicked() {
+                    if ui.add_enabled(!self.busy()&&!self.notes.unresolved(),egui::Button::new("Save and continue")).clicked() {
                         resolution = 1;
                     }
                     if ui.button("Discard and continue").clicked() {
@@ -983,18 +1299,16 @@ impl StudioApp {
                 resolution = 3;
             }
             match resolution {
-                1 => match self.dispatch(Action::Save, self.pending.clone()) {
+                1 => match self.save_active_family(self.pending.clone()) {
                     Ok(()) => {
                         self.pending = None;
                     }
                     Err(error) => self.error = Some(error.to_string()),
                 },
                 2 => {
-                    if let Some(document) = &self.document {
-                        self.draft = Draft::from_document(document);
-                    }
+                    self.discard_active_family();
                     if let Some(action) = self.pending.take() {
-                        self.execute(action);
+                        self.request(action);
                     }
                 }
                 3 => {
@@ -1004,8 +1318,6 @@ impl StudioApp {
                 _ => {}
             }
         }
-        self.audio_close_guard_ui(&ctx);
-        self.recovery_close_guard_ui(&ctx);
     }
     fn recovery_close_guard_ui(&mut self, ctx: &egui::Context) {
         if !self.recovery_close_requested {
@@ -1023,6 +1335,26 @@ impl StudioApp {
         }
         if resolution == 2 {
             self.recovery_close_requested = false;
+            self.closing = true;
+        }
+    }
+    fn note_close_guard_ui(&mut self, ctx: &egui::Context) {
+        if !self.note_close_requested {
+            return;
+        }
+        let mut close = false;
+        let mut keep = false;
+        egui::Modal::new(egui::Id::unique("retained-note-close")).show(ctx,|ui|{
+            ui.heading("Retained note edit is window-local");
+            ui.label("The attempted values and exact retry choice are kept only in this window. Closing discards this local card; a possibly completed edit is not cancelled or undone. Reopening shows saved reality.");
+            if ui.button("Keep note draft window open").clicked(){keep=true;}
+            if ui.button("Discard local note card and close without waiting").clicked(){close=true;}
+        });
+        if keep {
+            self.note_close_requested = false;
+        }
+        if close {
+            self.note_close_requested = false;
             self.closing = true;
         }
     }
@@ -1124,17 +1456,27 @@ fn audio_details(ui: &mut egui::Ui, track: &Value) {
 
 fn piano_overview(
     ui: &mut egui::Ui,
+    project_id: &str,
     track: &Value,
     bars: u64,
-    selected: &mut Option<usize>,
+    selected: Option<&NoteSelection>,
     needs_center: &mut bool,
-) {
+) -> Option<String> {
+    let mut chosen = None;
     let notes = track["notes"].as_array().map(Vec::as_slice).unwrap_or(&[]);
     ui.heading("Piano roll · inspect original notes");
-    ui.label(format!("{} notes · select a note below or in the roll · editing follows in a later native milestone", notes.len()));
+    ui.label(format!(
+        "{} saved notes · select an exact note below or in the roll · edit values in the inspector",
+        notes.len()
+    ));
     let max_end = notes
         .iter()
-        .map(|n| n["startTick"].as_u64().unwrap_or(0) + n["durationTicks"].as_u64().unwrap_or(0))
+        .map(|n| {
+            n["startTick"]
+                .as_u64()
+                .unwrap_or(0)
+                .saturating_add(n["durationTicks"].as_u64().unwrap_or(0))
+        })
         .max()
         .unwrap_or(0);
     let total_ticks = max_end.max(bars * 3840).max(1);
@@ -1172,31 +1514,29 @@ fn piano_overview(
             painter.line_segment([egui::pos2(x,clip.top()),egui::pos2(x,clip.bottom())],egui::Stroke::new(1.0,egui::Color32::from_gray(65)));
         }
         for (index,note) in notes.iter().enumerate() {
+            let selected_note=selected.is_some_and(|selected|selected.project_id==project_id&&selected.address.track_id==text(&track["id"])&&selected.address.note_id==text(&note["id"]));
             let start = note["startTick"].as_u64().unwrap_or(0);
             let duration = note["durationTicks"].as_u64().unwrap_or(1);
             let pitch = note["pitch"].as_u64().unwrap_or(0).min(127);
             let note_rect = egui::Rect::from_min_size(egui::pos2(rect.left()+start as f32/total_ticks as f32*content_width,rect.top()+(127-pitch) as f32*8.0),egui::vec2((duration as f32/total_ticks as f32*content_width).max(4.0),7.0));
             if !note_rect.intersects(clip) { continue; }
-            let response = ui.interact(note_rect,egui::Id::unique(("native-note",text(&track["id"]),text(&note["id"]))),egui::Sense::click());
-            response.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button,true,*selected==Some(index),format!("Note {} pitch {} tick {} duration {} velocity {}",index+1,pitch,start,duration,note["velocity16"])));
-            if response.clicked() { *selected=Some(index); }
-            painter.rect_filled(note_rect,1.5,if *selected==Some(index) { egui::Color32::GOLD } else { egui::Color32::from_rgb(99,215,182) });
+            let response = ui.interact(note_rect,egui::Id::unique(("native-note",project_id,text(&track["id"]),text(&note["id"]))),egui::Sense::click());
+            response.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button,true,selected_note,format!("Note {} pitch {} tick {} duration {} velocity {}",index+1,pitch,start,duration,note["velocity16"])));
+            if response.clicked() { chosen=note["id"].as_str().map(str::to_owned); }
+            painter.rect_filled(note_rect,1.5,if selected_note { egui::Color32::GOLD } else { egui::Color32::from_rgb(99,215,182) });
         }
     });
-    if let Some(index) = *selected
-        && let Some(note) = notes.get(index)
+    if let Some(selection) = selected
+        && selection.project_id == project_id
+        && selection.address.track_id == text(&track["id"])
+        && let Some(note) = notes
+            .iter()
+            .find(|note| note["id"].as_str() == Some(&selection.address.note_id))
     {
         ui.label(format!(
-            "Selected note {} · pitch {} · start {} ticks · length {} ticks · velocity {}/65535",
-            index + 1,
-            note["pitch"],
-            note["startTick"],
-            note["durationTicks"],
-            note["velocity16"]
+            "Selected note · pitch {} · start {} ticks · length {} ticks · velocity {}/65535",
+            note["pitch"], note["startTick"], note["durationTicks"], note["velocity16"]
         ));
-        if let Some(expression) = note.get("expression") {
-            ui.small(format!("Expression retained: {}", expression));
-        }
     }
     egui::ScrollArea::vertical()
         .id_salt("note-list")
@@ -1205,23 +1545,39 @@ fn piano_overview(
             for index in range {
                 let note = &notes[index];
                 if ui
-                    .selectable_label(
-                        *selected == Some(index),
-                        format!(
-                            "Note {} · pitch {} · tick {} · length {} · velocity {}",
-                            index + 1,
-                            note["pitch"],
-                            note["startTick"],
-                            note["durationTicks"],
-                            note["velocity16"]
-                        ),
+                    .scope_builder(
+                        egui::UiBuilder::new().scope_id(egui::Id::unique((
+                            "note-row",
+                            project_id,
+                            text(&track["id"]),
+                            text(&note["id"]),
+                        ))),
+                        |ui| {
+                            ui.selectable_label(
+                                selected.is_some_and(|selection| {
+                                    selection.project_id == project_id
+                                        && selection.address.track_id == text(&track["id"])
+                                        && selection.address.note_id == text(&note["id"])
+                                }),
+                                format!(
+                                    "Note {} · pitch {} · tick {} · length {} · velocity {}",
+                                    index + 1,
+                                    note["pitch"],
+                                    note["startTick"],
+                                    note["durationTicks"],
+                                    note["velocity16"]
+                                ),
+                            )
+                        },
                     )
+                    .inner
                     .clicked()
                 {
-                    *selected = Some(index);
+                    chosen = note["id"].as_str().map(str::to_owned);
                 }
             }
         });
+    chosen
 }
 
 impl StudioApp {
@@ -1237,13 +1593,16 @@ impl StudioApp {
             ui.ctx()
                 .send_viewport_cmd(egui::ViewportCommand::CancelClose);
             self.recovery_close_requested = true;
-        } else if ui.ctx().input(|i| i.viewport().close_requested()) && self.dirty() && !self.busy()
-        {
+        } else if ui.ctx().input(|i| i.viewport().close_requested()) && self.dirty() {
             ui.ctx()
                 .send_viewport_cmd(egui::ViewportCommand::CancelClose);
             if self.pending.is_none() {
                 self.pending = Some(Action::Close);
             }
+        } else if ui.ctx().input(|i| i.viewport().close_requested()) && self.notes.unresolved() {
+            ui.ctx()
+                .send_viewport_cmd(egui::ViewportCommand::CancelClose);
+            self.note_close_requested = true;
         }
         self.show(ui);
         self.audio.live_input(
@@ -1251,6 +1610,7 @@ impl StudioApp {
             self.pending.is_some()
                 || self.audio_close_requested
                 || self.recovery_close_requested
+                || self.note_close_requested
                 || self.closing,
         );
         if self.closing {
@@ -1718,6 +2078,362 @@ mod tests {
         assert_eq!(fs::read(marker).unwrap(), b"preserve");
     }
 
+    fn note_fixture_document() -> (ProjectDocument, NoteSelection) {
+        let mut value = ProjectDocument::new("Synthetic note UI")
+            .unwrap()
+            .value()
+            .clone();
+        value["tracks"][0]["id"] = serde_json::json!("鍵盤\0");
+        value["tracks"][0]["notes"] = serde_json::json!([
+            {"id":"","pitch":60,"startTick":37,"durationTicks":960,"velocity16":65001,"expression":[{"type":"pitch","points":[{"tick":0,"value32":2147483648u32},{"tick":960,"value32":4294967295u32}]}],"input":{"sourceId":"synthetic","sourceName":"No device","protocol":"midi2","group":3,"channel":5,"receivedTimeMs":1.25,"releaseVelocity16":61111,"keyDurationTicks":900},"opaque":{"keep":[null,"exact"]}},
+            {"id":"same-pitch","pitch":60,"startTick":37,"durationTicks":960,"velocity16":123,"expression":[]}
+        ]);
+        let document = ProjectDocument::from_value(value).unwrap();
+        let selection = NoteSelection {
+            project_id: document.id().into(),
+            address: omniusong_core::DocumentNoteAddress {
+                track_id: "鍵盤\0".into(),
+                note_id: "".into(),
+            },
+        };
+        (document, selection)
+    }
+    fn revision(document: &ProjectDocument, revision: u64) -> ProjectDocument {
+        let mut value = document.value().clone();
+        value["revision"] = revision.into();
+        ProjectDocument::from_value(value).unwrap()
+    }
+    fn note_completion(
+        peer: &omniusong_session::TestPeer,
+        id: RequestId,
+        document: ProjectDocument,
+        replayed: bool,
+    ) {
+        peer.responses
+            .try_send(Completion {
+                id,
+                kind: CommandKind::Edit,
+                result: Ok(Reply::Document {
+                    view: DocumentView::prepare(document).unwrap(),
+                    library: Library::default(),
+                    replayed,
+                }),
+            })
+            .unwrap();
+    }
+    #[test]
+    fn accessible_note_save_and_metadata_continuation_keep_one_family_and_bind_revision_at_dispatch()
+     {
+        let fixture = Fixture::new();
+        let (ctx, mut app, peer) = manual(&fixture);
+        let (document, selection) = note_fixture_document();
+        let source = document.to_json().unwrap();
+        app.install_document(DocumentView::prepare(document.clone()).unwrap());
+        app.request(Action::Note(NoteAction::Select(selection.clone())));
+        app.notes.draft.as_mut().unwrap().velocity = "0".into();
+        app.request(Action::Open(document.id().into()));
+        click(&ctx, &mut app, "Cancel");
+        assert!(app.pending.is_none());
+        assert_eq!(app.notes.draft.as_ref().unwrap().velocity, "0");
+        assert!(peer.requests.try_recv().is_err());
+        app.request(Action::Note(NoteAction::BeginMetadata));
+        click(&ctx, &mut app, "Save and continue");
+        let first = peer.requests.try_recv().unwrap();
+        let Command::Edit { intent } = first.command else {
+            panic!()
+        };
+        assert_eq!(intent.expected_revision, 0);
+        assert_eq!(
+            intent.scope,
+            EditScope::DocumentNote {
+                address: selection.address.clone()
+            }
+        );
+        let EditOperation::UpdateNote { values, timeline } = intent.edit else {
+            panic!()
+        };
+        assert_eq!(values.velocity16, 0);
+        let saved = revision(
+            &document
+                .update_note(&selection.address, values, timeline)
+                .unwrap(),
+            1,
+        );
+        note_completion(&peer, first.id, saved.clone(), false);
+        let _ = frame(&ctx, &mut app, vec![]);
+        assert!(!app.notes.dirty());
+        assert_eq!(app.notes.selection, Some(selection.clone()));
+        app.draft.name = "Metadata before authored note".into();
+        let mut add = selection.clone();
+        add.address.note_id = uuid::Uuid::new_v4().to_string();
+        app.request(Action::Note(NoteAction::Add(add.clone())));
+        click(&ctx, &mut app, "Save and continue");
+        let metadata = peer.requests.try_recv().unwrap();
+        let Command::Edit { intent } = metadata.command else {
+            panic!()
+        };
+        assert_eq!(intent.expected_revision, 1);
+        assert!(matches!(intent.edit, EditOperation::UpdateSession { .. }));
+        let mut next = saved.clone();
+        next.rename("Metadata before authored note").unwrap();
+        note_completion(&peer, metadata.id, revision(&next, 2), false);
+        let _ = frame(&ctx, &mut app, vec![]);
+        assert_eq!(app.notes.draft.as_ref().unwrap().selection, add);
+        assert!(app.notes.draft.as_ref().unwrap().is_new);
+        assert!(app.notes.dirty());
+        click(&ctx, &mut app, "Discard note");
+        assert!(app.notes.draft.is_none());
+        assert!(peer.requests.try_recv().is_err());
+        assert_eq!(document.to_json().unwrap(), source);
+    }
+    #[test]
+    fn uncertain_note_survives_navigation_and_exact_retry_uses_current_completion_context() {
+        let fixture = Fixture::new();
+        let (ctx, mut app, peer) = manual(&fixture);
+        let (document, selection) = note_fixture_document();
+        app.install_document(DocumentView::prepare(document.clone()).unwrap());
+        app.request(Action::Note(NoteAction::Select(selection.clone())));
+        app.notes.draft.as_mut().unwrap().velocity = "0".into();
+        app.dispatch(
+            Action::Note(NoteAction::Save),
+            Some(Action::Open("cancelled-continuation".into())),
+        )
+        .unwrap();
+        let first = peer.requests.try_recv().unwrap();
+        let exact = match &first.command {
+            Command::Edit { intent } => intent.clone(),
+            _ => panic!(),
+        };
+        peer.responses
+            .try_send(Completion {
+                id: first.id,
+                kind: CommandKind::Edit,
+                result: Err(ServiceError::backend(
+                    "Synthetic lost note acknowledgement",
+                    true,
+                )),
+            })
+            .unwrap();
+        let _ = frame(&ctx, &mut app, vec![]);
+        app.request(Action::Note(NoteAction::Suspend));
+        assert!(!app.dirty());
+        assert!(app.retry.as_ref().unwrap().after.is_none());
+        let other = ProjectDocument::new("Other synthetic session").unwrap();
+        app.request(Action::Open(other.id().into()));
+        let open = peer.requests.try_recv().unwrap();
+        peer.responses
+            .try_send(Completion {
+                id: open.id,
+                kind: CommandKind::Open,
+                result: Ok(Reply::Document {
+                    view: DocumentView::prepare(other).unwrap(),
+                    library: Library::default(),
+                    replayed: false,
+                }),
+            })
+            .unwrap();
+        let _ = frame(&ctx, &mut app, vec![]);
+        assert_eq!(app.notes.failure.as_ref().unwrap().intent, exact);
+        app.request(Action::Open(document.id().into()));
+        let open = peer.requests.try_recv().unwrap();
+        let latest = revision(&document, 5);
+        peer.responses
+            .try_send(Completion {
+                id: open.id,
+                kind: CommandKind::Open,
+                result: Ok(Reply::Document {
+                    view: DocumentView::prepare(latest.clone()).unwrap(),
+                    library: Library::default(),
+                    replayed: false,
+                }),
+            })
+            .unwrap();
+        let _ = frame(&ctx, &mut app, vec![]);
+        assert!(peer.requests.try_recv().is_err());
+        app.request(Action::Note(NoteAction::Retry));
+        let retry = peer.requests.try_recv().unwrap();
+        assert_ne!(first.id, retry.id);
+        assert!(matches!(&retry.command,Command::Edit{intent}if *intent==exact));
+        assert_eq!(
+            app.active.as_ref().unwrap().context,
+            Some((document.id().into(), 5))
+        );
+        note_completion(&peer, retry.id, latest, true);
+        let _ = frame(&ctx, &mut app, vec![]);
+        assert!(app.notes.failure.is_none());
+        assert_eq!(app.document.as_ref().unwrap().revision(), 5);
+        assert!(peer.requests.try_recv().is_err());
+    }
+    #[test]
+    fn known_note_conflict_reviews_latest_directly_then_requires_explicit_new_save() {
+        let fixture = Fixture::new();
+        let (ctx, mut app, peer) = manual(&fixture);
+        let (document, selection) = note_fixture_document();
+        app.install_document(DocumentView::prepare(document.clone()).unwrap());
+        app.request(Action::Note(NoteAction::Select(selection.clone())));
+        app.notes.draft.as_mut().unwrap().pitch = "61".into();
+        app.request(Action::Note(NoteAction::Save));
+        let first = peer.requests.try_recv().unwrap();
+        let old = match first.command {
+            Command::Edit { intent } => intent,
+            _ => panic!(),
+        };
+        peer.responses
+            .try_send(Completion {
+                id: first.id,
+                kind: CommandKind::Edit,
+                result: Err(ServiceError {
+                    kind: FailureKind::RevisionConflict,
+                    message: "Synthetic note conflict".into(),
+                    outcome_unknown: false,
+                }),
+            })
+            .unwrap();
+        let _ = frame(&ctx, &mut app, vec![]);
+        app.request(Action::Note(NoteAction::ReviewLatest));
+        assert!(app.pending.is_none());
+        let open = peer.requests.try_recv().unwrap();
+        assert!(matches!(open.command, Command::Open { .. }));
+        peer.responses
+            .try_send(Completion {
+                id: open.id,
+                kind: CommandKind::Open,
+                result: Ok(Reply::Document {
+                    view: DocumentView::prepare(revision(&document, 4)).unwrap(),
+                    library: Library::default(),
+                    replayed: false,
+                }),
+            })
+            .unwrap();
+        let _ = frame(&ctx, &mut app, vec![]);
+        assert!(peer.requests.try_recv().is_err());
+        app.request(Action::Note(NoteAction::NewChoice));
+        assert!(app.notes.failure.is_none());
+        assert_eq!(app.notes.draft.as_ref().unwrap().pitch, "61");
+        assert!(peer.requests.try_recv().is_err());
+        click(&ctx, &mut app, "Save note");
+        let next = peer.requests.try_recv().unwrap();
+        let Command::Edit { intent } = next.command else {
+            panic!()
+        };
+        assert_ne!(intent.operation_id, old.operation_id);
+        assert_eq!(intent.expected_revision, 4);
+    }
+    #[test]
+    fn busy_readonly_close_requires_explicit_note_discard_and_never_waits_for_worker() {
+        let fixture = Fixture::new();
+        let (ctx, mut app, peer) = manual(&fixture);
+        let (document, selection) = note_fixture_document();
+        app.install_document(DocumentView::prepare(document).unwrap());
+        app.request(Action::Note(NoteAction::Select(selection)));
+        app.notes.draft.as_mut().unwrap().velocity = "invalid".into();
+        app.execute(Action::Refresh);
+        let _ = peer.requests.try_recv().unwrap();
+        assert!(app.busy());
+        click(&ctx, &mut app, "Close window");
+        assert!(app.pending.is_some());
+        assert!(!app.closing);
+        click(&ctx, &mut app, "Cancel");
+        assert!(app.pending.is_none());
+        assert_eq!(app.notes.draft.as_ref().unwrap().velocity, "invalid");
+        click(&ctx, &mut app, "Close window");
+        click(&ctx, &mut app, "Discard and continue");
+        assert!(app.closing);
+        assert!(app.busy());
+        assert!(peer.requests.try_recv().is_err());
+    }
+
+    #[test]
+    fn accessible_note_widget_identity_tracks_exact_keys_across_reorder_and_project_copy() {
+        let fixture = Fixture::new();
+        let (ctx, mut app, peer) = manual(&fixture);
+        let (document, selection) = note_fixture_document();
+        app.install_document(DocumentView::prepare(document.clone()).unwrap());
+        app.request(Action::Note(NoteAction::Select(selection.clone())));
+        let _ = frame(&ctx, &mut app, vec![]);
+        let tree = frame(&ctx, &mut app, vec![])
+            .platform_output
+            .accesskit_update
+            .unwrap();
+        let row = tree
+            .nodes
+            .iter()
+            .find(|(_, node)| {
+                node.label() == Some("Note 2 · pitch 60 · tick 37 · length 960 · velocity 123")
+            })
+            .expect("visible virtual note row")
+            .0;
+        let other_track = tree
+            .nodes
+            .iter()
+            .find(|(_, node)| node.label() == Some("Pocket drums"))
+            .expect("track selector")
+            .0;
+        let click_old = |target| {
+            egui::Event::AccessKitActionRequest(egui::accesskit::ActionRequest {
+                action: egui::accesskit::Action::Click,
+                target_tree: tree.tree_id,
+                target_node: target,
+                data: None,
+            })
+        };
+        let mut value = document.value().clone();
+        value["tracks"][0]["notes"]
+            .as_array_mut()
+            .unwrap()
+            .reverse();
+        let reordered = ProjectDocument::from_value(value).unwrap();
+        app.install_document(DocumentView::prepare(reordered.clone()).unwrap());
+        let _ = frame(&ctx, &mut app, vec![click_old(row)]);
+        assert_eq!(
+            app.notes.selection.as_ref().unwrap().address.note_id,
+            "same-pitch",
+            "Reordering must keep the old accessible target bound to its exact note key"
+        );
+        app.notes.draft.as_mut().unwrap().velocity = "0".into();
+        let save_tree = frame(&ctx, &mut app, vec![])
+            .platform_output
+            .accesskit_update
+            .unwrap();
+        let old_save = save_tree
+            .nodes
+            .iter()
+            .find(|(_, node)| node.label() == Some("Save note"))
+            .expect("save button")
+            .0;
+        let mut value = reordered.value().clone();
+        value["id"] = uuid::Uuid::new_v4().to_string().into();
+        let copy = ProjectDocument::from_value(value).unwrap();
+        app.install_document(DocumentView::prepare(copy.clone()).unwrap());
+        let _ = frame(&ctx, &mut app, vec![click_old(row), click_old(other_track)]);
+        assert!(
+            app.notes.selection.is_none(),
+            "A copy legitimately reuses track/note keys but cannot accept the original project's accessible target"
+        );
+        assert_eq!(app.selected_track, 0);
+        let mut target = selection;
+        target.project_id = copy.id().into();
+        app.request(Action::Note(NoteAction::Select(target)));
+        app.notes.draft.as_mut().unwrap().velocity = "42".into();
+        let _ = frame(
+            &ctx,
+            &mut app,
+            vec![egui::Event::AccessKitActionRequest(
+                egui::accesskit::ActionRequest {
+                    action: egui::accesskit::Action::Click,
+                    target_tree: save_tree.tree_id,
+                    target_node: old_save,
+                    data: None,
+                },
+            )],
+        );
+        assert!(
+            peer.requests.try_recv().is_err(),
+            "An old inspector Save must not submit a new project's draft"
+        );
+        assert_eq!(app.notes.draft.as_ref().unwrap().velocity, "42");
+    }
+
     #[test]
     fn failed_initialization_stays_visible_and_only_explicit_action_retries() {
         let fixture = Fixture::new();
@@ -1734,6 +2450,7 @@ mod tests {
             action: Action::Refresh,
             context: None,
             draft: Draft::default(),
+            note_context: NoteEditor::default().context(),
             after: None,
         });
         peer.responses

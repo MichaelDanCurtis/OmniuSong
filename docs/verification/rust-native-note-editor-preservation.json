@@ -1,0 +1,56 @@
+{
+  "format": "omniusong.native-note-editor-preservation",
+  "version": 1,
+  "recordedAtUtc": "2026-10-20T23:02:28.041750+00:00",
+  "baseline": {
+    "path": ".runtime/rust-note-ui/pre-editor-store.json",
+    "sha256": "c1477dd6960aee5e0acd8093e437464241b25d6dceb1e15fef8fb2da31eb777c",
+    "byteLength": 8533
+  },
+  "afterFixture": {
+    "path": ".runtime/rust-note-ui/after-fixture-store.json",
+    "sha256": "d37c222fb71aa7d36223f6be0615c48398a534e31957acb09b899b61c938ef2b",
+    "byteLength": 8653
+  },
+  "afterLoading": {
+    "path": ".runtime/rust-note-ui/after-editor-loading-store.json",
+    "sha256": "bd82e0ef9297bac34088cb4966da90147634d64dc2329c7791d924ceba9fe94b",
+    "byteLength": 8653
+  },
+  "priorTenProjectsAndTheirClosureExact": true,
+  "onlyNewCatalogRowBeforeEditorChecks": {
+    "table": "projects",
+    "projectId": "ca0f6e4f-c40a-4d7b-a435-77d3a0ddbd19"
+  },
+  "catalogBytesUnchangedAfterFixture": true,
+  "ownedOriginalTakesExact": [
+    {
+      "path": ".runtime/native-studio/takes/679914498bf02ced1570f8b58ba441eb1f958e8dec54d2931a4eab9f3657ff6b.sqlite3",
+      "sha256": "679914498bf02ced1570f8b58ba441eb1f958e8dec54d2931a4eab9f3657ff6b",
+      "byteLength": 40960
+    },
+    {
+      "path": ".runtime/native-studio/takes/8460ff93703afb9c89ac7359e45761e9605fb1a1ae029aa8dc068398e11bd897.sqlite3",
+      "sha256": "8460ff93703afb9c89ac7359e45761e9605fb1a1ae029aa8dc068398e11bd897",
+      "byteLength": 917504
+    },
+    {
+      "path": ".runtime/native-studio/takes/e654b488b83a63d9323615e5b725dafbb8565ac901621c12954c1885ee428430.sqlite3",
+      "sha256": "e654b488b83a63d9323615e5b725dafbb8565ac901621c12954c1885ee428430",
+      "byteLength": 139264
+    }
+  ],
+  "originalPrototypeFilesExact": 30,
+  "integrityAndForeignKeysPassed": true,
+  "actualEditorActionsPerformed": false,
+  "nativeInputOpened": false,
+  "limits": [
+    "No original native session was edited; only one new clearly labelled synthetic project was created by the reviewed fixture helper.",
+    "New native editor GUI remains at file-open; this is preparation/loading preservation, not edit/archive/restart acceptance."
+  ],
+  "originalPrototypeManifest": {
+    "path": "docs/verification/rust-migration-baseline.json",
+    "sha256": "1169fdd5337f98798b0dbd6fb2b87c69ff5f8ab6759ad7454f4c587e3b25536e",
+    "byteLength": 7170
+  }
+}

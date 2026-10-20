@@ -1,0 +1,83 @@
+{
+  "format": "omniusong.native-note-editor-ui-verification",
+  "version": 1,
+  "recordedAtUtc": "2026-10-20T23:02:28.042302+00:00",
+  "completed": false,
+  "binary": {
+    "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+    "sha256": "85ef6cd710eb98aa391cac9468d262c2b34adb02e0305e98b310e602ffa02162",
+    "byteLength": 85287456
+  },
+  "processId": 63138,
+  "loadingWindowVerified": true,
+  "studioOpened": false,
+  "nativeEditorOperated": false,
+  "nativeInputOpened": false,
+  "physicalMicrophoneOpened": false,
+  "observation": "Responsive native loading window; matched session-worker sample is waiting in SQLite openDatabase -> macOS __open. The stack does not establish prompt presence or its cause. Conditional user action for any new drive-access prompt remains pending.",
+  "fixture": {
+    "path": ".runtime/rust-note-ui/fixture.json",
+    "sha256": "76598ddf083590dd82c6dfe38b2cd00b25d9b6c9d6d83d3df68e229f37966598",
+    "byteLength": 10569
+  },
+  "syntheticProjectId": "ca0f6e4f-c40a-4d7b-a435-77d3a0ddbd19",
+  "syntheticProjectName": "SYNTHETIC note editor walkthrough 5fa86e22",
+  "sourceArchive": {
+    "assetCount": 0,
+    "byteLength": 114688,
+    "historyRows": 0,
+    "operationRows": 0,
+    "path": "/Volumes/Main External/Development/OmniuSong/.runtime/rust-note-ui/note-editor-ui-2fa2de26-d4db-48e9-96b6-2055845bb0df/source.omniusong-native",
+    "sha256": "6ccd987a4c4a16d6c3587fdf4a845a27bee3c9b83f63a57cf3cfe2c42b6b4c06",
+    "takeCount": 0
+  },
+  "artifacts": [
+    {
+      "path": ".runtime/rust-note-ui/opening.ax.txt",
+      "sha256": "d1d9b23fe351c89109ac94f5dfb5be43915dc173d2c1d0cf4622b19835fa080b",
+      "byteLength": 795
+    },
+    {
+      "path": ".runtime/rust-note-ui/opening.jpg",
+      "sha256": "7a97b1a21d40813e821b8a09ffbd5d3f56e94b517e7aaa7546ba59d326e625b8",
+      "byteLength": 52044
+    },
+    {
+      "path": ".runtime/rust-note-ui/opening-third.ax.txt",
+      "sha256": "d1d9b23fe351c89109ac94f5dfb5be43915dc173d2c1d0cf4622b19835fa080b",
+      "byteLength": 795
+    },
+    {
+      "path": ".runtime/rust-note-ui/opening-third.jpg",
+      "sha256": "7a97b1a21d40813e821b8a09ffbd5d3f56e94b517e7aaa7546ba59d326e625b8",
+      "byteLength": 52044
+    },
+    {
+      "path": ".runtime/rust-note-ui/opening-worker.sample.txt",
+      "sha256": "de17df050b8e569d406bb6a8b63865b7bfc96d33470f4667a8896fd69022a7c0",
+      "byteLength": 371928
+    }
+  ],
+  "softwareEvidence": [
+    "docs/verification/rust-native-note-editor-tests.json",
+    "docs/verification/rust-native-note-editing.json"
+  ],
+  "renderPreflight": {
+    "path": ".runtime/rust-note-ui/render-preflight.json",
+    "sha256": "604cd7f7e85d9b80dd307293ceed8c6093a044542ffe10de4d63e27f4af9b568",
+    "byteLength": 4347
+  },
+  "renderPreflightScope": "Identical supplied synthetic r0 JSON renders identically through production prepare -> RenderCursor: 84377 stereo frames; two675060-byte WAVs. No UI edit, native device, performance capture or listening acceptance.",
+  "preservation": "docs/verification/rust-native-note-editor-preservation.json",
+  "requiredNextChecks": [
+    "Retain this exact binary/path/signature through studio opening, synthetic editor walkthrough and actual restart.",
+    "Operate exact note selection, invalid/valid integer fields, Save/Discard/Cancel, Add/Delete/Restore and history with source/metadata comparisons.",
+    "Exercise an expressive legacy-key note and explicit out-of-loop/schema policy; no stripping expression for playback.",
+    "Bind an actual saved unmuted-note edit snapshot to production-render WAV/hash differences; current same-input preflight is not that evidence.",
+    "Export/inspect/restore a complete edited archive, clean close/process exit/restart/reopen, and verify existing projects/originals unchanged."
+  ],
+  "limits": [
+    "All native editor interaction remains unqualified on85ef…; the earlier2dd… live-audition walkthrough is not transferred.",
+    "No physical input, microphone capture, MIDI2/MPE transport, expression audition, inference, plugin, installer, latency or Windows acceptance."
+  ]
+}
