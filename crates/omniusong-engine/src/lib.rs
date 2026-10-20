@@ -4,6 +4,8 @@
 //! is a procedural audition instrument, not model inference.
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+pub mod live_types;
+pub use live_types::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "command", rename_all = "snake_case", deny_unknown_fields)]
@@ -12,6 +14,10 @@ pub enum EngineCommand {
     StartPlayback {
         project_id: String,
         output_device: Option<String>,
+    },
+    StartLive {
+        output_device: Option<String>,
+        gui_clock: LiveClock,
     },
     Stop,
     StartCapture {
@@ -68,6 +74,12 @@ pub struct CapturedTake {
     deny_unknown_fields
 )]
 pub enum EngineResult {
+    Initialized {
+        profile: String,
+        worker_generation: LiveId,
+    },
+    LiveStarted(LiveReady),
+    LiveStatus(LiveProgress),
     Devices(DeviceInventory),
     Playing(EngineStatus),
     Stopped,
@@ -83,6 +95,8 @@ pub struct EngineReply {
 }
 
 pub mod capture;
+pub mod live;
+mod live_supervisor;
 pub mod realtime;
 pub mod render;
 mod transport;

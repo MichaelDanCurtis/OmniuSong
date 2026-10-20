@@ -1,0 +1,48 @@
+{
+  "format": "omniusong.native-live-audition-ui-verification",
+  "version": 1,
+  "recordedAtUtc": "2026-10-20T22:08:36.822125+00:00",
+  "completed": false,
+  "binary": {
+    "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+    "sha256": "35822214bdc1e3b32ba019a2ad7ec9e32fe0c957bb507b4cbdd5eb1f217bf1e6",
+    "byteLength": 84357248
+  },
+  "processId": 19533,
+  "loadingWindowVerified": true,
+  "studioOpened": false,
+  "nativeLiveOutputOpened": false,
+  "physicalMicrophoneOpened": false,
+  "nativeInputOpened": false,
+  "observation": "Responsive native loading window; matched process sample shows omniusong-sessions -> SQLite openDatabase -> __open. A pending permission prompt or its outcome is not established by the stack. User had allowed the previous build; conditional prompt question for this new build remains pending.",
+  "artifacts": [
+    {
+      "path": ".runtime/rust-live-ui/opening.ax.txt",
+      "sha256": "d1d9b23fe351c89109ac94f5dfb5be43915dc173d2c1d0cf4622b19835fa080b",
+      "byteLength": 795
+    },
+    {
+      "path": ".runtime/rust-live-ui/opening.jpg",
+      "sha256": "0e8e2779ce29a7ee05fb3da684c91136d5fac05c708bf867c0c5b9261371315e",
+      "byteLength": 52634
+    },
+    {
+      "path": ".runtime/rust-live-ui/opening-worker.sample.txt",
+      "sha256": "7c1196391c6bd11e518cd044845f6e1abb46ff7f198424953bd55e9772ac41e3",
+      "byteLength": 399934
+    },
+    {
+      "path": ".runtime/rust-live-ui/pre-audition-store.json",
+      "sha256": "2148fe8279b41e8c5bbc62d3736984aa7944b130a0353e73c14464a38f911633",
+      "byteLength": 7365
+    }
+  ],
+  "requiredNextChecks": [
+    "Retain this exact bundle/path/signature through the walkthrough and restart.",
+    "Observe actual studio opening, reopen saved recording and confirm source detail.",
+    "Select output and explicitly start live audition; press/release keys and pads, sustain, All notes off, text/focus cleanup and acknowledged Stop.",
+    "Confirm project/catalog/original hashes unchanged through unsaved audition.",
+    "Verify actual restart and saved project reopening."
+  ],
+  "earlierSeparateBinaryWalkthrough": "docs/verification/rust-native-capture-recovery-ui.json"
+}

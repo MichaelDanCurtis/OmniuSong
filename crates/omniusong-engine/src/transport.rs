@@ -1,7 +1,6 @@
-use crate::{EngineCommand, EngineReply, EngineResult};
-use omniusong_core::contracts::{
-    Architecture, ContractError, Platform, Validate, WirePayload, WorkerRole,
-};
+use crate::live_supervisor::{self, ClientLanes, FaultRequest, PanicRequest};
+use crate::*;
+use omniusong_core::contracts::{Architecture, ContractError, Platform, Validate, WirePayload};
 use serde::{Deserialize, Serialize};
 use std::{
     path::PathBuf,
@@ -11,15 +10,40 @@ use std::{
         mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError},
     },
     thread,
-    time::Duration,
 };
 const WIRE_BYTES: usize = 64 * 1024;
-pub(crate) const BUILD: &str = concat!("omniusong-engine-", env!("CARGO_PKG_VERSION"));
+pub(crate) const BUILD: &str = ENGINE_BUILD_ID;
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
+// The fixed 32-event packet stays inline (currently 1,864 bytes). The private
+// actor has one in-flight request; boxing would add an unnecessary allocation.
+#[allow(clippy::large_enum_variant)]
 pub(crate) enum Action {
-    Initialize { store_root: PathBuf },
-    Command { command: EngineCommand },
+    Initialize {
+        store_root: PathBuf,
+        worker_generation: LiveId,
+        profile: String,
+    },
+    LiveBatch {
+        batch: LiveBatch,
+    },
+    LiveFault {
+        scope: LiveScope,
+        kind: LiveFaultKind,
+        sequence: Option<u64>,
+    },
+    PanicLive {
+        ticket: UrgentTicket,
+        scope: LiveScope,
+    },
+    UrgentStop {
+        ticket: UrgentTicket,
+        cancelled_through_control: u64,
+        superseded_panic: Option<(UrgentTicket, LiveScope)>,
+    },
+    Command {
+        command: EngineCommand,
+    },
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -31,6 +55,8 @@ pub(crate) struct Request {
 #[serde(deny_unknown_fields)]
 pub(crate) struct Response {
     pub reply: EngineReply,
+    #[serde(default)]
+    pub update: Option<EngineUpdate>,
 }
 fn require(ok: bool, s: &str) -> Result<(), ContractError> {
     if ok {
@@ -54,6 +80,15 @@ pub(crate) fn command_valid(command: &EngineCommand) -> Result<(), String> {
             output_device
         }
         EngineCommand::StartCapture { input_device } => input_device,
+        EngineCommand::StartLive {
+            output_device,
+            gui_clock,
+        } => {
+            if !gui_clock.is_valid() {
+                return Err("Invalid live GUI clock".into());
+            }
+            output_device
+        }
         _ => return Ok(()),
     };
     if device.as_ref().is_some_and(|s| !text(s, 1024)) {
@@ -64,11 +99,51 @@ pub(crate) fn command_valid(command: &EngineCommand) -> Result<(), String> {
 impl Validate for Request {
     fn validate(&self) -> Result<(), ContractError> {
         match &self.action {
-            Action::Initialize { store_root } => require(
-                store_root.is_absolute() && store_root.to_string_lossy().len() <= 4096,
+            Action::Initialize {
+                store_root,
+                worker_generation,
+                profile,
+            } => require(
+                store_root.is_absolute()
+                    && store_root.to_string_lossy().len() <= 4096
+                    && worker_generation.is_valid()
+                    && profile == LIVE_PROTOCOL,
                 "Invalid engine store path",
             ),
             Action::Command { command } => command_valid(command).map_err(ContractError),
+            Action::LiveBatch { batch } => require(
+                batch.validate_shape(768000).is_ok()
+                    && serde_json::to_vec(batch).is_ok_and(|v| v.len() <= LIVE_WIRE_BYTES),
+                "Invalid or oversized live batch",
+            ),
+            Action::LiveFault {
+                scope, sequence, ..
+            } => require(
+                scope.is_valid() && *sequence != Some(0),
+                "Invalid scoped live fault",
+            ),
+            Action::PanicLive { ticket, scope } => require(
+                scope.is_valid()
+                    && ticket.worker_generation == scope.worker_generation
+                    && ticket.id > 0,
+                "Invalid panic ticket",
+            ),
+            Action::UrgentStop {
+                ticket,
+                superseded_panic,
+                ..
+            } => require(
+                ticket.worker_generation.is_valid()
+                    && ticket.id > 0
+                    && superseded_panic.is_none_or(|(p, s)| {
+                        s.is_valid()
+                            && s.worker_generation == ticket.worker_generation
+                            && p.worker_generation == ticket.worker_generation
+                            && p.id > 0
+                            && p.id <= ticket.id
+                    }),
+                "Invalid Stop ticket",
+            ),
         }
     }
 }
@@ -78,6 +153,9 @@ impl WirePayload for Request {
 }
 impl Validate for Response {
     fn validate(&self) -> Result<(), ContractError> {
+        if self.update.is_some_and(|u| !u.is_valid()) {
+            return Err(ContractError("Invalid engine update".into()));
+        }
         match &self.reply.result {
             Err(s) => require(text(s, 16 * 1024), "Invalid engine error"),
             Ok(EngineResult::Devices(d)) => {
@@ -164,6 +242,17 @@ impl Validate for Response {
                     && (1..=8).contains(&c.channels),
                 "Invalid captured take receipt",
             ),
+            Ok(EngineResult::Initialized {
+                profile,
+                worker_generation,
+            }) => require(
+                profile == LIVE_PROTOCOL && worker_generation.is_valid(),
+                "Invalid initialized profile",
+            ),
+            Ok(EngineResult::LiveStarted(ready)) => require(ready.is_valid(), "Invalid live ready"),
+            Ok(EngineResult::LiveStatus(progress)) => {
+                require(progress.is_valid(), "Invalid live progress")
+            }
             Ok(EngineResult::Stopped) => Ok(()),
         }
     }
@@ -172,12 +261,19 @@ impl WirePayload for Response {
     const PROTOCOL: &'static str = "omniusong.engine-reply.v1";
     const MAX_BYTES: usize = WIRE_BYTES;
 }
-fn matches_result(command: &EngineCommand, result: &Result<EngineResult, String>) -> bool {
+pub(crate) fn matches_result(
+    command: &EngineCommand,
+    result: &Result<EngineResult, String>,
+) -> bool {
     match result {
         Err(_) => true,
         Ok(result) => matches!(
             (command, result),
-            (EngineCommand::Devices, EngineResult::Devices(_))
+            (
+                EngineCommand::StartLive { .. },
+                EngineResult::LiveStarted(_)
+            ) | (EngineCommand::Status, EngineResult::LiveStatus(_))
+                | (EngineCommand::Devices, EngineResult::Devices(_))
                 | (
                     EngineCommand::StartPlayback { .. },
                     EngineResult::Playing(_)
@@ -192,11 +288,14 @@ fn matches_result(command: &EngineCommand, result: &Result<EngineResult, String>
         ),
     }
 }
-struct Pending {
-    id: u64,
-    command: EngineCommand,
+pub(crate) struct Pending {
+    pub id: u64,
+    pub command: EngineCommand,
 }
-enum Event {
+// Capacity-one acknowledged replies plus one actor outbox bound this inline
+// value (currently 464 bytes); avoid an extra heap allocation for each completion.
+#[allow(clippy::large_enum_variant)]
+pub(crate) enum Event {
     Completed(EngineReply),
     Failed(String),
 }
@@ -207,6 +306,12 @@ pub struct EngineClient {
     pending: Option<Pending>,
     next: u64,
     dead: Arc<AtomicBool>,
+    live_lanes: ClientLanes,
+    ready: Option<LiveReady>,
+    parent_next: u64,
+    next_urgent: u64,
+    pending_panic: Option<PanicRequest>,
+    seen_update: u64,
 }
 impl EngineClient {
     pub fn spawn(executable: PathBuf, store_root: PathBuf) -> Result<Self, String> {
@@ -214,11 +319,13 @@ impl EngineClient {
         let (result_tx, result_rx) = mpsc::sync_channel(1);
         let dead = Arc::new(AtomicBool::new(false));
         let actor_dead = dead.clone();
+        let (live_lanes, actor_lanes) = live_supervisor::lanes(dead.clone());
         thread::Builder::new()
             .name("audio-supervisor".into())
             .spawn(move || {
                 // Returning retires the owned child before any wait for UI credit.
-                let result = actor(executable, store_root, rx, &result_tx);
+                let result =
+                    live_supervisor::actor(executable, store_root, rx, &result_tx, actor_lanes);
                 actor_dead.store(true, Ordering::Release);
                 if let Err(error) = result {
                     // Capacity stays one; retain the terminal cause behind an
@@ -234,10 +341,25 @@ impl EngineClient {
             pending: None,
             next: 1,
             dead,
+            live_lanes,
+            ready: None,
+            parent_next: 1,
+            next_urgent: 1,
+            pending_panic: None,
+            seen_update: 0,
         })
     }
     pub fn try_submit(&mut self, command: EngineCommand) -> Result<(), String> {
         command_valid(&command)?;
+        if matches!(
+            command,
+            EngineCommand::StartLive { .. }
+                | EngineCommand::StartPlayback { .. }
+                | EngineCommand::StartCapture { .. }
+        ) && self.live_lanes.shared.stop_pending()
+        {
+            return Err("Waiting for reliable Stop acknowledgment".into());
+        }
         if self.pending.is_some() {
             return Err("Audio engine is busy".into());
         }
@@ -259,6 +381,7 @@ impl EngineClient {
             Ok(()) => {
                 self.pending = Some(pending);
                 self.next = next;
+                self.live_lanes.shared.notify();
                 Ok(())
             }
             Err(TrySendError::Full(_)) => Err("Audio request queue is full".into()),
@@ -273,6 +396,18 @@ impl EngineClient {
                 });
                 if valid {
                     self.pending = None;
+                    if matches!(&reply.result, Ok(EngineResult::Stopped)) {
+                        self.ready = None;
+                    }
+                    if let Ok(EngineResult::LiveStarted(ready)) = &reply.result
+                        && reply.request_id
+                            > self.live_lanes.shared.stop_barrier.load(Ordering::Acquire)
+                        && !self.live_lanes.shared.stop_pending()
+                    {
+                        self.ready = Some(ready.clone());
+                        self.parent_next = ready.progress.next_sequence().unwrap_or(u64::MAX);
+                    }
+                    self.live_lanes.shared.notify();
                     Some(reply)
                 } else {
                     self.dead.store(true, Ordering::Release);
@@ -304,6 +439,201 @@ impl EngineClient {
             }
         }
     }
+    fn urgent_ticket(&mut self) -> Result<UrgentTicket, String> {
+        let id = self.next_urgent;
+        self.next_urgent = id
+            .checked_add(1)
+            .ok_or("Urgent ticket sequence exhausted")?;
+        Ok(UrgentTicket {
+            worker_generation: self.live_lanes.shared.generation,
+            id,
+        })
+    }
+    pub fn request_stop(&mut self) -> Result<UrgentTicket, String> {
+        if self.dead.load(Ordering::Acquire) {
+            return Err("Audio worker is retired".into());
+        }
+        let shared = &self.live_lanes.shared;
+        let id = shared.stop_requested.load(Ordering::Acquire);
+        if id > shared.stop_completed.load(Ordering::Acquire) {
+            return Ok(UrgentTicket {
+                worker_generation: shared.generation,
+                id,
+            });
+        }
+        let ticket = self.urgent_ticket()?;
+        self.ready = None;
+        self.live_lanes
+            .shared
+            .live_active
+            .store(false, Ordering::Release);
+        self.live_lanes
+            .shared
+            .stop_barrier
+            .store(self.next.saturating_sub(1), Ordering::Release);
+        self.live_lanes
+            .shared
+            .stop_requested
+            .store(ticket.id, Ordering::Release);
+        self.live_lanes.shared.notify();
+        Ok(ticket)
+    }
+    pub fn request_panic_live(
+        &mut self,
+        scope: LiveScope,
+    ) -> Result<UrgentTicket, LiveSubmitError> {
+        if self.dead.load(Ordering::Acquire) {
+            return Err(LiveSubmitError::Retired);
+        }
+        if self.live_lanes.shared.stop_pending() {
+            return Err(LiveSubmitError::PanicPending);
+        }
+        if !self.live_lanes.shared.live_active.load(Ordering::Acquire) {
+            return Err(LiveSubmitError::NotLive);
+        }
+        let ready = self.ready.as_ref().ok_or(LiveSubmitError::NotLive)?;
+        if ready.scope != scope {
+            return Err(LiveSubmitError::StaleScope);
+        }
+        if self.live_lanes.shared.faulted.load(Ordering::Acquire) {
+            return Err(LiveSubmitError::Faulted);
+        }
+        if let Some(request) = self.pending_panic {
+            return if request.scope == scope {
+                Ok(request.ticket)
+            } else {
+                Err(LiveSubmitError::PanicPending)
+            };
+        }
+        let ticket = self.urgent_ticket().map_err(|_| LiveSubmitError::Retired)?;
+        let request = PanicRequest { ticket, scope };
+        match self.live_lanes.panic.try_send(request) {
+            Ok(()) => {
+                self.pending_panic = Some(request);
+                self.live_lanes.shared.notify();
+                Ok(ticket)
+            }
+            Err(TrySendError::Full(_)) => Err(LiveSubmitError::PanicPending),
+            Err(TrySendError::Disconnected(_)) => Err(LiveSubmitError::Retired),
+        }
+    }
+    fn live_rejection(&self, scope: LiveScope, kind: LiveFaultKind, sequence: Option<u64>) {
+        self.live_lanes
+            .shared
+            .faulted
+            .store(true, Ordering::Release);
+        let _ = self.live_lanes.fault.try_send(FaultRequest {
+            scope,
+            kind,
+            sequence,
+        });
+        self.live_lanes.shared.notify();
+    }
+    pub fn try_push_live(&mut self, batch: LiveBatch) -> Result<LiveQueued, LiveSubmitError> {
+        if self.dead.load(Ordering::Acquire) {
+            return Err(LiveSubmitError::Retired);
+        }
+        if self.live_lanes.shared.stop_pending() || self.pending_panic.is_some() {
+            return Err(LiveSubmitError::PanicPending);
+        }
+        if !self.live_lanes.shared.live_active.load(Ordering::Acquire) {
+            return Err(LiveSubmitError::NotLive);
+        }
+        let ready = self.ready.as_ref().ok_or(LiveSubmitError::NotLive)?;
+        if ready.progress.state != LiveState::Running {
+            return Err(if ready.progress.state == LiveState::Faulted {
+                LiveSubmitError::Faulted
+            } else {
+                LiveSubmitError::PanicPending
+            });
+        }
+        if batch.scope != ready.scope {
+            return Err(LiveSubmitError::StaleScope);
+        }
+        if self.live_lanes.shared.faulted.load(Ordering::Acquire) {
+            return Err(LiveSubmitError::Faulted);
+        }
+        if batch.validate_shape(ready.sample_rate).is_err() {
+            self.live_rejection(
+                batch.scope,
+                LiveFaultKind::InvalidBatch,
+                Some(batch.sequence),
+            );
+            return Err(LiveSubmitError::Invalid);
+        }
+        if batch.sequence != self.parent_next {
+            self.live_rejection(batch.scope, LiveFaultKind::Sequence, Some(batch.sequence));
+            return Err(LiveSubmitError::Invalid);
+        }
+        let Some(next) = self.parent_next.checked_add(1) else {
+            self.live_rejection(
+                batch.scope,
+                LiveFaultKind::CounterExhausted,
+                Some(batch.sequence),
+            );
+            return Err(LiveSubmitError::Faulted);
+        };
+        match self.live_lanes.live.try_send(batch) {
+            Ok(()) => {
+                self.parent_next = next;
+                self.live_lanes.shared.notify();
+                Ok(LiveQueued {
+                    scope: batch.scope,
+                    sequence: batch.sequence,
+                })
+            }
+            Err(TrySendError::Full(_)) => {
+                self.live_rejection(
+                    batch.scope,
+                    LiveFaultKind::QueueOverflow,
+                    Some(batch.sequence),
+                );
+                Err(LiveSubmitError::Saturated)
+            }
+            Err(TrySendError::Disconnected(_)) => Err(LiveSubmitError::Retired),
+        }
+    }
+    pub fn try_poll_update(&mut self) -> Option<EngineUpdate> {
+        let update = {
+            let slot = self.live_lanes.shared.latest.try_lock().ok()?;
+            let value = (*slot)?;
+            if value.revision <= self.seen_update {
+                return None;
+            }
+            value
+        };
+        self.seen_update = update.revision;
+        if let Some(pending) = self.pending_panic
+            && update
+                .urgent
+                .panic
+                .is_some_and(|ack| ack.ticket == pending.ticket)
+        {
+            self.pending_panic = None;
+        }
+        if let Some(progress) = update.live {
+            if let Some(ready) = &mut self.ready
+                && ready.scope.session_id == progress.scope.session_id
+            {
+                if ready.scope != progress.scope {
+                    ready.scope = progress.scope;
+                    self.parent_next = progress.next_sequence().unwrap_or(u64::MAX);
+                }
+                ready.progress = progress;
+            }
+            if progress.state == LiveState::Stopped {
+                self.ready = None;
+            }
+        } else {
+            self.ready = None;
+        }
+        self.live_lanes.shared.notify();
+        Some(update)
+    }
+
+    pub fn is_retired(&self) -> bool {
+        self.dead.load(Ordering::Acquire)
+    }
     pub fn is_busy(&self) -> bool {
         self.pending.is_some()
     }
@@ -321,131 +651,6 @@ pub(crate) fn platform() -> Platform {
     } else {
         Platform::Windows
     }
-}
-#[cfg(unix)]
-fn actor(
-    executable: PathBuf,
-    store_root: PathBuf,
-    requests: Receiver<Pending>,
-    replies: &SyncSender<Event>,
-) -> Result<(), String> {
-    use omniusong_ipc::{
-        FrameCeiling,
-        unix::{LaunchConfig, default_worker_limits, spawn_private},
-    };
-    let mut command = std::process::Command::new(executable);
-    command
-        .arg("--audio-worker")
-        .stdout(std::process::Stdio::null());
-    let mut child = spawn_private(
-        command,
-        LaunchConfig {
-            expected_role: WorkerRole::Engine,
-            expected_platform: platform(),
-            expected_architecture: architecture(),
-            expected_build_id: Some(BUILD.into()),
-            limits: default_worker_limits(),
-            frame_ceiling: FrameCeiling::new(WIRE_BYTES).map_err(|e| e.to_string())?,
-            handshake_timeout: Duration::from_secs(5),
-        },
-    )
-    .map_err(|e| e.to_string())?;
-    fn exchange(
-        child: &mut omniusong_ipc::unix::PrivateChild,
-        id: u64,
-        action: Action,
-    ) -> Result<EngineReply, String> {
-        let budget = Duration::from_secs(15);
-        let deadline = std::time::Instant::now() + budget;
-        child
-            .send_payload(
-                Request {
-                    request_id: id,
-                    action,
-                },
-                budget,
-            )
-            .map_err(|e| e.to_string())?;
-        let remaining = deadline
-            .checked_duration_since(std::time::Instant::now())
-            .filter(|d| !d.is_zero())
-            .ok_or("Audio request deadline exhausted")?;
-        let response = child
-            .receive::<Response>(remaining)
-            .map_err(|e| {
-                format!(
-                    "Audio worker deadline/channel failure: {e}; unsealed originals are retained"
-                )
-            })?
-            .ok_or("Audio worker closed its private channel")?
-            .payload
-            .reply;
-        if response.request_id != id {
-            return Err("Audio private response identity mismatch".into());
-        }
-        Ok(response)
-    }
-    let init = exchange(&mut child, 0, Action::Initialize { store_root })?;
-    match init.result {
-        Ok(EngineResult::Stopped) => {}
-        Err(e) => return Err(e),
-        _ => return Err("Unexpected audio initialization result".into()),
-    };
-    let mut wire_id = 1u64;
-    loop {
-        let pending = match requests.recv_timeout(Duration::from_millis(250)) {
-            Ok(p) => Some(p),
-            Err(mpsc::RecvTimeoutError::Timeout) => None,
-            Err(mpsc::RecvTimeoutError::Disconnected) => {
-                let _ = exchange(
-                    &mut child,
-                    wire_id,
-                    Action::Command {
-                        command: EngineCommand::Stop,
-                    },
-                );
-                return Ok(());
-            }
-        };
-        let command = pending
-            .as_ref()
-            .map(|p| p.command.clone())
-            .unwrap_or(EngineCommand::Status);
-        let mut response = exchange(
-            &mut child,
-            wire_id,
-            Action::Command {
-                command: command.clone(),
-            },
-        )?;
-        wire_id = wire_id
-            .checked_add(1)
-            .ok_or("Audio wire sequence exhausted")?;
-        if !matches_result(&command, &response.result) {
-            return Err("Audio result kind mismatch".into());
-        }
-        if let Some(p) = pending {
-            response.request_id = p.id;
-            replies
-                .send(Event::Completed(response))
-                .map_err(|_| "Audio UI receiver closed")?;
-        } else {
-            // An unsolicited heartbeat can consume a one-shot device fault.
-            // Retire before another status can replace that cause with idle;
-            // the supervisor retains this terminal error behind any queued
-            // completion until the UI can consume it.
-            response.result?;
-        }
-    }
-}
-#[cfg(not(unix))]
-fn actor(
-    _: PathBuf,
-    _: PathBuf,
-    _: Receiver<Pending>,
-    _: &SyncSender<Event>,
-) -> Result<(), String> {
-    Err("Private audio worker launch is not implemented on this platform".into())
 }
 #[cfg(test)]
 mod tests {
@@ -473,10 +678,69 @@ mod tests {
                 pending: None,
                 next: 1,
                 dead: Arc::new(AtomicBool::new(false)),
+                live_lanes: live_supervisor::lanes(Arc::new(AtomicBool::new(false))).0,
+                ready: None,
+                parent_next: 1,
+                next_urgent: 1,
+                pending_panic: None,
+                seen_update: 0,
             },
             rx,
             reply_tx,
         )
+    }
+    #[test]
+    fn live_admission_and_reliable_stop_do_not_depend_on_control_credit() {
+        let (mut client, _controls, _replies) = peer();
+        let (lanes, _held) = live_supervisor::lanes(client.dead.clone());
+        let scope = LiveScope {
+            worker_generation: lanes.shared.generation,
+            session_id: LiveId([7; 16]),
+            panic_generation: 1,
+        };
+        let (admission, _renderer) = crate::live::live_pair(scope, 48000, 1).unwrap();
+        client.ready = Some(LiveReady {
+            scope,
+            gui_clock: LiveClock {
+                domain: "gui".into(),
+                epoch: "one".into(),
+                ticks_per_second_numerator: 1000,
+                ticks_per_second_denominator: 1,
+            },
+            sources: vec![],
+            output: DeviceInfo {
+                id: "synthetic".into(),
+                name: "No device".into(),
+            },
+            sample_rate: 48000,
+            channels: 1,
+            progress: admission.progress(),
+        });
+        lanes.shared.live_active.store(true, Ordering::Release);
+        client.live_lanes = lanes;
+        client.try_submit(EngineCommand::Devices).unwrap();
+        for sequence in 1..=LIVE_QUEUE_BATCHES as u64 {
+            client
+                .try_push_live(LiveBatch::empty(scope, sequence, None))
+                .unwrap();
+        }
+        assert_eq!(
+            client.try_push_live(LiveBatch::empty(scope, 17, None)),
+            Err(LiveSubmitError::Saturated)
+        );
+        assert!(client.live_lanes.shared.faulted.load(Ordering::Acquire));
+        assert!(client.is_busy());
+        let ticket = client.request_stop().unwrap();
+        assert_eq!(client.request_stop().unwrap(), ticket);
+        assert_eq!(
+            client.request_panic_live(scope),
+            Err(LiveSubmitError::PanicPending)
+        );
+        assert_eq!(
+            client.try_push_live(LiveBatch::empty(scope, 17, None)),
+            Err(LiveSubmitError::PanicPending)
+        );
+        assert!(client.ready.is_none());
     }
     #[test]
     fn admission_remains_busy_after_actor_consumes_request() {
@@ -523,6 +787,7 @@ mod tests {
         assert_eq!(reply.request_id, request.id);
         assert!(reply.result.unwrap_err().contains("retained"));
         assert!(client.try_poll().is_none());
+        assert!(client.is_retired());
         assert!(client.try_submit(EngineCommand::FinishCapture).is_err());
     }
     #[test]
@@ -537,6 +802,7 @@ mod tests {
             xruns: 0,
         };
         let response = |result| Response {
+            update: None,
             reply: EngineReply {
                 request_id: 1,
                 result: Ok(result),

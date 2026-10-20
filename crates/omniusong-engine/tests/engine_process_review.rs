@@ -4,7 +4,8 @@ use omniusong_core::contracts::{
     Architecture, ContractError, Platform, Validate, WirePayload, WorkerRole,
 };
 use omniusong_engine::{
-    DeviceInventory, EngineClient, EngineCommand, EngineReply, EngineResult, EngineStatus,
+    DeviceInventory, ENGINE_BUILD_ID, EngineClient, EngineCommand, EngineReply, EngineResult,
+    EngineStatus, EngineUpdate, LIVE_PROTOCOL, LiveId,
 };
 use omniusong_ipc::unix::{WorkerFacts, connect_inherited, default_worker_limits};
 use serde::{Deserialize, Serialize};
@@ -31,6 +32,7 @@ impl WirePayload for ProbeRequest {
 #[derive(Deserialize, Serialize)]
 struct ProbeResponse {
     reply: EngineReply,
+    update: Option<EngineUpdate>,
 }
 impl Validate for ProbeResponse {
     fn validate(&self) -> Result<(), ContractError> {
@@ -52,6 +54,7 @@ fn heartbeat_fault_then_remain_available(
     assert_eq!(request.rest["action"]["command"]["command"], "status");
     peer.send_payload(
         ProbeResponse {
+            update: None,
             reply: EngineReply {
                 request_id: request.request_id,
                 result: Err(HEARTBEAT_FAULT.into()),
@@ -66,6 +69,7 @@ fn heartbeat_fault_then_remain_available(
         std::fs::write(marker.with_extension("unexpected-request"), b"received").unwrap();
         let _ = peer.send_payload(
             ProbeResponse {
+                update: None,
                 reply: EngineReply {
                     request_id: request.payload.request_id,
                     result: Ok(EngineResult::Status(EngineStatus {
@@ -106,7 +110,7 @@ fn private_worker_helper() {
             } else {
                 Architecture::X86_64
             },
-            build_id: concat!("omniusong-engine-", env!("CARGO_PKG_VERSION")).into(),
+            build_id: ENGINE_BUILD_ID.into(),
             limits: default_worker_limits(),
             capabilities: vec!["native-audio-control-v1".into()],
         },
@@ -119,11 +123,18 @@ fn private_worker_helper() {
         .unwrap()
         .payload;
     assert_eq!(initial.request_id, 0);
+    assert_eq!(initial.rest["action"]["profile"], LIVE_PROTOCOL);
+    let worker_generation: LiveId =
+        serde_json::from_value(initial.rest["action"]["worker_generation"].clone()).unwrap();
     peer.send_payload(
         ProbeResponse {
+            update: None,
             reply: EngineReply {
                 request_id: 0,
-                result: Ok(EngineResult::Stopped),
+                result: Ok(EngineResult::Initialized {
+                    profile: LIVE_PROTOCOL.into(),
+                    worker_generation,
+                }),
             },
         },
         Duration::from_secs(5),
@@ -156,6 +167,7 @@ fn private_worker_helper() {
     };
     peer.send_payload(
         ProbeResponse {
+            update: None,
             reply: EngineReply {
                 request_id: id,
                 result: Ok(result),

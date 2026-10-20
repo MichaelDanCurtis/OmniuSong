@@ -1,5 +1,6 @@
 //! Nonblocking native-audio UI state. Device/process/file work belongs to the engine actor.
 
+use crate::live_ui::LiveUi;
 use eframe::egui;
 use omniusong_core::{
     contracts::{OperationId, ProjectId, TakeId, TrackId},
@@ -7,7 +8,8 @@ use omniusong_core::{
 };
 use omniusong_engine::{
     CaptureIdentity, CapturedTake, DeviceInventory, EngineClient, EngineCommand, EngineReply,
-    EngineResult, EngineStatus,
+    EngineResult, EngineStatus, EngineUpdate, LiveBatch, LiveQueued, LiveScope, LiveSubmitError,
+    UrgentTicket,
 };
 use omniusong_store::TakePublication;
 use std::{
@@ -15,10 +17,15 @@ use std::{
     time::{Duration, Instant},
 };
 
-trait EnginePort {
+pub(super) trait EnginePort {
     fn try_submit(&mut self, command: EngineCommand) -> Result<(), String>;
     fn try_poll(&mut self) -> Option<EngineReply>;
     fn is_busy(&self) -> bool;
+    fn is_retired(&self) -> bool;
+    fn try_push_live(&mut self, batch: LiveBatch) -> Result<LiveQueued, LiveSubmitError>;
+    fn request_stop(&mut self) -> Result<UrgentTicket, String>;
+    fn request_panic_live(&mut self, scope: LiveScope) -> Result<UrgentTicket, LiveSubmitError>;
+    fn try_poll_update(&mut self) -> Option<EngineUpdate>;
 }
 impl EnginePort for EngineClient {
     fn try_submit(&mut self, command: EngineCommand) -> Result<(), String> {
@@ -30,6 +37,21 @@ impl EnginePort for EngineClient {
     fn is_busy(&self) -> bool {
         EngineClient::is_busy(self)
     }
+    fn is_retired(&self) -> bool {
+        EngineClient::is_retired(self)
+    }
+    fn try_push_live(&mut self, batch: LiveBatch) -> Result<LiveQueued, LiveSubmitError> {
+        EngineClient::try_push_live(self, batch)
+    }
+    fn request_stop(&mut self) -> Result<UrgentTicket, String> {
+        EngineClient::request_stop(self)
+    }
+    fn request_panic_live(&mut self, scope: LiveScope) -> Result<UrgentTicket, LiveSubmitError> {
+        EngineClient::request_panic_live(self, scope)
+    }
+    fn try_poll_update(&mut self) -> Option<EngineUpdate> {
+        EngineClient::try_poll_update(self)
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -37,6 +59,8 @@ enum Phase {
     Idle,
     Unavailable,
     StartingPlayback,
+    StartingLive,
+    Live,
     Playing,
     StartingCapture,
     Capturing,
@@ -47,6 +71,7 @@ enum Phase {
 enum Pending {
     Devices,
     Play,
+    Live,
     Stop,
     Record,
     Finish,
@@ -84,6 +109,7 @@ pub(super) struct AudioUi {
     pub(super) error: Option<String>,
     message: String,
     last_status: Instant,
+    live: LiveUi,
 }
 impl AudioUi {
     pub(super) fn new() -> Self {
@@ -106,6 +132,7 @@ impl AudioUi {
             error: None,
             message: "Native audio process has not started.".into(),
             last_status: Instant::now(),
+            live: LiveUi::new(),
         }
     }
     pub(super) fn start(&mut self, executable: PathBuf, store: PathBuf) {
@@ -126,7 +153,22 @@ impl AudioUi {
         }
     }
     pub(super) fn blocks_session(&self) -> bool {
-        !matches!(self.phase, Phase::Idle | Phase::Unavailable) || self.sealed.is_some()
+        !matches!(self.phase, Phase::Idle | Phase::Unavailable)
+            || self.sealed.is_some()
+            || self.live.engaged()
+    }
+    pub(super) fn live_guard(&self) -> bool {
+        self.live.engaged() || matches!(self.phase, Phase::StartingLive | Phase::Live)
+    }
+    pub(super) fn cleanup_live_input(&mut self) {
+        if let Some(port) = self.port.as_mut() {
+            self.live.cleanup(port.as_mut());
+        }
+    }
+    pub(super) fn live_input(&mut self, ctx: &egui::Context, blocked: bool) {
+        if let Some(port) = self.port.as_mut() {
+            self.live.input(ctx, blocked, port.as_mut());
+        }
     }
     pub(super) fn capture_guard(&self) -> bool {
         self.target.is_some() || self.sealed.is_some()
@@ -138,6 +180,7 @@ impl AudioUi {
         self.pending.is_some()
             || self.deferred.is_some()
             || matches!(self.phase, Phase::Playing | Phase::Capturing)
+            || self.live.engaged()
     }
     fn submit(&mut self, command: EngineCommand, pending: Pending) -> bool {
         let Some(port) = self.port.as_mut() else {
@@ -175,6 +218,27 @@ impl AudioUi {
             self.message = "Preparing the saved session for playback.".into();
         }
     }
+    fn start_live(&mut self) {
+        if self.blocks_session() {
+            return;
+        }
+        let clock = self.live.begin();
+        if self.submit(
+            EngineCommand::StartLive {
+                output_device: self.output.clone(),
+                gui_clock: clock,
+            },
+            Pending::Live,
+        ) {
+            self.status = None;
+            self.phase = Phase::StartingLive;
+            self.message =
+                "Preparing output-only live audition. This performance is not recorded or saved."
+                    .into();
+        } else {
+            self.live.start_failed();
+        }
+    }
     fn record(&mut self, project_id: String, revision: u64) {
         if self.blocks_session() {
             return;
@@ -196,6 +260,12 @@ impl AudioUi {
         }
     }
     pub(super) fn stop(&mut self) {
+        if self.live_guard() {
+            if let Some(port) = self.port.as_mut() {
+                self.live.request_stop(port.as_mut());
+            }
+            return;
+        }
         self.control(Control::Stop);
     }
     pub(super) fn finish(&mut self) {
@@ -230,36 +300,48 @@ impl AudioUi {
         }
     }
     pub(super) fn poll(&mut self) {
+        if let Some(update) = self.port.as_mut().and_then(|port| port.try_poll_update())
+            && self.live.update(update)
+        {
+            self.phase = Phase::Idle;
+            self.status = None;
+            self.message = "Live output stopped. No performance was recorded or saved.".into();
+        }
         let reply = self.port.as_mut().and_then(|port| port.try_poll());
         if let Some(reply) = reply {
             let Some(pending) = self.pending.take() else {
                 if let (0, Err(error)) = (reply.request_id, reply.result) {
-                    self.error = Some(error);
-                    self.message="Audio process is unavailable. Original journals remain retained; no automatic restart, resume, seal or replay was attempted.".into();
-                    self.phase = if self.capture_guard() {
-                        Phase::Uncertain
-                    } else {
-                        Phase::Unavailable
-                    };
-                    self.status = None;
-                    self.deferred = None;
-                    // The supervisor has retired the child. Client Drop only
-                    // closes its bounded channels; it never waits for a child.
-                    self.port = None;
+                    self.retired(error);
                 } else {
                     self.error = Some("Ignored an unsolicited audio completion.".into());
                 }
                 return;
             };
+            if pending == Pending::Live && self.live.cancelled_start() {
+                // An acknowledged or pending urgent Stop fences the ordinary
+                // StartLive completion. It can never reopen note routing.
+                self.live.start_failed();
+                if let Err(error) = reply.result {
+                    if self.port.as_ref().is_some_and(|port| port.is_retired()) {
+                        self.retired(error);
+                    } else {
+                        self.error = Some(error);
+                    }
+                }
+                return;
+            }
             match reply.result {
                 Err(error) => {
+                    if self.port.as_ref().is_some_and(|port| port.is_retired()) {
+                        self.retired(error);
+                        return;
+                    }
                     self.error = Some(error);
-                    self.message =
-                        "Audio action ended with an error. No complete final tail is claimed."
-                            .into();
+                    self.message = if pending==Pending::Live{"Live audition ended with an error. This performance was not recorded or saved; stop output before continuing."}else{"Audio action ended with an error. No complete final tail is claimed."}.into();
                     if matches!(
                         pending,
                         Pending::Play
+                            | Pending::Live
                             | Pending::Record
                             | Pending::Finish
                             | Pending::Stop
@@ -286,6 +368,21 @@ impl AudioUi {
             self.submit(EngineCommand::Status, Pending::Status);
         }
     }
+    fn retired(&mut self, error: String) {
+        let live = self.live_guard();
+        self.error = Some(error);
+        self.message=if live{"Live audio process is unavailable. This performance was not recorded or saved. No automatic restart or replay was attempted."}else{"Audio process is unavailable. Original journals remain retained; no automatic restart, resume, seal or replay was attempted."}.into();
+        self.phase = if self.capture_guard() {
+            Phase::Uncertain
+        } else {
+            Phase::Unavailable
+        };
+        self.status = None;
+        self.deferred = None;
+        self.live.retired();
+        // Dropping the bounded client never waits for the retired child.
+        self.port = None;
+    }
     fn complete(&mut self, pending: Pending, result: EngineResult) {
         match (pending, result) {
             (Pending::Devices, EngineResult::Devices(devices)) => {
@@ -299,6 +396,18 @@ impl AudioUi {
                 self.status = Some(status);
                 self.message = "Playing the saved session.".into();
             }
+            (Pending::Live, EngineResult::LiveStarted(ready)) => match self.live.activate(ready) {
+                Ok(true) => {
+                    self.phase = Phase::Live;
+                    self.message = "Live audition · output only · not recording or saved.".into();
+                }
+                Ok(false) => {}
+                Err(error) => {
+                    self.error = Some(error);
+                    self.phase = Phase::Uncertain;
+                    self.stop();
+                }
+            },
             (Pending::Record, EngineResult::Capturing(status)) => {
                 self.phase = Phase::Capturing;
                 self.message =
@@ -537,6 +646,12 @@ impl AudioUi {
             {
                 self.play(id.clone());
             }
+            if ui
+                .add_enabled(free && can_start, egui::Button::new("Start live audition"))
+                .clicked()
+            {
+                self.start_live();
+            }
             // Stop stays available independently of storage busy/dirty/navigation state.
             if ui
                 .add_enabled(self.port.is_some(), egui::Button::new("Stop audio"))
@@ -604,6 +719,9 @@ impl AudioUi {
                 retry = true;
             }
         }
+        if let Some(port) = self.port.as_mut() {
+            self.live.ui(ui, port.as_mut());
+        }
         retry
     }
 }
@@ -617,6 +735,11 @@ pub(crate) mod test_support {
         commands: VecDeque<EngineCommand>,
         replies: VecDeque<EngineReply>,
         busy: bool,
+        updates: VecDeque<EngineUpdate>,
+        batches: VecDeque<LiveBatch>,
+        urgent: VecDeque<(UrgentTicket, Option<LiveScope>)>,
+        next_ticket: u64,
+        retired: bool,
     }
     struct Port(Rc<RefCell<Shared>>);
     pub(crate) struct Peer(Rc<RefCell<Shared>>);
@@ -639,6 +762,42 @@ pub(crate) mod test_support {
         fn is_busy(&self) -> bool {
             self.0.borrow().busy
         }
+        fn is_retired(&self) -> bool {
+            self.0.borrow().retired
+        }
+        fn try_push_live(&mut self, batch: LiveBatch) -> Result<LiveQueued, LiveSubmitError> {
+            self.0.borrow_mut().batches.push_back(batch);
+            Ok(LiveQueued {
+                scope: batch.scope,
+                sequence: batch.sequence,
+            })
+        }
+        fn request_stop(&mut self) -> Result<UrgentTicket, String> {
+            let mut s = self.0.borrow_mut();
+            s.next_ticket += 1;
+            let ticket = UrgentTicket {
+                worker_generation: omniusong_engine::LiveId([1; 16]),
+                id: s.next_ticket,
+            };
+            s.urgent.push_back((ticket, None));
+            Ok(ticket)
+        }
+        fn request_panic_live(
+            &mut self,
+            scope: LiveScope,
+        ) -> Result<UrgentTicket, LiveSubmitError> {
+            let mut s = self.0.borrow_mut();
+            s.next_ticket += 1;
+            let ticket = UrgentTicket {
+                worker_generation: scope.worker_generation,
+                id: s.next_ticket,
+            };
+            s.urgent.push_back((ticket, Some(scope)));
+            Ok(ticket)
+        }
+        fn try_poll_update(&mut self) -> Option<EngineUpdate> {
+            self.0.borrow_mut().updates.pop_front()
+        }
     }
     impl Peer {
         pub(crate) fn command(&self) -> Option<EngineCommand> {
@@ -651,10 +810,21 @@ pub(crate) mod test_support {
             });
         }
         pub(crate) fn terminal(&self, error: &str) {
+            self.0.borrow_mut().retired = true;
             self.0.borrow_mut().replies.push_back(EngineReply {
                 request_id: 0,
                 result: Err(error.into()),
             });
+        }
+        pub(crate) fn retire_pending(&self, error: &str) {
+            self.0.borrow_mut().retired = true;
+            self.reply(Err(error.into()));
+        }
+        pub(crate) fn update(&self, update: EngineUpdate) {
+            self.0.borrow_mut().updates.push_back(update);
+        }
+        pub(crate) fn urgent(&self) -> Option<(UrgentTicket, Option<LiveScope>)> {
+            self.0.borrow_mut().urgent.pop_front()
         }
     }
     pub(crate) fn pair() -> (AudioUi, Peer) {
@@ -934,5 +1104,73 @@ mod tests {
         assert!(audio.port.is_some());
         assert!(audio.pending.is_none());
         assert!(peer.command().is_none());
+    }
+    #[test]
+    fn urgent_stop_during_live_start_fences_ordinary_reply_in_either_order() {
+        use omniusong_engine::{EngineUpdate, LiveId, StopAck, UrgentProgress};
+        for ack_first in [false, true] {
+            let (mut audio, peer) = pair();
+            audio.start_live();
+            let Some(EngineCommand::StartLive { gui_clock, .. }) = peer.command() else {
+                panic!("Live start command")
+            };
+            audio.stop();
+            let (ticket, scope) = peer.urgent().expect("Stop bypasses held control admission");
+            assert!(scope.is_none());
+            assert!(audio.blocks_session());
+            let ack = EngineUpdate {
+                worker_generation: LiveId([1; 16]),
+                revision: 1,
+                live: None,
+                urgent: UrgentProgress {
+                    stop: Some(StopAck {
+                        ticket,
+                        cancelled_through_control: 1,
+                    }),
+                    panic: None,
+                },
+                first_fault: None,
+            };
+            if ack_first {
+                peer.update(ack);
+                audio.poll();
+                assert!(!audio.blocks_session());
+            }
+            peer.reply(Ok(EngineResult::LiveStarted(
+                crate::live_ui::test_support::ready(gui_clock),
+            )));
+            audio.poll();
+            if !ack_first {
+                assert!(audio.blocks_session());
+                peer.update(ack);
+                audio.poll();
+            }
+            assert!(!audio.blocks_session());
+            assert!(!audio.live_guard());
+            assert!(!audio.capture_guard());
+            assert!(audio.take_auto_publication().is_none());
+            assert!(!audio.live.running());
+            assert!(peer.command().is_none());
+        }
+    }
+    #[test]
+    fn typed_retirement_on_pending_live_error_preserves_cause_without_pinning_session() {
+        for stopped in [false, true] {
+            let (mut audio, peer) = pair();
+            audio.start_live();
+            let _ = peer.command();
+            if stopped {
+                audio.stop();
+            }
+            let cause = "Synthetic retired child after pending live start";
+            peer.retire_pending(cause);
+            audio.poll();
+            assert_eq!(audio.error.as_deref(), Some(cause));
+            assert!(audio.port.is_none());
+            assert!(!audio.blocks_session());
+            assert!(!audio.capture_guard());
+            assert!(audio.message.contains("not recorded or saved"));
+            assert!(audio.take_auto_publication().is_none());
+        }
     }
 }

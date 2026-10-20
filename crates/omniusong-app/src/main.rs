@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod audio_ui;
+mod live_ui;
 mod recovery_ui;
 
 use audio_ui::AudioUi;
@@ -465,6 +466,7 @@ impl StudioApp {
     fn request(&mut self, action: Action) {
         if self.audio.blocks_session() {
             if matches!(action, Action::Close) {
+                self.audio.cleanup_live_input();
                 self.audio_close_requested = true;
             } else {
                 self.error = Some("Finish or stop audio, and resolve any retained sealed take, before changing this session.".into());
@@ -691,7 +693,7 @@ impl StudioApp {
             self.audio.start(executable, self.paths.native.clone());
         }
         if self.audio.needs_poll() {
-            ctx.request_repaint_after(Duration::from_millis(100));
+            ctx.request_repaint_after(Duration::from_millis(50));
         }
         let can_start_audio = !self.busy()
             && !self.disconnected()
@@ -712,7 +714,7 @@ impl StudioApp {
             });
             retry_attach = self.audio.ui(ui, can_start_audio, audio_context);
             if self.dirty() {
-                ui.small("Save or discard draft edits before playing or recording.");
+                ui.small("Save or discard draft edits before playing, live audition or recording.");
             }
             ui.add_space(5.0);
         });
@@ -1028,9 +1030,9 @@ impl StudioApp {
         if self.audio_close_requested {
             let mut close = 0;
             egui::Modal::new(egui::Id::unique("audio-close-guard")).show(ctx,|ui|{
-                ui.heading("Keep the original take safe");
-                ui.label(if self.audio.capture_guard(){"Audio or take attachment is still active. Finish the take and wait for attachment, or stop audio before closing."}else{"Saved-session playback is still active. Stop audio before closing, or explicitly close without waiting."});
-                ui.label("Closing without waiting can interrupt an unfinished original. A sealed journal is retained; attachment may already have completed. Closing does not prove cancellation or a complete final tail.");
+                ui.heading(if self.audio.live_guard(){"Stop live output before closing"}else{"Keep the original take safe"});
+                ui.label(if self.audio.live_guard(){"Live audition is output only. This performance is not recorded or saved. Stop output before closing, or explicitly close without waiting."}else if self.audio.capture_guard(){"Audio or take attachment is still active. Finish the take and wait for attachment, or stop audio before closing."}else{"Saved-session playback is still active. Stop audio before closing, or explicitly close without waiting."});
+                if !self.audio.live_guard(){ui.label("Closing without waiting can interrupt an unfinished original. A sealed journal is retained; attachment may already have completed. Closing does not prove cancellation or a complete final tail.");}
                 ui.horizontal_wrapped(|ui|{
                     if ui.add_enabled(self.audio.can_finish(),egui::Button::new("Finish take and keep window open")).clicked(){self.audio.finish();}
                     if ui.button("Stop audio and keep window open").clicked(){self.audio.stop();}
@@ -1225,6 +1227,7 @@ fn piano_overview(
 impl StudioApp {
     fn native_ui(&mut self, ui: &mut egui::Ui) {
         if ui.ctx().input(|i| i.viewport().close_requested()) && self.audio.blocks_session() {
+            self.audio.cleanup_live_input();
             ui.ctx()
                 .send_viewport_cmd(egui::ViewportCommand::CancelClose);
             self.audio_close_requested = true;
@@ -1243,7 +1246,15 @@ impl StudioApp {
             }
         }
         self.show(ui);
+        self.audio.live_input(
+            ui.ctx(),
+            self.pending.is_some()
+                || self.audio_close_requested
+                || self.recovery_close_requested
+                || self.closing,
+        );
         if self.closing {
+            self.audio.stop();
             ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
         }
     }
@@ -2081,6 +2092,7 @@ mod tests {
         app.draft.name = "Unsaved local name".into();
         click(&ctx, &mut app, "Play saved session");
         click(&ctx, &mut app, "Record solo");
+        click(&ctx, &mut app, "Start live audition");
         assert!(peer.command().is_none());
         app.draft = Draft::from_document(app.document.as_ref().unwrap());
         click(&ctx, &mut app, "Record solo");
@@ -2096,6 +2108,75 @@ mod tests {
         let before = Instant::now();
         drop(app);
         assert!(before.elapsed() < Duration::from_millis(200));
+    }
+
+    #[test]
+    fn live_output_blocks_project_edits_and_has_no_capture_or_storage_side_effects() {
+        use audio_ui::test_support;
+        use omniusong_engine::{
+            EngineCommand, EngineResult, EngineUpdate, LiveId, StopAck, UrgentProgress,
+        };
+        let fixture = Fixture::new();
+        let (ctx, mut app, store_peer) = manual(&fixture);
+        let (audio, peer) = test_support::pair();
+        app.audio = audio;
+        let original = app.document.as_ref().unwrap().to_json().unwrap();
+        let draft = app.draft.clone();
+        click(&ctx, &mut app, "Start live audition");
+        let Some(EngineCommand::StartLive { gui_clock, .. }) = peer.command() else {
+            panic!("Explicit live start")
+        };
+        peer.reply(Ok(EngineResult::LiveStarted(
+            crate::live_ui::test_support::ready(gui_clock),
+        )));
+        let _ = frame(&ctx, &mut app, vec![]);
+        assert!(app.audio.live_guard());
+        assert!(!app.audio.capture_guard());
+        app.request(Action::Refresh);
+        app.request(Action::Save);
+        assert!(store_peer.requests.try_recv().is_err());
+        assert_eq!(app.document.as_ref().unwrap().to_json().unwrap(), original);
+        assert!(app.draft == draft);
+        app.request(Action::Close);
+        let _ = frame(&ctx, &mut app, vec![]);
+        let output = frame(&ctx, &mut app, vec![]);
+        let tree = output.platform_output.accesskit_update.unwrap();
+        let text: Vec<_> = tree
+            .nodes
+            .iter()
+            .flat_map(|(_, n)| [n.label(), n.value()].into_iter().flatten())
+            .collect();
+        assert!(
+            text.iter()
+                .any(|t| t.contains("This performance is not recorded or saved"))
+        );
+        assert!(!text.iter().any(|t|t.contains("Closing without waiting can interrupt an unfinished original")));
+        app.audio.stop();
+        let mut stop = None;
+        while let Some((ticket, scope)) = peer.urgent() {
+            if scope.is_none() {
+                stop = Some(ticket)
+            }
+        }
+        let ticket = stop.expect("Urgent output Stop");
+        peer.update(EngineUpdate {
+            worker_generation: LiveId([1; 16]),
+            revision: 1,
+            live: None,
+            urgent: UrgentProgress {
+                stop: Some(StopAck {
+                    ticket,
+                    cancelled_through_control: 1,
+                }),
+                panic: None,
+            },
+            first_fault: None,
+        });
+        let _ = frame(&ctx, &mut app, vec![]);
+        assert!(!app.audio.blocks_session());
+        assert!(store_peer.requests.try_recv().is_err());
+        assert_eq!(app.document.as_ref().unwrap().to_json().unwrap(), original);
+        assert!(app.draft == draft);
     }
 
     #[test]

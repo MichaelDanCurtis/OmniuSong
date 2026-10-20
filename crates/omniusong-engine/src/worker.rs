@@ -442,7 +442,188 @@ impl Drop for Capture {
         self.mode.store(1, Ordering::Release); /* Never join on exceptional unwinding; actor retirement remains bounded. */
     }
 }
+struct LiveOutput {
+    stream: Option<cpal::Stream>,
+    admission: live::LiveAdmission,
+    clock: LiveClock,
+    output: DeviceInfo,
+    rate: u32,
+    channels: u16,
+    retire: Arc<AtomicBool>,
+}
+impl LiveOutput {
+    fn start(
+        generation: LiveId,
+        selected: Option<&str>,
+        clock: LiveClock,
+        retire: Arc<AtomicBool>,
+    ) -> Result<Self, String> {
+        let device = device(false, selected)?;
+        let supported = device.default_output_config().map_err(|e| e.to_string())?;
+        let config = supported.config();
+        let output = DeviceInfo {
+            id: device.id().map_err(|e| e.to_string())?.to_string(),
+            name: device.to_string(),
+        };
+        if !clock.is_valid()
+            || !(8000..=768000).contains(&config.sample_rate)
+            || !(1..=8).contains(&config.channels)
+            || output.id.len() > 1024
+            || output.name.len() > 1024
+        {
+            return Err("Unsupported live output configuration or clock".into());
+        }
+        if !matches!(
+            supported.sample_format(),
+            cpal::SampleFormat::F32 | cpal::SampleFormat::I16 | cpal::SampleFormat::U16
+        ) {
+            return Err("Unsupported live output sample format".into());
+        }
+        let scope = LiveScope {
+            worker_generation: generation,
+            session_id: LiveId::random(),
+            panic_generation: 1,
+        };
+        let (admission, mut renderer) =
+            live::live_pair(scope, config.sample_rate, config.channels)?;
+        let control = admission.control();
+        let errors = live::LiveErrorGuard::new(control.clone());
+        let stream = match supported.sample_format() {
+            cpal::SampleFormat::F32 => device.build_output_stream(
+                config,
+                move |data: &mut [f32], _| renderer.render_into(data),
+                move |_| errors.fault(),
+                Some(Duration::from_secs(2)),
+            ),
+            cpal::SampleFormat::I16 => device.build_output_stream(
+                config,
+                move |data: &mut [i16], _| renderer.render_i16(data),
+                move |_| errors.fault(),
+                Some(Duration::from_secs(2)),
+            ),
+            cpal::SampleFormat::U16 => device.build_output_stream(
+                config,
+                move |data: &mut [u16], _| renderer.render_u16(data),
+                move |_| errors.fault(),
+                Some(Duration::from_secs(2)),
+            ),
+            _ => unreachable!(),
+        };
+        let stream = match stream {
+            Ok(stream) => stream,
+            Err(error) => {
+                let deadline = Instant::now() + Duration::from_secs(2);
+                while (!control.render_destroyed() || !control.error_destroyed())
+                    && Instant::now() < deadline
+                {
+                    thread::sleep(Duration::from_millis(1));
+                }
+                if !control.render_destroyed() || !control.error_destroyed() {
+                    retire.store(true, Ordering::Release);
+                    std::mem::forget(admission);
+                }
+                return Err(format!("Live output setup failed: {error}"));
+            }
+        };
+        if let Err(error) = stream.play() {
+            retire.store(true, Ordering::Release);
+            std::mem::forget(stream);
+            std::mem::forget(admission);
+            return Err(format!("Live output start failed; worker retired: {error}"));
+        }
+        Ok(Self {
+            stream: Some(stream),
+            admission,
+            clock,
+            output,
+            rate: config.sample_rate,
+            channels: config.channels,
+            retire,
+        })
+    }
+    fn ready(&self) -> LiveReady {
+        LiveReady {
+            scope: self.admission.scope(),
+            gui_clock: self.clock.clone(),
+            sources: [
+                LiveSourceKind::ComputerKeys,
+                LiveSourceKind::PointerKeys,
+                LiveSourceKind::Pads,
+                LiveSourceKind::AccessiblePulse,
+            ]
+            .into_iter()
+            .enumerate()
+            .map(|(i, kind)| LiveSourceBinding {
+                kind,
+                handle: (i + 1) as u8,
+                connection_generation: 1,
+            })
+            .collect(),
+            output: self.output.clone(),
+            sample_rate: self.rate,
+            channels: self.channels,
+            progress: self.admission.progress(),
+        }
+    }
+    fn panic(&mut self, scope: LiveScope) -> Result<LiveProgress, String> {
+        self.admission
+            .begin_panic(scope)
+            .map_err(|e| e.to_string())?;
+        let deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            match self.admission.finish_panic() {
+                Ok(Some(progress)) => return Ok(progress),
+                Err(e) => return Err(e.to_string()),
+                Ok(None) => {}
+            }
+            if Instant::now() >= deadline {
+                self.admission
+                    .control()
+                    .fault(LiveFaultKind::CallbackQuiescence, None);
+                return Err("Live panic callback fence timed out; Stop is required".into());
+            }
+            thread::sleep(Duration::from_millis(1));
+        }
+    }
+    fn stop(mut self) -> Result<LiveProgress, String> {
+        let stream = self.stream.take().ok_or("Live stream ownership missing")?;
+        if let Err(error) = stream.pause() {
+            self.retire.store(true, Ordering::Release);
+            std::mem::forget(stream);
+            std::mem::forget(self);
+            return Err(format!("Live output pause failed; worker retired: {error}"));
+        }
+        drop(stream);
+        let control = self.admission.control();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while !control.render_destroyed() || !control.error_destroyed() {
+            if Instant::now() >= deadline {
+                control.fault(LiveFaultKind::CallbackQuiescence, None);
+                self.retire.store(true, Ordering::Release);
+                std::mem::forget(self);
+                return Err(
+                    "Live callback destruction acknowledgment timed out; worker retired".into(),
+                );
+            }
+            thread::sleep(Duration::from_millis(1));
+        }
+        let mut progress = self.admission.progress();
+        progress.state = LiveState::Stopped;
+        progress.active_voices = 0;
+        progress.release_tail_voices = 0;
+        progress.lease_credit = None;
+        Ok(progress)
+    }
+}
+
 struct Runtime {
+    generation: LiveId,
+    live: Option<LiveOutput>,
+    last_live: Option<LiveProgress>,
+    first_fault: Option<LiveFault>,
+    urgent: UrgentProgress,
+    pending_panic: Option<(UrgentTicket, LiveScope)>,
+    update_revision: u64,
     root: PathBuf,
     store: NativeStore,
     playback: Option<Playback>,
@@ -451,10 +632,17 @@ struct Runtime {
     retire: Arc<AtomicBool>,
 }
 impl Runtime {
-    fn new(root: PathBuf) -> Result<Self, String> {
+    fn new(root: PathBuf, generation: LiveId) -> Result<Self, String> {
         let root = root_existing(&root)?;
         let store = NativeStore::open_existing(&root).map_err(|e| e.to_string())?;
         Ok(Self {
+            generation,
+            live: None,
+            last_live: None,
+            first_fault: None,
+            urgent: UrgentProgress::default(),
+            pending_panic: None,
+            update_revision: 0,
             root,
             store,
             playback: None,
@@ -474,6 +662,17 @@ impl Runtime {
             && let Err(e) = p.stop()
         {
             failure = Some(e);
+        }
+        if let Some(live) = self.live.take() {
+            match live.stop() {
+                Ok(progress) => {
+                    if self.first_fault.is_none() {
+                        self.first_fault = progress.fault;
+                    }
+                    self.last_live = Some(progress);
+                }
+                Err(e) => failure = Some(e),
+            }
         }
         self.last = None;
         if let Some(e) = failure {
@@ -509,19 +708,143 @@ impl Runtime {
             xruns: 0,
         }))
     }
+    fn update(&mut self) -> Result<EngineUpdate, String> {
+        let progress = self
+            .live
+            .as_ref()
+            .map(|live| live.admission.progress())
+            .or(self.last_live);
+        if self.first_fault.is_none() {
+            self.first_fault = progress.and_then(|p| p.fault);
+        }
+        self.update_revision = self.update_revision.checked_add(1).ok_or_else(|| {
+            self.retire.store(true, Ordering::Release);
+            "Live update sequence exhausted".to_string()
+        })?;
+        Ok(EngineUpdate {
+            worker_generation: self.generation,
+            revision: self.update_revision,
+            live: progress,
+            urgent: self.urgent,
+            first_fault: self.first_fault,
+        })
+    }
+    fn live_action(&mut self, action: Action) -> Result<EngineResult, String> {
+        if self.retire.load(Ordering::Acquire) {
+            return Err("Audio worker generation is retired".into());
+        }
+        match action {
+            Action::LiveBatch { batch } => self
+                .live
+                .as_mut()
+                .ok_or("Live audition is not active")?
+                .admission
+                .admit(batch)
+                .map(EngineResult::LiveStatus)
+                .map_err(|e| e.to_string()),
+            Action::LiveFault {
+                scope,
+                kind,
+                sequence,
+            } => {
+                let live = self.live.as_mut().ok_or("Live audition is not active")?;
+                if live.admission.scope() != scope {
+                    return Err("Stale live fault scope".into());
+                }
+                live.admission.control().fault(kind, sequence);
+                Ok(EngineResult::LiveStatus(live.admission.progress()))
+            }
+            Action::PanicLive { ticket, scope } => {
+                if ticket.worker_generation != self.generation {
+                    return Err("Stale panic worker generation".into());
+                }
+                let live = self.live.as_mut().ok_or("Live audition is not active")?;
+                if live.admission.scope() != scope {
+                    return Err("Stale panic scope".into());
+                }
+                self.pending_panic = Some((ticket, scope));
+                let progress = live.panic(scope)?;
+                self.urgent.panic = Some(PanicAck {
+                    ticket,
+                    requested_scope: scope,
+                    outcome: PanicOutcome::Applied {
+                        new_scope: progress.scope,
+                    },
+                });
+                self.pending_panic = None;
+                Ok(EngineResult::LiveStatus(progress))
+            }
+            Action::UrgentStop {
+                ticket,
+                cancelled_through_control,
+                superseded_panic,
+            } => {
+                if ticket.worker_generation != self.generation {
+                    return Err("Stale Stop worker generation".into());
+                }
+                self.stop()?;
+                let panic = superseded_panic.or(self.pending_panic.take());
+                self.urgent.stop = Some(StopAck {
+                    ticket,
+                    cancelled_through_control,
+                });
+                if let Some((panic_ticket, scope)) = panic {
+                    self.urgent.panic = Some(PanicAck {
+                        ticket: panic_ticket,
+                        requested_scope: scope,
+                        outcome: PanicOutcome::SupersededByStop {
+                            stop_ticket: ticket,
+                        },
+                    });
+                }
+                Ok(EngineResult::Stopped)
+            }
+            _ => Err("Invalid live action dispatch".into()),
+        }
+    }
     fn command(&mut self, command: EngineCommand) -> Result<EngineResult, String> {
         if self.retire.load(Ordering::Acquire) {
             return Err("Audio worker generation is retired; no new control admission".into());
         }
         match command {
             EngineCommand::Devices => Ok(EngineResult::Devices(inventory()?)),
-            EngineCommand::Status => Ok(EngineResult::Status(self.status()?)),
+            EngineCommand::Status => {
+                if let Some(live) = &self.live {
+                    Ok(EngineResult::LiveStatus(live.admission.progress()))
+                } else {
+                    Ok(EngineResult::Status(self.status()?))
+                }
+            }
+            EngineCommand::StartLive {
+                output_device,
+                gui_clock,
+            } => {
+                if self.capture.is_some() || self.playback.is_some() || self.live.is_some() {
+                    return Err("Stop the active audio session before live audition".into());
+                }
+                let live = LiveOutput::start(
+                    self.generation,
+                    output_device.as_deref(),
+                    gui_clock,
+                    self.retire.clone(),
+                )?;
+                let ready = live.ready();
+                if !ready.is_valid() {
+                    let _ = live.stop();
+                    return Err("Live output faulted before start acknowledgment".into());
+                }
+                self.live = Some(live);
+                self.last_live = None;
+                self.first_fault = None;
+                self.last = None;
+                Ok(EngineResult::LiveStarted(ready))
+            }
             EngineCommand::Stop => {
                 self.stop()?;
                 Ok(EngineResult::Stopped)
             }
             EngineCommand::StartCapture { input_device } => {
-                if self.capture.is_some() || self.playback.is_some() {
+                if self.capture.is_some() || self.playback.is_some() || self.live.is_some() {
                     return Err("Solo capture requires stopped playback and no active take".into());
                 }
                 let mut capture =
@@ -543,7 +866,7 @@ impl Runtime {
                 project_id,
                 output_device,
             } => {
-                if self.capture.is_some() || self.playback.is_some() {
+                if self.capture.is_some() || self.playback.is_some() || self.live.is_some() {
                     return Err("Stop the active audio session before starting playback".into());
                 }
                 let device = device(false, output_device.as_deref())?;
@@ -690,7 +1013,7 @@ pub fn run_worker() -> Result<(), String> {
             architecture: architecture(),
             build_id: BUILD.into(),
             limits: default_worker_limits(),
-            capabilities: vec!["native-audio-control-v1".into()],
+            capabilities: vec!["native-audio-control-v1".into(), LIVE_PROTOCOL.into()],
         },
         Duration::from_secs(5),
     )
@@ -716,18 +1039,29 @@ pub fn run_worker() -> Result<(), String> {
             .checked_add(1)
             .ok_or("Audio request sequence exhausted")?;
         let result = match request.action {
-            Action::Initialize { store_root } => {
-                if runtime.is_some() || request.request_id != 0 {
-                    Err("Audio initialization is only allowed once".into())
+            Action::Initialize {
+                store_root,
+                worker_generation,
+                profile,
+            } => {
+                if runtime.is_some() || request.request_id != 0 || profile != LIVE_PROTOCOL {
+                    Err("Audio initialization/profile is only allowed once".into())
                 } else {
-                    Runtime::new(store_root).map(|r| {
+                    Runtime::new(store_root, worker_generation).map(|r| {
                         runtime = Some(r);
-                        EngineResult::Stopped
+                        EngineResult::Initialized {
+                            profile: LIVE_PROTOCOL.into(),
+                            worker_generation,
+                        }
                     })
                 }
             }
             Action::Command { command } => match runtime.as_mut() {
                 Some(r) => r.command(command),
+                None => Err("Audio worker is not initialized".into()),
+            },
+            action => match runtime.as_mut() {
+                Some(r) => r.live_action(action),
                 None => Err("Audio worker is not initialized".into()),
             },
         };
@@ -740,6 +1074,7 @@ pub fn run_worker() -> Result<(), String> {
         });
         let sent = connection.send_payload(
             Response {
+                update: runtime.as_mut().and_then(|r| r.update().ok()),
                 reply: EngineReply {
                     request_id: request.request_id,
                     result,
@@ -777,7 +1112,7 @@ mod tests {
             .join(uuid::Uuid::new_v4().to_string());
         NativeStore::open(&root).unwrap();
         let root = fs::canonicalize(root).unwrap();
-        let mut runtime = Runtime::new(root).unwrap();
+        let mut runtime = Runtime::new(root, LiveId::random()).unwrap();
         runtime.retire.store(true, Ordering::Release);
         for command in [
             EngineCommand::Devices,
