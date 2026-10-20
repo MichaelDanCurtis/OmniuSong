@@ -1,0 +1,43 @@
+{
+  "ancestorProofBytesUnchanged": true,
+  "atomicNameTempoUndoRedo": true,
+  "capturedFromDevice": false,
+  "copiedProjectId": "bbb622d6-feed-482f-8654-89cc3fba91ac",
+  "evidenceDate": "2026-10-20",
+  "firstLineageProofCount": 1,
+  "fixtureRoot": ".runtime/rust-migration/qualified-archive-copy",
+  "format": "omniusong.native-archive-copy-qualification",
+  "freshLiveOperationIdentities": true,
+  "historicalOperationOnlyOriginalsRetained": true,
+  "input": {
+    "archiveVersion": 1,
+    "path": ".runtime/rust-migration/qualified-native-archive/complete.omniusong-native",
+    "sha256": "34107a52140dd4ba5d8416b6f6089f87981d3fa99a51dfce5d112cfe73cc0408"
+  },
+  "limits": [
+    "Synthetic storage/archive fixture; no actual recording, latency, audible playback, listening, model inference or Windows qualification.",
+    "Native UI archive qualification has a separate observed-binary receipt."
+  ],
+  "manifestSha256": "12c3dea384c4c17c70370b176169ca7081a669f302186205b76dcca7eb39353d",
+  "objectSha256": "9a6b46e9a0222647e93c5c553c5f0da1a302cdd8d89dcc3480ca50e98733e981",
+  "originalFileUnchanged": true,
+  "originalProjectId": "d96178e6-09e9-4751-af21-0571c8c64bd5",
+  "originalSessionUnchanged": true,
+  "output": {
+    "archiveVersion": 2,
+    "byteLength": 37220352,
+    "path": "/Volumes/Main External/Development/OmniuSong/.runtime/rust-migration/qualified-archive-copy/copied.omniusong-native",
+    "sha256": "2c13133e0b76f63bed2a91dc136822185893b1b655187ebe1db51d8441f8e029",
+    "takeCount": 1
+  },
+  "payloadBytes": 36846248,
+  "payloadSha256": "af79ed906ae95cd15da4576b88944a6cda9004acd99e530d78dbecd8d9e5e879",
+  "replayWithoutSourceReturnsOriginalSnapshotAndPreservesLaterEdits": true,
+  "secondCopyProjectId": "288d8e22-8f0c-42cc-a0e3-0cded27c67eb",
+  "secondLineageProofCount": 2,
+  "storeVersion": 4,
+  "synthetic": true,
+  "takeId": "qualification-original",
+  "typedRootOnlyDocumentRewrite": true,
+  "version": 1
+}

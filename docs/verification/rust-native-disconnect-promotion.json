@@ -1,0 +1,32 @@
+{
+  "format": "omniusong.reversible-store-promotion",
+  "version": 1,
+  "recordedAtUtc": "2026-10-20T19:44:34.999850+00:00",
+  "defaultStore": ".runtime/native-studio",
+  "retainedDamagedStore": ".runtime/native-studio.disconnected-85df7f15-09a0-4598-931a-0a1d7a3319d6",
+  "validatedCandidate": ".runtime/rust-migration/recovered-native-preview-20261020/recovered-store",
+  "nativeAppConfirmedClosed": true,
+  "damagedOriginalRetainedExactly": true,
+  "candidateRetainedExactly": true,
+  "promotedFiles": {
+    "studio.sqlite3": {
+      "sha256": "d7ac97ef63f9f4a85678289f698d9009b83613db1cbc0fb669166b60861d20ae",
+      "byteLength": 499712
+    },
+    "takes/679914498bf02ced1570f8b58ba441eb1f958e8dec54d2931a4eab9f3657ff6b.sqlite3": {
+      "sha256": "679914498bf02ced1570f8b58ba441eb1f958e8dec54d2931a4eab9f3657ff6b",
+      "byteLength": 40960
+    }
+  },
+  "retainedOriginalFiles": {
+    "studio.sqlite3": {
+      "sha256": "3cec762a9455ed3b53525529e0ddf8e8d631e4a92931f4c445bb9cdc00b234a4",
+      "byteLength": 167936
+    },
+    "takes/679914498bf02ced1570f8b58ba441eb1f958e8dec54d2931a4eab9f3657ff6b.sqlite3": {
+      "sha256": "679914498bf02ced1570f8b58ba441eb1f958e8dec54d2931a4eab9f3657ff6b",
+      "byteLength": 40960
+    }
+  },
+  "policy": "3 complete original sessions and 1 fresh recovered snapshot; no historical operation reconstruction"
+}

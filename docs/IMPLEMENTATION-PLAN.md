@@ -1,8 +1,28 @@
 # OmniuSong implementation plan
 
+The active October 20, 2026 implementation is the [native Rust migration plan](RUST-MIGRATION.md), governed by the [complete goal](GOAL.md), [architecture](RUST-ARCHITECTURE.md) and [release acceptance matrix](RELEASE-ACCEPTANCE.md). Repository: `/Volumes/Main External/Development/OmniuSong`. The original overnight plan below is retained as historical reference; its Node/browser/Swift runtime decisions do not govern the production application.
+
+## Current native delivery boundary
+
+The [current native source gate](verification/rust-native-capture-recovery-tests.json) records **278 passing workspace entries**, zero failures and one intentionally ignored process helper, plus five focused CoreAudio patch tests. Formatting/Clippy, the Mac development build and signature verification pass. Seven crates now cover native session/storage, recording/IPC and the first [native audio process](contracts/NATIVE-AUDIO-ENGINE.md). Saved-session Play/Stop, device selection, supported procedural notes/WAV/sealed-take rendering and solo-input/Finish controls are implemented. Actual native output UI qualification is waiting on macOS external-drive access; native input is unexercised under the user's software-loopback-only instruction.
+
+The [final-source internal software bus](verification/rust-native-audio-software-bus-final.json) retains 108,000 stereo frames at 48 kHz exactly through capture, explicit sealing, attachment, Undo/Redo, missing-stage replay, archive and restore. This is offline synthetic routing, without native input, listening or elapsed-device-capture acceptance. The [independent review](reviews/RUST-AUDIO-ENGINE-INITIAL.md) covers fixed callback data paths, exact overflow/unknown-tail distinctions, worker loss and the pinned dependency repair. The [preservation audit](verification/rust-native-audio-preservation.json) retains all six earlier native sessions and all 30 original prototype files unchanged.
+
+Schema-4 storage, background session actions, paired name/tempo editing, OSARv2 archives, strict v1 reads and restore-as-copy remain implemented. The [earlier actual Mac walkthrough](verification/rust-native-disconnect-ui.json) completed two copy generations, paired Save/Undo/Redo, malformed-backup rejection and process exit/relaunch/reopen; it names the earlier 191-entry binary. The [drive-disconnect recovery](DISCONNECT-RECOVERY.md) retains three complete projects and one explicit fresh snapshot. One history row and three receipts remain missing; none were fabricated.
+
+Full milestone 2 and every release row remain incomplete. Finish actual native output/stop/reopen evidence when drive access completes. Retained-stage discovery, read-only review, explicit checked recovery, separate attachment and keep-local/typed-conflict choices are now implemented and covered by the [recovery qualification](verification/rust-native-capture-recovery.json) and [independent review](reviews/RUST-CAPTURE-RECOVERY-INITIAL.md). The isolated fixture preserves 12,000 verified frames and its damaged tail through a complete project archive. Next packets: live keyboard/pads, native arrangement/note/clip editors, waveform, buffer/clock visibility, metronome/count-in and overdub/compensation; extend recovery with reversible set-aside and combined unassigned-source export. Known light-theme warning contrast and stale completed-error text have source/headless fixes; actual rebuilt UI confirmation remains pending. Preserve separate hardware/listening, MIDI 2/MPE/Clip File, inference, plugin, installer and Windows gates.
+
+## Next native work packet
+
+Continue milestone 2 on two independent tracks. The actual Mac check remains pending on the [matched live file-open wait](verification/rust-native-capture-recovery-ui.json); do not start physical input or infer studio acceptance from the loading window.
+
+The next implementation packet is playable Rust keys and pads: a bounded live-voice output path, explicit output start/stop, unique internal voice lifetimes, 16-bit velocities, release/sustain/panic behavior, focus-loss cleanup and accessible piano/pad controls. Keep synthesis labeled procedural. Preserve repeated/overlapping notes and future expressive-event boundaries rather than treating MIDI pitch as voice identity. Do not claim hardware MIDI 2/MPE or measured response from software input. Establish the live command/queue contract before separate engine/UI implementation and independent callback/release review. Then integrate non-destructive note/clip editors and rendered/exported agreement; retain original captures and durable Undo/Redo through each change.
+
+## Historical prototype plan
+
 October 15, 2026. Development home: `/Volumes/Main External/OmniuSong`.
 
-## Current technical decisions
+## Prototype technical decisions (historical)
 
 Use a dependency-free Node 22 control service and portable browser UI for the first executable slice. Use a small Swift macOS shell for CoreMIDI access. Version project data and model capabilities before adding heavy inference runtimes. Keep playback replaceable so a native audio engine can take over without translating saved songs.
 

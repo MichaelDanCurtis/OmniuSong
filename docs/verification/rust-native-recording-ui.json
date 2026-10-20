@@ -1,0 +1,99 @@
+{
+  "format": "omniusong.native-recording-ui-verification",
+  "version": 1,
+  "recordedAtUtc": "2026-10-20T18:47:22.150307+00:00",
+  "scope": "Actual rebuilt Mac native app: schema-2 recording inspection/edit/history/restart. Synthetic source, no capture/playback.",
+  "bundle": "dist/OmniuSong Native.app",
+  "binarySha256": "c69854edac39c1b8bf75fae667c095619f9c331c687a55e234027346ffdb4be4",
+  "binaryByteLength": 73995072,
+  "codeSigning": {
+    "kind": "ad-hoc development",
+    "identifier": "local.omniusong.native-preview",
+    "verificationPassed": true,
+    "productionSignedOrNotarized": false
+  },
+  "linkedSystemLibraries": [
+    "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+    "/System/Library/Frameworks/CoreText.framework/Versions/A/CoreText",
+    "/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit",
+    "/System/Library/Frameworks/ApplicationServices.framework/Versions/A/ApplicationServices",
+    "/System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics",
+    "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+    "/System/Library/Frameworks/Carbon.framework/Versions/A/Carbon",
+    "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+    "/usr/lib/libSystem.B.dylib",
+    "/usr/lib/libobjc.A.dylib",
+    "/System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore",
+    "/System/Library/Frameworks/Metal.framework/Versions/A/Metal",
+    "/usr/lib/libiconv.2.dylib",
+    "/System/Library/Frameworks/ColorSync.framework/Versions/A/ColorSync",
+    "/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices"
+  ],
+  "fixtureReceipt": {
+    "path": "docs/verification/rust-native-recording-ui-fixture.json",
+    "sha256": "aad90bfeca8a81c13ad05c69b1cfb7c5c6ffac88d5abcc079bd26a8bcb58e2de",
+    "byteLength": 1148
+  },
+  "projectId": "eb9b8562-4e5d-47c6-adae-e9194fcab668",
+  "initialRevision": 2,
+  "reopenedRevision": 5,
+  "reopenedTempo": 106.25,
+  "observed": {
+    "tool": "cua_repl native AX and screenshots",
+    "schemaTwoRecordingBranch": true,
+    "declaredRangePlacementAndFades": true,
+    "opaqueFieldsNotRenderedAsNotesOrAssets": true,
+    "tempoSaveUndoRedo": true,
+    "appClosedAndRelaunched": true,
+    "savedRevisionTempoAndTakeReopened": true,
+    "originalExternalSourceUnchanged": true,
+    "ownedObjectUnchanged": true,
+    "opaqueMetadataUnchanged": true,
+    "playAndRecordDisabled": true
+  },
+  "source": {
+    "synthetic": true,
+    "frames": 4,
+    "channels": 2,
+    "sampleRate": 48000,
+    "manifestSha256": "03eff69da5c7bbcaa4027974703acb4917e9253d13f086c515d25c79624ec766",
+    "ownedObjectSha256": "679914498bf02ced1570f8b58ba441eb1f958e8dec54d2931a4eab9f3657ff6b",
+    "sourceFileSha256": "5403da3e248f2072c2a0294dcbd5d479deea93a266b3649fecc95e13e65d7b82"
+  },
+  "screenshots": [
+    {
+      "path": "docs/verification/rust-native-recording.png",
+      "sha256": "4b9bd7633097a59f40f58114a65082fea5f7d1db8b0080396f1df68e0650a785",
+      "byteLength": 131188
+    },
+    {
+      "path": "docs/verification/rust-native-recording-reopened.png",
+      "sha256": "eb752f4e301b2ed022a32ede107e6b0ff6ad9c8017041ab5d1db60c14caec946",
+      "byteLength": 130546
+    }
+  ],
+  "accessibleState": {
+    "path": "docs/verification/rust-native-recording-ax.txt",
+    "sha256": "11397d23484397ab0bdff3777f3ad3a3be65869fafdb657d24f081e7bc875779",
+    "byteLength": 3093
+  },
+  "permission": {
+    "userAuthorizedDriveAccess": true,
+    "storeAndLegacyReadAccessWorking": true,
+    "agentChangedOsPermissions": false,
+    "promptObservedOrClicked": false
+  },
+  "startupObservation": {
+    "initialLoadingFrameObserved": true,
+    "oneSecondSampleHadNoInitializerWorkerWaiting": true,
+    "laterStudioOpened": true,
+    "tccWaitNotEstablished": true,
+    "note": "Coordinate UI interaction returned noWindowsAvailable and Dock inspection timed out. Later native AX actions and restart/reopen worked; foreground/occlusion startup behavior needs broader qualification."
+  },
+  "earlierSessionCreateImportUi": "rust-native-session-ui.json",
+  "limits": [
+    "Four-frame synthetic source is an inspector fixture, not microphone/controller capture, waveform editing, playback or listening proof.",
+    "Current draft actions still perform blocking store calls; background storage/action-ID integration remains pending.",
+    "No archive UI, production installer, native inference, MIDI transport, plugin, physical latency/stability or Windows acceptance."
+  ]
+}

@@ -1,0 +1,184 @@
+{
+  "date": "2026-10-20",
+  "baselineCommit": "4cbcba08fda0f7d3abfa7aeed61cec4a0a00a367",
+  "scope": "Read-only inventory before native Rust migration; no audio decoding or inference",
+  "projects": [
+    {
+      "path": "data/projects/00ab7d77-d353-455c-843a-2211859f9609.json",
+      "sha256": "8d3b1afc093e166b29ceac5dd4e0113ac87dc6150792f89c86ea9dbaa79b9c2d",
+      "byteLength": 2849,
+      "schemaVersion": 1
+    },
+    {
+      "path": "data/projects/01da31dc-76e5-4d3d-ae90-1a7b1552ac58.json",
+      "sha256": "fe41e4b8f1824bdff1aa28b4f9e7d5e4a03798255753c38c24f8b1ba7674d0d6",
+      "byteLength": 34750,
+      "schemaVersion": 1
+    },
+    {
+      "path": "data/projects/02eb5d5c-b7fc-493f-9bc6-07cbbf25f342.json",
+      "sha256": "9eeceea143811c49580190c7c21ec7595d6c149ef471f1eef3d35af5bc4c3cfa",
+      "byteLength": 11529,
+      "schemaVersion": 1
+    },
+    {
+      "path": "data/projects/0f413c7d-3409-4d95-8baf-0700aae9e2e8.json",
+      "sha256": "33e7542fc54b6d8e664bb04dbcd76b36442a1851b0943cc27ef6d81f682d1a18",
+      "byteLength": 2239,
+      "schemaVersion": 1
+    },
+    {
+      "path": "data/projects/2876fcce-d546-447a-acce-e67180d801de.json",
+      "sha256": "450b163dd6b8aaf406030b937d1c78cc7f3b0d6018fa14016022aa67a9bf20c5",
+      "byteLength": 20583,
+      "schemaVersion": 1
+    },
+    {
+      "path": "data/projects/3ed95ce8-6dd0-435a-9353-139c5e254943.json",
+      "sha256": "0d6971a12c94a7e71a094bab9b1d184a195883cafe0332b1697d994be0883130",
+      "byteLength": 4254,
+      "schemaVersion": 1
+    },
+    {
+      "path": "data/projects/6dd1a6bf-4e6c-402d-a8e8-cb235c4fd4ec.json",
+      "sha256": "6a7ee6bf40db2095f968ba446f040d87af0b71edb4ac45d4550ccff904646aff",
+      "byteLength": 21930,
+      "schemaVersion": 1
+    },
+    {
+      "path": "data/projects/8b9e66de-17f4-4958-9109-993375f1c642.json",
+      "sha256": "d8cf8cfd637c38c67d2539f041962af7efe0a1b51ad67dc639cfbe0ef6d9cf2d",
+      "byteLength": 50165,
+      "schemaVersion": 1
+    },
+    {
+      "path": "data/projects/9d43fd49-6847-4fab-8b6e-4c1fe6b2aa86.json",
+      "sha256": "ba2e7755cef2c24a4a0f8c82c4230504070188046a8904ed774ee7a4c12e3a41",
+      "byteLength": 137968,
+      "schemaVersion": 1
+    },
+    {
+      "path": "data/projects/b0e72a90-a64f-4951-9b94-6a4fe4c92e6f.json",
+      "sha256": "722fe1a0b1930f991fa9ee1ff1914410ec3d2d59f40e473827bee4018dc18f5d",
+      "byteLength": 9223,
+      "schemaVersion": 1
+    },
+    {
+      "path": "data/projects/b5982252-5a28-4c6e-a1f6-0eb9d1565fc8.json",
+      "sha256": "e9cc9a58e7cd45142c890e155ccf6dd305f425b0add9caff0c5e24d723494ff1",
+      "byteLength": 2864,
+      "schemaVersion": 1
+    },
+    {
+      "path": "data/projects/c0dc28a8-9002-478d-9d73-b2851f421a05.json",
+      "sha256": "9ff22bfb87bfa4d73e8dc228266309ccc272bb1f42fcdb2e6a0b9de083f81f04",
+      "byteLength": 1474,
+      "schemaVersion": 1
+    },
+    {
+      "path": "data/projects/d9693739-0f5d-407d-a7ff-725f7917593f.json",
+      "sha256": "6b5116b0a2c8484e2f661d9c74f9c98b7c50a5a75e2cf2d5b15c1ab58d6649ce",
+      "byteLength": 3089,
+      "schemaVersion": 1
+    },
+    {
+      "path": "data/projects/dfdf5d0e-334d-495a-a69a-a65ceeb1cab7.json",
+      "sha256": "3376ef6e43a12cf8a51fa7d7ca265ae748ef7fa6f432a40ee4b5abcc312b77c6",
+      "byteLength": 3074,
+      "schemaVersion": 1
+    },
+    {
+      "path": "data/projects/e7f7515c-5e17-4173-b628-e7ebd8f3bb47.json",
+      "sha256": "a4d78a46c971993a7185fb2c085381a520ca9b76b56825404b32544dd38f0d58",
+      "byteLength": 2551,
+      "schemaVersion": 1
+    },
+    {
+      "path": "data/projects/f31a603c-4077-45c3-b04c-79c3a35fe607.json",
+      "sha256": "5036b2d065cdacfab51f262144349d9312cec7da05584e5fc890d3d9af2e0af4",
+      "byteLength": 2985,
+      "schemaVersion": 1
+    },
+    {
+      "path": "data/projects/f3e500d7-bf93-47be-a24d-785bde766035.json",
+      "sha256": "231f18fb9d7f3598e7c15c15e35fb0cb0b2358609b2298a20ce02cab5c07ea42",
+      "byteLength": 2241,
+      "schemaVersion": 1
+    },
+    {
+      "path": "data/projects/f5d5e75a-8cb7-4dfb-8cbf-e09762778a68.json",
+      "sha256": "8afe20b44089649e10b2f2c03c4360a1645e80347d81680c8888d89d2e3652b0",
+      "byteLength": 135566,
+      "schemaVersion": 1
+    },
+    {
+      "path": "data/projects/feb682a3-3061-4435-93cf-5ab0584ffe3c.json",
+      "sha256": "b8732327ff2e9e9716614c48c300b5d76a37950aff73b56c53d5e90f34bca1c4",
+      "byteLength": 49718,
+      "schemaVersion": 1
+    }
+  ],
+  "assets": [
+    {
+      "path": "data/assets/0c31c76c7bab2d2e3c906384fd37c5e913cc281b3ab4a99ae94d8939ccd92b97.wav",
+      "sha256": "0c31c76c7bab2d2e3c906384fd37c5e913cc281b3ab4a99ae94d8939ccd92b97",
+      "byteLength": 768044
+    },
+    {
+      "path": "data/assets/21bf8a24c2da22ba3e5da9e2ab1c07912dc349d025f57451e806e20528c3c7f3.wav",
+      "sha256": "21bf8a24c2da22ba3e5da9e2ab1c07912dc349d025f57451e806e20528c3c7f3",
+      "byteLength": 384044
+    },
+    {
+      "path": "data/assets/2a43aaacbb59bedceb5a15b4a99d5f70b880a8258cc788b09a8feddc12d74f55.wav",
+      "sha256": "2a43aaacbb59bedceb5a15b4a99d5f70b880a8258cc788b09a8feddc12d74f55",
+      "byteLength": 282284
+    },
+    {
+      "path": "data/assets/2d9af65e42fc3d5eb186fbc328c5e847a1399648be4cbaafe3f70e3b93a4cbe1.wav",
+      "sha256": "2d9af65e42fc3d5eb186fbc328c5e847a1399648be4cbaafe3f70e3b93a4cbe1",
+      "byteLength": 307244
+    },
+    {
+      "path": "data/assets/4a1040febd8051aa6ff8cb1314899fd9a0672f800052155c19cfd1b36c44ea07.wav",
+      "sha256": "4a1040febd8051aa6ff8cb1314899fd9a0672f800052155c19cfd1b36c44ea07",
+      "byteLength": 768044
+    },
+    {
+      "path": "data/assets/5d4939418f1e98d1d8e0d946aad19de98525672c25707e71e7f98f690343d14b.wav",
+      "sha256": "5d4939418f1e98d1d8e0d946aad19de98525672c25707e71e7f98f690343d14b",
+      "byteLength": 1536044
+    },
+    {
+      "path": "data/assets/76d010ae887159c816ffe22f3b2dbc8f1d548a92b833c1de5664db20f333f330.wav",
+      "sha256": "76d010ae887159c816ffe22f3b2dbc8f1d548a92b833c1de5664db20f333f330",
+      "byteLength": 176444
+    },
+    {
+      "path": "data/assets/841fb8a748923f8fbf0603a9f2a321cb91954c907af9fc021191f4a2c78f1e9b.wav",
+      "sha256": "841fb8a748923f8fbf0603a9f2a321cb91954c907af9fc021191f4a2c78f1e9b",
+      "byteLength": 768044
+    },
+    {
+      "path": "data/assets/8ad0794ad84807efe21662ac82269dd2c5cc1ae8b0c885adad0e47af9901afb9.wav",
+      "sha256": "8ad0794ad84807efe21662ac82269dd2c5cc1ae8b0c885adad0e47af9901afb9",
+      "byteLength": 1536044
+    },
+    {
+      "path": "data/assets/99666a1f174a6957891d41f0b5e41e3e0cba031abb167c141b2b28459295077e.wav",
+      "sha256": "99666a1f174a6957891d41f0b5e41e3e0cba031abb167c141b2b28459295077e",
+      "byteLength": 384044
+    },
+    {
+      "path": "data/assets/b692fbd08005d91bb24f2db95fb0758cab00641024821c4b1bc14926acce7acd.wav",
+      "sha256": "b692fbd08005d91bb24f2db95fb0758cab00641024821c4b1bc14926acce7acd",
+      "byteLength": 614444
+    }
+  ],
+  "unrelatedWorkingTreeEntries": [
+    ".serena/"
+  ],
+  "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "cargo": "cargo 1.98.1 (797e8a9bc 2026-08-05)",
+  "qualification": "Existing preview evidence is reference-only; native UI/audio/MIDI/plugins/inference and Windows remain unqualified."
+}

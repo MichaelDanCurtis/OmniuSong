@@ -1,0 +1,112 @@
+{
+  "version": 1,
+  "recordedAtUtc": "2026-10-20T17:40:13.321497+00:00",
+  "scope": "Initial native Rust workspace and schema-1 migration; not complete music-workstation acceptance",
+  "platform": {
+    "os": "27.0.1",
+    "machine": "arm64",
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+    "cargo": "cargo 1.98.1 (797e8a9bc 2026-08-05)"
+  },
+  "baselineCommit": "4cbcba08fda0f7d3abfa7aeed61cec4a0a00a367",
+  "checks": [
+    {
+      "command": "cargo fmt --all -- --check",
+      "result": "passed",
+      "logPath": ".runtime/rust-migration/native-format.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": "cargo test --workspace --locked",
+      "result": "passed",
+      "passed": 39,
+      "failed": 0,
+      "ignored": 0,
+      "suites": {
+        "app": 10,
+        "coreIncludingContracts": 15,
+        "store": 8,
+        "independentStoreRegressions": 6
+      },
+      "tests": [
+        "tests::command_line_overrides_do_not_require_a_server",
+        "tests::initializer_delivers_ready_result_and_reports_disconnected_worker",
+        "tests::application_creator_does_not_open_or_create_storage",
+        "tests::equal_clock_fixtures_cannot_remove_each_others_healthy_legacy_sources",
+        "tests::initializer_runs_once_and_failure_remains_visible_without_retry",
+        "tests::malformed_legacy_source_is_reported_without_hiding_healthy_sources",
+        "tests::invalid_draft_blocks_navigation_and_leaves_committed_document_intact",
+        "tests::explicit_save_preserves_musical_fields_and_supports_store_undo_redo",
+        "tests::loading_window_keeps_rendering_and_accepts_close_while_initializer_is_blocked",
+        "tests::native_session_can_be_created_through_accessible_ui_and_reopened",
+        "contracts::tests::realtime_batch_rejects_overflow_disorder_and_bad_offsets_without_mutation",
+        "contracts::tests::terminal_lifecycles_and_edit_scopes_are_explicit",
+        "contracts::tests::address_and_resolution_are_checked_without_inventing_wire_note_ids",
+        "contracts::tests::clock_integrity_rejects_cross_epoch_cross_domain_rate_and_false_alignment",
+        "tests::legacy_recording_clock_estimates_are_preserved_and_validated",
+        "tests::rejects_invalid_expression_and_unsupported_versions_without_mutation",
+        "tests::discovers_provenance_assets_and_rejects_path_references",
+        "tests::opaque_remote_ids_and_prior_import_metadata_survive_migration",
+        "tests::clip_windows_original_snapshots_and_transport_are_validated",
+        "tests::unknown_numbers_are_not_rounded_to_machine_float_or_integer",
+        "tests::keeps_opaque_metadata_raw_resolution_and_large_clock_strings",
+        "contracts::tests::midi_only_commits_and_cancellation_have_concrete_wire_records",
+        "contracts::tests::version_protocol_size_and_reserved_extension_are_rejected",
+        "contracts::tests::worker_handshake_and_model_candidate_contract_roundtrip",
+        "contracts::tests::captured_roundtrip_preserves_raw_precision_extensions_and_signed_clock",
+        "tests::damaged_or_missing_audio_never_publishes_a_partial_import",
+        "tests::aborted_transaction_retains_last_committed_project_after_reopen",
+        "tests::two_connections_cannot_publish_the_same_expected_revision",
+        "tests::legacy_import_is_complete_and_retains_exact_original_bytes",
+        "tests::one_damaged_session_does_not_hide_healthy_sessions",
+        "tests::damaged_history_cannot_replace_the_target_project_identity",
+        "tests::native_edits_undo_redo_survive_reopen_and_reject_stale_writes",
+        "tests::simultaneous_first_open_does_not_race_schema_creation",
+        "foreign_undo_snapshot_cannot_change_payload_revision_cursor_or_journal",
+        "foreign_redo_snapshot_cannot_change_payload_revision_cursor_or_journal",
+        "final_import_receipt_failure_rolls_back_assets_and_project_together",
+        "damaged_listing_rows_are_visible_without_hiding_or_rewriting_healthy_data",
+        "malformed_clip_transport_and_timing_imports_leave_no_partial_rows",
+        "literal_import_precision_and_prior_lineage_survive_save_undo_redo_and_reopen"
+      ],
+      "logPath": ".runtime/rust-migration/native-workspace-tests.log",
+      "logSha256": "25869e89320d4a066b05d537106d34126b629ce0ec278703384b6432a250ae68"
+    },
+    {
+      "command": "cargo clippy --workspace --all-targets --locked -- -D warnings",
+      "result": "passed",
+      "logPath": ".runtime/rust-migration/native-workspace-clippy.log",
+      "logSha256": "8d96fa5f26627d7a25d53c5b50ac92cd336a3cd56b44922ef3a4a4e9ad328985"
+    }
+  ],
+  "sourceSha256": {
+    "Cargo.toml": "fb7932529c13850097a7da69ea0d0900f551244a327e93f90bd212b53e69f8fd",
+    "Cargo.lock": "395ebcaa0d0ea860368c4c489340dc5aba5785e4a5203b69e6b1d8bed94c5643",
+    ".cargo/config.toml": "a64c48300486b9bd06dd77b2ab72ebb53b18dc6a475be4546a26c8d9bb67963e",
+    "scripts/build-native-mac.sh": "16736db094bf02a9f3f9dba85cb9dec52f380a93621417fe092418f21ec9d367",
+    "crates/omniusong-app/src/main.rs": "f857a4281942e14831c210d96d0f02c3bed6cb7eb50204114fa2c968a84cfa5f",
+    "crates/omniusong-core/src/contracts.rs": "31ea637d31984fc5527c432a8a373275b02cb76612ea3d4113a7e68f1006f8fd",
+    "crates/omniusong-core/src/lib.rs": "92d19c5f97d253a219f42dc66d708209b6372b3745d0e0f087c4c59bc98e6dae",
+    "crates/omniusong-store/examples/qualify_legacy.rs": "83d6aea6aa30c9f94ebbdc13bf8284afc4de646496736a7419a1fc6e242316a1",
+    "crates/omniusong-store/src/lib.rs": "6a83c198003ff324d957cd95e5eb54198b401c1e0ab2f137000c087feae20cef",
+    "crates/omniusong-store/tests/review_regressions.rs": "43fa472f76fcd8f31ec2c9d46c463f410290aa4d2cf13408c8e83704200b2402",
+    "crates/omniusong-app/Cargo.toml": "4705d14cdb68290b231e92b678aa75f4b2c4884e33303d2172c64acd3cdd3649",
+    "crates/omniusong-core/Cargo.toml": "b2e07cb138f58d96a003c4f597dee58972508ade8aad0273f9790608a1c0ff62",
+    "crates/omniusong-store/Cargo.toml": "f58985a15d35610e71bed5e2185a7c8e0be5b1f3417889fb397c810d31fe6994"
+  },
+  "migration": {
+    "receipt": "rust-native-migration.json",
+    "receiptSha256": "414f9db4bdeb132d5a561f4a3ff8ebd4aa9489626bba412678b6fdc65cd88dd1",
+    "importedProjects": 19,
+    "reopened": true,
+    "exactOriginalJsonRetained": true,
+    "originalFilesStillMatchInitialBaseline": 30,
+    "baselineReceipt": "rust-migration-baseline.json"
+  },
+  "limits": [
+    "Headless app tests are not OS interaction or device qualification.",
+    "Seven isolated UI-probe tests are separate and are not counted in the 39 workspace tests.",
+    "Actual native window currently waits for an external-drive access decision; full studio UI create/import/save/reopen is pending.",
+    "No native audio, recording, MIDI device, plugin, inference, installer, listening or Windows acceptance is claimed."
+  ]
+}

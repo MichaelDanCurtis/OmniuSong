@@ -1,0 +1,36 @@
+{
+  "actualDeviceInput": false,
+  "archive": {
+    "assetCount": 0,
+    "historyRows": 1,
+    "operationRows": 1,
+    "projectId": "7be445dd-580e-432a-b5ff-0c80fcb99324",
+    "takeCount": 1
+  },
+  "archiveByteLength": 1028096,
+  "archivePath": ".runtime/rust-audio/software-bus-20261020/software-loopback.omniusong-native",
+  "archiveSha256": "24ee4abcfc0942215f98f897f9bbb9f94d35fdb543c785851719ad71c4265d37",
+  "channels": 2,
+  "elapsedRealtimeRecording": false,
+  "exactCapturePlaybackUndoRedoReplayAndArchiveRestore": true,
+  "finalRevision": 3,
+  "format": "omniusong.native-software-loopback-qualification",
+  "frames": 108000,
+  "gapFrames": 0,
+  "journal": ".runtime/rust-audio/software-bus-20261020/software-loopback.sqlite3",
+  "limits": [
+    "Synthetic internal bus; no native hardware/input callback or real-time elapsed-capture qualification.",
+    "No listening, physical latency, thirty-minute stability, cross-device alignment, MIDI, plugins, models or Windows acceptance."
+  ],
+  "manifestSha256": "7c24b661d22a90929362b434b2535e33213cfe70c4611c65c6e5bcf00ad263bd",
+  "pcmSha256": "3f8e16af154d23fa4097666cf9202c4adf227c920865f224ec2abc996e615c93",
+  "physicalMicrophoneOpened": false,
+  "recordedProjectId": "7be445dd-580e-432a-b5ff-0c80fcb99324",
+  "sampleRate": 48000,
+  "sourceProjectId": "42692e4a-b172-4071-b447-093210b282cc",
+  "sourceProjectSha256": "64efe2c0be1829406ee70481e9c50388b77040b3e2b782af4398d30c9f41b831",
+  "sourceProjectUnchanged": true,
+  "version": 1,
+  "wav": ".runtime/rust-audio/software-bus-20261020/software-loopback.wav",
+  "wavSha256": "d3e54640af26c8e6a7a23ab681282a611558bc4e7dec006bdab41621650ee5cf"
+}

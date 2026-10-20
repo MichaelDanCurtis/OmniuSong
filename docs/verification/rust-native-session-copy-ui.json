@@ -1,0 +1,67 @@
+{
+  "format": "omniusong.native-session-copy-ui-verification",
+  "version": 1,
+  "recordedAtUtc": "2026-10-20T19:50:47.642281+00:00",
+  "scope": "Actual pre-disconnect Mac native UI flow from task AX observations; recovery and post-recovery UI use separate receipts.",
+  "bundle": "dist/OmniuSong Native.app",
+  "retainedPreHardeningBinary": {
+    "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+    "sha256": "13f4c02cbacdd928b92e03e6d1736de5a7826c20b0abded1e10b21763a3f5ca8",
+    "byteLength": 76843376
+  },
+  "sourceBuildReceipt": "docs/verification/rust-native-session-copy.json",
+  "tool": "cua_repl native accessibility actions",
+  "originalProjectId": "eb9b8562-4e5d-47c6-adae-e9194fcab668",
+  "originalRevision": 5,
+  "copyProjectId": "670fcc05-94ad-47ea-bb67-41d98bf3e44d",
+  "copyRevisionObserved": 8,
+  "copyNameObserved": "Native archive restored copy",
+  "copyTempoObserved": 119.25,
+  "completedArchive": {
+    "path": ".runtime/rust-migration/native-ui-backup-v2.omniusong-native",
+    "sha256": "00c6ab268772bddd03c198694799c02d8754c4909762f79c41c31b51903e627e",
+    "byteLength": 163840
+  },
+  "observed": {
+    "responsiveLoadingAndClose": true,
+    "openedAfterUserReportedAllowingDrivePrompt": true,
+    "schemaFourMigration": true,
+    "nativeRecordingInspection": true,
+    "completeBackupExport": true,
+    "preliminaryArchiveInspection": true,
+    "restoreAsSeparateSession": true,
+    "pairedNameTempoSave": true,
+    "oneUndoRestoredBothFields": true,
+    "oneRedoRestoredBothFields": true,
+    "unsavedNavigationCancelKeptDraft": true,
+    "discardNavigationReturnedToOriginalRevisionFive": true,
+    "secondBackupShowedBackgroundBusyState": true,
+    "secondBackupCompleted": false,
+    "restartAfterArchiveFlowQualified": false
+  },
+  "permissionChangesByAgent": false,
+  "interruption": {
+    "externalDriveDisappeared": true,
+    "subsequentRawStoreTruncated": true,
+    "missingHistoryRows": 1,
+    "missingOperationReceipts": 3,
+    "recoveryReceipt": "docs/verification/rust-native-disconnect-recovery.json"
+  },
+  "retainedLoadingEvidence": [
+    {
+      "path": "docs/verification/rust-native-session-copy-loading.png",
+      "sha256": "469bf2a946cf87cb4e796b475b95130e87f235a2508a9c715cd5bd6ff7b26810",
+      "byteLength": 52634
+    },
+    {
+      "path": "docs/verification/rust-native-session-copy-loading-ax.txt",
+      "sha256": "d1d9b23fe351c89109ac94f5dfb5be43915dc173d2c1d0cf4622b19835fa080b",
+      "byteLength": 795
+    }
+  ],
+  "limits": [
+    "This historical UI flow was interrupted by disappearance of the external drive; it does not qualify restart or absence of data loss.",
+    "The current musical snapshot was recovered as a fresh explicit fork; one historical row and three edit receipts remain missing.",
+    "No audio playback, device recording, MIDI transport, inference, latency, plugin, installer or Windows qualification."
+  ]
+}

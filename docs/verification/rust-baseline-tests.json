@@ -1,0 +1,30 @@
+{
+  "evidenceDate": "2026-10-20",
+  "command": "npm test",
+  "node": "v22.23.0",
+  "tests": 116,
+  "passed": 114,
+  "failed": 2,
+  "skipped": 0,
+  "logSha256": "c1c575e7967ddf7760ef059eb0bced0f5c9e28fa15cddbdcba1355570ef3cecf",
+  "failures": [
+    {
+      "role": "Aria piano continuation",
+      "error": "ModuleNotFoundError: aria",
+      "cause": "Editable source path points to former repository location"
+    },
+    {
+      "role": "Magenta audio generation",
+      "error": "ModuleNotFoundError: magenta_rt",
+      "cause": "Editable source path points to former repository location"
+    }
+  ],
+  "realBasicPitchInference": "passed",
+  "syntaxCatalog": {
+    "command": "npm run check",
+    "modules": 42,
+    "modelCatalogEntries": 36,
+    "passed": true
+  },
+  "qualification": "Reference runtime baseline only; no native Rust adapter acceptance"
+}

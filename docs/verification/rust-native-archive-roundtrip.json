@@ -1,0 +1,36 @@
+{
+  "archive": {
+    "byteLength": 37171200,
+    "historyRows": 1,
+    "operationRows": 4,
+    "path": "/Volumes/Main External/Development/OmniuSong/.runtime/rust-migration/qualified-native-archive/complete.omniusong-native",
+    "sha256": "34107a52140dd4ba5d8416b6f6089f87981d3fa99a51dfce5d112cfe73cc0408",
+    "takeCount": 1
+  },
+  "audioChunks": 33,
+  "audioPayloadBytes": 34603008,
+  "currentProjectHasNoTakeReference": true,
+  "evidenceDate": "2026-10-20",
+  "fixtureRoot": ".runtime/rust-migration/qualified-native-archive",
+  "format": "omniusong.native-take-archive-qualification",
+  "limits": [
+    "Identity-preserving restore into a new store; restore-as-copy into an existing project remains pending.",
+    "Synthetic storage/archive fixture, not elapsed recording, native capture, realtime performance, MIDI protocol qualification, listening, UI archive flow or Windows acceptance."
+  ],
+  "manifestSha256": "12c3dea384c4c17c70370b176169ca7081a669f302186205b76dcca7eb39353d",
+  "opaqueNumericAndCollidingMetadataRetained": true,
+  "ownedObjectSha256": "9a6b46e9a0222647e93c5c553c5f0da1a302cdd8d89dcc3480ca50e98733e981",
+  "payloadBytes": 36846248,
+  "payloadSha256": "af79ed906ae95cd15da4576b88944a6cda9004acd99e530d78dbecd8d9e5e879",
+  "rawEvents": 5120,
+  "replayedOriginalPublicationDoesNotReplaceNewerProject": true,
+  "restoredOriginalPayloadEqualsSource": true,
+  "restoredProjectEqualsOriginal": true,
+  "sourceCapturedFromDevice": false,
+  "sourceFileSha256": "9bf496b91e0fabd52a8c6a4f94785d62caec0c9e2dedcf5386e12803e3fba862",
+  "sourceFileUnchanged": true,
+  "synthetic": true,
+  "totalChunkCount": 113,
+  "truncatedRedoReceiptsRetainOriginal": true,
+  "version": 1
+}

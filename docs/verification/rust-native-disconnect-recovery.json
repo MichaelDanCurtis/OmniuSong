@@ -1,0 +1,96 @@
+{
+  "archiveRestoreAndReopenExact": true,
+  "completedArchive": {
+    "path": ".runtime/rust-migration/native-ui-backup-v2.omniusong-native",
+    "sha256": "00c6ab268772bddd03c198694799c02d8754c4909762f79c41c31b51903e627e",
+    "unchanged": true
+  },
+  "embeddedCompletedArchiveExact": true,
+  "embeddedSourceJsonExact": true,
+  "format": "omniusong.disconnect-recovery-qualification",
+  "freshForkArchive": {
+    "path": "/Volumes/Main External/Development/OmniuSong/.runtime/rust-migration/recovered-native-preview-20261020/recovered-snapshot.omniusong-native",
+    "sha256": "88900359e53ab28c0dc9485733b53ee688911bb340ab82bcbfce4100f8396424",
+    "takeCount": 1
+  },
+  "healthyProjects": [
+    {
+      "archiveSha256": "00c6ab268772bddd03c198694799c02d8754c4909762f79c41c31b51903e627e",
+      "documentSha256": "79cc13a356b7a532d26b01eb0d6027a97882a5b68886294402e984020432a873",
+      "exactDocumentAndCompleteRetainedClosure": true,
+      "historyRows": 3,
+      "operationRows": 1,
+      "projectId": "eb9b8562-4e5d-47c6-adae-e9194fcab668",
+      "revision": 5
+    },
+    {
+      "archiveSha256": "10bf71397a989e730b7c696a4c624856addabe3c92161ca3b2fd21c781690f52",
+      "documentSha256": "c08015a43f6832eaa297dbe8a3e9e5481955801b96d3bba2a72ce2f0f5de9769",
+      "exactDocumentAndCompleteRetainedClosure": true,
+      "historyRows": 0,
+      "operationRows": 0,
+      "projectId": "aa3c40ed-277a-4b37-8bf0-101842d3de28",
+      "revision": 0
+    },
+    {
+      "archiveSha256": "053891ac7d31ac9a5620075581f89b066d7dd3cf95a07b1c45e507093c1a8a27",
+      "documentSha256": "48e1c791c6ad4534c4ffa7467a1471be0c82a2ba0c77cbc42b3d7b350ae7c466",
+      "exactDocumentAndCompleteRetainedClosure": true,
+      "historyRows": 1,
+      "operationRows": 0,
+      "projectId": "2df3b9be-9c77-4560-9c45-7be5385d503d",
+      "revision": 5
+    }
+  ],
+  "incidentDate": "2026-10-20",
+  "incompleteOriginalArchiveRejected": "Archive export failed; staging=Some(\"/Volumes/Main External/Development/OmniuSong/.runtime/rust-migration/recovered-native-preview-20261020/.omniusong-archive-export-3a474228-ec93-4739-8885-cc851dd55c19.partial\"); destination=.runtime/rust-migration/recovered-native-preview-20261020/must-not-publish-incomplete.omniusong-native; published=false: Archive cursor exceeds retained history",
+  "limits": [
+    "Three historical requests/results and one history row are missing; this does not restore them.",
+    "The recovered snapshot is a fresh project with explicit operator provenance, not continuation of the lost historical ledger.",
+    "A passing SQLite integrity check alone does not establish complete semantic recovery; retained rows and archives were separately checked.",
+    "No actual microphone/audio playback, MIDI protocol, inference, latency, installer or Windows qualification is claimed."
+  ],
+  "missingHistorySequences": [
+    4
+  ],
+  "missingOperationIds": [
+    "33436211-fdbc-4076-9c31-c841d7739c89",
+    "f6d04291-049e-4192-99d6-97e8edb18db8",
+    "2d94be93-13f8-4962-b581-8c06dfd2871f"
+  ],
+  "newRecoveryDocumentSha256": "02a2ffe5bcc541ab5b87e7e10838edafd24c367e79b62949f890983d8bbe9fda",
+  "newRecoveryMetadataBytes": 347378,
+  "newRecoveryName": "Recovered \u00b7 Native archive restored copy",
+  "newRecoveryProjectId": "b50ee3d5-ca2d-4d5f-b5af-c9a6ab9955ae",
+  "newRecoveryRevision": 0,
+  "oldCopyAdmissionNotPublished": true,
+  "originalDefaultStoreNotReplaced": true,
+  "rawDatabase": {
+    "advertisedPages": 45,
+    "path": ".runtime/rust-migration/drive-reconnect-93681b4b-65d8-40d2-b017-98aa53b2b633/original-native-store/studio.sqlite3",
+    "physicalPages": 41,
+    "sha256": "3cec762a9455ed3b53525529e0ddf8e8d631e4a92931f4c445bb9cdc00b234a4",
+    "unchanged": true
+  },
+  "reconstructedOperations": 0,
+  "recoveredStore": ".runtime/rust-migration/recovered-native-preview-20261020/recovered-store",
+  "recoveryRoot": ".runtime/rust-migration/recovered-native-preview-20261020",
+  "salvagedDatabase": {
+    "path": ".runtime/rust-migration/drive-reconnect-93681b4b-65d8-40d2-b017-98aa53b2b633/salvaged-native-store/studio.sqlite3",
+    "sha256": "dcaccb0fd59d42010fe454072dbf9f83105fee41a55beb30ac66dc398e55422d",
+    "unchanged": true
+  },
+  "scope": "Bounded operator recovery of this development incident; not automatic production repair or a general recovery format.",
+  "snapshotSourceDocumentSha256": "04aceba28b170eda514355b77e92d12a9cf19072e6a90e00377af50a4717fcc3",
+  "snapshotSourceProjectId": "670fcc05-94ad-47ea-bb67-41d98bf3e44d",
+  "snapshotSourceRevision": 8,
+  "sourceMusicAndUnknownFieldsRetained": true,
+  "version": 1,
+  "executedOperator": {
+    "sourcePath": ".runtime/rust-migration/drive-reconnect-93681b4b-65d8-40d2-b017-98aa53b2b633/executed-recovery-operator.rs",
+    "sourceSha256": "523d0f1caa5759f431588b96d2b1634cb294fe997a0a3f78eb4ad6da7306ad4e",
+    "binaryPath": ".runtime/rust-migration/drive-reconnect-93681b4b-65d8-40d2-b017-98aa53b2b633/executed-recovery-operator-binary",
+    "binarySha256": "916c0cba9238b9009d0997795f9b98feba5c0f139bd1abc8431e42d2c1103d64",
+    "note": "This is the exact source and binary that produced the embedded recovery notice; future example edits have a separate source identity."
+  }
+}

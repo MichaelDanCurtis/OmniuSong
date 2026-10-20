@@ -7,3 +7,4 @@ native/.build/
 .env
 *.log
 __pycache__/
+target/

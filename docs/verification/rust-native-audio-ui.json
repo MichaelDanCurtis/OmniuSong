@@ -1,0 +1,51 @@
+{
+  "format": "omniusong.native-audio-ui-verification",
+  "version": 1,
+  "recordedAtUtc": "2026-10-20T20:45:32.696130+00:00",
+  "sourceGate": "docs/verification/rust-native-audio-tests.json",
+  "binary": {
+    "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+    "sha256": "81b00cb49c0abae70ee5b8b6df9654dcc6f1fdea11c247ba884c61c829b1f0b5",
+    "byteLength": 81197424
+  },
+  "completed": false,
+  "observed": [
+    "Launched the freshly built ad-hoc signed ARM64 native bundle through computer control.",
+    "Observed responsive Opening your local studio window and Close control; no native audio/device control reached.",
+    "Process sample identifies background omniusong-sessions thread waiting in SQLite openDatabase -> macOS __open on external-volume database.",
+    "Retained AX text and screenshot. No native audio input/physical microphone or output stream opened for this UI attempt."
+  ],
+  "waitingOn": "User handling of previously authorized macOS external-drive prompt if visible. Computer control cannot operate that system prompt.",
+  "deviceEnumerationVerified": false,
+  "nativeOutputPlaybackVerified": false,
+  "nativeInputCaptureVerified": false,
+  "physicalMicrophoneOpened": false,
+  "softwareLoopbackOnlyInstructionPreserved": true,
+  "artifacts": [
+    {
+      "path": "docs/verification/rust-native-audio-loading-ax.txt",
+      "sha256": "d1d9b23fe351c89109ac94f5dfb5be43915dc173d2c1d0cf4622b19835fa080b",
+      "byteLength": 795
+    },
+    {
+      "path": "docs/verification/rust-native-audio-loading.png",
+      "sha256": "7a97b1a21d40813e821b8a09ffbd5d3f56e94b517e7aaa7546ba59d326e625b8",
+      "byteLength": 52044
+    },
+    {
+      "path": ".runtime/rust-audio/app-loading-sample.txt",
+      "sha256": "96678d2a83130886f3761b39de89066319a4805c32315008bdc2f6625a5905e2",
+      "byteLength": 365309
+    }
+  ],
+  "nextActualChecks": [
+    "After drive access completes, scan endpoints without starting input.",
+    "Select an existing 48-kHz output for the saved 48-kHz software-bus take; resampling is not implemented.",
+    "Play the synthetic notes and sealed take, observe counters/normal tail and explicit Stop, then close/relaunch/reopen.",
+    "Confirm corrected contrast and completed-error status. Native capture remains software-only unless the user changes authorization."
+  ],
+  "limits": [
+    "No listening, physical latency, thirty-minute continuity or actual input qualification.",
+    "The earlier disconnect UI receipt is evidence for its earlier binary, not this rebuilt audio interface."
+  ]
+}

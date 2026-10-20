@@ -1,0 +1,48 @@
+Window: "OmniuSong — Native Studio", App: OmniuSong Native.
+0 standard window OmniuSong — Native Studio, Secondary Actions: Raise
+	1 container
+		2 unknown
+			3 text (settable) omniuSong
+			4 text (settable) NATIVE STUDIO · FOUNDATION
+			5 button (disabled) ▶ Play
+			6 button (disabled) ● Record
+			7 text (settable) Audio engine pending
+		8 unknown
+			9 text (settable) Choose a session or create one.
+			10 button Refresh sessions
+			11 button (disabled) Retry last action
+			12 button Close window
+			13 text (settable) Native audio / MIDI / plugins / model execution are not connected in this build.
+		14 unknown
+			15 text (settable) Your sessions
+			16 text (settable) New session name
+			17 text field (settable) New session name, Value: My native session
+			18 button Create session
+			19 toggle button (settable, boolean) Recovered · Native archive restored copy, Value: off
+			20 text (settable) 1 tracks · 0 notes · r0
+			21 toggle button (settable, boolean) Native UI verified song, Value: off
+			22 text (settable) 2 tracks · 0 notes · r5
+			23 toggle button (settable, boolean) Aria piano · local model preview, Value: off
+			24 text (settable) 2 tracks · 33 notes · r0
+			25 toggle button (settable, boolean) Synthetic native recording inspection, Value: off
+			26 text (settable) 1 tracks · 0 notes · r5
+			27 text (settable) Bring your work
+			28 text (settable) Legacy projects are read-only sources.
+			29 text (settable) Legacy source project
+			30 pop up button (settable) Legacy source project, Value: Aria piano · local model preview
+			31 text (settable) 2 tracks · separate native copy
+			32 button Import selected project
+			33 button Back up and restore
+			34 button Storage locations
+		35 splitter (settable, float) Resize panel, Value: 0.1875
+		36 unknown
+			37 text (settable) Your music stays yours.
+			38 text (settable) Create a native session, or bring in an existing OmniuSong project.
+			39 text (settable) Import preserves source notes, expression, provenance and referenced audio.
+			40 text (settable) This foundation opens, saves and revises projects. Playing and recording follow in the native engine.
+	41 close button
+	42 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	43 minimize button
+	44 text OmniuSong — Native Studio
+45 menu bar
+	46 OmniuSong — Native Studio

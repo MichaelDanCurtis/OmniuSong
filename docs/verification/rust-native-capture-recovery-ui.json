@@ -1,0 +1,54 @@
+{
+  "format": "omniusong.native-capture-recovery-ui-verification",
+  "version": 1,
+  "recordedAtUtc": "2026-10-20T21:12:52.250592+00:00",
+  "sourceGate": "docs/verification/rust-native-capture-recovery-tests.json",
+  "binary": {
+    "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+    "sha256": "cb64ddf5577398993ed2c141ab78eb1f235808102c525883c79ba19b69be6b43",
+    "byteLength": 81710352
+  },
+  "completed": false,
+  "liveProcessId": 95586,
+  "observed": [
+    "Observed old audio-only build still in native loading; closed its idle loading window through its Close control. A subsequent pgrep found no native app process.",
+    "Built and signature-verified the recovery-enabled bundle, then launched it through computer control.",
+    "Observed the native loading window, explanatory drive-access text and accessible Close control. No audio or recovery control was reached.",
+    "Sampled the matched live process: omniusong-sessions worker waits in SQLite openDatabase -> macOS __open. Retained AX/screenshot/process sample."
+  ],
+  "waitingOn": "External-file open has not completed. If the already-authorized macOS external-drive prompt is visible, it requires human handling; computer control cannot operate that system prompt.",
+  "actualRecoveryControlsVerified": false,
+  "nativeOutputVerified": false,
+  "nativeInputVerified": false,
+  "physicalMicrophoneOpened": false,
+  "noCaptureStartedDuringScanOrRecovery": true,
+  "headlessUiTests": 34,
+  "all80SourceSnapshotsAndBinaryMatch": true,
+  "artifacts": [
+    {
+      "path": "docs/verification/rust-native-capture-recovery-loading-ax.txt",
+      "sha256": "d1d9b23fe351c89109ac94f5dfb5be43915dc173d2c1d0cf4622b19835fa080b",
+      "byteLength": 795
+    },
+    {
+      "path": "docs/verification/rust-native-capture-recovery-loading.png",
+      "sha256": "0e8e2779ce29a7ee05fb3da684c91136d5fac05c708bf867c0c5b9261371315e",
+      "byteLength": 52634
+    },
+    {
+      "path": ".runtime/rust-capture-recovery/app-loading-sample.txt",
+      "sha256": "f2a228de585f01c87d88a35bee6d9048bb89fad2b2d9f749f58d1cd614adb2f3",
+      "byteLength": 398582
+    }
+  ],
+  "nextActualChecks": [
+    "After the file-open wait clears, scan audio devices without starting input.",
+    "Choose an existing 48-kHz output and play/stop the retained software-bus example; no resampling or listening claim.",
+    "Inspect/recover/attach a dedicated synthetic stage through visible controls; exercise keep-local and known-conflict release, then restart and reopen.",
+    "No physical/native microphone capture: user authorized software loopback only."
+  ],
+  "limits": [
+    "Loading-window responsiveness is not completed studio/recovery/device UI qualification.",
+    "No physical input, listening, latency, 30-minute continuity, power-loss, inference, plugin, MIDI or Windows claim."
+  ]
+}

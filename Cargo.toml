@@ -1,0 +1,46 @@
+[workspace]
+members = [
+    "crates/omniusong-core",
+    "crates/omniusong-store",
+    "crates/omniusong-app",
+    "crates/omniusong-ipc",
+    "crates/omniusong-recording",
+    "crates/omniusong-session",
+    "crates/omniusong-engine",
+]
+resolver = "3"
+exclude = ["vendor/coreaudio-rs"]
+
+[patch.crates-io]
+coreaudio-rs = { path = "vendor/coreaudio-rs" }
+
+[workspace.package]
+version = "0.2.0"
+edition = "2024"
+rust-version = "1.98"
+publish = false
+
+[workspace.dependencies]
+omniusong-core = { path = "crates/omniusong-core" }
+omniusong-store = { path = "crates/omniusong-store" }
+omniusong-ipc = { path = "crates/omniusong-ipc" }
+omniusong-recording = { path = "crates/omniusong-recording" }
+omniusong-session = { path = "crates/omniusong-session" }
+omniusong-engine = { path = "crates/omniusong-engine" }
+cpal = { version = "=0.18.2", default-features = false }
+rtrb = "=0.4.0"
+serde_json = { version = "=1.0.151", features = ["arbitrary_precision"] }
+serde = { version = "=1.0.229", features = ["derive"] }
+uuid = { version = "=1.28.0", features = ["v4"] }
+getrandom = "=0.4.3"
+sha2 = "=0.10.9"
+rusqlite = { version = "=0.40.2", features = ["bundled", "backup"] }
+eframe = { version = "=0.37.0", default-features = false, features = ["accesskit", "default_fonts", "system_fonts", "clipboard", "wgpu_no_default_features"] }
+wgpu = { version = "=30.0.1", default-features = false, features = ["std", "metal", "dx12"] }
+
+[profile.dev]
+debug = 1
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

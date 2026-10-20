@@ -1,0 +1,14 @@
+Window: "OmniuSong — Native Studio", App: OmniuSong Native.
+0 standard window OmniuSong — Native Studio, Secondary Actions: Raise
+	1 unknown
+		2 text (settable) Opening your local studio
+		3 text (settable) Session storage and source summaries are handled in the background.
+		4 text (settable) macOS may ask OmniuSong Native for access to the external drive. A system prompt, if shown, controls access.
+		5 text (settable) Work is running in the background. If the app closes, it may already have saved; reopening lets you inspect the result.
+		6 button Close
+	7 close button
+	8 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	9 minimize button
+	10 text OmniuSong — Native Studio
+11 menu bar
+	12 OmniuSong — Native Studio

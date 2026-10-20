@@ -1,0 +1,222 @@
+{
+  "evidenceDate": "2026-10-20",
+  "format": "omniusong-native-migration-qualification",
+  "limits": "Schema-1 project copy and native persistence only. No native audio, controller, plugin, inference, archive, installer or Windows acceptance is claimed.",
+  "nativeRoot": ".runtime/rust-migration/qualified-native-reviewed",
+  "nativeStoreReopened": true,
+  "projectCount": 19,
+  "projects": [
+    {
+      "assets": 1,
+      "exactOriginalJsonRetained": true,
+      "musicalAndUnknownFieldsEqual": true,
+      "nativeId": "4380bcab-0593-43d4-9a16-70c14845f384",
+      "notes": 1,
+      "sourceFile": "00ab7d77-d353-455c-843a-2211859f9609.json",
+      "sourceId": "00ab7d77-d353-455c-843a-2211859f9609",
+      "sourceSha256": "8d3b1afc093e166b29ceac5dd4e0113ac87dc6150792f89c86ea9dbaa79b9c2d",
+      "tracks": 3
+    },
+    {
+      "assets": 2,
+      "exactOriginalJsonRetained": true,
+      "musicalAndUnknownFieldsEqual": true,
+      "nativeId": "f8c49167-7e28-4532-bb20-99160eecf577",
+      "notes": 4,
+      "sourceFile": "01da31dc-76e5-4d3d-ae90-1a7b1552ac58.json",
+      "sourceId": "01da31dc-76e5-4d3d-ae90-1a7b1552ac58",
+      "sourceSha256": "fe41e4b8f1824bdff1aa28b4f9e7d5e4a03798255753c38c24f8b1ba7674d0d6",
+      "tracks": 4
+    },
+    {
+      "assets": 0,
+      "exactOriginalJsonRetained": true,
+      "musicalAndUnknownFieldsEqual": true,
+      "nativeId": "2b7e0350-2379-44ae-9f7f-de9ee52a6f5e",
+      "notes": 33,
+      "sourceFile": "02eb5d5c-b7fc-493f-9bc6-07cbbf25f342.json",
+      "sourceId": "02eb5d5c-b7fc-493f-9bc6-07cbbf25f342",
+      "sourceSha256": "9eeceea143811c49580190c7c21ec7595d6c149ef471f1eef3d35af5bc4c3cfa",
+      "tracks": 2
+    },
+    {
+      "assets": 1,
+      "exactOriginalJsonRetained": true,
+      "musicalAndUnknownFieldsEqual": true,
+      "nativeId": "ec2ce67f-ed33-47b1-a351-087c2fe92176",
+      "notes": 1,
+      "sourceFile": "0f413c7d-3409-4d95-8baf-0700aae9e2e8.json",
+      "sourceId": "0f413c7d-3409-4d95-8baf-0700aae9e2e8",
+      "sourceSha256": "33e7542fc54b6d8e664bb04dbcd76b36442a1851b0943cc27ef6d81f682d1a18",
+      "tracks": 3
+    },
+    {
+      "assets": 0,
+      "exactOriginalJsonRetained": true,
+      "musicalAndUnknownFieldsEqual": true,
+      "nativeId": "bd77a1d4-5235-4872-b542-1922d15b0a93",
+      "notes": 33,
+      "sourceFile": "2876fcce-d546-447a-acce-e67180d801de.json",
+      "sourceId": "2876fcce-d546-447a-acce-e67180d801de",
+      "sourceSha256": "450b163dd6b8aaf406030b937d1c78cc7f3b0d6018fa14016022aa67a9bf20c5",
+      "tracks": 2
+    },
+    {
+      "assets": 1,
+      "exactOriginalJsonRetained": true,
+      "musicalAndUnknownFieldsEqual": true,
+      "nativeId": "fd1353ba-c901-4adb-83f6-8c6436b85224",
+      "notes": 1,
+      "sourceFile": "3ed95ce8-6dd0-435a-9353-139c5e254943.json",
+      "sourceId": "3ed95ce8-6dd0-435a-9353-139c5e254943",
+      "sourceSha256": "0d6971a12c94a7e71a094bab9b1d184a195883cafe0332b1697d994be0883130",
+      "tracks": 3
+    },
+    {
+      "assets": 2,
+      "exactOriginalJsonRetained": true,
+      "musicalAndUnknownFieldsEqual": true,
+      "nativeId": "bca12985-6c83-4762-822e-00a51536f35e",
+      "notes": 3,
+      "sourceFile": "6dd1a6bf-4e6c-402d-a8e8-cb235c4fd4ec.json",
+      "sourceId": "6dd1a6bf-4e6c-402d-a8e8-cb235c4fd4ec",
+      "sourceSha256": "6a7ee6bf40db2095f968ba446f040d87af0b71edb4ac45d4550ccff904646aff",
+      "tracks": 4
+    },
+    {
+      "assets": 2,
+      "exactOriginalJsonRetained": true,
+      "musicalAndUnknownFieldsEqual": true,
+      "nativeId": "e5e9886f-8c58-495d-958c-ee58e95e44f1",
+      "notes": 96,
+      "sourceFile": "8b9e66de-17f4-4958-9109-993375f1c642.json",
+      "sourceId": "8b9e66de-17f4-4958-9109-993375f1c642",
+      "sourceSha256": "d8cf8cfd637c38c67d2539f041962af7efe0a1b51ad67dc639cfbe0ef6d9cf2d",
+      "tracks": 8
+    },
+    {
+      "assets": 2,
+      "exactOriginalJsonRetained": true,
+      "musicalAndUnknownFieldsEqual": true,
+      "nativeId": "65456cdc-2270-4110-82e6-51b0c9cd81d3",
+      "notes": 35,
+      "sourceFile": "9d43fd49-6847-4fab-8b6e-4c1fe6b2aa86.json",
+      "sourceId": "9d43fd49-6847-4fab-8b6e-4c1fe6b2aa86",
+      "sourceSha256": "ba2e7755cef2c24a4a0f8c82c4230504070188046a8904ed774ee7a4c12e3a41",
+      "tracks": 3
+    },
+    {
+      "assets": 2,
+      "exactOriginalJsonRetained": true,
+      "musicalAndUnknownFieldsEqual": true,
+      "nativeId": "5e2a8d73-f910-41fe-b450-3472660d5ad2",
+      "notes": 4,
+      "sourceFile": "b0e72a90-a64f-4951-9b94-6a4fe4c92e6f.json",
+      "sourceId": "b0e72a90-a64f-4951-9b94-6a4fe4c92e6f",
+      "sourceSha256": "722fe1a0b1930f991fa9ee1ff1914410ec3d2d59f40e473827bee4018dc18f5d",
+      "tracks": 3
+    },
+    {
+      "assets": 1,
+      "exactOriginalJsonRetained": true,
+      "musicalAndUnknownFieldsEqual": true,
+      "nativeId": "c23520e8-e081-4fd1-8431-6fad2336c604",
+      "notes": 1,
+      "sourceFile": "b5982252-5a28-4c6e-a1f6-0eb9d1565fc8.json",
+      "sourceId": "b5982252-5a28-4c6e-a1f6-0eb9d1565fc8",
+      "sourceSha256": "e9cc9a58e7cd45142c890e155ccf6dd305f425b0add9caff0c5e24d723494ff1",
+      "tracks": 3
+    },
+    {
+      "assets": 1,
+      "exactOriginalJsonRetained": true,
+      "musicalAndUnknownFieldsEqual": true,
+      "nativeId": "8864c00e-0879-4108-9055-252caaf8497a",
+      "notes": 0,
+      "sourceFile": "c0dc28a8-9002-478d-9d73-b2851f421a05.json",
+      "sourceId": "c0dc28a8-9002-478d-9d73-b2851f421a05",
+      "sourceSha256": "9ff22bfb87bfa4d73e8dc228266309ccc272bb1f42fcdb2e6a0b9de083f81f04",
+      "tracks": 3
+    },
+    {
+      "assets": 1,
+      "exactOriginalJsonRetained": true,
+      "musicalAndUnknownFieldsEqual": true,
+      "nativeId": "597af70d-d46c-4469-9db1-d9234444bce4",
+      "notes": 1,
+      "sourceFile": "d9693739-0f5d-407d-a7ff-725f7917593f.json",
+      "sourceId": "d9693739-0f5d-407d-a7ff-725f7917593f",
+      "sourceSha256": "6b5116b0a2c8484e2f661d9c74f9c98b7c50a5a75e2cf2d5b15c1ab58d6649ce",
+      "tracks": 3
+    },
+    {
+      "assets": 1,
+      "exactOriginalJsonRetained": true,
+      "musicalAndUnknownFieldsEqual": true,
+      "nativeId": "c39b45f7-493b-47bb-bf77-d42506acab40",
+      "notes": 1,
+      "sourceFile": "dfdf5d0e-334d-495a-a69a-a65ceeb1cab7.json",
+      "sourceId": "dfdf5d0e-334d-495a-a69a-a65ceeb1cab7",
+      "sourceSha256": "3376ef6e43a12cf8a51fa7d7ca265ae748ef7fa6f432a40ee4b5abcc312b77c6",
+      "tracks": 3
+    },
+    {
+      "assets": 0,
+      "exactOriginalJsonRetained": true,
+      "musicalAndUnknownFieldsEqual": true,
+      "nativeId": "72d68171-89ea-4834-9236-1dc3e8a350ec",
+      "notes": 3,
+      "sourceFile": "e7f7515c-5e17-4173-b628-e7ebd8f3bb47.json",
+      "sourceId": "e7f7515c-5e17-4173-b628-e7ebd8f3bb47",
+      "sourceSha256": "a4d78a46c971993a7185fb2c085381a520ca9b76b56825404b32544dd38f0d58",
+      "tracks": 2
+    },
+    {
+      "assets": 0,
+      "exactOriginalJsonRetained": true,
+      "musicalAndUnknownFieldsEqual": true,
+      "nativeId": "08679ef5-bb6a-4d24-8def-5e7cde146af8",
+      "notes": 3,
+      "sourceFile": "f31a603c-4077-45c3-b04c-79c3a35fe607.json",
+      "sourceId": "f31a603c-4077-45c3-b04c-79c3a35fe607",
+      "sourceSha256": "5036b2d065cdacfab51f262144349d9312cec7da05584e5fc890d3d9af2e0af4",
+      "tracks": 3
+    },
+    {
+      "assets": 1,
+      "exactOriginalJsonRetained": true,
+      "musicalAndUnknownFieldsEqual": true,
+      "nativeId": "a5c5e87c-1254-4f7a-962a-eb1e74ac1df0",
+      "notes": 1,
+      "sourceFile": "f3e500d7-bf93-47be-a24d-785bde766035.json",
+      "sourceId": "f3e500d7-bf93-47be-a24d-785bde766035",
+      "sourceSha256": "231f18fb9d7f3598e7c15c15e35fb0cb0b2358609b2298a20ce02cab5c07ea42",
+      "tracks": 3
+    },
+    {
+      "assets": 2,
+      "exactOriginalJsonRetained": true,
+      "musicalAndUnknownFieldsEqual": true,
+      "nativeId": "4f7eb5dd-2825-4321-9c23-905d1dee083f",
+      "notes": 26,
+      "sourceFile": "f5d5e75a-8cb7-4dfb-8cbf-e09762778a68.json",
+      "sourceId": "f5d5e75a-8cb7-4dfb-8cbf-e09762778a68",
+      "sourceSha256": "8afe20b44089649e10b2f2c03c4360a1645e80347d81680c8888d89d2e3652b0",
+      "tracks": 3
+    },
+    {
+      "assets": 2,
+      "exactOriginalJsonRetained": true,
+      "musicalAndUnknownFieldsEqual": true,
+      "nativeId": "c2e9b4cd-9d40-4865-81c5-5717da347d66",
+      "notes": 95,
+      "sourceFile": "feb682a3-3061-4435-93cf-5ab0584ffe3c.json",
+      "sourceId": "feb682a3-3061-4435-93cf-5ab0584ffe3c",
+      "sourceSha256": "b8732327ff2e9e9716614c48c300b5d76a37950aff73b56c53d5e90f34bca1c4",
+      "tracks": 8
+    }
+  ],
+  "sourceFilesVerifiedUnchanged": 30,
+  "sourceRoot": "data",
+  "version": 1
+}
