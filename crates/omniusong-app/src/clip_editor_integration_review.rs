@@ -791,7 +791,13 @@ fn unresolved_clip_blocks_foreign_note_mutation_and_audio_but_explicit_stop_rema
     );
     app.request(Action::Clip(ClipAction::Suspend));
     assert!(!app.can_start_audio());
-    for label in ["Play saved session", "Record solo", "Start live audition"] {
+    click(&ctx, &mut app, "Advanced · solo input capture");
+    for label in [
+        "Play saved session",
+        "Record solo",
+        "Record keys/pads",
+        "Start live audition",
+    ] {
         click(&ctx, &mut app, label);
     }
     assert!(audio_peer.command().is_none());

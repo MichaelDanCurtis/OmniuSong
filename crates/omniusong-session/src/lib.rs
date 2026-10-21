@@ -1,4 +1,5 @@
 //! Bounded session storage service. UI callers only submit/poll nonblocking channels.
+mod performance_intents;
 use omniusong_core::{
     MAX_PROJECT_BYTES, ProjectDocument,
     contracts::{OperationId, ProjectEditIntent, ProjectId, Validate, WORKER_MAX_BYTES},
@@ -8,6 +9,9 @@ use omniusong_store::NativeStore;
 pub use omniusong_store::{
     ArchiveInspection, ArchiveReceipt, CaptureInspection, CaptureRecoveryReceipt, CaptureStageScan,
     ProjectSummary, RestoreCopyIntent,
+};
+pub use performance_intents::{
+    PerformanceFinishIntent, PerformanceIntent, PerformanceIntentReceipt,
 };
 use std::{
     fs::{self, File},
@@ -103,6 +107,15 @@ pub enum Command {
         journal_path: PathBuf,
         publication: omniusong_store::TakePublication,
     },
+    SavePerformanceIntent {
+        expected_revision: Option<u64>,
+        intent: Box<PerformanceIntent>,
+    },
+    ListPerformanceIntents,
+    AttachPerformance {
+        id: omniusong_engine::LiveId,
+        revision: u64,
+    },
     ScanCaptures,
     InspectCapture {
         stage_id: String,
@@ -132,6 +145,9 @@ pub enum CommandKind {
     ImportLegacy,
     Edit,
     AttachCapture,
+    SavePerformanceIntent,
+    ListPerformanceIntents,
+    AttachPerformance,
     ScanCaptures,
     InspectCapture,
     RecoverCapture,
@@ -149,6 +165,9 @@ impl Command {
             Self::ImportLegacy { .. } => CommandKind::ImportLegacy,
             Self::Edit { .. } => CommandKind::Edit,
             Self::AttachCapture { .. } => CommandKind::AttachCapture,
+            Self::SavePerformanceIntent { .. } => CommandKind::SavePerformanceIntent,
+            Self::ListPerformanceIntents => CommandKind::ListPerformanceIntents,
+            Self::AttachPerformance { .. } => CommandKind::AttachPerformance,
             Self::ScanCaptures => CommandKind::ScanCaptures,
             Self::InspectCapture { .. } => CommandKind::InspectCapture,
             Self::RecoverCapture { .. } => CommandKind::RecoverCapture,
@@ -170,6 +189,8 @@ impl Command {
                 | Self::ImportLegacy { .. }
                 | Self::Edit { .. }
                 | Self::AttachCapture { .. }
+                | Self::SavePerformanceIntent { .. }
+                | Self::AttachPerformance { .. }
                 | Self::RecoverCapture { .. }
                 | Self::ExportArchive { .. }
                 | Self::RestoreCopy { .. }
@@ -190,7 +211,20 @@ impl Command {
                 .map_err(|e| ServiceError::rejected(e.to_string()))
         };
         match self {
-            Self::Initialize | Self::Refresh | Self::ScanCaptures => Ok(()),
+            Self::Initialize
+            | Self::Refresh
+            | Self::ScanCaptures
+            | Self::ListPerformanceIntents => Ok(()),
+            Self::SavePerformanceIntent { intent, .. } => intent.validate(),
+            Self::AttachPerformance { id, revision } => {
+                if id.is_valid() && (1..=16).contains(revision) {
+                    Ok(())
+                } else {
+                    Err(ServiceError::rejected(
+                        "Choose a valid exact durable performance intention revision",
+                    ))
+                }
+            }
             Self::InspectCapture { stage_id } => validate_stage_id(stage_id),
             Self::RecoverCapture {
                 inspection,
@@ -324,6 +358,8 @@ pub enum Reply {
     CaptureStages(CaptureStageScan),
     CaptureInspected(Box<CaptureInspection>),
     CaptureRecovered(Box<CaptureRecoveryReceipt>),
+    PerformanceIntent(Box<PerformanceIntentReceipt>),
+    PerformanceIntents(Vec<PerformanceIntentReceipt>),
 }
 impl Reply {
     fn matches(&self, kind: CommandKind) -> bool {
@@ -339,12 +375,21 @@ impl Reply {
                     | CommandKind::ImportLegacy
                     | CommandKind::Edit
                     | CommandKind::AttachCapture
+                    | CommandKind::AttachPerformance
                     | CommandKind::RestoreCopy
             ) | (Self::Exported(_), CommandKind::ExportArchive)
                 | (Self::Inspected(_), CommandKind::InspectArchive)
                 | (Self::CaptureStages(_), CommandKind::ScanCaptures)
                 | (Self::CaptureInspected(_), CommandKind::InspectCapture)
                 | (Self::CaptureRecovered(_), CommandKind::RecoverCapture)
+                | (
+                    Self::PerformanceIntent(_),
+                    CommandKind::SavePerformanceIntent
+                )
+                | (
+                    Self::PerformanceIntents(_),
+                    CommandKind::ListPerformanceIntents
+                )
         )
     }
 }
@@ -359,6 +404,8 @@ pub enum FailureKind {
     Rejected,
     /// A pure semantic edit was rejected before transaction publication.
     EditRejected,
+    /// A new performance-intent semantic check rejected before any publication.
+    IntentRejected,
     /// The project transaction rejected its expected revision and did not commit.
     RevisionConflict,
     Backend,
@@ -891,6 +938,18 @@ impl Backend for NativeBackend {
                 };
                 self.document(document, replayed)
             }
+            Command::SavePerformanceIntent {
+                expected_revision,
+                intent,
+            } => self
+                .save_performance_intention(*expected_revision, intent)
+                .map_err(performance_intents::intent_rejection),
+            Command::ListPerformanceIntents => Ok(Reply::PerformanceIntents(
+                self.list_performance_intentions()?,
+            )),
+            Command::AttachPerformance { id, revision } => {
+                self.attach_performance_intention(*id, *revision)
+            }
             Command::ScanCaptures => Ok(Reply::CaptureStages(self.store()?.scan_captures())),
             Command::InspectCapture { stage_id } => Ok(Reply::CaptureInspected(Box::new(
                 self.store()?.inspect_capture(stage_id).map_err(work)?,
@@ -932,7 +991,9 @@ impl Backend for NativeBackend {
             if command.mutates()
                 && !matches!(
                     error.kind,
-                    FailureKind::RevisionConflict | FailureKind::EditRejected
+                    FailureKind::RevisionConflict
+                        | FailureKind::EditRejected
+                        | FailureKind::IntentRejected
                 )
             {
                 error.outcome_unknown = true;

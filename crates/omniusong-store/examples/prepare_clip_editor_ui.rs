@@ -1,4 +1,4 @@
-//! Append ONE clearly synthetic clip-editor fixture to an existing schema-4 store.
+//! Append ONE clearly synthetic clip-editor fixture to an existing current-schema store.
 //!
 //! Usage: prepare_clip_editor_ui EXISTING_STORE NEW_RECEIPT
 //! Reserve the receipt with create_new before store writes; retain all artifacts
@@ -71,9 +71,10 @@ fn catalog(path: &Path) -> Outcome<()> {
     )?;
     db.busy_timeout(Duration::from_secs(2))?;
     let version: u32 = db.pragma_query_value(None, "user_version", |row| row.get(0))?;
-    if version != 4 {
+    if version != omniusong_store::STORE_SCHEMA_VERSION {
         return Err(
-            "This fixture requires schema 4 and will not migrate the native catalog".into(),
+            "This fixture requires the current schema and will not migrate the native catalog"
+                .into(),
         );
     }
     Ok(())

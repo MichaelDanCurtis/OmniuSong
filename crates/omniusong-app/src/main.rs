@@ -13,6 +13,7 @@ mod live_ui;
 #[cfg(test)]
 mod note_editor_review;
 mod note_ui;
+mod performance_ui;
 mod recovery_ui;
 mod waveform_ui;
 
@@ -143,6 +144,7 @@ enum Action {
         journal_path: PathBuf,
         publication: Box<omniusong_store::TakePublication>,
     },
+    Performance(Box<Command>),
     Recovery(RecoveryAction),
     Note(NoteAction),
     Clip(ClipAction),
@@ -207,6 +209,8 @@ struct StudioApp {
 impl StudioApp {
     // Construction is pure. The first rendered loading frame starts the worker.
     fn new(paths: Paths) -> Self {
+        let mut audio = AudioUi::new();
+        audio.set_store_root(paths.native.clone());
         Self {
             paths,
             service: None,
@@ -236,7 +240,7 @@ impl StudioApp {
             export_path: String::new(),
             restore_path: String::new(),
             inspected: None,
-            audio: AudioUi::new(),
+            audio,
             audio_executable: None,
             audio_close_requested: false,
             recovery: RecoveryUi::new(),
@@ -425,7 +429,7 @@ impl StudioApp {
                     self.clips
                         .not_admitted(intent.clone(), error.message.clone());
                 }
-                if error.command.retry_safe() {
+                if error.command.retry_safe() && !matches!(action, Action::Performance(_)) {
                     self.retry = Some(Active {
                         id: RequestId {
                             generation: service.generation(),
@@ -460,6 +464,10 @@ impl StudioApp {
                     && active.command.retry_safe()
                     && !(matches!(active.command, Command::Initialize) && self.retry.is_some())
                 {
+                    if matches!(active.action, Action::Performance(_)) {
+                        self.audio
+                            .performance_completed(&active.command, Err(&error));
+                    }
                     if let Action::Recovery(recovery) = &active.action {
                         self.recovery.failed(recovery);
                     }
@@ -486,7 +494,9 @@ impl StudioApp {
                             active.clip_context.draft.clone(),
                         );
                     }
-                    self.retry = Some(active);
+                    if !matches!(active.action, Action::Performance(_)) {
+                        self.retry = Some(active);
+                    }
                 }
                 if error.kind == FailureKind::Disconnected {
                     self.status="Storage worker stopped. Your draft was kept; reconnect explicitly before another action.".into();
@@ -504,6 +514,10 @@ impl StudioApp {
             self.active = Some(active);
             self.error = Some("Ignored a stale session completion".into());
             return;
+        }
+        if matches!(active.action, Action::Performance(_)) {
+            self.audio
+                .performance_completed(&active.command, completion.result.as_ref());
         }
         match completion.result {
             Err(error) => {
@@ -554,11 +568,14 @@ impl StudioApp {
                         "Action finished with an error. Your saved session and local draft were kept."
                     }.into();
                 }
-                if active.command.retry_safe()
+                if !matches!(active.action, Action::Performance(_))
+                    && active.command.retry_safe()
                     && !(matches!(active.command, Command::Initialize) && self.retry.is_some())
                 {
                     self.retry = Some(active);
-                } else if !matches!(active.command, Command::Initialize) {
+                } else if !matches!(active.action, Action::Performance(_))
+                    && !matches!(active.command, Command::Initialize)
+                {
                     self.retry = None;
                 }
                 self.error = Some(format!(
@@ -645,8 +662,11 @@ impl StudioApp {
                     Reply::CaptureRecovered(receipt)=>{
                         match self.recovery.recovered(receipt) {Ok(())=>self.status="Verified prefix sealed and original rows retained. Choose an audio stream and attach explicitly; recovery did not attach audio to the session.".into(),Err(error)=>{self.status="Recovery finished without a matching displayed receipt; no attachment was started.".into();self.error=Some(error);}}
                     }
+                    Reply::PerformanceIntent(_) | Reply::PerformanceIntents(_) => {
+                        self.status = "Recording intent retained locally. Audio and attachment follow only the explicit confirmed choice.".into();
+                    }
                 }
-                if !matches!(active.action, Action::Refresh) {
+                if !matches!(active.action, Action::Refresh | Action::Performance(_)) {
                     self.retry = None;
                 }
                 if let Some(action) = after {
@@ -740,6 +760,40 @@ impl StudioApp {
         }
     }
     fn dispatch(&mut self, action: Action, after: Option<Action>) -> AppResult<()> {
+        if let Action::Performance(command) = &action {
+            // Recording intentions share the sole storage service. They must be
+            // admitted even while the audio guard is held (Finish and release),
+            // but publication still requires the original clean target session.
+            if self.busy() || !self.ready || self.disconnected() {
+                return Err(
+                    "Session storage is unavailable or busy; the exact recording choice was kept"
+                        .into(),
+                );
+            }
+            if !matches!(
+                command.as_ref(),
+                Command::ListPerformanceIntents
+                    | Command::SavePerformanceIntent { .. }
+                    | Command::AttachPerformance { .. }
+            ) {
+                return Err("This command is not a recording-intent action".into());
+            }
+            let target = self.audio.performance_target(command.as_ref());
+            if matches!(command.as_ref(), Command::AttachPerformance { .. })
+                && (target.is_none()
+                    || target.as_deref() != self.document.as_ref().map(ProjectDocument::id)
+                    || self.dirty()
+                    || self.musical_unresolved()
+                    || self.pending.is_some()
+                    || self.recovery.blocks_session())
+            {
+                return Err(
+                    "Open the original recording target and resolve local drafts or retained edits before this exact attachment"
+                        .into(),
+                );
+            }
+            return self.submit(command.as_ref().clone(), action.clone(), after);
+        }
         if self.audio.blocks_session() && !matches!(action, Action::AttachCapture { .. }) {
             return Err(
                 "Finish or stop audio and resolve the retained original before this action".into(),
@@ -1101,6 +1155,9 @@ impl StudioApp {
                 publication: publication.as_ref().clone(),
             },
             Action::Recovery(recovery) => recovery.command()?,
+            Action::Performance(_) => {
+                unreachable!("recording intentions use the guarded service path")
+            }
             Action::Note(choice) => {
                 if self.metadata_dirty() || self.clips.dirty() || self.clips.unresolved() {
                     return Err(
@@ -1154,6 +1211,16 @@ impl StudioApp {
     }
     fn poll_audio(&mut self) {
         self.audio.poll();
+        if self.ready
+            && !self.busy()
+            && !self.disconnected()
+            && !self.closing
+            && let Some(command) = self.audio.take_performance_command()
+            && let Err(error) = self.dispatch(Action::Performance(Box::new(command.clone())), None)
+        {
+            self.audio
+                .performance_submission_failed(&command, error.to_string());
+        }
         if !self.busy()
             && let Some((path, publication)) = self.audio.take_auto_publication()
         {
@@ -1827,8 +1894,8 @@ impl StudioApp {
             let mut close = 0;
             egui::Modal::new(egui::Id::unique("audio-close-guard")).show(ctx,|ui|{
                 ui.heading(if self.audio.live_guard(){"Stop live output before closing"}else{"Keep the original take safe"});
-                ui.label(if self.audio.live_guard(){"Live audition is output only. This performance is not recorded or saved. Stop output before closing, or explicitly close without waiting."}else if self.audio.capture_guard(){"Audio or take attachment is still active. Finish the take and wait for attachment, or stop audio before closing."}else{"Saved-session playback is still active. Stop audio before closing, or explicitly close without waiting."});
-                if !self.audio.live_guard(){ui.label("Closing without waiting can interrupt an unfinished original. A sealed journal is retained; attachment may already have completed. Closing does not prove cancellation or a complete final tail.");}
+                ui.label(if self.audio.performance_guard(){"Your recorded output or retained recording choice is still active. Finish recording or Stop, then review the saved original. Attaching it to this session is a separate choice."}else if self.audio.live_guard(){"Live audition is output only. This performance is not recorded or saved. Stop output before closing, or explicitly close without waiting."}else if self.audio.capture_guard(){"Audio or take attachment is still active. Finish the take and wait for attachment, or stop audio before closing."}else{"Saved-session playback is still active. Stop audio before closing, or explicitly close without waiting."});
+                if self.audio.performance_guard() || !self.audio.live_guard(){ui.label("Closing without waiting can interrupt an unfinished original. A sealed journal is retained; attachment may already have completed. Closing does not prove cancellation or a complete final tail.");}
                 ui.horizontal_wrapped(|ui|{
                     if ui.add_enabled(self.audio.can_finish(),egui::Button::new("Finish take and keep window open")).clicked(){self.audio.finish();}
                     if ui.button("Stop audio and keep window open").clicked(){self.audio.stop();}
@@ -2187,6 +2254,105 @@ mod tests {
             DocumentView::prepare(ProjectDocument::new("Manual session").unwrap()).unwrap(),
         );
         (ctx, app, peer)
+    }
+
+    #[test]
+    fn recording_save_completion_after_stop_cannot_start_audio_or_attach() {
+        use audio_ui::test_support;
+        use omniusong_session::PerformanceIntentReceipt;
+        let fixture = Fixture::new();
+        let (ctx, mut app, store) = manual(&fixture);
+        let (audio, engine) = test_support::pair();
+        app.audio = audio;
+        app.audio
+            .set_store_root(PathBuf::from("/synthetic/owned-store"));
+        let _ = frame(&ctx, &mut app, vec![]);
+        let list = store.requests.try_recv().unwrap();
+        assert!(matches!(list.command, Command::ListPerformanceIntents));
+        store
+            .responses
+            .try_send(Completion {
+                id: list.id,
+                kind: list.command.kind(),
+                result: Ok(Reply::PerformanceIntents(vec![])),
+            })
+            .unwrap();
+        let _ = frame(&ctx, &mut app, vec![]);
+        let original = app.document.as_ref().unwrap().clone();
+        click(&ctx, &mut app, "Record keys/pads");
+        let _ = frame(&ctx, &mut app, vec![]);
+        let save = store.requests.try_recv().unwrap();
+        let Command::SavePerformanceIntent {
+            expected_revision: None,
+            intent,
+        } = &save.command
+        else {
+            panic!("persist Start before audio");
+        };
+        assert_eq!(intent.project_id.0, original.id());
+        assert!(intent.finish.is_none() && intent.attachment.is_none());
+        assert!(engine.command().is_none());
+        app.audio.stop();
+        app.request(Action::Close);
+        assert!(app.audio_close_requested && !app.closing);
+        assert!(app.audio.performance_guard());
+        assert!(engine.command().is_none());
+        assert!(
+            engine.urgent().is_none(),
+            "native Start has never been admitted"
+        );
+        // Even a successful late intent commit is not permission to resurrect
+        // the continuation cancelled by Stop.
+        store
+            .responses
+            .try_send(Completion {
+                id: save.id,
+                kind: save.command.kind(),
+                result: Ok(Reply::PerformanceIntent(Box::new(
+                    PerformanceIntentReceipt {
+                        revision: 1,
+                        intent: (**intent).clone(),
+                        payload_sha256: "a".repeat(64),
+                    },
+                ))),
+            })
+            .unwrap();
+        let _ = frame(&ctx, &mut app, vec![]);
+        assert!(engine.command().is_none());
+        assert!(store.requests.try_recv().is_err());
+        assert_eq!(app.document.as_ref().unwrap(), &original);
+        assert!(
+            app.audio.performance_guard(),
+            "retained card survives Stop and the late reply"
+        );
+    }
+
+    #[test]
+    fn performance_service_bypass_cannot_submit_foreign_mutations_or_dirty_attachment() {
+        let fixture = Fixture::new();
+        let (_ctx, mut app, store) = manual(&fixture);
+        let before = app.document.as_ref().unwrap().clone();
+        assert!(
+            app.dispatch(
+                Action::Performance(Box::new(Command::Create {
+                    name: "Foreign bypass".into()
+                })),
+                None
+            )
+            .is_err()
+        );
+        app.draft.name = "Unsaved musician work".into();
+        let attach = Command::AttachPerformance {
+            id: omniusong_engine::LiveId([7; 16]),
+            revision: 1,
+        };
+        assert!(
+            app.dispatch(Action::Performance(Box::new(attach)), None)
+                .is_err()
+        );
+        assert!(store.requests.try_recv().is_err());
+        assert_eq!(app.document.as_ref().unwrap(), &before);
+        assert_eq!(app.draft.name, "Unsaved musician work");
     }
 
     #[test]
@@ -3096,6 +3262,7 @@ mod tests {
         let (ctx, mut app, store_peer) = manual(&fixture);
         let (audio, peer) = test_support::pair();
         app.audio = audio;
+        click(&ctx, &mut app, "Advanced · solo input capture");
         click(&ctx, &mut app, "Record solo");
         assert!(matches!(
             peer.command(),
@@ -3139,6 +3306,7 @@ mod tests {
         let original_id = app.document.as_ref().unwrap().id().to_owned();
         let (audio, peer) = test_support::pair();
         app.audio = audio;
+        click(&ctx, &mut app, "Advanced · solo input capture");
         click(&ctx, &mut app, "Record solo");
         let _ = peer.command();
         peer.reply(Ok(EngineResult::Capturing(test_support::status(
@@ -3223,6 +3391,7 @@ mod tests {
         let (ctx, mut app, _store_peer) = manual(&fixture);
         let (audio, peer) = test_support::pair();
         app.audio = audio;
+        click(&ctx, &mut app, "Advanced · solo input capture");
         app.draft.name = "Unsaved local name".into();
         click(&ctx, &mut app, "Play saved session");
         click(&ctx, &mut app, "Record solo");

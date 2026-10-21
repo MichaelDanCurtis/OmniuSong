@@ -2208,8 +2208,10 @@ name = "omniusong-session"
 version = "0.2.0"
 dependencies = [
  "omniusong-core",
+ "omniusong-engine",
  "omniusong-recording",
  "omniusong-store",
+ "serde",
  "serde_json",
  "uuid",
 ]

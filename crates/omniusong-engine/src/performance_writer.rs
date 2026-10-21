@@ -1340,6 +1340,17 @@ pub fn inspect_performance(reader: &CaptureReader) -> Result<PerformanceInspecti
         reader.read_ordinal(ordinal).map_err(|e| e.to_string())
     })
 }
+/// Format-aware read-only review of an already sealed/owned original. This
+/// shares the exact checkpoint/record validator with recovery inspection but
+/// cannot acquire native lifetime authority or mutate/recover the source.
+pub fn inspect_sealed_performance(
+    reader: &omniusong_recording::SealedJournal,
+) -> Result<PerformanceInspection> {
+    let inspection = reader.inspect_snapshot().map_err(|e| e.to_string())?;
+    inspect_performance_snapshot(&inspection, |ordinal| {
+        reader.read_ordinal(ordinal).map_err(|e| e.to_string())
+    })
+}
 fn inspect_performance_snapshot(
     inspection: &omniusong_recording::JournalInspection,
     mut read_ordinal: impl FnMut(u64) -> Result<ChunkRecord>,

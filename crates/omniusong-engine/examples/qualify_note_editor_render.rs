@@ -4,7 +4,7 @@
 //!                                  FRESH_OUTPUT_DIR NEW_RECEIPT
 //! Uses production prepare -> RenderCursor at 48 kHz stereo; opens no device,
 //! plays/captures nothing and calls no store mutation API. The store must already
-//! be schema 4 in clean rollback-journal mode, preventing opening-time migration
+//! be the current schema in clean rollback-journal mode, preventing opening-time migration
 //! or hot-journal recovery. NativeStore still uses its existing READ_WRITE handle;
 //! this is not an OS-enforced read-only capability. Catalog/source hashes must be
 //! unchanged at success. Use stable, coordinator-owned paths, not a hostile
@@ -103,9 +103,9 @@ fn clean_catalog(root: &Path) -> Outcome<PathBuf> {
     if &header[..16] != b"SQLite format 3\0"
         || header[18] != 1
         || header[19] != 1
-        || u32::from_be_bytes(header[60..64].try_into()?) != 4
+        || u32::from_be_bytes(header[60..64].try_into()?) != omniusong_store::STORE_SCHEMA_VERSION
     {
-        return Err("Resolver catalog must already be schema 4, rollback-journal SQLite; no migrations/recovery requested".into());
+        return Err("Resolver catalog must already be the current schema, rollback-journal SQLite; no migrations/recovery requested".into());
     }
     Ok(path)
 }
@@ -482,7 +482,7 @@ fn main() -> Outcome<()> {
         || original_audio.frames != edited_audio.frames;
     let mut receipt = json!({"format":"omniusong.note-editor-render-agreement","version":1,"pipeline":"production render::prepare -> RenderCursor output limiting -> IEEE float32 WAV","sampleRate":RATE,"channels":CHANNELS,"outputDirectory":output,"originalProject":original.evidence,"editedProject":edited.evidence,"documentFacts":facts});
     let audio = json!({"originalAudio":original_audio,"editedAudio":edited_audio,"difference":difference,"pcmDifferent":pcm_different,"sampleEquality":"Exact f32 little-endian byte equality; no tolerance, normalization or loudness rescaling"});
-    let invariant = json!({"originalJsonUnchanged":true,"editedJsonUnchanged":true,"resolverCatalogUnchanged":true,"resolverCatalogSha256":catalog_before,"resolverStoreRoot":root,"storeMutationApiCalled":false,"catalogOpen":"existing-only READ_WRITE handle; schema4 and clean rollback-journal preflight; byte-invariance checked","projectCommitVerified":false,"deviceOpened":false,"audioPlayed":false,"captured":false,"inference":false,"humanPerformance":false,"exampleSourceSha256":hash(include_bytes!("qualify_note_editor_render.rs"))});
+    let invariant = json!({"originalJsonUnchanged":true,"editedJsonUnchanged":true,"resolverCatalogUnchanged":true,"resolverCatalogSha256":catalog_before,"resolverStoreRoot":root,"storeMutationApiCalled":false,"catalogOpen":"existing-only READ_WRITE handle; current schema and clean rollback-journal preflight; byte-invariance checked","projectCommitVerified":false,"deviceOpened":false,"audioPlayed":false,"captured":false,"inference":false,"humanPerformance":false,"exampleSourceSha256":hash(include_bytes!("qualify_note_editor_render.rs"))});
     let limits = json!({"limits":{"jsonBytesPerInput":MAX_NATIVE_PROJECT_BYTES,"renderPrepareBytes":render::PREPARE_BUDGET,"seconds":render::MAX_SECONDS,"detailedNoteChanges":MAX_DETAILS},"limitations":["Caller-supplied project hashes/revisions must be bound to actual UI/store commits by separate coordinator evidence.","A changed muted track may leave PCM identical. No track is unmuted or altered by this tool; supported production rendering decides what is audible.","Expression playback, physical MIDI/input, model inference, listening quality, measured latency, driver timing and Windows are not qualified.","This is offline deterministic sample generation, not realtime delivery, device playback or a power-loss durability test."]});
     for section in [audio, invariant, limits] {
         let Value::Object(fields) = section else {

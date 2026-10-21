@@ -5,6 +5,8 @@ mod archive;
 mod archive_copy;
 mod captures;
 mod operations;
+mod performance_attachment_check;
+mod performance_intents;
 mod reader;
 mod takes;
 pub use reader::NativeReader;
@@ -23,6 +25,7 @@ pub use captures::{
     CaptureStageState, MAX_CAPTURE_STAGES,
 };
 pub use operations::EditReceipt;
+pub use performance_intents::StoredPerformanceIntent;
 pub use takes::{TakeObject, TakePublication};
 
 use omniusong_core::native::MAX_NATIVE_PROJECT_BYTES;
@@ -39,7 +42,7 @@ use std::{
 
 const MAX_ASSET_BYTES: usize = 30 * 1024 * 1024;
 const MAX_TOTAL_ASSET_BYTES: usize = 48 * 1024 * 1024;
-const STORE_SCHEMA_VERSION: u32 = 4;
+pub const STORE_SCHEMA_VERSION: u32 = 5;
 
 #[derive(Debug)]
 pub enum StoreError {
@@ -316,6 +319,22 @@ fn navigate_in_transaction(
 }
 
 impl NativeStore {
+    /// Canonical owned namespace captured when this catalog was opened.
+    /// Callers must not infer that a recording stage already exists from it.
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+    /// Existence only. A true result must be followed by authenticated open;
+    /// callers must never treat a damaged registered original as absent.
+    pub fn has_registered_take(&self, take_id: &omniusong_core::contracts::TakeId) -> Result<bool> {
+        self.connection
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM native_takes WHERE take_id=?1)",
+                [&take_id.0],
+                |row| row.get(0),
+            )
+            .map_err(Into::into)
+    }
     pub fn open(root: impl AsRef<Path>) -> Result<Self> {
         Self::open_mode(root.as_ref(), true)
     }
@@ -421,6 +440,22 @@ impl NativeStore {
                     CREATE TRIGGER copy_id_not_operation_update BEFORE UPDATE OF operation_id ON archive_copies WHEN EXISTS(SELECT 1 FROM operations WHERE operation_id=NEW.operation_id) BEGIN SELECT RAISE(ABORT,'Operation identity already belongs to a project edit'); END;
                     PRAGMA user_version=4;")?;
                 locked_version = 4;
+            }
+            if locked_version == 4 {
+                // Local recording intentions are retained separately from immutable
+                // take originals and portable song/archive content. Every revision
+                // is appended; no previous request can be rewritten or removed.
+                tx.execute_batch("CREATE TABLE recording_intents(
+                    id TEXT NOT NULL,
+                    revision INTEGER NOT NULL CHECK(revision BETWEEN 1 AND 16),
+                    payload BLOB NOT NULL CHECK(length(payload) BETWEEN 1 AND 16384),
+                    payload_sha256 TEXT NOT NULL,
+                    PRIMARY KEY(id,revision)
+                );
+                CREATE TRIGGER immutable_recording_intent_update BEFORE UPDATE ON recording_intents BEGIN SELECT RAISE(ABORT,'Recording intentions are immutable'); END;
+                CREATE TRIGGER immutable_recording_intent_delete BEFORE DELETE ON recording_intents BEGIN SELECT RAISE(ABORT,'Recording intentions are retained'); END;
+                PRAGMA user_version=5;")?;
+                locked_version = 5;
             }
             if locked_version != STORE_SCHEMA_VERSION {
                 return Err(StoreError::Invalid(

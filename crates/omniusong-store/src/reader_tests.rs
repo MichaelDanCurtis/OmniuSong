@@ -258,7 +258,12 @@ fn reader_missing_root_catalog_and_empty_file_never_create_or_initialize() {
 
 #[test]
 fn reader_refuses_old_and_future_schema_without_migration_or_sidecars() {
-    for version in [0_u32, 1, 3, 5] {
+    for version in [
+        0_u32,
+        1,
+        crate::STORE_SCHEMA_VERSION - 1,
+        crate::STORE_SCHEMA_VERSION + 1,
+    ] {
         let fixture = Fixture::new();
         drop(fixture.create_store());
         let database = fixture.database();

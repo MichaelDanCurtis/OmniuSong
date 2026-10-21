@@ -1,6 +1,7 @@
 //! Nonblocking native-audio UI state. Device/process/file work belongs to the engine actor.
 
 use crate::live_ui::LiveUi;
+use crate::performance_ui::PerformanceUi;
 use eframe::egui;
 use omniusong_core::{
     contracts::{OperationId, ProjectId, TakeId, TrackId},
@@ -9,7 +10,7 @@ use omniusong_core::{
 use omniusong_engine::{
     CaptureIdentity, CapturedTake, DeviceInventory, EngineClient, EngineCommand, EngineReply,
     EngineResult, EngineStatus, EngineUpdate, LiveBatch, LiveQueued, LiveScope, LiveSubmitError,
-    UrgentTicket,
+    PerformanceStatus, UrgentTicket,
 };
 use omniusong_store::TakePublication;
 use std::{
@@ -26,6 +27,9 @@ pub(super) trait EnginePort {
     fn request_stop(&mut self) -> Result<UrgentTicket, String>;
     fn request_panic_live(&mut self, scope: LiveScope) -> Result<UrgentTicket, LiveSubmitError>;
     fn try_poll_update(&mut self) -> Option<EngineUpdate>;
+    fn try_performance_update(&mut self) -> Option<PerformanceStatus> {
+        None
+    }
 }
 impl EnginePort for EngineClient {
     fn try_submit(&mut self, command: EngineCommand) -> Result<(), String> {
@@ -52,6 +56,9 @@ impl EnginePort for EngineClient {
     fn try_poll_update(&mut self) -> Option<EngineUpdate> {
         EngineClient::try_poll_update(self)
     }
+    fn try_performance_update(&mut self) -> Option<PerformanceStatus> {
+        EngineClient::try_performance_update(self)
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -76,6 +83,7 @@ enum Pending {
     Record,
     Finish,
     Status,
+    Performance,
 }
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Control {
@@ -110,6 +118,7 @@ pub(super) struct AudioUi {
     message: String,
     last_status: Instant,
     live: LiveUi,
+    performance: PerformanceUi,
 }
 impl AudioUi {
     pub(super) fn new() -> Self {
@@ -133,6 +142,7 @@ impl AudioUi {
             message: "Native audio process has not started.".into(),
             last_status: Instant::now(),
             live: LiveUi::new(),
+            performance: PerformanceUi::new(),
         }
     }
     pub(super) fn start(&mut self, executable: PathBuf, store: PathBuf) {
@@ -156,6 +166,39 @@ impl AudioUi {
         !matches!(self.phase, Phase::Idle | Phase::Unavailable)
             || self.sealed.is_some()
             || self.live.engaged()
+            || self.performance.blocks()
+    }
+    pub(super) fn set_store_root(&mut self, root: PathBuf) {
+        self.performance.set_root(root);
+    }
+    pub(super) fn performance_guard(&self) -> bool {
+        self.performance.has_card()
+    }
+    pub(super) fn performance_target(
+        &self,
+        command: &omniusong_session::Command,
+    ) -> Option<String> {
+        self.performance.command_target(command).map(str::to_owned)
+    }
+    pub(super) fn take_performance_command(&mut self) -> Option<omniusong_session::Command> {
+        if !self.attempted || self.port.is_none() && !self.performance.has_card() {
+            return None;
+        }
+        self.performance.take_command()
+    }
+    pub(super) fn performance_completed(
+        &mut self,
+        command: &omniusong_session::Command,
+        result: Result<&omniusong_session::Reply, &omniusong_session::ServiceError>,
+    ) {
+        self.performance.completed(command, result);
+    }
+    pub(super) fn performance_submission_failed(
+        &mut self,
+        command: &omniusong_session::Command,
+        error: String,
+    ) {
+        self.performance.submission_failed(command, error);
     }
     pub(super) fn live_guard(&self) -> bool {
         self.live.engaged() || matches!(self.phase, Phase::StartingLive | Phase::Live)
@@ -171,16 +214,19 @@ impl AudioUi {
         }
     }
     pub(super) fn capture_guard(&self) -> bool {
-        self.target.is_some() || self.sealed.is_some()
+        self.target.is_some() || self.sealed.is_some() || self.performance.has_card()
     }
     pub(super) fn can_finish(&self) -> bool {
-        self.port.is_some() && self.target.is_some() && self.sealed.is_none()
+        self.port.is_some()
+            && (self.performance.can_finish() && self.live.running()
+                || self.target.is_some() && self.sealed.is_none())
     }
     pub(super) fn needs_poll(&self) -> bool {
         self.pending.is_some()
             || self.deferred.is_some()
             || matches!(self.phase, Phase::Playing | Phase::Capturing)
             || self.live.engaged()
+            || self.performance.pending_status()
     }
     fn submit(&mut self, command: EngineCommand, pending: Pending) -> bool {
         let Some(port) = self.port.as_mut() else {
@@ -239,6 +285,54 @@ impl AudioUi {
             self.live.start_failed();
         }
     }
+    fn record_performance(&mut self, project_id: String) {
+        if self.blocks_session() || self.performance.busy() {
+            return;
+        }
+        let clock = self.live.begin_recording();
+        if let Err(error) = self
+            .performance
+            .begin(project_id, self.output.clone(), clock)
+        {
+            self.live.start_failed();
+            self.error = Some(error);
+        }
+    }
+    fn performance_status(&mut self, status: PerformanceStatus) {
+        let needs_stop = matches!(
+            status.phase,
+            omniusong_engine::PerformancePhase::Failed
+                | omniusong_engine::PerformancePhase::Interrupted
+        ) || status.error.is_some()
+            && matches!(
+                status.phase,
+                omniusong_engine::PerformancePhase::Starting
+                    | omniusong_engine::PerformancePhase::Recording
+                    | omniusong_engine::PerformancePhase::Finishing
+            );
+        match self.performance.observe(status) {
+            Ok(Some(ready)) => match self.live.activate(ready) {
+                Ok(true) => {
+                    self.phase = Phase::Live;
+                    self.message="Recording keys and pads · output only · original callback evidence retained.".into();
+                }
+                Ok(false) => {}
+                Err(error) => {
+                    self.performance.engine_failed(error);
+                    self.stop();
+                }
+            },
+            Ok(None) => {}
+            Err(error) => {
+                self.performance.engine_failed(error);
+                self.stop();
+                return;
+            }
+        }
+        if self.performance.wants_release_stop() || needs_stop && self.performance.engaged() {
+            self.stop();
+        }
+    }
     fn record(&mut self, project_id: String, revision: u64) {
         if self.blocks_session() {
             return;
@@ -260,6 +354,15 @@ impl AudioUi {
         }
     }
     pub(super) fn stop(&mut self) {
+        if self.performance.has_card() {
+            let engine_active = self.performance.cancel();
+            if engine_active && let Some(port) = self.port.as_mut() {
+                self.live.request_stop(port.as_mut());
+            } else {
+                self.live.start_failed();
+            }
+            return;
+        }
         if self.live_guard() {
             if let Some(port) = self.port.as_mut() {
                 self.live.request_stop(port.as_mut());
@@ -269,6 +372,21 @@ impl AudioUi {
         self.control(Control::Stop);
     }
     pub(super) fn finish(&mut self) {
+        if self.performance.has_card() {
+            if !self.performance.can_finish() || !self.live.running() {
+                return;
+            }
+            if let Some(port) = self.port.as_mut() {
+                match self.live.finish_recording_input(port.as_mut()) {
+                    Ok(scope) => self.performance.finish(scope),
+                    Err(error) => {
+                        self.performance.engine_failed(error);
+                        self.stop();
+                    }
+                }
+            }
+            return;
+        }
         self.control(Control::Finish);
     }
     fn control(&mut self, control: Control) {
@@ -300,12 +418,30 @@ impl AudioUi {
         }
     }
     pub(super) fn poll(&mut self) {
+        if self.performance.take_local_cancelled() {
+            self.live.start_failed();
+            self.phase = Phase::Idle;
+        }
         if let Some(update) = self.port.as_mut().and_then(|port| port.try_poll_update())
             && self.live.update(update)
         {
+            let performance = self.performance.has_card();
+            self.performance.stopped();
             self.phase = Phase::Idle;
             self.status = None;
-            self.message = "Live output stopped. No performance was recorded or saved.".into();
+            self.message = if performance {
+                "Recorded output stopped. The exact source and choices remain retained."
+            } else {
+                "Live output stopped. No performance was recorded or saved."
+            }
+            .into();
+        }
+        if let Some(status) = self
+            .port
+            .as_mut()
+            .and_then(|port| port.try_performance_update())
+        {
+            self.performance_status(status);
         }
         let reply = self.port.as_mut().and_then(|port| port.try_poll());
         if let Some(reply) = reply {
@@ -336,6 +472,10 @@ impl AudioUi {
                         self.retired(error);
                         return;
                     }
+                    if pending == Pending::Performance {
+                        self.performance.engine_failed(error.clone());
+                        self.stop();
+                    }
                     self.error = Some(error);
                     self.message = if pending==Pending::Live{"Live audition ended with an error. This performance was not recorded or saved; stop output before continuing."}else{"Audio action ended with an error. No complete final tail is claimed."}.into();
                     if matches!(
@@ -359,6 +499,24 @@ impl AudioUi {
         {
             self.control(control);
         }
+        if self.pending.is_none() && self.port.as_ref().is_some_and(|p| !p.is_busy()) {
+            if let Some(command) = self.performance.take_engine() {
+                if !self.submit(command, Pending::Performance) {
+                    self.performance.engine_failed(
+                        self.error
+                            .clone()
+                            .unwrap_or_else(|| "Audio command was not admitted".into()),
+                    );
+                }
+            } else if self.performance.pending_status()
+                && self.last_status.elapsed() >= Duration::from_millis(250)
+            {
+                self.last_status = Instant::now();
+                if let Some(command) = self.performance.status_request() {
+                    self.submit(command, Pending::Performance);
+                }
+            }
+        }
         if self.pending.is_none()
             && self.deferred.is_none()
             && matches!(self.phase, Phase::Playing | Phase::Capturing)
@@ -369,10 +527,14 @@ impl AudioUi {
         }
     }
     fn retired(&mut self, error: String) {
+        let performance = self.performance.has_card();
+        if performance {
+            self.performance.retired(error.clone());
+        }
         let live = self.live_guard();
         self.error = Some(error);
-        self.message=if live{"Live audio process is unavailable. This performance was not recorded or saved. No automatic restart or replay was attempted."}else{"Audio process is unavailable. Original journals remain retained; no automatic restart, resume, seal or replay was attempted."}.into();
-        self.phase = if self.capture_guard() {
+        self.message=if performance{"Recorded-output process is unavailable. Its original stage and exact choices remain retained; no automatic restart, resume or seal."}else if live{"Live audio process is unavailable. This performance was not recorded or saved. No automatic restart or replay was attempted."}else{"Audio process is unavailable. Original journals remain retained; no automatic restart, resume, seal or replay was attempted."}.into();
+        self.phase = if self.capture_guard() && !performance {
             Phase::Uncertain
         } else {
             Phase::Unavailable
@@ -385,6 +547,9 @@ impl AudioUi {
     }
     fn complete(&mut self, pending: Pending, result: EngineResult) {
         match (pending, result) {
+            (Pending::Performance, EngineResult::Performance(status)) => {
+                self.performance_status(*status)
+            }
             (Pending::Devices, EngineResult::Devices(devices)) => {
                 self.devices = devices;
                 self.message =
@@ -588,7 +753,10 @@ impl AudioUi {
         context: Option<(String, u64)>,
     ) -> bool {
         let mut retry = false;
-        let free = self.port.is_some() && self.pending.is_none() && !self.blocks_session();
+        let free = self.port.is_some()
+            && self.pending.is_none()
+            && !self.blocks_session()
+            && !self.performance.busy();
         ui.horizontal_wrapped(|ui| {
             if ui
                 .add_enabled(free, egui::Button::new("Audio devices"))
@@ -596,27 +764,6 @@ impl AudioUi {
             {
                 self.submit(EngineCommand::Devices, Pending::Devices);
             }
-            egui::ComboBox::from_id_salt("native-audio-input")
-                .selected_text(
-                    self.input
-                        .as_ref()
-                        .and_then(|id| self.devices.inputs.iter().find(|d| &d.id == id))
-                        .map_or("System default input", |d| d.name.as_str()),
-                )
-                .show_ui(ui, |ui| {
-                    ui.add_enabled_ui(free, |ui| {
-                        ui.selectable_value(&mut self.input, None, "System default input");
-                        for device in &self.devices.inputs {
-                            ui.selectable_value(
-                                &mut self.input,
-                                Some(device.id.clone()),
-                                &device.name,
-                            );
-                        }
-                    });
-                })
-                .response
-                .accessible_name("Audio input device");
             egui::ComboBox::from_id_salt("native-audio-output")
                 .selected_text(
                     self.output
@@ -649,6 +796,16 @@ impl AudioUi {
                 self.play(id.clone());
             }
             if ui
+                .add_enabled(
+                    free && can_start && context.is_some(),
+                    egui::Button::new("Record keys/pads"),
+                )
+                .clicked()
+                && let Some((id, _)) = &context
+            {
+                self.record_performance(id.clone());
+            }
+            if ui
                 .add_enabled(free && can_start, egui::Button::new("Start live audition"))
                 .clicked()
             {
@@ -663,22 +820,37 @@ impl AudioUi {
             }
             if ui
                 .add_enabled(
-                    free && can_start && context.is_some(),
-                    egui::Button::new("Record solo"),
+                    self.performance.can_finish() && self.live.running(),
+                    egui::Button::new("Finish recording"),
                 )
-                .clicked()
-                && let Some((id, revision)) = &context
-            {
-                self.record(id.clone(), *revision);
-            }
-            if ui
-                .add_enabled(self.can_finish(), egui::Button::new("Finish take"))
                 .clicked()
             {
                 self.finish();
             }
         });
-        ui.small("Solo capture starts only when requested. No monitoring or overdub; placement is uncalibrated. Stop keeps an unfinished original without sealing it.");
+        ui.collapsing("Advanced · solo input capture",|ui| {
+            egui::ComboBox::from_id_salt("native-audio-input")
+                .selected_text(self.input.as_ref().and_then(|id|self.devices.inputs.iter().find(|d|&d.id==id)).map_or("System default input",|d|d.name.as_str()))
+                .show_ui(ui,|ui| { ui.add_enabled_ui(free,|ui| {
+                    ui.selectable_value(&mut self.input,None,"System default input");
+                    for device in &self.devices.inputs { ui.selectable_value(&mut self.input,Some(device.id.clone()),&device.name); }
+                }); }).response.accessible_name("Audio input device");
+            if ui.add_enabled(free && can_start && context.is_some(),egui::Button::new("Record solo")).clicked() && let Some((id,revision))=&context { self.record(id.clone(),*revision); }
+            if ui.add_enabled(self.target.is_some() && self.can_finish(),egui::Button::new("Finish take")).clicked() { self.finish(); }
+            ui.small("Explicit solo input capture only. No monitoring or overdub; placement is uncalibrated. Stop retains an unfinished original without sealing.");
+        });
+        let allow_review = can_start
+            && self.target.is_none()
+            && self.sealed.is_none()
+            && !self.live.engaged()
+            && matches!(self.phase, Phase::Idle | Phase::Unavailable)
+            && self.pending.is_none();
+        self.performance
+            .ui(ui, can_retry_attachment, allow_review, context.as_ref());
+        if self.performance.take_local_cancelled() {
+            self.live.start_failed();
+            self.phase = Phase::Idle;
+        }
         ui.small("Saved note playback uses a procedural audition instrument, not AI inference.");
         ui.label(&self.message);
         if let Some(status) = &self.status {
@@ -738,6 +910,7 @@ pub(crate) mod test_support {
         replies: VecDeque<EngineReply>,
         busy: bool,
         updates: VecDeque<EngineUpdate>,
+        performances: VecDeque<PerformanceStatus>,
         batches: VecDeque<LiveBatch>,
         urgent: VecDeque<(UrgentTicket, Option<LiveScope>)>,
         next_ticket: u64,
@@ -800,6 +973,9 @@ pub(crate) mod test_support {
         fn try_poll_update(&mut self) -> Option<EngineUpdate> {
             self.0.borrow_mut().updates.pop_front()
         }
+        fn try_performance_update(&mut self) -> Option<PerformanceStatus> {
+            self.0.borrow_mut().performances.pop_front()
+        }
     }
     impl Peer {
         pub(crate) fn command(&self) -> Option<EngineCommand> {
@@ -824,6 +1000,9 @@ pub(crate) mod test_support {
         }
         pub(crate) fn update(&self, update: EngineUpdate) {
             self.0.borrow_mut().updates.push_back(update);
+        }
+        pub(crate) fn performance(&self, status: PerformanceStatus) {
+            self.0.borrow_mut().performances.push_back(status);
         }
         pub(crate) fn urgent(&self) -> Option<(UrgentTicket, Option<LiveScope>)> {
             self.0.borrow_mut().urgent.pop_front()
@@ -872,6 +1051,153 @@ pub(crate) mod test_support {
 mod tests {
     use super::{test_support::*, *};
 
+    fn recording_start() -> (AudioUi, Peer, omniusong_session::PerformanceIntent) {
+        let (mut audio, peer) = pair();
+        audio.set_store_root(PathBuf::from("/synthetic/performance-store"));
+        audio.record_performance("synthetic-project".into());
+        assert!(
+            peer.command().is_none(),
+            "Start cannot precede durable intent"
+        );
+        let command = audio.take_performance_command().unwrap();
+        let omniusong_session::Command::SavePerformanceIntent { intent, .. } = &command else {
+            panic!()
+        };
+        let intent = (**intent).clone();
+        let reply = crate::performance_ui::test_support::receipt(&command, 1);
+        audio.performance_completed(&command, Ok(&reply));
+        audio.poll();
+        assert!(
+            matches!(peer.command(),Some(EngineCommand::StartPerformance {request}) if request==intent.start)
+        );
+        (audio, peer, intent)
+    }
+    #[test]
+    fn recorded_ready_is_asynchronous_and_repeated_updates_do_not_reactivate_controller() {
+        for ready_first in [false, true] {
+            let (mut audio, peer, intent) = recording_start();
+            let status = crate::performance_ui::test_support::status(&intent, 2);
+            let mut starting = status.clone();
+            starting.revision = 1;
+            starting.phase = omniusong_engine::PerformancePhase::Starting;
+            starting.ready = None;
+            starting.live = None;
+            starting.identity.descriptor_sha256 = None;
+            starting.native_sample_format = None;
+            if ready_first {
+                peer.performance(status.clone());
+                audio.poll();
+                assert!(audio.live.running());
+            }
+            peer.reply(Ok(EngineResult::Performance(Box::new(starting))));
+            audio.poll();
+            assert_eq!(audio.live.running(), ready_first);
+            assert!(audio.performance_guard());
+            peer.performance(status.clone());
+            audio.poll();
+            assert!(audio.live.running());
+            peer.performance(status);
+            audio.poll();
+            assert!(audio.live.running());
+            assert!(peer.urgent().is_none());
+            assert!(audio.take_auto_publication().is_none());
+        }
+    }
+    #[test]
+    fn recorded_fault_before_old_start_reply_remains_terminal_and_stop_is_out_of_band() {
+        let (mut audio, peer, intent) = recording_start();
+        let ready = crate::performance_ui::test_support::status(&intent, 2);
+        let mut fault = ready.clone();
+        fault.revision = 3;
+        fault.phase = omniusong_engine::PerformancePhase::Failed;
+        fault.error = Some("Synthetic callback failed before ordinary Ready".into());
+        peer.performance(fault);
+        audio.poll();
+        let (ticket, scope) = peer.urgent().expect("Stop bypasses held Start credit");
+        assert!(scope.is_none());
+        assert!(!audio.live.running());
+        peer.reply(Ok(EngineResult::Performance(Box::new(ready))));
+        audio.poll();
+        assert!(!audio.live.running());
+        assert!(audio.performance_guard());
+        assert!(
+            audio
+                .performance
+                .error
+                .as_deref()
+                .unwrap()
+                .contains("before ordinary Ready")
+        );
+        peer.update(EngineUpdate {
+            worker_generation: ticket.worker_generation,
+            revision: 1,
+            live: None,
+            urgent: omniusong_engine::UrgentProgress {
+                stop: Some(omniusong_engine::StopAck {
+                    ticket,
+                    cancelled_through_control: 1,
+                }),
+                panic: None,
+            },
+            first_fault: None,
+        });
+        audio.poll();
+        assert!(!audio.live.engaged());
+        assert!(
+            audio.blocks_session(),
+            "retained original still needs explicit disposition"
+        );
+        assert!(audio.take_auto_publication().is_none());
+    }
+    #[test]
+    fn recorded_stop_while_start_intent_is_saving_cancels_continuation_after_success() {
+        let (mut audio, peer) = pair();
+        audio.set_store_root(PathBuf::from("/synthetic/performance-store"));
+        audio.record_performance("synthetic-project".into());
+        let command = audio.take_performance_command().unwrap();
+        audio.stop();
+        let reply = crate::performance_ui::test_support::receipt(&command, 1);
+        audio.performance_completed(&command, Ok(&reply));
+        audio.poll();
+        assert!(peer.command().is_none());
+        assert!(peer.urgent().is_none());
+        assert!(!audio.live.engaged());
+        assert!(audio.performance_guard());
+        assert!(audio.take_auto_publication().is_none());
+    }
+    #[test]
+    fn sealed_recording_requests_real_stop_ack_without_legacy_auto_publication() {
+        let (mut audio, peer, intent) = recording_start();
+        let ready = crate::performance_ui::test_support::status(&intent, 2);
+        peer.performance(ready.clone());
+        peer.reply(Ok(EngineResult::Performance(Box::new(ready))));
+        audio.poll();
+        assert!(audio.can_finish());
+        audio.finish();
+        let command = audio.take_performance_command().unwrap();
+        let omniusong_session::Command::SavePerformanceIntent { intent, .. } = &command else {
+            panic!()
+        };
+        let intent = (**intent).clone();
+        let reply = crate::performance_ui::test_support::receipt(&command, 2);
+        audio.performance_completed(&command, Ok(&reply));
+        audio.poll();
+        assert!(
+            matches!(peer.command(),Some(EngineCommand::FinishPerformance {finish_id,..}) if Some(finish_id)==intent.finish.as_ref().map(|f|f.id))
+        );
+        let sealed = crate::performance_ui::test_support::sealed(&intent, 3);
+        peer.performance(sealed.clone());
+        peer.reply(Ok(EngineResult::Performance(Box::new(sealed))));
+        audio.poll();
+        assert!(
+            peer.urgent().is_some(),
+            "seal observation is not itself Stop ACK"
+        );
+        assert!(audio.blocks_session());
+        assert!(audio.take_auto_publication().is_none());
+        assert!(audio.take_performance_command().is_none());
+    }
+
     fn accessible_text(audio: &mut AudioUi) -> Vec<String> {
         let context = egui::Context::default();
         context.enable_accesskit();
@@ -897,6 +1223,139 @@ mod tests {
             .flat_map(|(_, node)| [node.label(), node.value()].into_iter().flatten())
             .map(str::to_owned)
             .collect()
+    }
+    #[test]
+    fn retained_recording_review_cannot_open_while_draft_or_other_start_guard_is_active() {
+        fn frame(
+            audio: &mut AudioUi,
+            ctx: &egui::Context,
+            can_start: bool,
+            events: Vec<egui::Event>,
+        ) -> egui::FullOutput {
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        egui::vec2(1800.0, 1400.0),
+                    )),
+                    time: Some(ctx.cumulative_frame_nr() as f64 / 30.0),
+                    events,
+                    ..Default::default()
+                },
+                |ui| {
+                    audio.ui(ui, can_start, true, Some(("synthetic-project".into(), 7)));
+                },
+            );
+            output.textures_delta.clear();
+            output
+        }
+        fn click(audio: &mut AudioUi, ctx: &egui::Context, can_start: bool, label: &str) {
+            let mut out = frame(audio, ctx, can_start, vec![]);
+            for _ in 0..8 {
+                out = frame(audio, ctx, can_start, vec![]);
+            }
+            let tree = out.platform_output.accesskit_update.unwrap();
+            let target = tree
+                .nodes
+                .iter()
+                .find(|(_, n)| n.label() == Some(label))
+                .unwrap_or_else(|| panic!("Missing {label}"))
+                .0;
+            frame(
+                audio,
+                ctx,
+                can_start,
+                vec![egui::Event::AccessKitActionRequest(
+                    egui::accesskit::ActionRequest {
+                        action: egui::accesskit::Action::Click,
+                        target_tree: tree.tree_id,
+                        target_node: target,
+                        data: None,
+                    },
+                )],
+            );
+        }
+        let (mut audio, peer) = pair();
+        audio.set_store_root(PathBuf::from("/synthetic/performance-store"));
+        let list = audio.take_performance_command().unwrap();
+        let receipt = crate::performance_ui::test_support::retained_attachment();
+        let label = format!("Review {} · choice r3", receipt.intent.start.take_id());
+        audio.performance_completed(
+            &list,
+            Ok(&omniusong_session::Reply::PerformanceIntents(vec![receipt])),
+        );
+        let ctx = egui::Context::default();
+        ctx.enable_accesskit();
+        click(&mut audio, &ctx, false, "Retained recording choices");
+        click(&mut audio, &ctx, false, &label);
+        assert!(!audio.performance_guard());
+        assert!(
+            !audio.blocks_session(),
+            "a dirty session must not acquire a new recording guard"
+        );
+        assert!(audio.take_performance_command().is_none());
+        assert!(peer.command().is_none());
+        click(&mut audio, &ctx, true, &label);
+        assert!(audio.performance_guard());
+        assert!(
+            audio.take_performance_command().is_none(),
+            "review is not automatic attachment"
+        );
+        assert!(peer.command().is_none());
+    }
+    #[test]
+    fn cancelling_known_rejected_unstarted_choice_clears_live_start_guard_in_the_same_ui_pass() {
+        let (mut audio, peer) = pair();
+        audio.set_store_root(PathBuf::from("/synthetic/performance-store"));
+        audio.record_performance("synthetic-project".into());
+        let command = audio.take_performance_command().unwrap();
+        let error = omniusong_session::ServiceError {
+            kind: omniusong_session::FailureKind::IntentRejected,
+            message: "Retained choice capacity reached".into(),
+            outcome_unknown: false,
+        };
+        audio.performance_completed(&command, Err(&error));
+        assert!(audio.blocks_session());
+        let ctx = egui::Context::default();
+        ctx.enable_accesskit();
+        let mut run = |events: Vec<egui::Event>| {
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        egui::vec2(1800.0, 1400.0),
+                    )),
+                    events,
+                    ..Default::default()
+                },
+                |ui| {
+                    audio.ui(ui, false, true, Some(("synthetic-project".into(), 7)));
+                },
+            );
+            output.textures_delta.clear();
+            output
+        };
+        run(vec![]);
+        let tree = run(vec![]).platform_output.accesskit_update.unwrap();
+        let target = tree
+            .nodes
+            .iter()
+            .find(|(_, n)| n.label() == Some("Cancel unstarted recording choice"))
+            .expect("explicit safe dismissal")
+            .0;
+        run(vec![egui::Event::AccessKitActionRequest(
+            egui::accesskit::ActionRequest {
+                action: egui::accesskit::Action::Click,
+                target_tree: tree.tree_id,
+                target_node: target,
+                data: None,
+            },
+        )]);
+        assert!(!audio.blocks_session());
+        assert!(!audio.live.engaged());
+        assert!(!audio.performance_guard());
+        assert!(peer.command().is_none());
+        assert!(peer.urgent().is_none());
     }
     #[test]
     fn pending_status_keeps_one_emergency_stop_and_never_floods_channel() {

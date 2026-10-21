@@ -216,7 +216,7 @@ fn main() -> Outcome<()> {
             .all(|proof| second_proofs.contains(proof))
     );
     let store_version: u32 = db.pragma_query_value(None, "user_version", |r| r.get(0))?;
-    assert_eq!(store_version, 4);
+    assert_eq!(store_version, omniusong_store::STORE_SCHEMA_VERSION);
     drop(db);
     drop(second);
     assert_eq!(file_hash(archive)?, original_sha);

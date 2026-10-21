@@ -616,7 +616,13 @@ fn dirty_note_blocks_audio_and_existing_audio_or_attachment_blocks_note_submissi
     let (audio_ui, audio_peer) = audio::pair();
     app.audio = audio_ui;
     app.notes.draft.as_mut().unwrap().velocity = "0".into();
-    for label in ["Play saved session", "Record solo", "Start live audition"] {
+    click(&ctx, &mut app, "Advanced · solo input capture");
+    for label in [
+        "Play saved session",
+        "Record solo",
+        "Record keys/pads",
+        "Start live audition",
+    ] {
         click(&ctx, &mut app, label);
     }
     assert!(audio_peer.command().is_none());

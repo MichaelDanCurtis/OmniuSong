@@ -12,8 +12,8 @@ test-hooks = []
 [dependencies]
 omniusong-core.workspace = true
 omniusong-store.workspace = true
+omniusong-engine.workspace = true
+omniusong-recording.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 uuid.workspace = true
-
-[dev-dependencies]
-omniusong-recording.workspace = true

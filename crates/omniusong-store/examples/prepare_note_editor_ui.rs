@@ -4,7 +4,7 @@
 //! Both directories must exist. The receipt must be outside the native root.
 //! A fresh sibling `note-editor-ui-<uuid>` directory retains the exact canonical
 //! r0 JSON and complete source archive. The receipt is reserved with create_new
-//! before opening the existing-only store. This schema-4 fixture never migrates.
+//! before opening the existing-only store. This current-schema fixture never migrates.
 //!
 //! ONLY the coordinator should run this against live storage after review.
 //! No device, model, human performance, MIDI delivery, listening or UI acceptance
@@ -74,9 +74,9 @@ fn catalog(path: &Path) -> Outcome<()> {
     )?;
     db.busy_timeout(Duration::from_secs(2))?;
     let version: u32 = db.pragma_query_value(None, "user_version", |row| row.get(0))?;
-    if version != 4 {
+    if version != omniusong_store::STORE_SCHEMA_VERSION {
         return Err(
-            "This fixture requires the current schema-4 native catalog; it will not migrate it"
+            "This fixture requires the current current-schema native catalog; it will not migrate it"
                 .into(),
         );
     }

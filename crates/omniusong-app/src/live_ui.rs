@@ -119,6 +119,10 @@ pub(super) struct LiveUi {
     pointer_latched: bool,
     focus_ids: Vec<egui::Id>,
     last_lease: Instant,
+    recording: bool,
+    finishing: bool,
+    discarded: Option<u64>,
+    first_discard: Option<String>,
     pub(super) error: Option<String>,
 }
 
@@ -155,11 +159,19 @@ impl LiveUi {
             pointer_latched: false,
             focus_ids: Vec::with_capacity(31),
             last_lease: Instant::now(),
+            recording: false,
+            finishing: false,
+            discarded: Some(0),
+            first_discard: None,
             error: None,
         }
     }
     pub(super) fn begin(&mut self) -> LiveClock {
         self.clear_local();
+        self.recording = false;
+        self.finishing = false;
+        self.discarded = Some(0);
+        self.first_discard = None;
         self.epoch = Instant::now();
         let clock = LiveClock {
             domain: "omniusong.gui-monotonic".into(),
@@ -171,6 +183,11 @@ impl LiveUi {
         self.starting = true;
         self.cancelled_start = false;
         self.error = None;
+        clock
+    }
+    pub(super) fn begin_recording(&mut self) -> LiveClock {
+        let clock = self.begin();
+        self.recording = true;
         clock
     }
     pub(super) fn start_failed(&mut self) {
@@ -189,6 +206,7 @@ impl LiveUi {
             && self.stop.is_none()
             && self.panic.is_none()
             && self.error.is_none()
+            && !self.finishing
     }
     pub(super) fn activate(&mut self, ready: LiveReady) -> Result<bool, String> {
         if self.cancelled_start {
@@ -224,6 +242,13 @@ impl LiveUi {
         Ok(true)
     }
     fn clear_local(&mut self) {
+        if self.event_count > 0 {
+            self.discarded = self
+                .discarded
+                .and_then(|n| n.checked_add(self.event_count as u64));
+            self.first_discard
+                .get_or_insert_with(|| "Local input cleanup before parent admission".into());
+        }
         self.held.clear();
         self.events.fill(None);
         self.event_count = 0;
@@ -241,6 +266,50 @@ impl LiveUi {
         self.panic = None;
         self.credit = None;
     }
+    /// Close input first, then transfer the finite staged original events once.
+    /// No held-map cleanup, synthetic release or Panic is part of normal Finish.
+    pub(super) fn finish_recording_input(
+        &mut self,
+        port: &mut dyn EnginePort,
+    ) -> Result<LiveScope, String> {
+        if !self.recording || !self.running() {
+            return Err("Recording input is not ready, or All notes off is still pending.".into());
+        }
+        self.finishing = true;
+        self.credit = None;
+        let scope = self.ready.as_ref().expect("running has readiness").scope;
+        if self.event_count > 0 {
+            let Some(next) = self.next_sequence.checked_add(1) else {
+                self.error = Some("Final GUI batch sequence exhausted; original retained.".into());
+                self.request_stop(port);
+                return Err(self.error.clone().expect("set error"));
+            };
+            let mut batch = LiveBatch::empty(scope, self.next_sequence, None);
+            batch.len = self.event_count as u8;
+            batch.events = self.events;
+            match port.try_push_live(batch) {
+                Ok(queued) if queued.scope == scope && queued.sequence == batch.sequence => {
+                    self.next_sequence = next;
+                    self.parent_sequence = Some(batch.sequence);
+                    self.events.fill(None);
+                    self.event_count = 0;
+                }
+                result => {
+                    let message = match result {
+                        Err(error) => error.to_string(),
+                        Ok(_) => "Final GUI batch admission did not match".into(),
+                    };
+                    self.error = Some(message.clone());
+                    self.request_stop(port);
+                    return Err(message);
+                }
+            }
+        }
+        Ok(scope)
+    }
+    pub(super) fn loss_summary(&self) -> (Option<u64>, Option<&str>) {
+        (self.discarded, self.first_discard.as_deref())
+    }
     pub(super) fn request_stop(&mut self, port: &mut dyn EnginePort) {
         self.clear_local();
         self.cancelled_start = true;
@@ -255,6 +324,9 @@ impl LiveUi {
         }
     }
     pub(super) fn cleanup(&mut self, port: &mut dyn EnginePort) {
+        if self.finishing {
+            return;
+        }
         self.clear_local();
         self.credit = None;
         let Some(scope) = self.ready.as_ref().map(|r| r.scope) else {
@@ -291,7 +363,12 @@ impl LiveUi {
                 .as_ref()
                 .is_some_and(|r| r.scope.session_id == f.scope.session_id)
         }) {
-            self.error.get_or_insert_with(||format!("Live audition stopped sounding: {:?} at output frame {}. Stop, then start explicitly; this performance was not recorded.",fault.kind,fault.frame));
+            let suffix = if self.recording {
+                "Original stage retained; no complete final tail is claimed."
+            } else {
+                "This audition was not recorded."
+            };
+            self.error.get_or_insert_with(||format!("Live output stopped sounding: {:?} at output frame {}. Stop before continuing. {suffix}",fault.kind,fault.frame));
             self.clear_local();
             self.credit = None;
         }
@@ -342,8 +419,13 @@ impl LiveUi {
             if progress.state == LiveState::Faulted {
                 self.error.get_or_insert_with(|| {
                     format!(
-                        "Live audition fault: {:?}. Stop before starting again. Not recorded.",
-                        progress.fault.map(|f| f.kind)
+                        "Live output fault: {:?}. Stop before starting again. {}",
+                        progress.fault.map(|f| f.kind),
+                        if self.recording {
+                            "Original stage retained; final tail unknown."
+                        } else {
+                            "Audition not recorded."
+                        }
                     )
                 });
             }
@@ -605,7 +687,7 @@ impl LiveUi {
         }
     }
     pub(super) fn input(&mut self, ctx: &egui::Context, blocked: bool, port: &mut dyn EnginePort) {
-        if !self.engaged() {
+        if !self.engaged() || self.finishing {
             return;
         }
         let focused = ctx.input(|i| i.focused);
@@ -733,8 +815,16 @@ impl LiveUi {
             return;
         }
         ui.separator();
-        ui.strong("Live audition · output only · not recording or saved");
-        ui.small("Procedural instruments, not AI. No microphone, monitoring, journal or session edit. Stop before changing sessions.");
+        ui.strong(if self.recording {
+            "Recording keys and pads · output only"
+        } else {
+            "Live audition · output only · not recording or saved"
+        });
+        ui.small(if self.recording { "Procedural instruments, not AI. No microphone or monitoring. Original callback evidence is retained; editable notes are not derived." } else { "Procedural instruments, not AI. No microphone, monitoring, journal or session edit. Stop before changing sessions." });
+        if self.recording {
+            let (count, reason) = self.loss_summary();
+            ui.small(format!("Known local staged events discarded: {}{} · parent loss count unavailable / unknown",count.map_or_else(||"unknown (counter exhausted)".into(),|n|n.to_string()),reason.map_or_else(String::new,|r|format!(" · first reason: {r}"))));
+        }
         if let Some(ready) = &self.ready {
             ui.label(format!(
                 "{} · {} Hz · {} output channels",
@@ -779,7 +869,7 @@ impl LiveUi {
             }
             if ui
                 .add_enabled(
-                    self.ready.is_some() && self.stop.is_none(),
+                    self.ready.is_some() && self.stop.is_none() && !self.finishing,
                     egui::Button::new("All notes off"),
                 )
                 .clicked()
@@ -985,6 +1075,80 @@ mod tests {
         let clock = live.begin();
         live.activate(ready(clock)).unwrap();
         (live, Port::default())
+    }
+    #[test]
+    fn recorded_finish_flushes_original_events_once_without_noteoffs_panic_or_held_cleanup() {
+        let mut live = LiveUi::new();
+        let clock = live.begin_recording();
+        live.activate(ready(clock)).unwrap();
+        let mut port = Port::default();
+        live.keyboard_armed = true;
+        live.velocity = u16::MAX;
+        key(&mut live, &mut port, egui::Key::A, true);
+        live.sustain_latch = true;
+        live.sustain(&mut port);
+        let staged = live.events;
+        let count = live.event_count;
+        let held = live.held.len();
+        assert_eq!(held, 1);
+        assert!(count >= 2);
+        let scope = live.finish_recording_input(&mut port).unwrap();
+        assert_eq!(port.batches.len(), 1);
+        assert_eq!(port.batches[0].scope, scope);
+        assert_eq!(port.batches[0].events, staged);
+        assert_eq!(usize::from(port.batches[0].len), count);
+        assert!(port.batches[0].lease_token.is_none());
+        assert!(events(&port).iter().any(|e| matches!(
+            e.event,
+            LiveEventKind::NoteOn {
+                velocity16: u16::MAX,
+                ..
+            }
+        )));
+        assert!(
+            !events(&port)
+                .iter()
+                .any(|e| matches!(e.event, LiveEventKind::NoteOff { .. }))
+        );
+        assert_eq!(live.held.len(), held);
+        assert!(live.sustain_latch);
+        assert!(!live.running());
+        live.cleanup(&mut port); // Native Close/modal guard must preserve Finish's scope.
+        let ctx = egui::Context::default();
+        let mut out = ctx.run_ui(raw(vec![egui::Event::WindowFocused(false)]), |ui| {
+            live.ui(ui, &mut port);
+            live.input(ui.ctx(), true, &mut port);
+        });
+        out.textures_delta.clear();
+        assert_eq!(live.held.len(), held);
+        assert!(live.sustain_latch);
+        assert!(port.panics.is_empty());
+        assert!(port.stops.is_empty());
+        assert_eq!(port.batches.len(), 1);
+        assert!(live.finish_recording_input(&mut port).is_err());
+        assert_eq!(port.batches.len(), 1);
+        live.request_stop(&mut port);
+        assert_eq!(port.stops.len(), 1);
+        assert!(live.held.is_empty());
+    }
+    #[test]
+    fn recorded_finish_transfer_failure_counts_staged_loss_and_requests_stop_without_retry() {
+        let mut live = LiveUi::new();
+        let clock = live.begin_recording();
+        live.activate(ready(clock)).unwrap();
+        let mut port = Port::default();
+        live.keyboard_armed = true;
+        key(&mut live, &mut port, egui::Key::A, true);
+        assert_eq!(live.event_count, 1);
+        port.reject = true;
+        assert!(live.finish_recording_input(&mut port).is_err());
+        assert_eq!(live.loss_summary().0, Some(1));
+        assert!(live.loss_summary().1.is_some());
+        assert!(port.panics.is_empty());
+        assert_eq!(port.stops.len(), 1);
+        assert!(port.batches.is_empty());
+        assert!(live.finish_recording_input(&mut port).is_err());
+        assert!(port.batches.is_empty());
     }
     fn events(port: &Port) -> Vec<LiveEvent> {
         port.batches

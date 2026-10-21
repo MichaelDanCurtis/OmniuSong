@@ -394,7 +394,7 @@ fn schema_one_upgrade_preserves_assets_imports_and_history_before_new_operations
     assert_eq!(
         db.pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
             .unwrap(),
-        4
+        omniusong_store::STORE_SCHEMA_VERSION
     );
     let stored_json: String = db
         .query_row(
@@ -501,7 +501,7 @@ fn simultaneous_first_open_migrates_once_and_admits_independent_operations() {
     assert_eq!(
         db.pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
             .unwrap(),
-        4
+        omniusong_store::STORE_SCHEMA_VERSION
     );
 }
 

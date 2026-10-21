@@ -89,6 +89,20 @@ impl SealedJournal {
         &self.manifest
     }
 
+    /// Authenticate the full retained original under this existing read-only
+    /// snapshot, including any rows outside a recovered selected prefix.
+    /// This never acquires a capture owner, creates a sidecar, or permits writes.
+    /// The result is review evidence, not authority to resume or normally seal.
+    pub fn inspect_snapshot(&self) -> Result<crate::JournalInspection> {
+        let inspection =
+            crate::inspection::inspect_connection(&self.connection, &self.path, &self.descriptor)?;
+        require(
+            inspection.manifest.as_ref() == Some(&self.manifest),
+            "Sealed inspection differs from its held manifest",
+        )?;
+        Ok(inspection)
+    }
+
     /// Read only chunks selected by the sealed manifest, never an unknown tail.
     pub fn read_chunk(&self, stream: &str, sequence: u64) -> Result<ChunkRecord> {
         let prefix = self
