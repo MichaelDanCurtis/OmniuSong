@@ -249,6 +249,8 @@ pub enum LiveFaultKind {
     Clock,
     CounterExhausted,
     CallbackQuiescence,
+    /// A recorded-live transfer failed; never resume or call it a complete take.
+    RecordingTap,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

@@ -1,46 +1,656 @@
 {
-  "format": "omniusong.native-arrangement-runtime-pending",
+  "format": "omniusong.native-arrangement-ui-verification",
   "version": 1,
-  "recordedAtUtc": "2026-10-21T01:32:33.279243+00:00",
-  "completed": false,
-  "scope": "Actual0978Mac package startup only; no arrangement workflow qualification.",
+  "recordedAtUtc": "2026-10-21T02:12:52.163612+00:00",
+  "completed": true,
+  "scope": "Bounded actual0978Mac arrangement placement/drafts/history/archive/restart/output walkthrough. Not full H04 or complete workstation release.",
   "packagedBinary": {
     "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
     "sha256": "09789029f54d2d3c9fff0b94d22a3176afe483bc6b439a0cf703d151338f84ec",
     "byteLength": 88334128
+  },
+  "sourceCommit": "e32ba95b0bc24be09b918a5b434355f9f2964ae2",
+  "qualifiedSourceArchive": {
+    "path": ".runtime/rust-arrangement-ui/qualified-source-e32ba95.tar",
+    "sha256": "d640307651e400c50f23b087b07746641e1133cde1126383b52ad2472aff3060",
+    "byteLength": 2621440
   },
   "sourceGate": {
     "path": "docs/verification/rust-native-arrangement-tests.json",
     "sha256": "eb97e9dca3648c5e62267867df0def52d337511c382f03411972839d75a99604",
     "byteLength": 24491
   },
-  "startupAx": {
-    "path": ".runtime/rust-arrangement-ui/initial-launch.ax.txt",
-    "sha256": "d1d9b23fe351c89109ac94f5dfb5be43915dc173d2c1d0cf4622b19835fa080b",
-    "byteLength": 795
+  "independentAudit": {
+    "path": "docs/verification/rust-native-arrangement-ui-audit.json",
+    "sha256": "7d3288a716bbc4ce90d1b2a2fa61178b0aebeb3e3c1ce2215b2642a5c3d9b84c",
+    "byteLength": 27361
   },
-  "startupScreenshot": {
-    "path": ".runtime/rust-arrangement-ui/initial-launch.png",
-    "sha256": "aa3a01fdc53668ecc58d9d651755389ce18aff2714c3d10c4999ccb41bc305d1",
-    "byteLength": 49980
+  "testCopy": {
+    "id": "84c8f2d3-8a32-4f59-b3da-3010b25770e2",
+    "sourceRevision": 17,
+    "finalRevision": 22,
+    "name": "SYNTHETIC arrangement \u00b7 native walkthrough"
   },
-  "stackSample": {
-    "path": ".runtime/rust-arrangement-ui/initial-launch-sample.txt",
-    "sha256": "4c45ff0b26a6b4656cdf85854229229360c6f5dc464cc98cd57545ed2cd021b5",
-    "byteLength": 371325
+  "archiveRestoredCopy": {
+    "id": "8a5c2196-8208-4122-b20b-2a910b02c1e5",
+    "revision": 22
   },
-  "observed": "Responsive loading frame. Session worker waits in SQLite external-drive database posix open. Prior development builds required macOS drive prompt approval; current prompt visibility is for the user to confirm.",
-  "userActionRequested": "Choose Allow on any new OmniuSong Native external-drive prompt as previously authorized. Computer control cannot operate this system prompt.",
-  "actualWorkflowStillPending": [
-    "Select and drag/nudge exact clips in a fresh synthetic restore copy",
-    "Save/Discard, history and source preservation",
-    "Complete archive export/inspection",
-    "Both-process exit and exact-binary restart/reopen",
-    "Native saved-session output/Stop"
+  "actualUiSteps": [
+    {
+      "step": 1,
+      "name": "ready",
+      "note": "User allowed the exact0978 build; session library is ready, no project edit or recording.",
+      "ax": "ui/01-ready.ax.txt",
+      "png": "ui/01-ready.png"
+    },
+    {
+      "step": 2,
+      "name": "inspect-source-archive",
+      "note": "Inspect the preserved606208-byte synthetic clip archive before restoring a fresh copy.",
+      "ax": "ui/02-inspect-source-archive.ax.txt",
+      "png": "ui/02-inspect-source-archive.png"
+    },
+    {
+      "step": 3,
+      "name": "fresh-restored-copy",
+      "note": "Restore as new session; existing14 sessions preserved.",
+      "ax": "ui/03-fresh-restored-copy.ax.txt",
+      "png": "ui/03-fresh-restored-copy.png"
+    },
+    {
+      "step": 4,
+      "name": "copy-opened",
+      "note": "Fresh root-ID-only copy84c8f2d3 opened at revision17.",
+      "ax": "ui/04-copy-opened.ax.txt",
+      "png": "ui/04-copy-opened.png"
+    },
+    {
+      "step": 5,
+      "name": "renamed-isolated-copy",
+      "note": "Saved only the name of the fresh restored copy; prior projects remain unchanged.",
+      "ax": "ui/05-renamed-isolated-copy.ax.txt",
+      "png": "ui/05-renamed-isolated-copy.png"
+    },
+    {
+      "step": 6,
+      "name": "frame-nudge-draft",
+      "note": "Off snap nudges exactly one native frame, from -480 to -479. Save remains explicit.",
+      "ax": "ui/06-frame-nudge-draft.ax.txt",
+      "png": "ui/06-frame-nudge-draft.png"
+    },
+    {
+      "step": 7,
+      "name": "discard-frame-nudge",
+      "note": "Discard restores saved -480 frames and Keep saved mode without a revision change.",
+      "ax": "ui/07-discard-frame-nudge.ax.txt",
+      "png": "ui/07-discard-frame-nudge.png"
+    },
+    {
+      "step": 8,
+      "name": "drag-staged-placement",
+      "note": "Initial selected-clip gesture left placement unchanged at -480frames; successful staging is step10. This corrects the original operator note in the unchanged raw step manifest.",
+      "ax": "ui/08-drag-staged-placement.ax.txt",
+      "png": "ui/08-drag-staged-placement.png"
+    },
+    {
+      "step": 9,
+      "name": "selected-clip-drag-release",
+      "note": "Coordinate drag within the current selected native clip lane, followed by release.",
+      "ax": "ui/09-selected-clip-drag-release.ax.txt",
+      "png": "ui/09-selected-clip-drag-release.png"
+    },
+    {
+      "step": 10,
+      "name": "drag-after-lane-click",
+      "note": "Repeated coordinate gesture after direct lane selection; result retained even if unchanged.",
+      "ax": "ui/10-drag-after-lane-click.ax.txt",
+      "png": "ui/10-drag-after-lane-click.png"
+    },
+    {
+      "step": 11,
+      "name": "saved-drag-placement",
+      "note": "Explicit Save persisted native-audio-first placement at262 frames, keeping its original reference and source window.",
+      "ax": "ui/11-saved-drag-placement.ax.txt",
+      "png": "ui/11-saved-drag-placement.png"
+    },
+    {
+      "step": 12,
+      "name": "undo-placement",
+      "note": "Undo persisted a new revision returning native clip placement to -480frames.",
+      "ax": "ui/12-undo-placement.ax.txt",
+      "png": "ui/12-undo-placement.png"
+    },
+    {
+      "step": 13,
+      "name": "redo-placement",
+      "note": "Redo returns placement262 at revision21; explicit saved history remains reversible.",
+      "ax": "ui/13-redo-placement.ax.txt",
+      "png": "ui/13-redo-placement.png"
+    },
+    {
+      "step": 14,
+      "name": "beat-snap-local",
+      "note": "Beat snap moves to the strictly later absolute beat grid at24151frames; still a local draft.",
+      "ax": "ui/14-beat-snap-local.ax.txt",
+      "png": "ui/14-beat-snap-local.png"
+    },
+    {
+      "step": 15,
+      "name": "saved-beat-placement",
+      "note": "Saved beat-grid placement24151frames at revision22.",
+      "ax": "ui/15-saved-beat-placement.ax.txt",
+      "png": "ui/15-saved-beat-placement.png"
+    },
+    {
+      "step": 16,
+      "name": "combined-trim-placement-draft",
+      "note": "Arrangement nudge stages48302frames while keeping local trim1200/9000 in the same unsaved clip draft.",
+      "ax": "ui/16-combined-trim-placement-draft.ax.txt",
+      "png": "ui/16-combined-trim-placement-draft.png"
+    },
+    {
+      "step": 17,
+      "name": "navigation-draft-decision",
+      "note": "Selecting another track with the combined clip draft requests Save/Discard/Cancel.",
+      "ax": "ui/17-navigation-draft-decision.ax.txt",
+      "png": "ui/17-navigation-draft-decision.png"
+    },
+    {
+      "step": 18,
+      "name": "cancel-navigation-preserves-draft",
+      "note": "Cancel keeps the exact clip selection, placement48302 and local source start1200 without saving.",
+      "ax": "ui/18-cancel-navigation-preserves-draft.ax.txt",
+      "png": "ui/18-cancel-navigation-preserves-draft.png"
+    },
+    {
+      "step": 19,
+      "name": "discard-combined-draft",
+      "note": "Discard arrangement placement discards the whole combined clip draft, restoring placement24151 and trim1100 at unchangedr22.",
+      "ax": "ui/19-discard-combined-draft.ax.txt",
+      "png": "ui/19-discard-combined-draft.png"
+    },
+    {
+      "step": 20,
+      "name": "raw-event-row-read-only",
+      "note": "Raw UMP source remains duration-unknown/read-only with ordinal range; selecting it creates no editable audio placement.",
+      "ax": "ui/20-raw-event-row-read-only.ax.txt",
+      "png": "ui/20-raw-event-row-read-only.png"
+    },
+    {
+      "step": 21,
+      "name": "pan-negative-time",
+      "note": "Fit all then View earlier shows negative-time viewport; saved loop is a guide and no project revision changes.",
+      "ax": "ui/21-pan-negative-time.ax.txt",
+      "png": "ui/21-pan-negative-time.png"
+    },
+    {
+      "name": "created-complete-archive",
+      "note": "Actual app created new arrangementr22 archive after retry; no previous file was overwritten.",
+      "ax": "ui/22-created-complete-archive.ax.txt",
+      "png": "ui/22-created-complete-archive.png"
+    },
+    {
+      "name": "inspected-arrangement-backup",
+      "note": "Actual UI preliminary backup inspection reports the new arrangement,1originaltake and fresh fingerprint; complete closure checked independently.",
+      "ax": "ui/23-inspected-arrangement-backup.ax.txt",
+      "png": "ui/23-inspected-arrangement-backup.png"
+    },
+    {
+      "name": "saved-output-start",
+      "note": "Play saved session requested for synthetic arrangement; output only, no input stream.",
+      "ax": "ui/24-saved-output-start.ax.txt",
+      "png": "ui/24-saved-output-start.png"
+    },
+    {
+      "name": "saved-output-error-detail",
+      "note": "Saved-output action reported an error; retain actual worker evidence and do not infer playback success.",
+      "ax": "ui/25-saved-output-error-detail.ax.txt",
+      "png": "ui/25-saved-output-error-detail.png"
+    },
+    {
+      "name": "stop-after-rate-refusal",
+      "note": "Explicit Stop returns from output sample-rate mismatch safely; no playback success or final tail claimed.",
+      "ax": "ui/26-stop-after-rate-refusal.ax.txt",
+      "png": "ui/26-stop-after-rate-refusal.png"
+    },
+    {
+      "name": "explicit-speaker-output",
+      "note": "Selected MacBook Pro Speakers explicitly and requested synthetic saved arrangement output; input remains unopened.",
+      "ax": "ui/27-explicit-speaker-output.ax.txt",
+      "png": "ui/27-explicit-speaker-output.png"
+    },
+    {
+      "name": "speaker-output-progress",
+      "note": "Observe actual saved session output counters before explicit Stop.",
+      "ax": "ui/28-speaker-output-progress.ax.txt",
+      "png": "ui/28-speaker-output-progress.png"
+    },
+    {
+      "name": "restored-arrangement-archive",
+      "note": "Full backup restore succeeded to a new session at revision22; existing source copy preserved.",
+      "ax": "ui/29-restored-arrangement-archive.ax.txt",
+      "png": "ui/29-restored-arrangement-archive.png"
+    },
+    {
+      "name": "restored-exact-placement",
+      "note": "Restored archive contains saved24151frame placement and preserved1100/9000source window with480/960fades.",
+      "ax": "ui/30-restored-exact-placement.ax.txt",
+      "png": "ui/30-restored-exact-placement.png"
+    },
+    {
+      "name": "restart-reopen-exact-placement",
+      "note": "Exact same0978bundle reopened persisted original arrangement copy r22 with24151placement,1100/9000trim,480/960equalpowerfades. UI-only snap/view reset is expected.",
+      "ax": "ui/31-restart-reopen-exact-placement.ax.txt",
+      "png": "ui/31-restart-reopen-exact-placement.png"
+    }
   ],
-  "preservation": {
-    "path": "docs/verification/rust-native-arrangement-source-preservation.json",
-    "sha256": "ea8b0d4e2cd0f642cb43662283abf59f8f6e40c13bb2b6a8bd8814d269f764ce",
-    "byteLength": 2261
-  }
+  "artifacts": [
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/01-ready.ax.txt",
+      "sha256": "a872159e22cd6fb7534094df6a572730747c44a9d5aeff5d1b9efc45ba7dc38e",
+      "byteLength": 4971
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/01-ready.png",
+      "sha256": "b1250f94da2cb42926aebdfe4c5995add83a390d052a8c6339ecda332d56005e",
+      "byteLength": 140327
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/02-inspect-source-archive.ax.txt",
+      "sha256": "8d721a26251f98f3570c98c58495b250456ba2ce6266acb9637eb3c754e40790",
+      "byteLength": 5897
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/02-inspect-source-archive.png",
+      "sha256": "91e59d9d1171645af62409973f8ef7e7bf4508a9bb2e6ef65538183b3e14599b",
+      "byteLength": 165857
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/03-fresh-restored-copy.ax.txt",
+      "sha256": "7aa1d4d76283747647ce5dc663c2914bfb3ac45470ca6210565fb74b9997000e",
+      "byteLength": 6185
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/03-fresh-restored-copy.png",
+      "sha256": "5ae7c25629d665f74a3ac37e5d3869fd43b2036e36abc4f89237adfbc442eef7",
+      "byteLength": 146984
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/04-copy-opened.ax.txt",
+      "sha256": "8d60ca8a4461e3546e7a4b324a45888b84e896491414f3cd055cee4adbe47203",
+      "byteLength": 8753
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/04-copy-opened.png",
+      "sha256": "34909bae045e79ec905f913203b8a45a44acce9339f7082085b3078445ff8734",
+      "byteLength": 246894
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/05-renamed-isolated-copy.ax.txt",
+      "sha256": "872ab8967ec7983e83bc21e2ca6312429273299bde38e32c5a47038340d0a462",
+      "byteLength": 8756
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/05-renamed-isolated-copy.png",
+      "sha256": "f6c300e3c42232d0b1c91d196a028577fad41b64dad6728c3a4cae4d06907028",
+      "byteLength": 246650
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/06-frame-nudge-draft.ax.txt",
+      "sha256": "b13b9e5166341b24a6540cba9416273939333a108f5c4406fe2b7954673b9ce9",
+      "byteLength": 10972
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/06-frame-nudge-draft.png",
+      "sha256": "0807f3e652506ba43004720ad1b5ccc5b5bc3dd23cbdb1faa30f9713afaf2f8a",
+      "byteLength": 282772
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/07-discard-frame-nudge.ax.txt",
+      "sha256": "8f421a90546cd8504a40c17b0d580fd036e52d8eda9c4c5ef9f166af5512ca66",
+      "byteLength": 10836
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/07-discard-frame-nudge.png",
+      "sha256": "e23d5a31b7033e36e5db375af8d38ec4c035e3d677564e6bc1e24a890afe456b",
+      "byteLength": 276981
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/08-drag-staged-placement.ax.txt",
+      "sha256": "8f421a90546cd8504a40c17b0d580fd036e52d8eda9c4c5ef9f166af5512ca66",
+      "byteLength": 10836
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/08-drag-staged-placement.png",
+      "sha256": "ed41e83388c8feb48e89d6426f5c6deed0ad905001a925f426d5a757cee7a12e",
+      "byteLength": 278687
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/09-selected-clip-drag-release.ax.txt",
+      "sha256": "8f421a90546cd8504a40c17b0d580fd036e52d8eda9c4c5ef9f166af5512ca66",
+      "byteLength": 10836
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/09-selected-clip-drag-release.png",
+      "sha256": "19da5b0d7a69e96515393834bae67cebfdbda1092e6f11f6785e248dd7aa81d9",
+      "byteLength": 278656
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/10-drag-after-lane-click.ax.txt",
+      "sha256": "877cb1224a01691d1c0bed4de12d1f2a62b7eaffcd6ecda90b53182e5e46974e",
+      "byteLength": 11126
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/10-drag-after-lane-click.png",
+      "sha256": "fc5aa76f8d56c7c4b3a3cfa5f5dd0757010153eababe27229de8df986a2a6319",
+      "byteLength": 284586
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/11-saved-drag-placement.ax.txt",
+      "sha256": "5dd2a2f702ab5f7f80ade9833ac5d39690ab377ef226549cb0f63d0700bc9727",
+      "byteLength": 11018
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/11-saved-drag-placement.png",
+      "sha256": "ceb4d2ef92c717e3764e164fb94d18c088329462951230a935e86777cda10742",
+      "byteLength": 272564
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/12-undo-placement.ax.txt",
+      "sha256": "d6fc853210c17fe5e4226a07081c5f95ed63d84786ece1ccf52e5ba2b71a7f9d",
+      "byteLength": 11020
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/12-undo-placement.png",
+      "sha256": "ae3f4220937fa4e5ae4ea26ab3164fc5c16cdf5bba404ef8acbb849ffc14c57d",
+      "byteLength": 272351
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/13-redo-placement.ax.txt",
+      "sha256": "2c77a8abaaf9c0519f1725771b87b819e2a3b1b49dd57d9bd600d3bb0a400eff",
+      "byteLength": 11018
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/13-redo-placement.png",
+      "sha256": "3ec7c78b27b1a900f31ccc0b54f97a28450214b3452a516090236a18d5b141eb",
+      "byteLength": 272412
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/14-beat-snap-local.ax.txt",
+      "sha256": "88d89a5e03c7fd4207e2bcb1c7f8a6df85a74c1b91120a70dc410eded8e2ec3e",
+      "byteLength": 11377
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/14-beat-snap-local.png",
+      "sha256": "e31a45b6646e49f7341b22a5c7c38a6628996c8c3edd79801a0a34e59d1760b4",
+      "byteLength": 281761
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/15-saved-beat-placement.ax.txt",
+      "sha256": "f273f0c425fb8c875bde2b1e912219f93bddbc5c81b903e43cd1e96a6886fc0e",
+      "byteLength": 11233
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/15-saved-beat-placement.png",
+      "sha256": "e476bdeeec7a79530643b7e1f16ef8e3a435c4c186ee83a6fd6b1ae6be74742e",
+      "byteLength": 273356
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/16-combined-trim-placement-draft.ax.txt",
+      "sha256": "2a1e6ff69d884a5d3ab99d2f2aa053c119bdab1b8cdd10c6da4269a9cc681466",
+      "byteLength": 11385
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/16-combined-trim-placement-draft.png",
+      "sha256": "f5968ad405b5b23f4066a8ec2bdd899900964d31d3b196e7b309b69ab328c4e7",
+      "byteLength": 282766
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/17-navigation-draft-decision.ax.txt",
+      "sha256": "be5e122d914d88e416595ba1982641dca35d63946fce9ab6e323f274cde6bd30",
+      "byteLength": 11648
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/17-navigation-draft-decision.png",
+      "sha256": "c1799a824bdbc67fbf1973d1f6767a02e86c986cc4b1a4413772932b0274d634",
+      "byteLength": 241169
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/18-cancel-navigation-preserves-draft.ax.txt",
+      "sha256": "129a69257ebb6bde6b18c8169651c72a77842b26528614e4b82b11a8477aaead",
+      "byteLength": 11298
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/18-cancel-navigation-preserves-draft.png",
+      "sha256": "3661d187618da164034e4685c7789498b87771386657eddecafe3aeaf11e6481",
+      "byteLength": 282072
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/19-discard-combined-draft.ax.txt",
+      "sha256": "81f2ff29afecb151e81af4105a3e747b602c2f6f20011312f268175defad0a1c",
+      "byteLength": 11183
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/19-discard-combined-draft.png",
+      "sha256": "85c860c06f4686b6a809276c35127fd159511b62902a8e06e4fac2f24de36506",
+      "byteLength": 274432
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/20-raw-event-row-read-only.ax.txt",
+      "sha256": "d6a012e086b7225dd895edb86b2f8a7d9491a6acc878ee38d51308f2a6af8d28",
+      "byteLength": 8958
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/20-raw-event-row-read-only.png",
+      "sha256": "e76a00da33ea68193ef051103c2b4ed8c64bb5e66c5679e5d9d83118ed0674cd",
+      "byteLength": 254996
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/21-pan-negative-time.ax.txt",
+      "sha256": "2fb63efb1d62d3ead46f400918290c7f99a1532a6f788aaf503a3703f52c43ef",
+      "byteLength": 8959
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/21-pan-negative-time.png",
+      "sha256": "79ca96c863782f8b3ede7286fe5724eca492d8d9ad88d8acc41fec148bd62daa",
+      "byteLength": 258359
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/22-created-complete-archive.ax.txt",
+      "sha256": "7fb766a9accecf523cf2810ccaae4c7fe415ea9b52a15cbd9d0db2ca8e026216",
+      "byteLength": 9164
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/22-created-complete-archive.png",
+      "sha256": "920ece1d2eb3a82bf80e4f38740f56836e6cc1753b7acb0b34030cc933983549",
+      "byteLength": 264364
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/23-inspected-arrangement-backup.ax.txt",
+      "sha256": "1d2921c16816ebeaf47c50b3f4fa3e9f403f25fdccf70bbd614c0fb12d136633",
+      "byteLength": 9098
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/23-inspected-arrangement-backup.png",
+      "sha256": "128df22de309e36efb2a2b7092f364eaa35f98db23c062e8ca95a5242193523c",
+      "byteLength": 260912
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/24-saved-output-start.ax.txt",
+      "sha256": "9106e8fa6b32c63606fbb63faf9a21965d0c1432ac44a41218fcee37bb171d25",
+      "byteLength": 9679
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/24-saved-output-start.png",
+      "sha256": "92ce8cc3c783f67377b704c20a696735d7848397ff06bcd70cf73eaa47b369df",
+      "byteLength": 235460
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/25-saved-output-error-detail.ax.txt",
+      "sha256": "9106e8fa6b32c63606fbb63faf9a21965d0c1432ac44a41218fcee37bb171d25",
+      "byteLength": 9679
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/25-saved-output-error-detail.png",
+      "sha256": "683f6c4bafb94c64877ca40b053aa9ff64b1d54d5ffb114d24773cfe854ad21f",
+      "byteLength": 235446
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/26-stop-after-rate-refusal.ax.txt",
+      "sha256": "a05093f7ac492d5dc211773b06a7e95112afd388e1126147c6ae0cf4c4c56aac",
+      "byteLength": 9089
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/26-stop-after-rate-refusal.png",
+      "sha256": "21d7c55cdea5ee02adca1d0e40644c746c8cae8b3aabc6a010ca738fd3fe1049",
+      "byteLength": 260562
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/27-explicit-speaker-output.ax.txt",
+      "sha256": "f92e269ca351f0c9937ce6693b63460f651f53e68bcbd8c674f0602518725e1b",
+      "byteLength": 10426
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/27-explicit-speaker-output.png",
+      "sha256": "e058412789d0e7c87e955035599808618227b71c4818db6a36832fecf12361a2",
+      "byteLength": 230937
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/28-speaker-output-progress.ax.txt",
+      "sha256": "1bb376f103a1722874af9bab09f8ecd684a910c617197d9dfa4b310921a2bcb4",
+      "byteLength": 9954
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/28-speaker-output-progress.png",
+      "sha256": "b0d4aa162480380bbf2dacf1637a41a060d77601f6eeb0e5216cb216debe0822",
+      "byteLength": 265788
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/29-restored-arrangement-archive.ax.txt",
+      "sha256": "0c8729e64feae2cebd86ae992ff23d18e346a52a05cce8369570d9a9127e9378",
+      "byteLength": 9732
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/29-restored-arrangement-archive.png",
+      "sha256": "d838b348675cb2b094aed89c9fd05d3a12c5b0c20825f81170ee8d90ffe0b18c",
+      "byteLength": 250890
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/30-restored-exact-placement.ax.txt",
+      "sha256": "1351e7a3a73c8bf03b946362c8c030b792bb7366f11ffdbd46ef8609b0cfa784",
+      "byteLength": 12007
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/30-restored-exact-placement.png",
+      "sha256": "0e889aac681bfc9628c4306b485b9d1bc76c4a6e43302df59fac9a456df74ace",
+      "byteLength": 277468
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/31-restart-reopen-exact-placement.ax.txt",
+      "sha256": "3047808806c5b6abaf6296dd0838b1c0a86fb3578404c677747f6d1210d5059b",
+      "byteLength": 10304
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui/31-restart-reopen-exact-placement.png",
+      "sha256": "2ab85c48fef67cce33484f83a057093c7291cbb29e87d50be2b693918ee28c85",
+      "byteLength": 248261
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/ui-steps.json",
+      "sha256": "70a96de8350575c76338d1e03ab4cd97b30beba136b370fbf7444147c06dac1c",
+      "byteLength": 8098
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/copy-identity.json",
+      "sha256": "8fbe9e81a54ff6cd6837bc6ee45d79f3602b47c4d658c4f0e0ca8c93d7360a9a",
+      "byteLength": 132
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/copy-r17.json",
+      "sha256": "4de37acc7b2956a567147fb6f899cc97da81aabfff08bc0f20b1e4ae13196719",
+      "byteLength": 5987
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/copy-r18.json",
+      "sha256": "b3aa38aec8bc796dbb9218dd514099acc5544346400ddb4c93331b80203704b2",
+      "byteLength": 5988
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/copy-r19.json",
+      "sha256": "58a8ee2b4e29ac6c1d9a3b5f4b7e2cb33995ae000e525b16e3fcea6f16ce036c",
+      "byteLength": 5987
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/copy-r20.json",
+      "sha256": "1f00a3dda21147fde59d36760f9e4146eef82a79c9c9acfec2fef1118cc0df27",
+      "byteLength": 5988
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/copy-r22.json",
+      "sha256": "d2cfabe9570dfe6037f10bd85a09b92f1c018a5d8a446b2628417156e78e9013",
+      "byteLength": 5989
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/restored-r22.json",
+      "sha256": "d6142c6b5469ae831ced5b1987058cf83d90596a2d5f15e0c4dcbafbf96c7b33",
+      "byteLength": 5989
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/arranged-session.omniusong-native",
+      "sha256": "af8955b0ae439b2d3682b12cdb6f86d98043f13656bc99e6a98ffa375f23f058",
+      "byteLength": 679936
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/process-observations.json",
+      "sha256": "bcfe03135fd316591f4951748ac08cdc70760451ee50937e4240dc9b413820ec",
+      "byteLength": 922
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/before-store.json",
+      "sha256": "892f76c81afad84bf89898d82c563d02ff94cd3b067bab07599b7069d544d60e",
+      "byteLength": 20587
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/after-ui-close-store.json",
+      "sha256": "303dcb23eb70d0c86c9f20c51420401df67ee031727916ba2e92bcb40f2b2752",
+      "byteLength": 29644
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/qualified-source-e32ba95.json",
+      "sha256": "031bf9257976cf479e06bf2308cab71d85666aae45f364667eec79d127aaaa97",
+      "byteLength": 452
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/qualified-source-e32ba95.tar",
+      "sha256": "d640307651e400c50f23b087b07746641e1133cde1126383b52ad2472aff3060",
+      "byteLength": 2621440
+    },
+    {
+      "path": ".runtime/rust-arrangement-ui/audit_actual_ui.py",
+      "sha256": "8a16e1e61ca6716d0e5158b79ae0202c16b540f8d7dfc392d054b8861d7c3fa4",
+      "byteLength": 22950
+    }
+  ],
+  "verified": [
+    "Restored root-ID-only synthetic source copy, then explicit name-only save.",
+    "Off snap one-native-frame nudge -480\u2192-479 discarded without saving.",
+    "Successful selected-clip coordinate drag stages262frames; explicit Save advancesr19; Undo r20 returns-480 and Redo r21 returns262.",
+    "Beat snap at119.25BPM/48kHz stages/saves24151frames at r22; source1100/9000 and480/960equalpowerfades remain exact.",
+    "Combined local trim1200/9000 and later beat nudge48302 retain one clip draft; navigation Cancel preserves both; whole-draft Discard returns saved24151/1100.",
+    "Raw UMP remains duration-unknown/read-only; Fit all and negative-time pan change only viewport.",
+    "Actual backup create/inspect/fully-validated restore retains complete document/history/operations/imports/ancestry/WAV/sealedtake.",
+    "Both native processes absent after normalClose, same0978binary restart uses newPIDs, originalr22copy reopens exactsaved fields.",
+    "Explicit MacBook Pro Speakers output completes47000preparedframes48kHzstereo0reportedxruns; Stop then restart.",
+    "All14earlierprojects/220rows/4takes and30prototypefiles unchanged; only2new syntheticcopies."
+  ],
+  "limits": [
+    "This is the existing ad-hoc ARM64 development bundle; no installer, Windows, physical input, listening, latency, thirty-minute stability or model/plugin result.",
+    "Steps8/9 left placement unchanged and do not prove a staged drag; successful gesture is step10.",
+    "A UI automation observation timed out after setting backup path; file was absent, retry Create succeeded.",
+    "Default output rejected sample-rate mismatch; resampling remains pending. Successful output used explicit MacBook Pro Speakers.",
+    "Media files named.png contain JPEG/JFIF bytes1440x1032; originals retained and actual encoding independently checked.",
+    "Dense ruler annotations can overlap text; complete accessibility/focus/scaling remains pending.",
+    "Current performance-tap source WIP has not replaced0978; actual UI binds archived e32ba95 source.",
+    "Arrangement sections, waveform manipulation, expressive MIDI and full milestone2 remain incomplete."
+  ]
 }

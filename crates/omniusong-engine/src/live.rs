@@ -1,6 +1,11 @@
 //! Device-free bounded live synthesis. Only `LiveRenderer` mutates voices.
 //! GUI ticks are retained observations; events apply at the next callback boundary.
 use crate::live_types::*;
+use crate::performance_tap::{
+    self, BatchDisposition, PerformanceTapOwner, PerformanceTapProducer, PerformanceTapRetention,
+    TapBegin, TapClear, TapClearReason, TapEnd, TapFaultKind, TapInfo, TapPcm, TapTransition,
+    TapTransitionKind,
+};
 use rtrb::{Consumer, Producer, RingBuffer};
 use std::sync::{
     Arc,
@@ -22,6 +27,7 @@ fn code(kind: LiveFaultKind) -> u32 {
         LiveFaultKind::Clock => 9,
         LiveFaultKind::CounterExhausted => 10,
         LiveFaultKind::CallbackQuiescence => 11,
+        LiveFaultKind::RecordingTap => 12,
     }
 }
 fn kind(code: u32) -> LiveFaultKind {
@@ -36,6 +42,7 @@ fn kind(code: u32) -> LiveFaultKind {
         8 => LiveFaultKind::Device,
         9 => LiveFaultKind::Clock,
         10 => LiveFaultKind::CounterExhausted,
+        12 => LiveFaultKind::RecordingTap,
         _ => LiveFaultKind::CallbackQuiescence,
     }
 }
@@ -267,6 +274,43 @@ pub struct LiveAdmission {
     accepted: Option<u64>,
     source_ticks: [Option<u64>; LIVE_MAX_SOURCES],
     pending_panic: Option<LiveScope>,
+    // Retains the recording ring off callback through renderer destruction.
+    _recording_retention: Option<PerformanceTapRetention>,
+}
+struct RecordingState {
+    producer: PerformanceTapProducer,
+    clears: [Option<TapClear>; 2],
+    transitions: [Option<TapTransition>; 128],
+    transition_len: u16,
+    fault_cleared: bool,
+}
+impl RecordingState {
+    fn reset_callback(&mut self) {
+        self.clears = [None; 2];
+        self.transitions = [None; 128];
+        self.transition_len = 0;
+    }
+    fn transition(&mut self, transition: TapTransition) -> bool {
+        let index = usize::from(self.transition_len);
+        if index == self.transitions.len() {
+            self.producer
+                .fault(TapFaultKind::MalformedPacket, transition.frame);
+            return false;
+        }
+        self.transitions[index] = Some(transition);
+        self.transition_len += 1;
+        true
+    }
+    fn clear(&mut self, clear: TapClear) -> bool {
+        if let Some(slot) = self.clears.iter_mut().find(|slot| slot.is_none()) {
+            *slot = Some(clear);
+            true
+        } else {
+            self.producer
+                .fault(TapFaultKind::MalformedPacket, clear.frame);
+            false
+        }
+    }
 }
 /// Callback owner. Render operations allocate/deallocate nothing and never lock.
 pub struct LiveRenderer {
@@ -280,6 +324,7 @@ pub struct LiveRenderer {
     voices: [Voice; LIVE_VOICES],
     frame: u64,
     late: u64,
+    recording: Option<RecordingState>,
 }
 pub fn live_pair(
     scope: LiveScope,
@@ -332,6 +377,7 @@ pub fn live_pair(
             accepted: None,
             source_ticks: [None; LIVE_MAX_SOURCES],
             pending_panic: None,
+            _recording_retention: None,
         },
         LiveRenderer {
             scope,
@@ -344,8 +390,34 @@ pub fn live_pair(
             voices: [EMPTY; LIVE_VOICES],
             frame: 0,
             late: 0,
+            recording: None,
         },
     ))
+}
+/// Library-level recorded-live render bus. No device, journal, worker command,
+/// take, or project mutation is created here. Keep admission until both native
+/// callback closures are proven gone, exactly as for ordinary live ownership.
+pub fn recording_live_pair(
+    scope: LiveScope,
+    rate: u32,
+    channels: u16,
+) -> Result<(LiveAdmission, LiveRenderer, PerformanceTapOwner), String> {
+    let (mut admission, mut renderer) = live_pair(scope, rate, channels)?;
+    let (producer, owner, retention) = performance_tap::tap_pair(TapInfo {
+        scope,
+        sample_rate: rate,
+        channels,
+    })
+    .map_err(|error| format!("Cannot prepare performance transfer: {error:?}"))?;
+    admission._recording_retention = Some(retention);
+    renderer.recording = Some(RecordingState {
+        producer,
+        clears: [None; 2],
+        transitions: [None; 128],
+        transition_len: 0,
+        fault_cleared: false,
+    });
+    Ok((admission, renderer, owner))
 }
 impl LiveAdmission {
     pub fn control(&self) -> Arc<LiveControl> {
@@ -538,6 +610,49 @@ impl LiveAdmission {
     }
 }
 impl LiveRenderer {
+    fn capture_batch(&mut self, batch: LiveBatch, disposition: BatchDisposition) -> bool {
+        if self
+            .recording
+            .as_mut()
+            .is_some_and(|recording| recording.producer.push_batch(batch, disposition).is_err())
+        {
+            self.control.fault_at(
+                LiveFaultKind::RecordingTap,
+                Some(batch.sequence),
+                self.frame,
+            );
+            self.clear_for_fault();
+            return false;
+        }
+        true
+    }
+    fn capture_clear(&mut self, reason: TapClearReason) {
+        if self.recording.as_mut().is_some_and(|recording| {
+            !recording.clear(TapClear {
+                scope: self.scope,
+                frame: self.frame,
+                reason,
+            })
+        }) {
+            self.control
+                .fault_at(LiveFaultKind::RecordingTap, None, self.frame);
+        }
+    }
+    fn clear_for_fault(&mut self) {
+        if let Some(recording) = &mut self.recording
+            && !recording.fault_cleared
+        {
+            recording.fault_cleared = true;
+            let reason = self
+                .control
+                .first_fault()
+                .map_or(TapClearReason::FaultPending, |fault| {
+                    TapClearReason::Fault { kind: fault.kind }
+                });
+            self.capture_clear(reason);
+        }
+        self.clear();
+    }
     fn clear(&mut self) {
         self.voices = [EMPTY; LIVE_VOICES];
         self.control.active.store(0, Ordering::Release);
@@ -547,6 +662,9 @@ impl LiveRenderer {
         }
     }
     fn apply(&mut self, batch: LiveBatch) -> Result<(), LiveFaultKind> {
+        batch
+            .validate_shape(self.rate)
+            .map_err(|_| LiveFaultKind::InvalidBatch)?;
         // Entire fixed transaction is staged. No earlier event can sound if a later one fails.
         let mut sources = self.sources;
         let mut voices = self.voices;
@@ -672,19 +790,20 @@ impl LiveRenderer {
     fn boundary(&mut self) {
         let requested = self.control.requested_generation.load(Ordering::Acquire);
         if requested != self.scope.panic_generation {
+            self.capture_clear(TapClearReason::Panic {
+                next_generation: requested,
+            });
             self.clear();
             for _ in 0..LIVE_CALLBACK_PACKET_BUDGET {
-                if self
-                    .consumer
-                    .as_mut()
-                    .expect("live consumer")
-                    .pop()
-                    .is_err()
-                {
+                let Ok(batch) = self.consumer.as_mut().expect("live consumer").pop() else {
+                    break;
+                };
+                if !self.capture_batch(batch, BatchDisposition::DiscardedPanic) {
                     break;
                 }
             }
-            if self.consumer.as_ref().expect("live consumer").is_empty() {
+            if !self.control.faulted() && self.consumer.as_ref().expect("live consumer").is_empty()
+            {
                 for source in &mut self.sources {
                     let ticks = source.ticks;
                     *source = Source {
@@ -701,7 +820,23 @@ impl LiveRenderer {
             return;
         }
         if self.control.faulted() {
-            self.clear();
+            self.clear_for_fault();
+            // Recover pending originals without applying them. This retains the
+            // same four-packet total callback bound; an unpublished fault cause
+            // never gets guessed and does not consume its pending batches.
+            if self.recording.is_some()
+                && let Some(fault) = self.control.first_fault()
+            {
+                for _ in 0..LIVE_CALLBACK_PACKET_BUDGET {
+                    let Ok(batch) = self.consumer.as_mut().expect("live consumer").pop() else {
+                        break;
+                    };
+                    if !self.capture_batch(batch, BatchDisposition::Rejected { fault: fault.kind })
+                    {
+                        break;
+                    }
+                }
+            }
             return;
         }
         for _ in 0..LIVE_CALLBACK_PACKET_BUDGET {
@@ -709,11 +844,18 @@ impl LiveRenderer {
                 break;
             };
             if batch.scope != self.scope {
+                if !self.capture_batch(batch, BatchDisposition::DiscardedStale) {
+                    break;
+                }
                 continue;
             }
             if let Err(fault) = self.apply(batch) {
                 self.control.fault(fault, Some(batch.sequence));
-                self.clear();
+                let _ = self.capture_batch(batch, BatchDisposition::Rejected { fault });
+                self.clear_for_fault();
+                break;
+            }
+            if !self.capture_batch(batch, BatchDisposition::Applied) {
                 break;
             }
             self.control
@@ -723,10 +865,12 @@ impl LiveRenderer {
     }
     fn sample(&mut self) -> f32 {
         if !self.control.audible_at(self.frame) {
-            self.clear();
+            self.clear_for_fault();
             return 0.0;
         }
         let mut mix = 0.0;
+        let mut capture_fault = false;
+        let recording = &mut self.recording;
         for voice in &mut self.voices {
             if !voice.active {
                 continue;
@@ -735,11 +879,37 @@ impl LiveRenderer {
                 // Pulse release velocity is retained in the packet; automatic release
                 // must not rely on a future UI timer or sustain release.
                 release(voice, voice.auto_release_velocity, self.rate);
+                if recording.as_mut().is_some_and(|recording| {
+                    !recording.transition(TapTransition {
+                        scope: self.scope,
+                        source: voice.source,
+                        voice: voice.id,
+                        frame: self.frame,
+                        kind: TapTransitionKind::AutoRelease {
+                            release_velocity16: voice.auto_release_velocity,
+                        },
+                    })
+                }) {
+                    capture_fault = true;
+                    break;
+                }
             }
             if voice.releasing {
                 voice.envelope -= voice.release_step;
                 if voice.envelope <= 0.0 {
                     voice.active = false;
+                    if recording.as_mut().is_some_and(|recording| {
+                        !recording.transition(TapTransition {
+                            scope: self.scope,
+                            source: voice.source,
+                            voice: voice.id,
+                            frame: self.frame,
+                            kind: TapTransitionKind::VoiceEnded,
+                        })
+                    }) {
+                        capture_fault = true;
+                        break;
+                    }
                     continue;
                 }
             } else {
@@ -769,39 +939,142 @@ impl LiveRenderer {
                 voice.phase -= voice.phase.floor();
             }
         }
+        if capture_fault {
+            self.control
+                .fault_at(LiveFaultKind::RecordingTap, None, self.frame);
+            self.clear_for_fault();
+            return 0.0;
+        }
         mix.clamp(-1.0, 1.0)
     }
     fn render<T>(&mut self, out: &mut [T], convert: impl Fn(f32) -> T) {
+        let frames = out.len() / self.channels;
+        let end = self
+            .frame
+            .checked_add(frames as u64)
+            .filter(|end| *end < EXPIRED);
         if out.is_empty()
             || !out.len().is_multiple_of(self.channels)
-            || out.len() / self.channels > LIVE_MAX_CALLBACK_FRAMES
+            || frames > LIVE_MAX_CALLBACK_FRAMES
+            || end.is_none()
         {
-            self.control.fault(LiveFaultKind::CallbackShape, None);
+            let fault = if end.is_none() {
+                LiveFaultKind::CounterExhausted
+            } else {
+                LiveFaultKind::CallbackShape
+            };
+            self.control.fault(fault, None);
+            if let Some(recording) = &self.recording {
+                recording
+                    .producer
+                    .fault(TapFaultKind::MalformedPacket, self.frame);
+            }
             self.clear();
             for sample in out {
                 *sample = convert(0.0);
             }
             return;
         }
+        let end = end.expect("validated whole callback extent");
+        // Reserve evidence for the ENTIRE invocation before applying any queued
+        // event or sounding a new voice. A broken tap permanently fails closed.
+        if let Some(recording) = &mut self.recording {
+            recording.reset_callback();
+            if recording
+                .producer
+                .begin_callback(TapBegin {
+                    scope: self.scope,
+                    start_frame: self.frame,
+                    frames: frames as u16,
+                    sample_rate: self.rate,
+                    channels: self.channels as u16,
+                })
+                .is_err()
+            {
+                self.control
+                    .fault_at(LiveFaultKind::RecordingTap, None, self.frame);
+                self.clear();
+                for sample in out {
+                    *sample = convert(0.0);
+                }
+                self.frame = end;
+                self.control.frames.store(end, Ordering::Release);
+                return;
+            }
+        }
         self.boundary();
         let mut peak = 0.0f32;
-        // At most four packets above for the WHOLE native invocation; frame work is bounded.
-        for block in out.chunks_mut(2048 * self.channels) {
-            for frame in block.chunks_mut(self.channels) {
+        let mut interrupted = false;
+        // Fixed256-frame logical-F32 packets precede native device conversion.
+        // The single boundary above retains the four-batch WHOLE invocation cap.
+        for block in out.chunks_mut(performance_tap::TAP_PCM_FRAMES * self.channels) {
+            if interrupted {
+                for sample in block {
+                    *sample = convert(0.0);
+                }
+                continue;
+            }
+            let mut pcm = TapPcm {
+                start_frame: self.frame,
+                frames: (block.len() / self.channels) as u16,
+                channels: self.channels as u16,
+                samples: [0.0; performance_tap::TAP_PCM_FRAMES * performance_tap::TAP_CHANNELS],
+            };
+            for (index, frame) in block.chunks_mut(self.channels).enumerate() {
                 let value = self.sample();
                 peak = peak.max(value.abs());
-                for dst in frame {
+                for (channel, dst) in frame.iter_mut().enumerate() {
                     *dst = convert(value);
+                    if self.recording.is_some() {
+                        pcm.samples[index * self.channels + channel] = value;
+                    }
                 }
-                let Some(next) = self.frame.checked_add(1).filter(|n| *n < EXPIRED) else {
-                    self.control.fault(LiveFaultKind::CounterExhausted, None);
-                    break;
-                };
-                self.frame = next;
-                if !self.control.audible_at(next) {
-                    self.clear();
+                self.frame += 1; // Whole invocation checked before any event application.
+                if !self.control.audible_at(self.frame) {
+                    self.clear_for_fault();
                 }
-                self.control.frames.store(next, Ordering::Release);
+                self.control.frames.store(self.frame, Ordering::Release);
+            }
+            if self
+                .recording
+                .as_mut()
+                .is_some_and(|recording| recording.producer.push_pcm(pcm).is_err())
+            {
+                self.control
+                    .fault_at(LiveFaultKind::RecordingTap, None, self.frame);
+                self.clear_for_fault();
+                interrupted = true;
+            }
+        }
+        if interrupted {
+            // The supplied native buffer still advances, but this suffix has no
+            // complete recording group. Never turn a partial prefix into End.
+            self.frame = end;
+            self.control.frames.store(end, Ordering::Release);
+        }
+        let active = self.voices.iter().filter(|v| v.active).count() as u32;
+        let tails = self
+            .voices
+            .iter()
+            .filter(|v| v.active && v.releasing)
+            .count() as u32;
+        if !interrupted && let Some(recording) = &mut self.recording {
+            let applied = self.control.applied.load(Ordering::Acquire);
+            let evidence = TapEnd {
+                end_frame: self.frame,
+                scope_after: self.scope,
+                applied_sequence: (applied != 0).then_some(applied),
+                active_voices: active as u16,
+                release_tail_voices: tails as u16,
+                clears: recording.clears,
+                transitions: recording.transitions,
+                transition_len: recording.transition_len,
+                first_fault: self.control.first_fault(),
+            };
+            if recording.producer.end_callback(evidence).is_err() {
+                self.control
+                    .fault_at(LiveFaultKind::RecordingTap, None, self.frame);
+                self.clear_for_fault();
             }
         }
         let active = self.voices.iter().filter(|v| v.active).count() as u32;
@@ -814,7 +1087,14 @@ impl LiveRenderer {
             .active
             .store(active | (tails << 16), Ordering::Release);
         self.control.late.store(self.late, Ordering::Release);
-        self.control.peak.store(peak.to_bits(), Ordering::Release);
+        self.control.peak.store(
+            if self.control.faulted() {
+                0.0f32.to_bits()
+            } else {
+                peak.to_bits()
+            },
+            Ordering::Release,
+        );
     }
     pub fn render_into(&mut self, out: &mut [f32]) {
         self.render(out, |v| v);
@@ -828,6 +1108,9 @@ impl LiveRenderer {
 }
 impl Drop for LiveRenderer {
     fn drop(&mut self) {
+        // Drop the WHOLE wrapper, including its Arc fields, before acknowledging
+        // renderer destruction to the off-callback backing owner.
+        drop(self.recording.take());
         drop(self.consumer.take());
         self.control.render_done.store(true, Ordering::Release);
     }
@@ -864,6 +1147,102 @@ mod tests {
         })
         .unwrap();
         b
+    }
+    #[test]
+    fn recording_pending_fault_clear_retains_actual_frame_without_guessed_cause() {
+        use crate::performance_tap::PerformancePacketKind;
+        let (mut admission, mut renderer, mut owner) = recording_live_pair(
+            LiveScope {
+                worker_generation: LiveId([1; 16]),
+                session_id: LiveId([2; 16]),
+                panic_generation: 1,
+            },
+            8000,
+            1,
+        )
+        .unwrap();
+        admission.admit(note(admission.scope(), 1, 1)).unwrap();
+        renderer.render_into(&mut [0.0; 1]);
+        while owner.try_pop().unwrap().is_some() {}
+        // Hold a deterministic publication window: the callback must silence
+        // immediately without inventing a fault cause or consuming originals.
+        admission
+            .control
+            .fault_code
+            .store(u32::MAX, Ordering::Release);
+        renderer.render_into(&mut [0.0; 2]);
+        let mut ends = Vec::new();
+        while let Some(packet) = owner.try_pop().unwrap() {
+            if let PerformancePacketKind::End(end) = packet.kind {
+                ends.push(end);
+            }
+        }
+        assert_eq!(ends.len(), 1);
+        assert_eq!(ends[0].first_fault, None);
+        assert_eq!(
+            ends[0].clears[0],
+            Some(TapClear {
+                scope: admission.scope(),
+                frame: 1,
+                reason: TapClearReason::FaultPending
+            })
+        );
+        assert_eq!(ends[0].clears[1], None);
+        admission.control.fault_frame.store(1, Ordering::Relaxed);
+        admission
+            .control
+            .fault_generation
+            .store(1, Ordering::Relaxed);
+        admission
+            .control
+            .fault_code
+            .store(code(LiveFaultKind::Device), Ordering::Release);
+        renderer.render_into(&mut [0.0; 2]);
+        while let Some(packet) = owner.try_pop().unwrap() {
+            if let PerformancePacketKind::End(end) = packet.kind {
+                assert_eq!(end.first_fault.unwrap().kind, LiveFaultKind::Device);
+                assert_eq!(
+                    end.clears, [None; 2],
+                    "The earlier forced clear is not re-timed or duplicated"
+                );
+            }
+        }
+    }
+    #[test]
+    fn recording_malformed_fixed_original_is_rejected_before_indexing() {
+        use crate::performance_tap::PerformancePacketKind;
+        let (mut admission, mut renderer, mut owner) = recording_live_pair(
+            LiveScope {
+                worker_generation: LiveId([1; 16]),
+                session_id: LiveId([2; 16]),
+                panic_generation: 1,
+            },
+            8000,
+            1,
+        )
+        .unwrap();
+        let mut original = note(admission.scope(), 1, 1);
+        original.len = u8::MAX;
+        // Bypass public admission solely to challenge the callback defensive path.
+        admission.producer.push(original).unwrap();
+        let mut output = [1.0; 4];
+        renderer.render_into(&mut output);
+        assert_eq!(output, [0.0; 4]);
+        let mut seen = false;
+        while let Some(packet) = owner.try_pop().unwrap() {
+            if let PerformancePacketKind::Batch { batch, disposition } = packet.kind {
+                assert_eq!(batch, original);
+                assert_eq!(
+                    disposition,
+                    BatchDisposition::Rejected {
+                        fault: LiveFaultKind::InvalidBatch
+                    }
+                );
+                seen = true;
+            }
+        }
+        assert!(seen);
+        assert_eq!(admission.progress().callback_applied_sequence, None);
     }
     #[test]
     fn held_voices_are_distinct_and_lease_silences_at_exact_frame() {

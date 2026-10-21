@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 pub mod live_types;
 pub use live_types::*;
+pub mod performance_tap;
 pub mod waveform_types;
 pub use waveform_types::*;
 pub mod waveform;
