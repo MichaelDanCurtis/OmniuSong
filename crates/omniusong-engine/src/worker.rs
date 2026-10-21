@@ -728,6 +728,23 @@ impl Runtime {
             xruns: 0,
         }))
     }
+    fn announced_performance_progress(
+        &mut self,
+        progress: Option<LiveProgress>,
+    ) -> Option<LiveProgress> {
+        if !self.performance_announced {
+            return None;
+        }
+        // Playback can replace the quiescent performance owner. Its previously
+        // announced live scope must remain in cumulative updates until a new
+        // authenticated Ready replaces it, just like a stopped audition scope.
+        if let Some(progress) = progress
+            && progress.scope.worker_generation == self.generation
+        {
+            self.last_live = Some(progress);
+        }
+        progress
+    }
     fn update(&mut self) -> Result<EngineUpdate, String> {
         let performance = if let Some(session) = &mut self.performance {
             if let Some((ticket, scope)) = self.pending_panic {
@@ -771,14 +788,11 @@ impl Runtime {
                     });
                 }
             }
-            if self.performance_announced {
-                status.live
-            } else {
-                None
-            }
+            status.live
         } else {
             None
         };
+        let performance = self.announced_performance_progress(performance);
         let progress = self
             .live
             .as_ref()
@@ -800,9 +814,16 @@ impl Runtime {
             first_fault: self.first_fault,
         })
     }
+    fn retirement_error(&self, fallback: &str) -> String {
+        self.performance
+            .as_ref()
+            .and_then(|session| session.retirement_error())
+            .unwrap_or(fallback)
+            .to_owned()
+    }
     fn live_action(&mut self, action: Action) -> Result<EngineResult, String> {
         if self.retire.load(Ordering::Acquire) {
-            return Err("Audio worker generation is retired".into());
+            return Err(self.retirement_error("Audio worker generation is retired"));
         }
         match action {
             Action::LiveBatch { batch } => {
@@ -920,7 +941,8 @@ impl Runtime {
     }
     fn command(&mut self, command: EngineCommand) -> Result<EngineResult, String> {
         if self.retire.load(Ordering::Acquire) {
-            return Err("Audio worker generation is retired; no new control admission".into());
+            return Err(self
+                .retirement_error("Audio worker generation is retired; no new control admission"));
         }
         match command {
             EngineCommand::StartPerformance { request } => {
@@ -960,9 +982,11 @@ impl Runtime {
                     self.retire.clone(),
                 )?;
                 let status = session.snapshot();
-                if let Some(previous) = &mut self.performance {
-                    self.last_live = previous.snapshot().live.or(self.last_live);
-                }
+                let previous_progress = self
+                    .performance
+                    .as_mut()
+                    .and_then(|previous| previous.snapshot().live);
+                self.announced_performance_progress(previous_progress);
                 self.performance = Some(session);
                 self.performance_request = Some(request);
                 self.performance_announced = false;
@@ -1179,6 +1203,48 @@ impl Runtime {
             }
         }
     }
+    fn response_candidate(
+        &mut self,
+        request_id: u64,
+        mut result: Result<EngineResult, String>,
+    ) -> Response {
+        let update = if self.retire.load(Ordering::Acquire) {
+            None
+        } else {
+            self.observe_result(&result);
+            match self.update() {
+                Ok(update) => Some(update),
+                Err(error) => {
+                    result = Err(error);
+                    None
+                }
+            }
+        };
+        Response {
+            reply: EngineReply { request_id, result },
+            update,
+        }
+    }
+    fn finish_response(&self, mut response: Response) -> PreparedResponse {
+        let exit_after_send = self.retire.load(Ordering::Acquire);
+        if exit_after_send {
+            let fallback = response
+                .reply
+                .result
+                .as_ref()
+                .err()
+                .map(String::as_str)
+                .unwrap_or("Audio worker generation is retired; no new control admission");
+            response.reply.result = Err(self.retirement_error(fallback));
+            // A raced Ready is no longer being returned. Do not publish its
+            // new scope (or any partial update) ahead of the terminal cause.
+            response.update = None;
+        }
+        PreparedResponse {
+            response,
+            exit_after_send,
+        }
+    }
     fn observe_result(&mut self, result: &Result<EngineResult, String>) {
         if let Ok(EngineResult::Performance(status)) = result
             && status.ready.is_some()
@@ -1191,6 +1257,13 @@ impl Runtime {
             self.last_live = None;
         }
     }
+}
+// This decision is bound to the final reply, not a later atomic reread after
+// send. A later retirement must remain reachable through the next bounded IPC
+// request instead of exiting behind an already-constructed normal completion.
+struct PreparedResponse {
+    response: Response,
+    exit_after_send: bool,
 }
 impl Drop for Runtime {
     fn drop(&mut self) {
@@ -1308,26 +1381,26 @@ pub fn run_worker() -> Result<(), String> {
                 e
             }
         });
-        if let Some(runtime) = &mut runtime {
-            runtime.observe_result(&result);
-        }
-        let sent = connection.send_payload(
-            Response {
-                update: runtime.as_mut().and_then(|r| r.update().ok()),
-                reply: EngineReply {
-                    request_id: request.request_id,
-                    result,
+        let prepared = if let Some(runtime) = &mut runtime {
+            let candidate = runtime.response_candidate(request.request_id, result);
+            runtime.finish_response(candidate)
+        } else {
+            PreparedResponse {
+                response: Response {
+                    update: None,
+                    reply: EngineReply {
+                        request_id: request.request_id,
+                        result,
+                    },
                 },
-            },
-            Duration::from_secs(3),
-        );
-        if runtime
-            .as_ref()
-            .is_some_and(|r| r.retire.load(Ordering::Acquire))
-        {
-            // Known terminal completion has been sent. Do not run driver or
-            // journal destructors after failing to prove callback lifetime end.
-            // OS retirement leaves the durable original prefix unsealed.
+                exit_after_send: false,
+            }
+        };
+        let sent = connection.send_payload(prepared.response, Duration::from_secs(3));
+        if prepared.exit_after_send {
+            // The bounded send attempted the retained terminal cause. Avoid
+            // unsafe driver/journal destructors even if the peer disconnected.
+            // A retirement after a normal reply's fence does not take this exit.
             std::process::exit(75);
         }
         sent.map_err(|e| e.to_string())?;
@@ -1344,6 +1417,346 @@ pub fn run_worker() -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn software_runtime() -> (PathBuf, Runtime) {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../.runtime/performance-playback-lifecycle-review")
+            .join(uuid::Uuid::new_v4().to_string());
+        NativeStore::open(&root).unwrap();
+        let root = fs::canonicalize(root).unwrap();
+        let runtime = Runtime::new(root.clone(), LiveId::random()).unwrap();
+        (root, runtime)
+    }
+    fn software_finished_progress(generation: LiveId) -> LiveProgress {
+        let scope = LiveScope {
+            worker_generation: generation,
+            session_id: LiveId::random(),
+            panic_generation: 1,
+        };
+        let (mut admission, mut renderer, mut owner) =
+            crate::live::recording_live_pair(scope, 48_000, 2).unwrap();
+        admission.admit(LiveBatch::empty(scope, 1, None)).unwrap();
+        admission.begin_finish(scope, LiveId::random()).unwrap();
+        renderer.render_into(&mut [0.0; 512]);
+        while owner.try_pop().unwrap().is_some() {}
+        assert_eq!(admission.finish_ack().unwrap().unwrap().cut_frame, 256);
+        let progress = admission.progress();
+        assert_eq!(progress.state, LiveState::FinishedCut);
+        assert!(progress.is_valid());
+        drop(renderer);
+        drop(owner);
+        drop(admission);
+        progress
+    }
+    #[test]
+    fn finished_performance_summary_survives_owner_removal_playback_status_and_stop() {
+        let (root, mut runtime) = software_runtime();
+        let terminal = software_finished_progress(runtime.generation);
+        runtime.performance_announced = true;
+        assert_eq!(
+            runtime.announced_performance_progress(Some(terminal)),
+            Some(terminal)
+        );
+        assert_eq!(runtime.last_live, Some(terminal));
+        // The real playback branch removes performance after successful native
+        // setup. Exercise the following update/status path without any device.
+        runtime.performance = None;
+        runtime.performance_request = None;
+        runtime.last = Some(EngineStatus {
+            state: "playback_finished".into(),
+            capture: None,
+            sample_rate: 48_000,
+            channels: 2,
+            frames: 1024,
+            peak: 0.0,
+            xruns: 0,
+        });
+        let first = runtime.update().unwrap();
+        assert_eq!(first.live, Some(terminal));
+        assert!(
+            matches!(runtime.command(EngineCommand::Status).unwrap(), EngineResult::Status(status) if status.state == "playback_finished")
+        );
+        assert_eq!(runtime.update().unwrap().live, Some(terminal));
+        assert!(matches!(
+            runtime.command(EngineCommand::Stop).unwrap(),
+            EngineResult::Stopped
+        ));
+        let stopped = runtime.update().unwrap();
+        assert!(stopped.revision > first.revision);
+        assert_eq!(stopped.live, Some(terminal));
+        assert!(!runtime.retire.load(Ordering::Acquire));
+        drop(runtime);
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn unannounced_or_foreign_performance_cannot_replace_the_retained_scope() {
+        let (root, mut runtime) = software_runtime();
+        let old = software_finished_progress(runtime.generation);
+        runtime.last_live = Some(old);
+        let newer = software_finished_progress(runtime.generation);
+        assert_eq!(runtime.announced_performance_progress(Some(newer)), None);
+        assert_eq!(runtime.update().unwrap().live, Some(old));
+        runtime.performance_announced = true;
+        let foreign = software_finished_progress(LiveId::random());
+        // Do not silently change the evidence sent for a foreign observation:
+        // the parent's worker-generation validator remains authoritative.
+        assert_eq!(
+            runtime.announced_performance_progress(Some(foreign)),
+            Some(foreign)
+        );
+        assert_eq!(runtime.last_live, Some(old));
+        assert_eq!(runtime.update().unwrap().live, Some(old));
+        drop(runtime);
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn first_authenticated_performance_ready_replaces_old_scope_only_once() {
+        let (root, mut runtime) = software_runtime();
+        let old = software_finished_progress(runtime.generation);
+        runtime.last_live = Some(old);
+        let scope = LiveScope {
+            worker_generation: runtime.generation,
+            session_id: LiveId::random(),
+            panic_generation: 1,
+        };
+        let (admission, renderer) = crate::live::live_pair(scope, 48_000, 2).unwrap();
+        let progress = admission.progress();
+        let start = PerformanceStart {
+            id: LiveId::random(),
+            output_device: None,
+            gui_clock: LiveClock {
+                domain: "software-review".into(),
+                epoch: "fixture".into(),
+                ticks_per_second_numerator: 1000,
+                ticks_per_second_denominator: 1,
+            },
+        };
+        let ready = LiveReady {
+            scope,
+            gui_clock: start.gui_clock.clone(),
+            sources: [
+                LiveSourceKind::ComputerKeys,
+                LiveSourceKind::PointerKeys,
+                LiveSourceKind::Pads,
+                LiveSourceKind::AccessiblePulse,
+            ]
+            .into_iter()
+            .enumerate()
+            .map(|(i, kind)| LiveSourceBinding {
+                kind,
+                handle: i as u8 + 1,
+                connection_generation: 1,
+            })
+            .collect(),
+            output: DeviceInfo {
+                id: "synthetic".into(),
+                name: "Protocol fixture; no native device".into(),
+            },
+            sample_rate: 48_000,
+            channels: 2,
+            progress,
+        };
+        assert!(ready.is_valid());
+        let mut status = PerformanceStatus {
+            revision: 1,
+            identity: PerformanceIdentity {
+                start_id: start.id,
+                capture: CaptureIdentity {
+                    journal_path: root
+                        .join("captures")
+                        .join(start.directory_name())
+                        .join("take.sqlite3"),
+                    take_id: start.take_id(),
+                },
+                descriptor_sha256: None,
+            },
+            phase: PerformancePhase::Starting,
+            ready: None,
+            native_sample_format: None,
+            live: None,
+            writer: None,
+            finish: None,
+            cut: None,
+            native: NativeRetirementStatus::default(),
+            sealed: None,
+            error: None,
+        };
+        runtime.observe_result(&Ok(EngineResult::Performance(Box::new(status.clone()))));
+        assert_eq!(runtime.update().unwrap().live, Some(old));
+        status.revision = 2;
+        status.identity.descriptor_sha256 = Some("a".repeat(64));
+        status.phase = PerformancePhase::Recording;
+        status.ready = Some(ready);
+        status.native_sample_format = Some("f32".into());
+        status.live = Some(progress);
+        assert!(status.is_valid());
+        let response = Ok(EngineResult::Performance(Box::new(status)));
+        runtime.observe_result(&response);
+        assert!(runtime.performance_announced);
+        assert!(runtime.last_live.is_none());
+        assert_eq!(
+            runtime.announced_performance_progress(Some(progress)),
+            Some(progress)
+        );
+        runtime.observe_result(&response);
+        assert_eq!(runtime.update().unwrap().live, Some(progress));
+        drop(renderer);
+        drop(admission);
+        drop(runtime);
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn expired_performance_rejects_immediately_with_exact_cause_before_status_poll() {
+        let (root, mut runtime) = software_runtime();
+        let earlier_completion = runtime.command(EngineCommand::Status).unwrap();
+        runtime.performance = Some(
+            crate::performance_session::PerformanceSession::expired_sealing_for_test(
+                runtime.retire.clone(),
+            ),
+        );
+        let cause =
+            "Recorded output sealing deadline expired; worker retired and original retained";
+        // No performance snapshot/update has run after expiration. Even an
+        // earlier ordinary completion cannot replace the immutable cause.
+        assert!(matches!(earlier_completion, EngineResult::Status(_)));
+        for command in [
+            EngineCommand::Status,
+            EngineCommand::PerformanceStatus {
+                start_id: LiveId([7; 16]),
+            },
+            EngineCommand::Devices,
+            EngineCommand::Stop,
+            EngineCommand::StartPlayback {
+                project_id: "must not be opened".into(),
+                output_device: None,
+            },
+        ] {
+            assert_eq!(runtime.command(command).unwrap_err(), cause);
+        }
+        let scope = LiveScope {
+            worker_generation: runtime.generation,
+            session_id: LiveId([7; 16]),
+            panic_generation: 1,
+        };
+        assert_eq!(
+            runtime
+                .live_action(Action::LiveBatch {
+                    batch: LiveBatch::empty(scope, 1, None),
+                })
+                .unwrap_err(),
+            cause
+        );
+        assert!(runtime.capture.is_none() && runtime.playback.is_none() && runtime.live.is_none());
+        assert!(runtime.retire.load(Ordering::Acquire));
+        drop(runtime);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    fn wire_response(response: &Response) -> Response {
+        use omniusong_core::contracts::Validate;
+        response.validate().unwrap();
+        let bytes = serde_json::to_vec(response).unwrap();
+        let decoded: Response = serde_json::from_slice(&bytes).unwrap();
+        decoded.validate().unwrap();
+        decoded
+    }
+
+    #[test]
+    fn retirement_between_candidate_and_reply_fence_suppresses_ready_and_preserves_cause() {
+        let (root, mut runtime) = software_runtime();
+        let (_, _, recording) =
+            crate::live_supervisor::performance_fixture(runtime.generation, &root);
+        let candidate =
+            runtime.response_candidate(41, Ok(EngineResult::Performance(Box::new(recording))));
+        assert!(
+            runtime.performance_announced,
+            "actual observe_result ran before retirement"
+        );
+        assert!(
+            matches!(&candidate.reply.result, Ok(EngineResult::Performance(status)) if status.ready.is_some())
+        );
+        // Retire at the precise boundary after observe_result/update, before
+        // final wire construction; no status poll may be needed to get cause.
+        runtime.performance = Some(
+            crate::performance_session::PerformanceSession::expired_sealing_for_test(
+                runtime.retire.clone(),
+            ),
+        );
+        let prepared = runtime.finish_response(candidate);
+        assert!(prepared.exit_after_send);
+        let reply = wire_response(&prepared.response);
+        assert_eq!(reply.reply.request_id, 41);
+        assert_eq!(
+            reply.reply.result.unwrap_err(),
+            "Recorded output sealing deadline expired; worker retired and original retained"
+        );
+        assert!(
+            reply.update.is_none(),
+            "retired Ready cannot announce a new scope"
+        );
+        drop(runtime);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn retirement_after_normal_reply_fence_waits_for_exact_terminal_reply() {
+        let (root, mut runtime) = software_runtime();
+        let result = runtime.command(EngineCommand::Status).unwrap();
+        let candidate = runtime.response_candidate(51, Ok(result));
+        let prepared = runtime.finish_response(candidate);
+        assert!(!prepared.exit_after_send);
+        let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+        assert!(sender.try_send(wire_response(&prepared.response)).is_ok());
+        // This is the old problematic interval: the normal completion is
+        // already constructed/queued when the retirement flag becomes true.
+        runtime.performance = Some(
+            crate::performance_session::PerformanceSession::expired_sealing_for_test(
+                runtime.retire.clone(),
+            ),
+        );
+        assert!(runtime.retire.load(Ordering::Acquire));
+        assert!(
+            !prepared.exit_after_send,
+            "cannot exit behind the queued normal reply"
+        );
+        let normal = receiver.try_recv().unwrap();
+        assert_eq!(normal.reply.request_id, 51);
+        assert!(normal.reply.result.is_ok());
+        let rejected = runtime.command(EngineCommand::Status);
+        let candidate = runtime.response_candidate(52, rejected);
+        let terminal = runtime.finish_response(candidate);
+        assert!(terminal.exit_after_send);
+        assert!(sender.try_send(wire_response(&terminal.response)).is_ok());
+        let terminal = receiver.try_recv().unwrap();
+        assert_eq!(terminal.reply.request_id, 52);
+        assert_eq!(
+            terminal.reply.result.unwrap_err(),
+            "Recorded output sealing deadline expired; worker retired and original retained"
+        );
+        assert!(terminal.update.is_none());
+        drop(runtime);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn retirement_inside_update_becomes_terminal_wire_error_not_stale_success() {
+        let (root, mut runtime) = software_runtime();
+        let result = runtime.command(EngineCommand::Status).unwrap();
+        runtime.update_revision = u64::MAX;
+        let candidate = runtime.response_candidate(61, Ok(result));
+        assert!(runtime.retire.load(Ordering::Acquire));
+        let prepared = runtime.finish_response(candidate);
+        assert!(prepared.exit_after_send);
+        let response = wire_response(&prepared.response);
+        assert_eq!(response.reply.request_id, 61);
+        assert_eq!(
+            response.reply.result.unwrap_err(),
+            "Live update sequence exhausted"
+        );
+        assert!(response.update.is_none());
+        drop(runtime);
+        fs::remove_dir_all(root).unwrap();
+    }
+
     #[test]
     fn retired_generation_rejects_device_and_mutating_commands_before_native_access() {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))

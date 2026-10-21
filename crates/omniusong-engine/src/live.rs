@@ -418,6 +418,9 @@ pub struct LiveAdmission {
     accepted: Option<u64>,
     source_ticks: [Option<u64>; LIVE_MAX_SOURCES],
     pending_panic: Option<LiveScope>,
+    // Old-generation lower bound pinned before requesting callback clearing.
+    // The callback resets its own applied counter before admission adopts ACK.
+    pending_panic_applied: Option<u64>,
     // Retains the recording ring off callback through renderer destruction.
     _recording_retention: Option<PerformanceTapRetention>,
     recording_control: Option<Arc<TapControl>>,
@@ -526,6 +529,7 @@ pub fn live_pair(
             accepted: None,
             source_ticks: [None; LIVE_MAX_SOURCES],
             pending_panic: None,
+            pending_panic_applied: None,
             _recording_retention: None,
             recording_control: None,
             finish: None,
@@ -599,6 +603,11 @@ impl LiveAdmission {
         let scope = fault.map_or(self.scope, |f| f.scope);
         let same_scope = scope == self.scope;
         let cut = acknowledgment.filter(|ack| ack.fence.scope == scope);
+        let applied = if self.pending_panic.is_some() {
+            self.pending_panic_applied
+        } else {
+            (applied != 0).then_some(applied)
+        };
         LiveProgress {
             scope,
             state: if fault_code == u32::MAX {
@@ -616,9 +625,7 @@ impl LiveAdmission {
             },
             worker_accepted_sequence: if same_scope { self.accepted } else { None },
             callback_applied_sequence: if same_scope {
-                cut.map_or((applied != 0).then_some(applied), |ack| {
-                    ack.fence.accepted_sequence
-                })
+                cut.map_or(applied, |ack| ack.fence.accepted_sequence)
             } else {
                 None
             },
@@ -759,6 +766,8 @@ impl LiveAdmission {
             panic_generation: generation,
             ..scope
         };
+        let applied = self.control.applied.load(Ordering::Acquire);
+        self.pending_panic_applied = (applied != 0).then_some(applied);
         self.pending_panic = Some(next);
         self.token = None;
         self.control
@@ -781,6 +790,7 @@ impl LiveAdmission {
         }
         self.scope = next;
         self.pending_panic = None;
+        self.pending_panic_applied = None;
         self.accepted = None;
         self.control.accepted.store(0, Ordering::Release);
         self.token = Some(LeaseCredit {
@@ -1740,6 +1750,126 @@ mod tests {
             LiveFaultKind::LeaseExpired
         );
         assert_eq!(a.progress().active_voices, 0);
+    }
+    #[test]
+    fn recorded_panic_keeps_old_applied_watermark_until_admission_adopts_ack() {
+        use crate::performance_tap::PerformancePacketKind;
+        let scope = pair().0.scope();
+        let (mut admission, mut renderer, mut owner) = recording_live_pair(scope, 8000, 1).unwrap();
+        admission.admit(note(scope, 1, 1)).unwrap();
+        renderer.render_into(&mut [0.0; 1]);
+        while owner.try_pop().unwrap().is_some() {}
+        let before = admission.progress();
+        assert_eq!(before.callback_applied_sequence, Some(1));
+        let next = admission.begin_panic(scope).unwrap();
+        renderer.render_into(&mut [0.0; 1]);
+        let mut end = None;
+        while let Some(packet) = owner.try_pop().unwrap() {
+            if let PerformancePacketKind::End(value) = packet.kind {
+                end = Some(value);
+            }
+        }
+        let end = end.unwrap();
+        assert_eq!(end.scope_after, next);
+        assert_eq!(end.applied_sequence, None);
+        assert_eq!(admission.control.applied.load(Ordering::Acquire), 0);
+        assert_eq!(admission.begin_panic(scope).unwrap(), next);
+        let pending = admission.progress();
+        assert_eq!(pending.scope, scope);
+        assert_eq!(pending.state, LiveState::Panicking);
+        assert_eq!(pending.worker_accepted_sequence, Some(1));
+        assert_eq!(pending.callback_applied_sequence, Some(1));
+        assert!(pending.lease_credit.is_none() && pending.is_valid());
+        let acknowledged = admission.finish_panic().unwrap().unwrap();
+        assert_eq!(acknowledged.scope, next);
+        assert_eq!(acknowledged.worker_accepted_sequence, None);
+        assert_eq!(acknowledged.callback_applied_sequence, None);
+        assert_eq!(acknowledged.state, LiveState::Running);
+        assert_eq!(acknowledged.lease_credit.unwrap().scope, next);
+        assert_ne!(acknowledged.lease_credit, before.lease_credit);
+        assert!(acknowledged.is_valid());
+        drop(renderer);
+        drop(owner);
+        drop(admission);
+    }
+    #[test]
+    fn recorded_panic_pins_progress_through_four_bounded_discard_callbacks() {
+        use crate::performance_tap::{BatchDisposition, PerformancePacketKind};
+        let scope = pair().0.scope();
+        let (mut admission, mut renderer, mut owner) = recording_live_pair(scope, 8000, 1).unwrap();
+        admission.admit(note(scope, 1, 1)).unwrap();
+        renderer.render_into(&mut [0.0; 1]);
+        while owner.try_pop().unwrap().is_some() {}
+        for sequence in 2..=17 {
+            admission
+                .admit(LiveBatch::empty(scope, sequence, None))
+                .unwrap();
+        }
+        let next = admission.begin_panic(scope).unwrap();
+        let mut discarded = Vec::new();
+        for callback in 0..4 {
+            renderer.render_into(&mut [0.0; 1]);
+            let mut count = 0;
+            while let Some(packet) = owner.try_pop().unwrap() {
+                if let PerformancePacketKind::Batch { batch, disposition } = packet.kind {
+                    assert_eq!(disposition, BatchDisposition::DiscardedPanic);
+                    assert_eq!(batch.scope, scope);
+                    discarded.push(batch.sequence);
+                    count += 1;
+                }
+            }
+            assert_eq!(count, LIVE_CALLBACK_PACKET_BUDGET);
+            assert_eq!(admission.begin_panic(scope).unwrap(), next);
+            let pending = admission.progress();
+            assert_eq!(pending.scope, scope);
+            assert_eq!(pending.worker_accepted_sequence, Some(17));
+            assert_eq!(pending.callback_applied_sequence, Some(1));
+            assert!(pending.lease_credit.is_none() && pending.is_valid());
+            if callback < 3 {
+                assert!(admission.finish_panic().unwrap().is_none());
+            }
+        }
+        assert_eq!(discarded, (2..=17).collect::<Vec<_>>());
+        let acknowledged = admission.finish_panic().unwrap().unwrap();
+        assert_eq!(acknowledged.scope, next);
+        assert_eq!(acknowledged.callback_applied_sequence, None);
+        drop(renderer);
+        drop(owner);
+        drop(admission);
+    }
+    #[test]
+    fn pending_panic_watermark_never_crosses_the_actual_first_fault_scope() {
+        for after_callback in [false, true] {
+            let scope = pair().0.scope();
+            let (mut admission, mut renderer, mut owner) =
+                recording_live_pair(scope, 8000, 1).unwrap();
+            admission.admit(note(scope, 1, 1)).unwrap();
+            renderer.render_into(&mut [0.0; 1]);
+            while owner.try_pop().unwrap().is_some() {}
+            let next = admission.begin_panic(scope).unwrap();
+            if after_callback {
+                renderer.render_into(&mut [0.0; 1]);
+            }
+            admission.control.fault(LiveFaultKind::Device, Some(1));
+            let fault = admission.control.first_fault().unwrap();
+            let progress = admission.progress();
+            assert_eq!(progress.fault, Some(fault));
+            assert_eq!(progress.state, LiveState::Faulted);
+            assert_eq!(progress.scope, if after_callback { next } else { scope });
+            assert_eq!(
+                progress.callback_applied_sequence,
+                if after_callback { None } else { Some(1) }
+            );
+            assert_eq!(
+                progress.worker_accepted_sequence,
+                if after_callback { None } else { Some(1) }
+            );
+            assert!(progress.lease_credit.is_none() && progress.is_valid());
+            assert_eq!(admission.finish_panic(), Err(LiveSubmitError::Faulted));
+            drop(renderer);
+            drop(owner);
+            drop(admission);
+        }
     }
     #[test]
     fn panic_drains_four_per_callback_before_new_scope() {

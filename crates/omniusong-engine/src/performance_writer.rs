@@ -4,8 +4,8 @@ use crate::{live_types::*, performance_records::*, performance_tap::*};
 use omniusong_core::contracts::{CapturedEvent, Envelope, HostTimestamp};
 use omniusong_recording::{
     AppendChunk, CHUNK_VERSION, CaptureReader, ChunkHeader, ChunkKind, ChunkRecord, CompletePrefix,
-    Journal, MAX_AUDIO_CHUNK_BYTES, MAX_EVENT_CHUNK_BYTES, RecoveryPrefix, SealedManifest,
-    SourcePosition, SourceRange, StreamPrefix, TakeDescriptor,
+    InspectionBudget, Journal, MAX_AUDIO_CHUNK_BYTES, MAX_EVENT_CHUNK_BYTES, RecordingError,
+    RecoveryPrefix, SealedManifest, SourcePosition, SourceRange, StreamPrefix, TakeDescriptor,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -1021,6 +1021,7 @@ impl PerformanceWriter {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PerformanceInspection {
     pub descriptor_sha256: String,
     pub original_rows_sha256: String,
@@ -1037,8 +1038,78 @@ pub struct PerformanceInspection {
     pub finish_cut: Option<TapFinish>,
 }
 
+// Keep governor refusals typed through the corrupt-tail diagnostic boundary.
+// Legacy callers retain their String API; only the explicit bounded entrypoints
+// promise one cumulative reader/semantic governor and these outer stop errors.
+#[derive(Debug)]
+enum InspectionFailure {
+    Semantic(String),
+    Stopped(RecordingError),
+}
+impl From<String> for InspectionFailure {
+    fn from(value: String) -> Self {
+        Self::Semantic(value)
+    }
+}
+impl From<&str> for InspectionFailure {
+    fn from(value: &str) -> Self {
+        Self::Semantic(value.into())
+    }
+}
+impl From<RecordingError> for InspectionFailure {
+    fn from(value: RecordingError) -> Self {
+        match value {
+            RecordingError::InspectionCancelled | RecordingError::InspectionLimit { .. } => {
+                Self::Stopped(value)
+            }
+            error => Self::Semantic(error.to_string()),
+        }
+    }
+}
+impl std::fmt::Display for InspectionFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Semantic(message) => f.write_str(message),
+            Self::Stopped(error) => std::fmt::Display::fmt(error, f),
+        }
+    }
+}
+impl InspectionFailure {
+    fn into_recording(self) -> RecordingError {
+        match self {
+            Self::Semantic(message) => RecordingError::Invalid(message),
+            Self::Stopped(error) => error,
+        }
+    }
+}
+type InspectionResult<T> = std::result::Result<T, InspectionFailure>;
+fn inspection_checkpoint(budget: Option<&InspectionBudget>) -> InspectionResult<()> {
+    if let Some(budget) = budget {
+        budget.checkpoint()?;
+    }
+    Ok(())
+}
+fn charge_decode(budget: Option<&InspectionBudget>, bytes: usize) -> InspectionResult<()> {
+    if let Some(budget) = budget {
+        budget.charge_work(
+            u64::try_from(bytes).map_err(|_| "Performance decode byte count overflow")?,
+        )?;
+        budget.visit_records(1)?;
+    }
+    Ok(())
+}
+
 type DecodedRecord = (Vec<u8>, Envelope<CapturedEvent>, LocalRecord);
-fn records(payload: &[u8]) -> Result<Vec<DecodedRecord>> {
+fn records(
+    payload: &[u8],
+    budget: Option<&InspectionBudget>,
+) -> InspectionResult<Vec<DecodedRecord>> {
+    inspection_checkpoint(budget)?;
+    if let Some(budget) = budget {
+        budget.charge_work(
+            u64::try_from(payload.len()).map_err(|_| "Performance payload byte count overflow")?,
+        )?;
+    }
     let mut out = Vec::new();
     let mut offset = 0;
     while offset < payload.len() {
@@ -1055,6 +1126,11 @@ fn records(payload: &[u8]) -> Result<Vec<DecodedRecord>> {
                 && len <= payload.len() - offset,
             "Truncated/oversized performance record",
         )?;
+        // Payload work was charged before parsing; charge each record before
+        // its owned byte copy, envelope decode or owned-extension allocation.
+        if let Some(budget) = budget {
+            budget.visit_records(1)?;
+        }
         let bytes = payload[offset..offset + len].to_vec();
         let (envelope, record) = decode_envelope(&bytes)?;
         out.push((bytes, envelope, record));
@@ -1067,13 +1143,17 @@ fn contextual_records(
     profile: PerformanceProfile,
     index: usize,
     chunk: &ChunkRecord,
-) -> Result<Vec<(Vec<u8>, LocalRecord)>> {
+    budget: Option<&InspectionBudget>,
+) -> InspectionResult<Vec<(Vec<u8>, LocalRecord)>> {
     check(
         chunk.header.clock_anchors.is_empty(),
         "Performance originals have no inferred clock anchors",
     )?;
     let mut result = Vec::new();
-    for (ordinal, (bytes, envelope, record)) in records(&chunk.payload)?.into_iter().enumerate() {
+    for (ordinal, (bytes, envelope, record)) in
+        records(&chunk.payload, budget)?.into_iter().enumerate()
+    {
+        inspection_checkpoint(budget)?;
         check(
             record.version == profile.version(),
             "Record profile differs from its declared original",
@@ -1104,12 +1184,15 @@ fn verify_group(
     checkpoint: &PerformanceCheckpoint,
     before: &[StreamPrefix],
     context: &Context,
-) -> Result<Context> {
+    budget: Option<&InspectionBudget>,
+) -> InspectionResult<Context> {
+    inspection_checkpoint(budget)?;
     let mut actual_gui: [Vec<Vec<u8>>; 4] = std::array::from_fn(|_| Vec::new());
     let mut expected_gui: [Vec<Vec<u8>>; 4] = std::array::from_fn(|_| Vec::new());
     let mut audio = Vec::new();
     let mut controls = Vec::new();
     for chunk in members {
+        inspection_checkpoint(budget)?;
         let index = STREAM_IDS
             .iter()
             .position(|s| *s == chunk.header.stream_id)
@@ -1136,7 +1219,7 @@ fn verify_group(
             chunk.header.clock_anchors.is_empty(),
             "Performance originals have no inferred clock anchors",
         )?;
-        let decoded = contextual_records(config, profile, index, chunk)?;
+        let decoded = contextual_records(config, profile, index, chunk, budget)?;
         if index < 5 {
             for (bytes, record) in decoded {
                 check(
@@ -1147,6 +1230,7 @@ fn verify_group(
             }
         } else {
             for (bytes, record) in decoded {
+                charge_decode(budget, bytes.len())?;
                 let observed = decode_envelope(&bytes)?.0.payload.time.observed.ticks;
                 controls.push((record.record, observed));
             }
@@ -1158,6 +1242,7 @@ fn verify_group(
     let mut transitions = Vec::new();
     let mut expected_audio = Vec::new();
     for (record, observed) in controls {
+        inspection_checkpoint(budget)?;
         match record {
             PerformanceRecord::Begin {
                 callback_index,
@@ -1336,6 +1421,9 @@ fn verify_group(
 /// Read-only semantic review. A generic chunk prefix is NOT a performance
 /// checkpoint; preserve all rows while selecting the last complete six-stream group.
 pub fn inspect_performance(reader: &CaptureReader) -> Result<PerformanceInspection> {
+    if reader.inspection_budget().is_some() {
+        return inspect_performance_bounded(reader).map_err(|error| error.to_string());
+    }
     inspect_performance_snapshot(reader.inspection(), |ordinal| {
         reader.read_ordinal(ordinal).map_err(|e| e.to_string())
     })
@@ -1346,15 +1434,69 @@ pub fn inspect_performance(reader: &CaptureReader) -> Result<PerformanceInspecti
 pub fn inspect_sealed_performance(
     reader: &omniusong_recording::SealedJournal,
 ) -> Result<PerformanceInspection> {
+    if reader.inspection_budget().is_some() {
+        return inspect_sealed_performance_bounded(reader).map_err(|error| error.to_string());
+    }
     let inspection = reader.inspect_snapshot().map_err(|e| e.to_string())?;
     inspect_performance_snapshot(&inspection, |ordinal| {
         reader.read_ordinal(ordinal).map_err(|e| e.to_string())
     })
 }
+/// Read-only semantic inspection governed by the exact budget used to open the
+/// reader. Cancellation/limits are outer typed errors, never usable prefixes.
+pub fn inspect_performance_bounded(
+    reader: &CaptureReader,
+) -> omniusong_recording::Result<PerformanceInspection> {
+    let budget = reader.inspection_budget().ok_or_else(|| {
+        RecordingError::Invalid(
+            "Bounded performance inspection requires a bounded capture reader".into(),
+        )
+    })?;
+    budget.checkpoint()?;
+    let result =
+        inspect_performance_snapshot_bounded(reader.inspection(), Some(budget), |ordinal| {
+            reader
+                .read_ordinal(ordinal)
+                .map_err(InspectionFailure::from)
+        });
+    budget.checkpoint()?;
+    result.map_err(InspectionFailure::into_recording)
+}
+/// Bounded format-aware inspection of a sealed source. Its snapshot, all
+/// rereads and semantic decodes retain the same cumulative reader governor.
+pub fn inspect_sealed_performance_bounded(
+    reader: &omniusong_recording::SealedJournal,
+) -> omniusong_recording::Result<PerformanceInspection> {
+    let budget = reader.inspection_budget().ok_or_else(|| {
+        RecordingError::Invalid(
+            "Bounded performance inspection requires a bounded sealed reader".into(),
+        )
+    })?;
+    budget.checkpoint()?;
+    let inspection = reader.inspect_snapshot()?;
+    let result = inspect_performance_snapshot_bounded(&inspection, Some(budget), |ordinal| {
+        reader
+            .read_ordinal(ordinal)
+            .map_err(InspectionFailure::from)
+    });
+    budget.checkpoint()?;
+    result.map_err(InspectionFailure::into_recording)
+}
 fn inspect_performance_snapshot(
     inspection: &omniusong_recording::JournalInspection,
     mut read_ordinal: impl FnMut(u64) -> Result<ChunkRecord>,
 ) -> Result<PerformanceInspection> {
+    inspect_performance_snapshot_bounded(inspection, None, |ordinal| {
+        read_ordinal(ordinal).map_err(InspectionFailure::Semantic)
+    })
+    .map_err(|error| error.to_string())
+}
+fn inspect_performance_snapshot_bounded(
+    inspection: &omniusong_recording::JournalInspection,
+    budget: Option<&InspectionBudget>,
+    mut read_ordinal: impl FnMut(u64) -> InspectionResult<ChunkRecord>,
+) -> InspectionResult<PerformanceInspection> {
+    inspection_checkpoint(budget)?;
     let config = from_descriptor(&inspection.descriptor)?;
     let profile = descriptor_profile(&inspection.descriptor)?;
     let mut result = PerformanceInspection {
@@ -1380,7 +1522,8 @@ fn inspect_performance_snapshot(
     index_hash.update(b"OmniuSong.recording-index.v1\0");
     index_hash.update(inspection.descriptor_sha256.as_bytes());
     for ordinal in 1..=inspection.report.verified_chunks {
-        let checked = (|| -> Result<()> {
+        inspection_checkpoint(budget)?;
+        let checked = (|| -> InspectionResult<()> {
             let chunk = read_ordinal(ordinal)?;
             let index = STREAM_IDS
                 .iter()
@@ -1401,7 +1544,7 @@ fn inspect_performance_snapshot(
                 "Performance group exceeds8MiB",
             )?;
             let decoded = if index == 5 {
-                contextual_records(&config, profile, index, &chunk)?
+                contextual_records(&config, profile, index, &chunk, budget)?
             } else {
                 Vec::new()
             };
@@ -1427,6 +1570,9 @@ fn inspect_performance_snapshot(
             index_hash.update(ordinal.to_le_bytes());
             index_hash.update(chunk.sha256.as_bytes());
             if let Some(checkpoint) = checkpoint {
+                if let Some(budget) = budget {
+                    budget.visit_groups(1)?;
+                }
                 check(
                     checkpoint.group_sequence == next_group
                         && checkpoint.previous_checkpoint_sha256 == result.checkpoint_sha256,
@@ -1461,8 +1607,15 @@ fn inspect_performance_snapshot(
                         && chunk.header.observed_end.ticks == checkpoint.audio_end,
                     "Checkpoint clock differs from rendered frame axis",
                 )?;
-                context =
-                    verify_group(&config, profile, &members, &checkpoint, &prefixes, &context)?;
+                context = verify_group(
+                    &config,
+                    profile,
+                    &members,
+                    &checkpoint,
+                    &prefixes,
+                    &context,
+                    budget,
+                )?;
                 result.capture_fault = context.capture_fault;
                 result.capture_fault_pending = context.capture_pending;
                 result.finish_cut = context.finish;
@@ -1470,6 +1623,15 @@ fn inspect_performance_snapshot(
                     chunk_count: ordinal,
                     chunk_index_sha256: format!("{:x}", index_hash.clone().finalize()),
                 });
+                // checkpoint_sha256 validates the exact envelope again, then
+                // hashes its bytes; both passes count against cumulative work.
+                charge_decode(budget, decoded[0].0.len())?;
+                if let Some(budget) = budget {
+                    budget.charge_work(
+                        u64::try_from(decoded[0].0.len())
+                            .map_err(|_| "Checkpoint byte count overflow")?,
+                    )?;
+                }
                 result.checkpoint_sha256 = Some(checkpoint_sha256(&decoded[0].0)?);
                 result.checkpoint = Some(checkpoint);
                 prefixes = predicted;
@@ -1481,9 +1643,17 @@ fn inspect_performance_snapshot(
             }
             Ok(())
         })();
+        // A concurrent cancellation or sticky governor refusal wins even if an
+        // inner semantic validator also found an ordinary corrupt tail.
+        inspection_checkpoint(budget)?;
         if let Err(error) = checked {
-            result.problem = Some(error);
-            break;
+            match error {
+                InspectionFailure::Stopped(error) => return Err(InspectionFailure::Stopped(error)),
+                InspectionFailure::Semantic(error) => {
+                    result.problem = Some(error);
+                    break;
+                }
+            }
         }
     }
     if result.problem.is_none() && !members.is_empty() {
@@ -1497,6 +1667,7 @@ fn inspect_performance_snapshot(
     if result.selection.is_none() && result.problem.is_none() {
         result.problem = Some("No complete performance checkpoint is available".into());
     }
+    inspection_checkpoint(budget)?;
     Ok(result)
 }
 
@@ -1543,10 +1714,197 @@ pub fn recover_performance(
 }
 
 #[cfg(test)]
+mod seal_cost_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::live::recording_live_pair;
     use omniusong_core::contracts::{ClockEpochId, EndpointId, TakeId};
+    fn bounded_unit_source() -> (PathBuf, PerformanceConfig) {
+        let parent = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../.runtime/performance-bounded-unit-tests");
+        std::fs::create_dir_all(&parent).unwrap();
+        let root = parent.join(uuid::Uuid::new_v4().to_string());
+        std::fs::create_dir(&root).unwrap();
+        let path = root.join("take.sqlite3");
+        let scope = LiveScope {
+            worker_generation: LiveId([71; 16]),
+            session_id: LiveId([72; 16]),
+            panic_generation: 1,
+        };
+        let config = PerformanceConfig {
+            take_id: TakeId(uuid::Uuid::new_v4().to_string()),
+            info: TapInfo {
+                scope,
+                sample_rate: 8000,
+                channels: 1,
+            },
+            gui_clock: LiveClock {
+                domain: "bounded-unit-gui".into(),
+                epoch: "bounded-unit-epoch".into(),
+                ticks_per_second_numerator: 1_000_000_000,
+                ticks_per_second_denominator: 1,
+            },
+            output_epoch: ClockEpochId("bounded-unit-render".into()),
+            sources: std::array::from_fn(|i| PerformanceSource {
+                binding: LiveSourceBinding {
+                    kind: [
+                        LiveSourceKind::ComputerKeys,
+                        LiveSourceKind::PointerKeys,
+                        LiveSourceKind::Pads,
+                        LiveSourceKind::AccessiblePulse,
+                    ][i],
+                    handle: i as u8 + 1,
+                    connection_generation: 1,
+                },
+                endpoint: EndpointId(format!("bounded-unit-source-{i}")),
+            }),
+        };
+        let mut writer = PerformanceWriter::create(&path, config.clone()).unwrap();
+        let (admission, mut renderer, mut tap) = recording_live_pair(scope, 8000, 1).unwrap();
+        for _ in 0..2 {
+            renderer.render_into(&mut [0.0; 16]);
+            while let Some(packet) = tap.try_pop().unwrap() {
+                writer.push_packet(packet).unwrap();
+            }
+            writer.flush().unwrap();
+        }
+        drop(renderer);
+        drop(tap);
+        drop(admission);
+        writer.close_interrupted().unwrap();
+        (path, config)
+    }
+    #[test]
+    fn every_contextual_decode_is_charged_and_record_limit_refuses_before_next_owned_allocation() {
+        use omniusong_recording::{InspectionLimits, InspectionResource};
+        use std::sync::{Arc, atomic::AtomicBool};
+        let (path, config) = bounded_unit_source();
+        let reader = CaptureReader::open(&path).unwrap();
+        let chunk = reader.read_ordinal(2).unwrap();
+        assert_eq!(chunk.header.stream_id, "control");
+        assert_eq!(chunk.header.range.count(), 2);
+        let budget = InspectionBudget::new(
+            InspectionLimits::default(),
+            Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap();
+        for pass in 1..=2 {
+            assert_eq!(
+                contextual_records(
+                    &config,
+                    PerformanceProfile::OriginalV1,
+                    5,
+                    &chunk,
+                    Some(&budget)
+                )
+                .unwrap()
+                .len(),
+                2
+            );
+            let usage = budget.usage();
+            assert_eq!(usage.record_visits, pass * 2);
+            assert_eq!(usage.work_bytes, pass * chunk.payload.len() as u64);
+        }
+        let limited = InspectionBudget::new(
+            InspectionLimits {
+                max_record_visits: 1,
+                ..Default::default()
+            },
+            Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap();
+        let error = contextual_records(
+            &config,
+            PerformanceProfile::OriginalV1,
+            5,
+            &chunk,
+            Some(&limited),
+        )
+        .unwrap_err()
+        .into_recording();
+        assert!(matches!(
+            error,
+            RecordingError::InspectionLimit {
+                resource: InspectionResource::RecordVisits,
+                limit: 1,
+                attempted: 2
+            }
+        ));
+        assert_eq!(limited.usage().record_visits, 1);
+        let work = InspectionBudget::new(
+            InspectionLimits {
+                max_work_bytes: chunk.payload.len() as u64 - 1,
+                ..Default::default()
+            },
+            Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap();
+        assert!(matches!(
+            contextual_records(
+                &config,
+                PerformanceProfile::OriginalV1,
+                5,
+                &chunk,
+                Some(&work)
+            )
+            .unwrap_err()
+            .into_recording(),
+            RecordingError::InspectionLimit {
+                resource: InspectionResource::WorkBytes,
+                ..
+            }
+        ));
+        assert_eq!(work.usage().record_visits, 0);
+        drop(reader);
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+    #[test]
+    fn cancellation_after_a_verified_checkpoint_overrides_a_simultaneous_semantic_tail_error() {
+        use omniusong_recording::InspectionLimits;
+        use std::sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+        };
+        let (path, _config) = bounded_unit_source();
+        let reader = CaptureReader::open(&path).unwrap();
+        let baseline = inspect_performance(&reader).unwrap();
+        assert_eq!(baseline.checkpoint.as_ref().unwrap().group_sequence, 2);
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let budget = InspectionBudget::new(InspectionLimits::default(), cancelled.clone()).unwrap();
+        let mut seen = 0;
+        let result =
+            inspect_performance_snapshot_bounded(reader.inspection(), Some(&budget), |ordinal| {
+                seen = ordinal;
+                if ordinal == 4 {
+                    cancelled.store(true, Ordering::Release);
+                    return Err(InspectionFailure::Semantic(
+                        "simultaneous invalid tail".into(),
+                    ));
+                }
+                reader
+                    .read_ordinal(ordinal)
+                    .map_err(InspectionFailure::from)
+            });
+        assert_eq!(seen, 4);
+        assert_eq!(
+            budget.usage().groups,
+            1,
+            "a complete prefix existed before cancellation"
+        );
+        assert!(matches!(
+            result.unwrap_err().into_recording(),
+            RecordingError::InspectionCancelled
+        ));
+        cancelled.store(false, Ordering::Release);
+        assert!(matches!(
+            budget.checkpoint(),
+            Err(RecordingError::InspectionCancelled)
+        ));
+        drop(reader);
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
     #[test]
     fn tiny_callbacks_force_chunk_budget_flush_and_rebase_control_ordinals() {
         let scope = LiveScope {

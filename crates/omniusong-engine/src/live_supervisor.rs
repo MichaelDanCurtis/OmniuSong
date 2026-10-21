@@ -280,7 +280,23 @@ impl Shared {
                         && (next.worker_accepted_sequence < previous.worker_accepted_sequence
                             || next.callback_applied_sequence < previous.callback_applied_sequence)
                 {
-                    return Err("Recorded-performance live progress regressed".into());
+                    return Err(format!(
+                        "Recorded-performance live progress regressed: old(revision={}, scope={:?}, state={:?}, frames={}, accepted={:?}, applied={:?}, fault={:?}); new(revision={}, scope={:?}, state={:?}, frames={}, accepted={:?}, applied={:?}, fault={:?})",
+                        old.revision,
+                        previous.scope,
+                        previous.state,
+                        previous.frames,
+                        previous.worker_accepted_sequence,
+                        previous.callback_applied_sequence,
+                        previous.fault,
+                        status.revision,
+                        next.scope,
+                        next.state,
+                        next.frames,
+                        next.worker_accepted_sequence,
+                        next.callback_applied_sequence,
+                        next.fault,
+                    ));
                 }
             } else if old.live.is_some() && status.live.is_none() {
                 return Err("Recorded-performance live evidence disappeared".into());
@@ -513,6 +529,43 @@ fn stop_ack_matches(update: &EngineUpdate, ticket: UrgentTicket, barrier: u64) -
             .stop
             .is_some_and(|ack| ack.ticket == ticket && ack.cancelled_through_control == barrier)
 }
+// Called only after private request-ID correlation and payload validation.
+// An update-free error publishes no state; retire with its exact cause before
+// internal-live/urgent processing could replace it with a missing-update error.
+#[cfg(any(unix, test))]
+fn validate_response_prefix(
+    response: &Response,
+    expected: &EngineCommand,
+    normal: bool,
+    internal_live: bool,
+    urgent_stop: bool,
+) -> Result<(), String> {
+    if normal && !matches_result(expected, &response.reply.result)
+        || internal_live
+            && !matches!(
+                &response.reply.result,
+                Ok(EngineResult::LiveStatus(_)) | Err(_)
+            )
+        || urgent_stop
+            && !matches!(
+                &response.reply.result,
+                Ok(EngineResult::Stopped | EngineResult::Performance(_)) | Err(_)
+            )
+        || !normal
+            && !internal_live
+            && !urgent_stop
+            && !matches_result(&EngineCommand::Status, &response.reply.result)
+    {
+        return Err("Audio result kind mismatch".into());
+    }
+    if response.update.is_none()
+        && let Err(error) = &response.reply.result
+    {
+        return Err(error.clone());
+    }
+    Ok(())
+}
+
 #[cfg(unix)]
 pub(crate) fn actor(
     executable: PathBuf,
@@ -823,24 +876,13 @@ pub(crate) fn actor(
         last_status = Instant::now();
         // Reject a mismatched reply kind before publishing ANY new readiness or
         // stage observation to the GUI's cumulative mailboxes.
-        if normal.is_some() && !matches_result(&expected, &response.reply.result)
-            || internal_live
-                && !matches!(
-                    &response.reply.result,
-                    Ok(EngineResult::LiveStatus(_)) | Err(_)
-                )
-            || urgent_stop
-                && !matches!(
-                    &response.reply.result,
-                    Ok(EngineResult::Stopped | EngineResult::Performance(_)) | Err(_)
-                )
-            || normal.is_none()
-                && !internal_live
-                && !urgent_stop
-                && !matches_result(&EngineCommand::Status, &response.reply.result)
-        {
-            return Err("Audio result kind mismatch".into());
-        }
+        validate_response_prefix(
+            &response,
+            &expected,
+            normal.is_some(),
+            internal_live,
+            urgent_stop,
+        )?;
         let performance_response =
             matches!(&response.reply.result, Ok(EngineResult::Performance(_)));
         let performance_ready =
@@ -1133,6 +1175,92 @@ mod tests {
         }
     }
     #[test]
+    fn update_free_terminal_error_survives_live_stop_and_normal_response_dispatch() {
+        use omniusong_core::contracts::Validate;
+        let (client, _actor) = lanes(Arc::new(AtomicBool::new(false)));
+        let shared = &client.shared;
+        let previous = update(shared, 1);
+        shared.publish(previous, true).unwrap();
+        let cause =
+            "Recorded output sealing deadline expired; worker retired and original retained";
+        let response = Response {
+            reply: EngineReply {
+                request_id: 71,
+                result: Err(cause.into()),
+            },
+            update: None,
+        };
+        response.validate().unwrap();
+        for (normal, internal_live, urgent_stop) in [
+            (false, true, false),
+            (false, false, true),
+            (true, false, false),
+            (false, false, false),
+        ] {
+            assert_eq!(
+                validate_response_prefix(
+                    &response,
+                    &EngineCommand::Status,
+                    normal,
+                    internal_live,
+                    urgent_stop
+                )
+                .unwrap_err(),
+                cause
+            );
+            assert_eq!(*shared.latest.lock().unwrap(), Some(previous));
+            assert!(shared.performance_snapshot().is_none());
+        }
+    }
+
+    #[test]
+    fn authoritative_error_and_result_kind_checks_keep_their_existing_paths() {
+        let (client, _actor) = lanes(Arc::new(AtomicBool::new(false)));
+        let response = Response {
+            reply: EngineReply {
+                request_id: 72,
+                result: Err("Scoped rejection with authoritative state".into()),
+            },
+            update: Some(update(&client.shared, 1)),
+        };
+        // Only the no-update error is terminal at this prefix. Existing live
+        // fault/urgent semantics still inspect authoritative updates later.
+        for (normal, internal_live, urgent_stop) in [
+            (false, true, false),
+            (false, false, true),
+            (true, false, false),
+        ] {
+            assert!(
+                validate_response_prefix(
+                    &response,
+                    &EngineCommand::Status,
+                    normal,
+                    internal_live,
+                    urgent_stop
+                )
+                .is_ok()
+            );
+        }
+        let wrong = Response {
+            reply: EngineReply {
+                request_id: 73,
+                result: Ok(EngineResult::Stopped),
+            },
+            update: None,
+        };
+        assert_eq!(
+            validate_response_prefix(&wrong, &EngineCommand::Devices, true, false, false)
+                .unwrap_err(),
+            "Audio result kind mismatch"
+        );
+        assert_eq!(
+            validate_response_prefix(&wrong, &EngineCommand::Status, false, true, false)
+                .unwrap_err(),
+            "Audio result kind mismatch"
+        );
+    }
+
+    #[test]
     fn cumulative_mailbox_rejects_regression_and_changed_first_fault() {
         let (client, _actor) = lanes(Arc::new(AtomicBool::new(false)));
         let shared = &client.shared;
@@ -1237,6 +1365,71 @@ mod tests {
         changed.gui_clock.epoch = "different".into();
         assert!(shared.check_start(&changed).is_err());
         assert!(shared.check_start(&start).is_ok());
+    }
+    #[test]
+    fn performance_panic_status_keeps_generation_watermarks_until_real_ack() {
+        let (client, _actor) = lanes(Arc::new(AtomicBool::new(false)));
+        let shared = &client.shared;
+        let root = std::path::Path::new("/synthetic-native");
+        let (start, _, mut status) = performance_fixture(shared.generation, root);
+        let scope = status.ready.as_ref().unwrap().scope;
+        let (mut admission, mut renderer, mut owner) =
+            crate::live::recording_live_pair(scope, 48000, 1).unwrap();
+        shared.register_start(&start, root).unwrap();
+        admission.admit(LiveBatch::empty(scope, 1, None)).unwrap();
+        renderer.render_into(&mut [0.0; 1]);
+        while owner.try_pop().unwrap().is_some() {}
+        status.live = Some(admission.progress());
+        shared.publish_performance(&status).unwrap();
+        let next = admission.begin_panic(scope).unwrap();
+        renderer.render_into(&mut [0.0; 1]);
+        while owner.try_pop().unwrap().is_some() {}
+        status.revision += 1;
+        status.live = Some(admission.progress());
+        assert_eq!(status.live.unwrap().scope, scope);
+        assert_eq!(status.live.unwrap().callback_applied_sequence, Some(1));
+        shared.publish_performance(&status).unwrap();
+        status.revision += 1;
+        status.live = admission.finish_panic().unwrap();
+        assert_eq!(status.live.unwrap().scope, next);
+        assert_eq!(status.live.unwrap().callback_applied_sequence, None);
+        shared.publish_performance(&status).unwrap();
+        drop(renderer);
+        drop(owner);
+        drop(admission);
+    }
+    #[test]
+    fn performance_genuine_regressions_remain_rejected_with_bounded_exact_diagnostics() {
+        let (client, _actor) = lanes(Arc::new(AtomicBool::new(false)));
+        let shared = &client.shared;
+        let root = std::path::Path::new("/synthetic-native");
+        let (start, _, mut status) = performance_fixture(shared.generation, root);
+        shared.register_start(&start, root).unwrap();
+        let progress = status.live.as_mut().unwrap();
+        progress.frames = 100;
+        progress.worker_accepted_sequence = Some(4);
+        progress.callback_applied_sequence = Some(3);
+        shared.publish_performance(&status).unwrap();
+        for case in 0..3 {
+            let mut changed = status.clone();
+            changed.revision += 1;
+            let progress = changed.live.as_mut().unwrap();
+            match case {
+                0 => progress.frames = 99,
+                1 => progress.worker_accepted_sequence = Some(3),
+                _ => progress.callback_applied_sequence = Some(2),
+            }
+            assert!(changed.is_valid());
+            let error = shared.publish_performance(&changed).unwrap_err();
+            assert!(error.starts_with("Recorded-performance live progress regressed:"));
+            assert!(error.contains("old(revision=2") && error.contains("new(revision=3"));
+            assert!(error.contains("frames=100, accepted=Some(4), applied=Some(3)"));
+            assert!(error.contains("worker_generation:") && error.contains("session_id:"));
+            assert!(error.contains("fault=None") && error.len() < 2048);
+            assert_eq!(shared.performance_snapshot().unwrap(), status);
+        }
+        status.revision += 1;
+        shared.publish_performance(&status).unwrap();
     }
     #[test]
     fn finish_fence_binds_actual_worker_admission_after_the_parent_queue_drain() {

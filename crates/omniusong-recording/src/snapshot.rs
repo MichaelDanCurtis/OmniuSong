@@ -1,5 +1,5 @@
 use crate::{
-    journal::{load_chunk, load_descriptor, read_unsigned, sql_integer, verify_sealed},
+    journal::{load_descriptor, read_unsigned, sql_integer, verify_sealed},
     types::*,
 };
 use rusqlite::{
@@ -25,6 +25,7 @@ pub struct SealedJournal {
     path: PathBuf,
     descriptor: TakeDescriptor,
     manifest: SealedManifest,
+    budget: Option<crate::InspectionBudget>,
 }
 
 /// Identity of the durable exported SQLite file, distinct from logical identity.
@@ -40,6 +41,41 @@ pub struct BackupReceipt {
 }
 
 impl SealedJournal {
+    pub fn open_bounded(path: impl AsRef<Path>, budget: &crate::InspectionBudget) -> Result<Self> {
+        let result = (|| -> Result<Self> {
+            let path = crate::inspection::preflight_path(path.as_ref(), budget)?;
+            let connection = Connection::open_with_flags(
+                &path,
+                OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+            )?;
+            budget.install(&connection)?;
+            connection.busy_timeout(Duration::from_secs(2))?;
+            connection.execute_batch("PRAGMA query_only=ON; PRAGMA cache_size=-2048; PRAGMA mmap_size=0; BEGIN DEFERRED;")?;
+            crate::inspection::preflight_connection(&connection, budget)?;
+            budget.visit_rows(2)?;
+            budget.charge_work(8)?;
+            let version: u32 =
+                connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
+            require(
+                version == JOURNAL_VERSION,
+                "Unsupported sealed journal version",
+            )?;
+            let descriptor = crate::journal::load_descriptor_bounded(&connection, Some(budget))?;
+            let manifest =
+                crate::journal::verify_sealed_bounded(&connection, &descriptor, Some(budget))?;
+            Ok(Self {
+                connection,
+                path,
+                descriptor,
+                manifest,
+                budget: Some(budget.share()),
+            })
+        })();
+        budget.finish(result)
+    }
+    pub fn inspection_budget(&self) -> Option<&crate::InspectionBudget> {
+        self.budget.as_ref()
+    }
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let path = fs::canonicalize(path)?;
         require(
@@ -73,6 +109,7 @@ impl SealedJournal {
             path,
             descriptor,
             manifest,
+            budget: None,
         })
     }
 
@@ -94,43 +131,66 @@ impl SealedJournal {
     /// This never acquires a capture owner, creates a sidecar, or permits writes.
     /// The result is review evidence, not authority to resume or normally seal.
     pub fn inspect_snapshot(&self) -> Result<crate::JournalInspection> {
-        let inspection =
-            crate::inspection::inspect_connection(&self.connection, &self.path, &self.descriptor)?;
-        require(
-            inspection.manifest.as_ref() == Some(&self.manifest),
-            "Sealed inspection differs from its held manifest",
-        )?;
-        Ok(inspection)
+        let result = (|| -> Result<crate::JournalInspection> {
+            let inspection = crate::inspection::inspect_connection_bounded(
+                &self.connection,
+                &self.path,
+                &self.descriptor,
+                self.budget.as_ref(),
+            )?;
+            require(
+                inspection.manifest.as_ref() == Some(&self.manifest),
+                "Sealed inspection differs from its held manifest",
+            )?;
+            Ok(inspection)
+        })();
+        crate::budget::finish(self.budget.as_ref(), result)
     }
 
     /// Read only chunks selected by the sealed manifest, never an unknown tail.
     pub fn read_chunk(&self, stream: &str, sequence: u64) -> Result<ChunkRecord> {
-        let prefix = self
-            .manifest
-            .body
-            .streams
-            .iter()
-            .find(|prefix| prefix.stream_id == stream)
-            .ok_or_else(|| RecordingError::Invalid("Unknown sealed recording stream".into()))?;
-        require(
-            sequence < prefix.next_sequence,
-            "Chunk is outside the sealed original prefix",
-        )?;
-        load_chunk(&self.connection, &self.descriptor, stream, sequence)
+        let result = (|| -> Result<ChunkRecord> {
+            crate::budget::checkpoint(self.budget.as_ref())?;
+            let prefix = self
+                .manifest
+                .body
+                .streams
+                .iter()
+                .find(|prefix| prefix.stream_id == stream)
+                .ok_or_else(|| RecordingError::Invalid("Unknown sealed recording stream".into()))?;
+            require(
+                sequence < prefix.next_sequence,
+                "Chunk is outside the sealed original prefix",
+            )?;
+            crate::journal::load_chunk_bounded(
+                &self.connection,
+                &self.descriptor,
+                stream,
+                sequence,
+                self.budget.as_ref(),
+            )
+        })();
+        crate::budget::finish(self.budget.as_ref(), result)
     }
 
     /// Global ordinal is one-based, unlike the zero-based per-stream sequence.
     pub fn read_ordinal(&self, ordinal: u64) -> Result<ChunkRecord> {
-        require(
-            ordinal > 0 && ordinal <= self.manifest.body.chunk_count,
-            "Chunk ordinal is outside the sealed original prefix",
-        )?;
-        let (stream, sequence): (String, u64) = self.connection.query_row(
-            "SELECT substr(stream_id,1,97),sequence FROM chunks WHERE ordinal=?1",
-            [sql_integer(ordinal)?],
-            |row| Ok((row.get(0)?, read_unsigned(row, 1)?)),
-        )?;
-        self.read_chunk(&stream, sequence)
+        let result = (|| -> Result<ChunkRecord> {
+            crate::budget::checkpoint(self.budget.as_ref())?;
+            require(
+                ordinal > 0 && ordinal <= self.manifest.body.chunk_count,
+                "Chunk ordinal is outside the sealed original prefix",
+            )?;
+            crate::budget::rows(self.budget.as_ref(), 3)?;
+            crate::budget::work(self.budget.as_ref(), 105)?;
+            let (stream, sequence): (String, u64) = self.connection.query_row(
+                "SELECT substr(stream_id,1,97),sequence FROM chunks WHERE ordinal=?1",
+                [sql_integer(ordinal)?],
+                |row| Ok((row.get(0)?, read_unsigned(row, 1)?)),
+            )?;
+            self.read_chunk(&stream, sequence)
+        })();
+        crate::budget::finish(self.budget.as_ref(), result)
     }
 
     /// Visit selected chunks in global order with one bounded chunk in memory.
@@ -141,44 +201,49 @@ impl SealedJournal {
     where
         F: FnMut(u64, &ChunkRecord) -> Result<()>,
     {
-        let mut prefixes: Vec<_> = self
-            .descriptor
-            .streams
-            .iter()
-            .map(StreamPrefix::initial)
-            .collect();
-        let indices: BTreeMap<_, _> = self
-            .descriptor
-            .streams
-            .iter()
-            .enumerate()
-            .map(|(index, stream)| (stream.stream_id.as_str(), index))
-            .collect();
-        let mut hash = Sha256::new();
-        hash.update(b"OmniuSong.recording-index.v1\0");
-        hash.update(self.manifest.body.descriptor_sha256.as_bytes());
-        let mut bytes = 0_u64;
-        for ordinal in 1..=self.manifest.body.chunk_count {
-            let chunk = self.read_ordinal(ordinal)?;
-            let index = *indices
-                .get(chunk.header.stream_id.as_str())
-                .ok_or_else(|| RecordingError::Invalid("Unknown sealed recording stream".into()))?;
-            prefixes[index].advance(&chunk.header)?;
-            bytes = bytes
-                .checked_add(chunk.payload.len() as u64)
-                .ok_or_else(|| {
-                    RecordingError::Invalid("Sealed payload byte count overflow".into())
-                })?;
-            hash.update(ordinal.to_le_bytes());
-            hash.update(chunk.sha256.as_bytes());
-            visitor(ordinal, &chunk)?;
-        }
-        require(
-            prefixes == self.manifest.body.streams
-                && bytes == self.manifest.body.payload_bytes
-                && format!("{:x}", hash.finalize()) == self.manifest.body.chunk_index_sha256,
-            "Visited chunks differ from the sealed manifest",
-        )
+        let result = (|| -> Result<()> {
+            let mut prefixes: Vec<_> = self
+                .descriptor
+                .streams
+                .iter()
+                .map(StreamPrefix::initial)
+                .collect();
+            let indices: BTreeMap<_, _> = self
+                .descriptor
+                .streams
+                .iter()
+                .enumerate()
+                .map(|(index, stream)| (stream.stream_id.as_str(), index))
+                .collect();
+            let mut hash = Sha256::new();
+            hash.update(b"OmniuSong.recording-index.v1\0");
+            hash.update(self.manifest.body.descriptor_sha256.as_bytes());
+            let mut bytes = 0_u64;
+            for ordinal in 1..=self.manifest.body.chunk_count {
+                let chunk = self.read_ordinal(ordinal)?;
+                let index = *indices
+                    .get(chunk.header.stream_id.as_str())
+                    .ok_or_else(|| {
+                        RecordingError::Invalid("Unknown sealed recording stream".into())
+                    })?;
+                prefixes[index].advance(&chunk.header)?;
+                bytes = bytes
+                    .checked_add(chunk.payload.len() as u64)
+                    .ok_or_else(|| {
+                        RecordingError::Invalid("Sealed payload byte count overflow".into())
+                    })?;
+                hash.update(ordinal.to_le_bytes());
+                hash.update(chunk.sha256.as_bytes());
+                visitor(ordinal, &chunk)?;
+            }
+            require(
+                prefixes == self.manifest.body.streams
+                    && bytes == self.manifest.body.payload_bytes
+                    && format!("{:x}", hash.finalize()) == self.manifest.body.chunk_index_sha256,
+                "Visited chunks differ from the sealed manifest",
+            )
+        })();
+        crate::budget::finish(self.budget.as_ref(), result)
     }
 
     /// Export the held logical snapshot to a new file, never overwriting a name.
@@ -189,6 +254,10 @@ impl SealedJournal {
     /// Errors retain staging or a published orphan and report those paths. This
     /// function never publishes a project reference or deletes source originals.
     pub fn export_backup(&self, destination: impl AsRef<Path>) -> Result<BackupReceipt> {
+        require(
+            self.budget.is_none(),
+            "Bounded read-only inspection does not authorize export",
+        )?;
         let mut destination = destination.as_ref().to_path_buf();
         let mut staging_path: Option<PathBuf> = None;
         let mut published = false;

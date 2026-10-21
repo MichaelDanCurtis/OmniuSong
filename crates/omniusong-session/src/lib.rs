@@ -1,5 +1,6 @@
 //! Bounded session storage service. UI callers only submit/poll nonblocking channels.
 mod performance_intents;
+mod performance_sources;
 use omniusong_core::{
     MAX_PROJECT_BYTES, ProjectDocument,
     contracts::{OperationId, ProjectEditIntent, ProjectId, Validate, WORKER_MAX_BYTES},
@@ -13,12 +14,14 @@ pub use omniusong_store::{
 pub use performance_intents::{
     PerformanceFinishIntent, PerformanceIntent, PerformanceIntentReceipt,
 };
+pub use performance_sources::{PerformanceSource, PerformanceSourceReview, PerformanceSourceScan};
 use std::{
     fs::{self, File},
     io::Read,
     path::{Path, PathBuf},
     sync::{
-        atomic::{AtomicU64, Ordering},
+        Arc,
+        atomic::{AtomicBool, AtomicU64, Ordering},
         mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError},
     },
 };
@@ -116,6 +119,10 @@ pub enum Command {
         id: omniusong_engine::LiveId,
         revision: u64,
     },
+    ScanPerformanceSources,
+    InspectPerformanceSource {
+        stage_id: String,
+    },
     ScanCaptures,
     InspectCapture {
         stage_id: String,
@@ -148,6 +155,8 @@ pub enum CommandKind {
     SavePerformanceIntent,
     ListPerformanceIntents,
     AttachPerformance,
+    ScanPerformanceSources,
+    InspectPerformanceSource,
     ScanCaptures,
     InspectCapture,
     RecoverCapture,
@@ -168,6 +177,8 @@ impl Command {
             Self::SavePerformanceIntent { .. } => CommandKind::SavePerformanceIntent,
             Self::ListPerformanceIntents => CommandKind::ListPerformanceIntents,
             Self::AttachPerformance { .. } => CommandKind::AttachPerformance,
+            Self::ScanPerformanceSources => CommandKind::ScanPerformanceSources,
+            Self::InspectPerformanceSource { .. } => CommandKind::InspectPerformanceSource,
             Self::ScanCaptures => CommandKind::ScanCaptures,
             Self::InspectCapture { .. } => CommandKind::InspectCapture,
             Self::RecoverCapture { .. } => CommandKind::RecoverCapture,
@@ -214,7 +225,11 @@ impl Command {
             Self::Initialize
             | Self::Refresh
             | Self::ScanCaptures
+            | Self::ScanPerformanceSources
             | Self::ListPerformanceIntents => Ok(()),
+            Self::InspectPerformanceSource { stage_id } => {
+                performance_sources::validate_stage_id(stage_id)
+            }
             Self::SavePerformanceIntent { intent, .. } => intent.validate(),
             Self::AttachPerformance { id, revision } => {
                 if id.is_valid() && (1..=16).contains(revision) {
@@ -360,6 +375,8 @@ pub enum Reply {
     CaptureRecovered(Box<CaptureRecoveryReceipt>),
     PerformanceIntent(Box<PerformanceIntentReceipt>),
     PerformanceIntents(Vec<PerformanceIntentReceipt>),
+    PerformanceSources(PerformanceSourceScan),
+    PerformanceSourceInspected(Box<PerformanceSourceReview>),
 }
 impl Reply {
     fn matches(&self, kind: CommandKind) -> bool {
@@ -382,6 +399,14 @@ impl Reply {
                 | (Self::CaptureStages(_), CommandKind::ScanCaptures)
                 | (Self::CaptureInspected(_), CommandKind::InspectCapture)
                 | (Self::CaptureRecovered(_), CommandKind::RecoverCapture)
+                | (
+                    Self::PerformanceSources(_),
+                    CommandKind::ScanPerformanceSources
+                )
+                | (
+                    Self::PerformanceSourceInspected(_),
+                    CommandKind::InspectPerformanceSource
+                )
                 | (
                     Self::PerformanceIntent(_),
                     CommandKind::SavePerformanceIntent
@@ -406,6 +431,11 @@ pub enum FailureKind {
     EditRejected,
     /// A new performance-intent semantic check rejected before any publication.
     IntentRejected,
+    /// Read-only source work stopped; originals and catalog remain unchanged.
+    InspectionCancelled,
+    InspectionLimit,
+    SourceBusy,
+    SourceUnavailable,
     /// The project transaction rejected its expected revision and did not commit.
     RevisionConflict,
     Backend,
@@ -501,6 +531,13 @@ pub struct SubmitError {
 /// A backend exists only on its owning worker. Test injection is opt-in.
 pub trait Backend: Send + 'static {
     fn handle(&mut self, command: &Command) -> Result<Reply, ServiceError>;
+    fn handle_with_cancel(
+        &mut self,
+        command: &Command,
+        _cancelled: &Arc<AtomicBool>,
+    ) -> Result<Reply, ServiceError> {
+        self.handle(command)
+    }
 }
 
 pub struct SessionService {
@@ -512,6 +549,7 @@ pub struct SessionService {
     retry: Option<Command>,
     disconnected: bool,
     terminal_failure: Option<ServiceError>,
+    inspection_cancelled: Arc<AtomicBool>,
 }
 static GENERATION: AtomicU64 = AtomicU64::new(1);
 impl SessionService {
@@ -528,6 +566,7 @@ impl SessionService {
                 retry: None,
                 disconnected: false,
                 terminal_failure: None,
+                inspection_cancelled: Arc::new(AtomicBool::new(false)),
             },
             requests,
             responses,
@@ -554,12 +593,14 @@ impl SessionService {
     }
     fn spawn_internal(mut backend: impl Backend) -> Result<Self, ServiceError> {
         let (client, requests, responses) = Self::channels();
+        let inspection_cancelled = Arc::clone(&client.inspection_cancelled);
         std::thread::Builder::new()
             .name("omniusong-sessions".into())
             .spawn(move || {
                 while let Ok(request) = requests.recv() {
                     let kind = request.command.kind();
-                    let result = backend.handle(&request.command);
+                    let result =
+                        backend.handle_with_cancel(&request.command, &inspection_cancelled);
                     let terminal = result
                         .as_ref()
                         .is_err_and(|error| error.kind == FailureKind::StorageUnavailable);
@@ -599,6 +640,18 @@ impl SessionService {
     }
     pub fn retry_command(&self) -> Option<&Command> {
         self.retry.as_ref()
+    }
+    /// Cancellation retains the pending request and worker credit until its
+    /// exact completion is polled. A stale identity cannot cancel newer work.
+    pub fn cancel_source_inspection(&self, id: RequestId) -> bool {
+        if self.pending.as_ref().is_some_and(|request| {
+            request.id == id && matches!(request.command, Command::InspectPerformanceSource { .. })
+        }) {
+            self.inspection_cancelled.store(true, Ordering::Release);
+            true
+        } else {
+            false
+        }
     }
     pub fn try_submit(&mut self, command: Command) -> Result<RequestId, Box<SubmitError>> {
         let fail = |kind, message: &str, command| {
@@ -641,6 +694,9 @@ impl SessionService {
             sequence: self.next_sequence,
         };
         let request = Request { id, command };
+        // No worker is active while credit is free. Reset before publishing
+        // the next accepted command; a fast consumer sees the new token state.
+        self.inspection_cancelled.store(false, Ordering::Release);
         match self.requests.try_send(request.clone()) {
             Ok(()) => {
                 self.next_sequence = next;
@@ -738,6 +794,12 @@ impl SessionService {
                 responses,
             },
         )
+    }
+}
+
+impl Drop for SessionService {
+    fn drop(&mut self) {
+        self.inspection_cancelled.store(true, Ordering::Release);
     }
 }
 // No Drop implementation and no JoinHandle: close drops channel endpoints only.
@@ -854,6 +916,18 @@ impl NativeBackend {
     }
 }
 impl Backend for NativeBackend {
+    fn handle_with_cancel(
+        &mut self,
+        command: &Command,
+        cancelled: &Arc<AtomicBool>,
+    ) -> Result<Reply, ServiceError> {
+        if let Command::InspectPerformanceSource { stage_id } = command {
+            command.validate()?;
+            self.inspect_performance_source(stage_id, Arc::clone(cancelled))
+        } else {
+            self.handle(command)
+        }
+    }
     fn handle(&mut self, command: &Command) -> Result<Reply, ServiceError> {
         command.validate()?;
         let work = |error: omniusong_store::StoreError| store_failure(error, command.mutates());
@@ -949,6 +1023,10 @@ impl Backend for NativeBackend {
             )),
             Command::AttachPerformance { id, revision } => {
                 self.attach_performance_intention(*id, *revision)
+            }
+            Command::ScanPerformanceSources => self.scan_performance_sources(),
+            Command::InspectPerformanceSource { stage_id } => {
+                self.inspect_performance_source(stage_id, Arc::new(AtomicBool::new(false)))
             }
             Command::ScanCaptures => Ok(Reply::CaptureStages(self.store()?.scan_captures())),
             Command::InspectCapture { stage_id } => Ok(Reply::CaptureInspected(Box::new(

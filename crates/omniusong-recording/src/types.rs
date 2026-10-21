@@ -23,6 +23,12 @@ pub const MAX_APPEND_GROUP_BYTES: usize = 8 * 1024 * 1024;
 
 #[derive(Debug)]
 pub enum RecordingError {
+    InspectionCancelled,
+    InspectionLimit {
+        resource: crate::InspectionResource,
+        limit: u64,
+        attempted: u64,
+    },
     Invalid(String),
     Conflict(String),
     Owned,
@@ -40,6 +46,8 @@ pub enum RecordingError {
 impl fmt::Display for RecordingError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::InspectionCancelled=>f.write_str("Source inspection was cancelled; original retained"),
+            Self::InspectionLimit{resource,limit,attempted}=>write!(f,"Source inspection {resource:?} limit {limit} exceeded by attempted {attempted}; original retained"),
             Self::Invalid(message) | Self::Conflict(message) => f.write_str(message),
             Self::Owned => f.write_str("The take journal already has a live writer or recovery owner"),
             Self::Interrupted => f.write_str("Interrupted capture cannot resume; start a new take or explicitly seal its recovered prefix"),
@@ -321,6 +329,15 @@ impl ChunkHeader {
         Ok(format!("{:x}", hash.finalize()))
     }
     pub(crate) fn validate(&self, take: &TakeDescriptor, payload: &[u8]) -> Result<()> {
+        self.validate_bounded(take, payload, None)
+    }
+    pub(crate) fn validate_bounded(
+        &self,
+        take: &TakeDescriptor,
+        payload: &[u8],
+        budget: Option<&crate::InspectionBudget>,
+    ) -> Result<()> {
+        crate::budget::checkpoint(budget)?;
         require(
             self.version == CHUNK_VERSION,
             "Unsupported recording chunk version",
@@ -417,7 +434,7 @@ impl ChunkHeader {
                     )?;
                 }
                 StreamKind::RawEvents { .. } => {
-                    validate_events(payload, self.range.count(), stream, self)?
+                    validate_events(payload, self.range.count(), stream, self, budget)?
                 }
             },
         }
@@ -431,6 +448,7 @@ fn validate_events(
     expected: u64,
     stream: &StreamDescriptor,
     header: &ChunkHeader,
+    budget: Option<&crate::InspectionBudget>,
 ) -> Result<()> {
     require(
         !payload.is_empty() && payload.len() <= MAX_EVENT_CHUNK_BYTES,
@@ -446,6 +464,10 @@ fn validate_events(
             len > 0 && len <= payload.len() - cursor,
             "Truncated raw event record",
         )?;
+        if let Some(budget) = budget {
+            budget.visit_records(1)?;
+            budget.charge_work(len as u64)?;
+        }
         let event = Envelope::<CapturedEvent>::decode(&payload[cursor..cursor + len])
             .map_err(|error| RecordingError::Invalid(error.to_string()))?;
         require(

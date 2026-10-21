@@ -83,6 +83,7 @@ struct Shared {
     finish: OnceLock<crate::LiveFinishFence>,
     cut: OnceLock<TapFinish>,
     retire: Arc<AtomicBool>,
+    retirement_cause: OnceLock<String>,
     gate: AtomicU8,
     stop_requested: AtomicBool,
     owner_gone: AtomicBool,
@@ -96,6 +97,27 @@ struct Shared {
     reason: SyncSender<String>,
 }
 impl Shared {
+    /// Off-callback only. Publish the immutable diagnostic before retirement so
+    /// IPC rejection does not depend on a later status snapshot or mailbox slot.
+    fn retire_with_reason(&self, reason: &str) {
+        self.retirement_cause.get_or_init(|| {
+            let trigger = bounded_error(reason);
+            let prior = self
+                .status
+                .try_lock()
+                .ok()
+                .and_then(|status| status.error.as_deref().map(bounded_error));
+            match prior {
+                Some(prior) if prior != trigger => format!(
+                    "{}; prior performance error: {}",
+                    trigger.chars().take(2_900).collect::<String>(),
+                    prior.chars().take(900).collect::<String>(),
+                ),
+                _ => trigger,
+            }
+        });
+        self.retire.store(true, Ordering::Release);
+    }
     fn edit(&self, change: impl FnOnce(&mut PerformanceStatus)) {
         let mut status = self.status.lock().unwrap_or_else(|e| e.into_inner());
         change(&mut status);
@@ -213,10 +235,11 @@ impl Shared {
             DRAINING => "original drain",
             _ => "sealing",
         };
-        self.cancel(&format!(
+        let reason = format!(
             "Recorded output {label} deadline expired; worker retired and original retained"
-        ));
-        self.retire.store(true, Ordering::Release);
+        );
+        self.cancel(&reason);
+        self.retire_with_reason(&reason);
         self.edit(|s| {
             s.phase = if s.sealed.is_some() {
                 PerformancePhase::Sealed
@@ -251,7 +274,9 @@ impl Drop for AdmissionLease {
                 self.shared.cancel(
                     "Admission owner ended before native callback retirement; original retained",
                 );
-                self.shared.retire.store(true, Ordering::Release);
+                self.shared.retire_with_reason(
+                    "Admission owner ended before native callback retirement; original retained",
+                );
                 std::mem::forget(admission);
             }
         }
@@ -309,6 +334,7 @@ impl PerformanceSession {
             finish: OnceLock::new(),
             cut: OnceLock::new(),
             retire,
+            retirement_cause: OnceLock::new(),
             gate: AtomicU8::new(ACTIVE),
             stop_requested: AtomicBool::new(false),
             owner_gone: AtomicBool::new(false),
@@ -373,7 +399,9 @@ impl PerformanceSession {
                     Err(_) => {
                         owner_shared.cancel("Recorded output owner panicked; original retained");
                         owner_shared.error("Recorded output owner panicked; original retained");
-                        owner_shared.retire.store(true, Ordering::Release);
+                        owner_shared.retire_with_reason(
+                            "Recorded output owner panicked; original retained",
+                        );
                         owner_shared.edit(|s| s.phase = PerformancePhase::Failed);
                     }
                 }
@@ -393,6 +421,28 @@ impl PerformanceSession {
             cached,
             local_error: None,
         })
+    }
+    pub(crate) fn retirement_error(&self) -> Option<&str> {
+        self.shared.retirement_cause.get().map(String::as_str)
+    }
+    #[cfg(test)]
+    pub(crate) fn expired_sealing_for_test(retire: Arc<AtomicBool>) -> Self {
+        let (mut session, _ready, _reasons) = tests::shell();
+        Arc::get_mut(&mut session.shared).unwrap().retire = retire;
+        session
+            .shared
+            .gate
+            .store(SEAL_AUTHORIZED, Ordering::Release);
+        session
+            .shared
+            .edit(|status| status.phase = PerformancePhase::Sealing);
+        session.shared.watch(SEALING, SEAL_TIMEOUT);
+        let deadline = session.shared.watch_word.load(Ordering::Acquire) >> WATCH_SHIFT;
+        assert!(session.shared.expire(deadline));
+        // No snapshot: Runtime must obtain the cause independently of cached
+        // status publication, without a native callback or a sealing permit.
+        assert_eq!(session.cached.phase, PerformancePhase::Starting);
+        session
     }
     pub fn request(&self) -> &PerformanceStart {
         &self.request
@@ -778,21 +828,19 @@ mod native {
                 .ok_or("Recorded output stream ownership missing")?;
             if let Err(error) = stream.pause() {
                 std::mem::forget(stream);
-                self.shared.retire.store(true, Ordering::Release);
-                return Err(format!(
-                    "Recorded output pause failed; worker retired: {error}"
-                ));
+                let reason = format!("Recorded output pause failed; worker retired: {error}");
+                self.shared.retire_with_reason(&reason);
+                return Err(reason);
             }
             drop(stream);
             let deadline = Instant::now() + STOP_TIMEOUT;
             while !controls.destroyed() {
                 self.shared.edit(|s| s.native = controls.observations(true));
                 if Instant::now() >= deadline || self.shared.retire.load(Ordering::Acquire) {
-                    self.shared.retire.store(true, Ordering::Release);
-                    return Err(
-                        "Recorded output outer callback retirement timed out; worker retired"
-                            .into(),
-                    );
+                    let reason =
+                        "Recorded output outer callback retirement timed out; worker retired";
+                    self.shared.retire_with_reason(reason);
+                    return Err(reason.into());
                 }
                 thread::sleep(Duration::from_millis(1));
             }
@@ -804,7 +852,9 @@ mod native {
     impl Drop for Output {
         fn drop(&mut self) {
             if let Some(stream) = self.stream.take() {
-                self.shared.retire.store(true, Ordering::Release);
+                self.shared.retire_with_reason(
+                    "Recorded output owner dropped before native stream retirement; original retained",
+                );
                 std::mem::forget(stream);
             }
         }
@@ -943,7 +993,8 @@ mod native {
                 if outcome.is_err() {
                     writer_shared.cancel("Performance writer panicked; original retained");
                     writer_shared.error("Performance writer panicked; original retained");
-                    writer_shared.retire.store(true, Ordering::Release);
+                    writer_shared
+                        .retire_with_reason("Performance writer panicked; original retained");
                 }
                 writer_shared.writer_done.store(true, Ordering::Release);
             })
@@ -1234,7 +1285,7 @@ mod tests {
             },
         }
     }
-    fn shell() -> (PerformanceSession, SyncSender<Ready>, Receiver<String>) {
+    pub(super) fn shell() -> (PerformanceSession, SyncSender<Ready>, Receiver<String>) {
         let request = request();
         let cached = initial_status(
             &request,
@@ -1247,6 +1298,7 @@ mod tests {
             finish: OnceLock::new(),
             cut: OnceLock::new(),
             retire: Arc::new(AtomicBool::new(false)),
+            retirement_cause: OnceLock::new(),
             gate: AtomicU8::new(ACTIVE),
             stop_requested: AtomicBool::new(false),
             owner_gone: AtomicBool::new(false),
@@ -1342,6 +1394,46 @@ mod tests {
         }
     }
 
+    #[test]
+    fn callback_panic_ack_cannot_regress_a_status_before_worker_adopts_its_scope() {
+        let (mut session, ready, _reasons) = shell();
+        let (lease, mut renderer, error, mut tap) = software_pair(&session.shared);
+        let controls = lease.controls.clone();
+        let handoff = software_ready(lease);
+        let scope = handoff.ready.scope;
+        assert!(ready.try_send(handoff).is_ok());
+        session.snapshot();
+        session.admit(LiveBatch::empty(scope, 1, None)).unwrap();
+        renderer.render_into(&mut [0.0; 2]);
+        while tap.try_pop().unwrap().is_some() {}
+        let before = session.snapshot();
+        assert_eq!(before.live.unwrap().callback_applied_sequence, Some(1));
+        let next = session.begin_panic(scope).unwrap();
+        renderer.render_into(&mut [0.0; 2]);
+        while tap.try_pop().unwrap().is_some() {}
+        let shared = session.shared.clone();
+        let held = shared.status.lock().unwrap();
+        // Real callback ACK is present; this is precisely the interval before
+        // Runtime::update calls finish_panic. Also exercise cached metadata.
+        let pending = session.snapshot();
+        drop(held);
+        assert!(pending.revision > before.revision && pending.is_valid());
+        let live = pending.live.unwrap();
+        assert_eq!(live.scope, scope);
+        assert_eq!(live.worker_accepted_sequence, Some(1));
+        assert_eq!(live.callback_applied_sequence, Some(1));
+        assert_eq!(live.state, LiveState::Panicking);
+        assert!(live.lease_credit.is_none());
+        assert_eq!(session.finish_panic().unwrap().unwrap().scope, next);
+        let acknowledged = session.snapshot();
+        assert!(acknowledged.revision > pending.revision && acknowledged.is_valid());
+        assert_eq!(acknowledged.live.unwrap().scope, next);
+        assert_eq!(acknowledged.live.unwrap().callback_applied_sequence, None);
+        native::drop_software_renderer(renderer, &controls);
+        native::drop_software_error(error, &controls);
+        session.shared.native_safe.store(true, Ordering::Release);
+        session.shared.native_done.store(true, Ordering::Release);
+    }
     #[test]
     fn starting_identity_is_stable_and_no_early_admission_or_implicit_retry_exists() {
         let (mut session, _ready, _reasons) = shell();
@@ -1639,6 +1731,70 @@ mod tests {
         assert_eq!(session.begin_finish(scope, finish_id).unwrap(), before);
         assert!(session.begin_finish(scope, LiveId([0x62; 16])).is_err());
         assert_eq!(session.shared.retry.load(Ordering::Acquire), 0);
+    }
+
+    #[test]
+    fn retirement_keeps_trigger_and_prior_error_without_replacing_either() {
+        let (session, _ready, _reasons) = shell();
+        session.shared.error("Stop requested");
+        session.shared.watch(SEALING, SEAL_TIMEOUT);
+        let deadline = session.shared.watch_word.load(Ordering::Acquire) >> WATCH_SHIFT;
+        assert!(session.shared.expire(deadline));
+        assert!(session.shared.retire.load(Ordering::Acquire));
+        let expected = "Recorded output sealing deadline expired; worker retired and original retained; prior performance error: Stop requested";
+        assert_eq!(session.retirement_error(), Some(expected));
+        assert_eq!(
+            session.shared.status.lock().unwrap().error.as_deref(),
+            Some("Stop requested")
+        );
+        session.shared.error("Later cleanup failure");
+        session
+            .shared
+            .retire_with_reason("Later native destructor failure");
+        assert_eq!(session.retirement_error(), Some(expected));
+    }
+
+    #[test]
+    fn retirement_diagnostic_is_bounded_and_available_with_status_lock_held() {
+        let (session, _ready, _reasons) = shell();
+        let held = session.shared.status.lock().unwrap();
+        let message = format!("{}\0discarded suffix", "🦀".repeat(4_000));
+        // The background snapshot mutex must not delay the diagnostic latch.
+        session.shared.retire_with_reason(&message);
+        assert!(session.shared.retire.load(Ordering::Acquire));
+        let first = session.retirement_error().unwrap();
+        assert_eq!(first.chars().count(), 3_900);
+        assert!(first.len() < 16 * 1024 && !first.contains('\0'));
+        assert_eq!(held.error, None, "diagnostic does not rewrite status");
+        session
+            .shared
+            .retire_with_reason("second cause cannot replace the first");
+        assert_eq!(session.retirement_error(), Some(first));
+        drop(held);
+    }
+
+    #[test]
+    fn sealing_retirement_cause_does_not_depend_on_cancel_mailbox_capacity() {
+        let (session, _ready, reasons) = shell();
+        session
+            .shared
+            .reason
+            .try_send("Earlier queued notice".into())
+            .unwrap();
+        session
+            .shared
+            .gate
+            .store(SEAL_AUTHORIZED, Ordering::Release);
+        session.shared.watch(SEALING, SEAL_TIMEOUT);
+        let deadline = session.shared.watch_word.load(Ordering::Acquire) >> WATCH_SHIFT;
+        assert!(session.shared.expire(deadline));
+        assert_eq!(reasons.try_recv().unwrap(), "Earlier queued notice");
+        assert!(reasons.try_recv().is_err());
+        assert_eq!(
+            session.retirement_error(),
+            Some("Recorded output sealing deadline expired; worker retired and original retained")
+        );
+        assert_eq!(session.shared.gate.load(Ordering::Acquire), SEAL_AUTHORIZED);
     }
 
     #[test]

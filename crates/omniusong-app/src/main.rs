@@ -665,6 +665,9 @@ impl StudioApp {
                     Reply::PerformanceIntent(_) | Reply::PerformanceIntents(_) => {
                         self.status = "Recording intent retained locally. Audio and attachment follow only the explicit confirmed choice.".into();
                     }
+                    Reply::PerformanceSources(_) | Reply::PerformanceSourceInspected(_) => {
+                        self.status = "Read-only performance source review completed. Recovery and attachment require separate explicit choices.".into();
+                    }
                 }
                 if !matches!(active.action, Action::Refresh | Action::Performance(_)) {
                     self.retry = None;

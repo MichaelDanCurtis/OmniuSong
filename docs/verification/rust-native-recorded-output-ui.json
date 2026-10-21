@@ -1,0 +1,284 @@
+{
+  "recordedAtUtc": "2026-10-21T05:39:13.325650+00:00",
+  "status": "bounded-actual-workflow-passed-with-reproduced-post-recording-playback-failure",
+  "sourceCommit": "dfcb5cf718b045a7d350ca6a1c5a46e4db42ac67",
+  "binary": {
+    "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+    "sha256": "4981d54a0f0e3c63c05426ecca731539438ffa7761f4bb108436be466502df23",
+    "byteLength": 93330720
+  },
+  "sourceGate": "docs/verification/rust-native-recorded-output-controls.json",
+  "independentAudit": {
+    "path": ".runtime/rust-performance-ui/ui-audit.json",
+    "sha256": "8313d2716e89b55a08bff97f08204359dc38f5efa8231aa8b5187a66b5ae0c25",
+    "byteLength": 3270
+  },
+  "auditor": {
+    "path": ".runtime/rust-performance-ui/audit_recording_ui.py",
+    "sha256": "a1c351693a267f7f8e8294d64fbf648447825ca0aa5b8434c4baa2cd66e12eaf",
+    "byteLength": 6601
+  },
+  "scope": "Actual native output only using synthetic UI key/pad pulses; no native input, microphone, personal recordings or uploads. No listening/physical input/latency/long-run/Windows acceptance.",
+  "checks": {
+    "driveAccessApprovedAndSchema5Opened": true,
+    "recordingStartAndActualReady": true,
+    "keyAndPadPulsesCaptured": true,
+    "callbackFinishCutOneSustainedVoice": true,
+    "normalSealedOriginalNotAutomaticallyAttached": true,
+    "explicitDurableAttachment": true,
+    "undoRedoPreservesOriginal": true,
+    "completeArchiveAndRestoreCopy": true,
+    "sameBinaryExitRestartAndReopen": true,
+    "restartedRestoredOutputAndStop": true,
+    "retainedChoiceReviewNeverResumes": true,
+    "sameGenerationPlaybackAfterRecording": false
+  },
+  "recording": {
+    "sourceProject": "1f4ea3c9-1dea-4afa-8845-b00779b2d5ae",
+    "restoredProject": "e0d293e6-4586-49e1-b09b-70b19053cda2",
+    "source": {
+      "path": ".runtime/native-studio/captures/eae59f5fc32a4d91b27408f509c3c761/take.sqlite3",
+      "sha256": "d2bb820d41127048071b3d0a250d2658d3e87f8483a4eb84556b165f933319d7",
+      "byteLength": 7495680
+    },
+    "ownedOriginal": {
+      "path": ".runtime/native-studio/takes/b8a6c62ec5116c0730a3dca2f7ab6b69e237e22d2d2c9efe52b177fbc17b8a87.sqlite3",
+      "sha256": "b8a6c62ec5116c0730a3dca2f7ab6b69e237e22d2d2c9efe52b177fbc17b8a87",
+      "byteLength": 7495680
+    },
+    "archive": {
+      "path": ".runtime/rust-performance-ui/recorded-keys-complete.osar",
+      "sha256": "be6a7386837cb6dcb55987a5dccdabe3c7a761b2d0170c0de2c4630f04389cd0",
+      "byteLength": 7630848
+    },
+    "frames": 432128,
+    "sampleRate": 48000,
+    "channels": 2,
+    "seconds": 9.002666666666666,
+    "callbacks": 844,
+    "pcmSha256": "38fe8efdc3b8679003eee8642d1b5add31bbca00f05ae1bb6bf01a20b64c4294",
+    "pcmPeak": 0.30250319838523865,
+    "nonzeroSamples": 70196,
+    "recordKinds": {
+      "begin": 844,
+      "end": 844,
+      "checkpoint": 36,
+      "batch": 39,
+      "applied_event": 8,
+      "transition": 10,
+      "finish": 1
+    },
+    "finish": {
+      "callback_index": 844,
+      "cut_frame": 432128,
+      "fence": {
+        "accepted_sequence": 39,
+        "id": [
+          31,
+          156,
+          122,
+          20,
+          137,
+          237,
+          64,
+          55,
+          139,
+          17,
+          7,
+          98,
+          150,
+          224,
+          158,
+          179
+        ],
+        "scope": {
+          "panic_generation": 1,
+          "session_id": [
+            234,
+            229,
+            159,
+            95,
+            195,
+            42,
+            77,
+            145,
+            178,
+            116,
+            8,
+            245,
+            9,
+            195,
+            199,
+            97
+          ],
+          "worker_generation": [
+            76,
+            139,
+            151,
+            47,
+            111,
+            22,
+            69,
+            51,
+            182,
+            6,
+            112,
+            151,
+            208,
+            251,
+            197,
+            168
+          ]
+        }
+      },
+      "policy": "cut_at_complete_callback_end",
+      "release_tails_cut": 0,
+      "voices_cut": 1
+    }
+  },
+  "preservation": {
+    "priorCatalogRowsRetained": {
+      "archive_copies": 7,
+      "archive_copy_proof_operations": 73,
+      "archive_copy_proofs": 7,
+      "archive_project_lineage": 9,
+      "assets": 1,
+      "edits": 94,
+      "imports": 5,
+      "native_takes": 4,
+      "operations": 122,
+      "projects": 16
+    },
+    "priorProjectsRetained": 16,
+    "priorTakesRetained": 4,
+    "priorDataFilesRetained": 59,
+    "sourceAndCopyTracksExact": true,
+    "fullArchivedTakeBytesExact": true,
+    "schema": 5
+  },
+  "restartCatalogUnchanged": true,
+  "failure": {
+    "message": "Ended live scope summary disappeared",
+    "effect": "Parent retired the audio worker before subsequent saved-song playback. Originals, attachment and archives remained intact.",
+    "sourceCorrection": "Runtime::update now retains announced same-worker performance scope across owner replacement by ordinary playback; parent disappearance guard is unchanged.",
+    "correctionActualUI": "pending new build"
+  },
+  "evidence": [
+    {
+      "path": ".runtime/rust-performance-ui/01-startup-wait.txt",
+      "sha256": "837d22ccfe09306f6767d8ce4451f1dd102e2aeafbd1bce7bc944ed3e2a7709c",
+      "byteLength": 93
+    },
+    {
+      "path": ".runtime/rust-performance-ui/02-approved-startup.txt",
+      "sha256": "709dceb48393c5bd22b7965b28da2aadd96d94135e77b3d9095f1fb78275cb08",
+      "byteLength": 5357
+    },
+    {
+      "path": ".runtime/rust-performance-ui/03-finish-sealing.txt",
+      "sha256": "76ed14f8f3668c222fcf6429e39a8c457ca962138236fd87df044e54d032a244",
+      "byteLength": 12406
+    },
+    {
+      "path": ".runtime/rust-performance-ui/04-sealed-not-attached.txt",
+      "sha256": "95f14e42413df568726f169382e4fcdc75cc672ce1a6cddbe2fa9fcaf8dcacf8",
+      "byteLength": 8705
+    },
+    {
+      "path": ".runtime/rust-performance-ui/05-source-review.txt",
+      "sha256": "15a615fd16fb0153c11ec0679c5873438b3124b0c6c428c0af0417b287981454",
+      "byteLength": 9328
+    },
+    {
+      "path": ".runtime/rust-performance-ui/06-attached.txt",
+      "sha256": "793fd32ac8301fed1068a29ec3ca0dfff83c26dedb5a250fb1beab1713a6a456",
+      "byteLength": 8012
+    },
+    {
+      "path": ".runtime/rust-performance-ui/07-undo.txt",
+      "sha256": "837d22ccfe09306f6767d8ce4451f1dd102e2aeafbd1bce7bc944ed3e2a7709c",
+      "byteLength": 93
+    },
+    {
+      "path": ".runtime/rust-performance-ui/08-redo.txt",
+      "sha256": "837d22ccfe09306f6767d8ce4451f1dd102e2aeafbd1bce7bc944ed3e2a7709c",
+      "byteLength": 93
+    },
+    {
+      "path": ".runtime/rust-performance-ui/09-playback-after-recording-failure.txt",
+      "sha256": "b3187989d0942a6241679b60c6b573ac5533a397a41beca1d4e9f65a3e017087",
+      "byteLength": 8156
+    },
+    {
+      "path": ".runtime/rust-performance-ui/10-restored.txt",
+      "sha256": "0f2ea955028c918141a5b29e17b203a70a1df04e39ff48e456d8043f62452daf",
+      "byteLength": 9303
+    },
+    {
+      "path": ".runtime/rust-performance-ui/11-restored-saved.txt",
+      "sha256": "0cbecb8b3ecf12bb4b7705ba27b4ab523990818a393858f132a3daf956b61090",
+      "byteLength": 9288
+    },
+    {
+      "path": ".runtime/rust-performance-ui/12-restarted-playback.txt",
+      "sha256": "299311cb2a9fbb4b3e8115661ba9a1738c88aa4587f94eba046f8e78c11f629b",
+      "byteLength": 8560
+    },
+    {
+      "path": ".runtime/rust-performance-ui/13-restarted-review.txt",
+      "sha256": "2a050e31d7e3a2890ec47d0dbe7096ecfde6a2cd3a4225bfd49a3222583f9696",
+      "byteLength": 9058
+    },
+    {
+      "path": ".runtime/rust-performance-ui/14-pinned-walkthrough-finished.txt",
+      "sha256": "01288ff1d79cb89adbdf394216eb1ecff229af7de505bbddfe0900f029b090c9",
+      "byteLength": 8296
+    },
+    {
+      "path": ".runtime/rust-performance-ui/01-startup-wait.png",
+      "sha256": "433df0e916a1bb090ffb4454805badb5a40216b9935d5e8acbc3a70414ddb2f6",
+      "byteLength": 50422
+    },
+    {
+      "path": ".runtime/rust-performance-ui/02-approved-startup.png",
+      "sha256": "388df0bebec268e86aee8854903ddb418f5753c7e3460a165faffe7b2269425f",
+      "byteLength": 148447
+    },
+    {
+      "path": ".runtime/rust-performance-ui/03-finish-sealing.png",
+      "sha256": "0f043844c34a9de353a3046e47eb5ba8d6a4dd7ecab466fff6ced32d8b336f2d",
+      "byteLength": 234639
+    },
+    {
+      "path": ".runtime/rust-performance-ui/04-sealed-not-attached.png",
+      "sha256": "c10c03f8e29c75ed3ca413a4c800bf2499b84d82c59cdff4fc96f3a0dc717e5f",
+      "byteLength": 211892
+    },
+    {
+      "path": ".runtime/rust-performance-ui/06-attached.png",
+      "sha256": "360be23776cbebdcd628571068831c723f1f2002299d3a08f7b50994ad0cb651",
+      "byteLength": 217009
+    },
+    {
+      "path": ".runtime/rust-performance-ui/09-playback-after-recording-failure.png",
+      "sha256": "5f6fbc7aad820ff3eb4c517028c1362af4608f2bf06b29431484ec05607ce8c7",
+      "byteLength": 227271
+    },
+    {
+      "path": ".runtime/rust-performance-ui/11-restored-saved.png",
+      "sha256": "e935bec66ac345a383c60285c4fbce9c63f64c5784d6d559d535a9321be2196b",
+      "byteLength": 250997
+    },
+    {
+      "path": ".runtime/rust-performance-ui/12-restarted-playback.png",
+      "sha256": "60c35e36211f7f035a9de015cd91e04001d628e0d55ab76e03259278fd9de6ca",
+      "byteLength": 199886
+    },
+    {
+      "path": ".runtime/rust-performance-ui/13-restarted-review.png",
+      "sha256": "a712b956eb2ee484d5e9a7388df57a291baa01f5d11f4708c3a566110045884d",
+      "byteLength": 217615
+    }
+  ],
+  "fullMilestone2Accepted": false
+}

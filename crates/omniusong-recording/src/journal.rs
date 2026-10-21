@@ -99,6 +99,14 @@ pub(crate) fn reject_hardlinks(path: &Path) -> Result<()> {
 }
 
 pub(crate) fn state(connection: &Connection) -> Result<TakeState> {
+    state_bounded(connection, None)
+}
+pub(crate) fn state_bounded(
+    connection: &Connection,
+    budget: Option<&crate::InspectionBudget>,
+) -> Result<TakeState> {
+    crate::budget::rows(budget, 2)?;
+    crate::budget::work(budget, 12)?;
     let value: String = connection.query_row(
         "SELECT substr(state,1,12) FROM take_meta WHERE singleton=1",
         [],
@@ -113,6 +121,15 @@ pub(crate) fn state(connection: &Connection) -> Result<TakeState> {
 }
 
 fn prefix(connection: &Connection, stream: &StreamDescriptor) -> Result<StreamPrefix> {
+    prefix_bounded(connection, stream, None)
+}
+fn prefix_bounded(
+    connection: &Connection,
+    stream: &StreamDescriptor,
+    budget: Option<&crate::InspectionBudget>,
+) -> Result<StreamPrefix> {
+    crate::budget::rows(budget, 6)?;
+    crate::budget::work(budget, 40)?;
     let mut value = StreamPrefix::initial(stream);
     let (sequence,end,recorded,gaps,gap_chunks):(u64,u64,u64,u64,u64)=connection.query_row(
         "SELECT next_sequence,source_end,recorded_units,gap_units,gap_chunks FROM stream_prefix WHERE stream_id=?1",[&stream.stream_id],|row|Ok((read_unsigned(row,0)?,read_unsigned(row,1)?,read_unsigned(row,2)?,read_unsigned(row,3)?,read_unsigned(row,4)?)))?;
@@ -138,6 +155,14 @@ fn store_prefix(connection: &Connection, value: &StreamPrefix) -> Result<()> {
 }
 
 pub(crate) fn load_descriptor(connection: &Connection) -> Result<TakeDescriptor> {
+    load_descriptor_bounded(connection, None)
+}
+pub(crate) fn load_descriptor_bounded(
+    connection: &Connection,
+    budget: Option<&crate::InspectionBudget>,
+) -> Result<TakeDescriptor> {
+    crate::budget::rows(budget, 3)?;
+    crate::budget::work(budget, 73)?;
     let (len, hash): (u64, String) = connection.query_row(
         "SELECT length(descriptor),substr(descriptor_sha256,1,65) FROM take_meta WHERE singleton=1",
         [],
@@ -147,6 +172,8 @@ pub(crate) fn load_descriptor(connection: &Connection) -> Result<TakeDescriptor>
         len <= MAX_METADATA_BYTES as u64,
         "Stored descriptor exceeds byte limit",
     )?;
+    crate::budget::rows(budget, 2)?;
+    crate::budget::work(budget, len.saturating_mul(3))?;
     let bytes: Vec<u8> = connection.query_row(
         "SELECT descriptor FROM take_meta WHERE singleton=1",
         [],
@@ -167,6 +194,20 @@ pub(crate) fn load_chunk(
     stream: &str,
     sequence: u64,
 ) -> Result<ChunkRecord> {
+    load_chunk_bounded(connection, take, stream, sequence, None)
+}
+pub(crate) fn load_chunk_bounded(
+    connection: &Connection,
+    take: &TakeDescriptor,
+    stream: &str,
+    sequence: u64,
+    budget: Option<&crate::InspectionBudget>,
+) -> Result<ChunkRecord> {
+    if let Some(b) = budget {
+        b.visit_chunks(1)?;
+    }
+    crate::budget::rows(budget, 3)?;
+    crate::budget::work(budget, 16)?;
     let (header_len, payload_len): (u64, u64) = connection.query_row(
         "SELECT length(header),length(payload) FROM chunks WHERE stream_id=?1 AND sequence=?2",
         params![stream, sql_integer(sequence)?],
@@ -176,6 +217,8 @@ pub(crate) fn load_chunk(
         header_len <= MAX_HEADER_BYTES as u64 && payload_len <= MAX_AUDIO_CHUNK_BYTES as u64,
         "Stored chunk exceeds byte limit",
     )?;
+    crate::budget::rows(budget, 2)?;
+    crate::budget::work(budget, header_len.saturating_mul(3))?;
     let bytes: Vec<u8> = connection.query_row(
         "SELECT header FROM chunks WHERE stream_id=?1 AND sequence=?2",
         params![stream, sql_integer(sequence)?],
@@ -196,6 +239,8 @@ pub(crate) fn load_chunk(
         payload_len <= maximum as u64,
         "Stored chunk exceeds its interpretation's byte limit",
     )?;
+    crate::budget::rows(budget, 3)?;
+    crate::budget::work(budget, payload_len.saturating_mul(2).saturating_add(65))?;
     let (payload, hash): (Vec<u8>, String) = connection.query_row(
         "SELECT payload,substr(sha256,1,65) FROM chunks WHERE stream_id=?1 AND sequence=?2",
         params![stream, sql_integer(sequence)?],
@@ -205,7 +250,7 @@ pub(crate) fn load_chunk(
         header.stream_id == stream && header.sequence == sequence,
         "Stored chunk index/header mismatch",
     )?;
-    header.validate(take, &payload)?;
+    header.validate_bounded(take, &payload, budget)?;
     require(
         header.canonical_bytes()? == bytes && header.sha256(&payload)? == hash,
         "Stored chunk header/content hash mismatch",
@@ -239,7 +284,24 @@ pub(crate) fn scan(
     take: &TakeDescriptor,
     limit: Option<u64>,
 ) -> Result<RecoveryReport> {
-    let current_state = state(connection)?;
+    scan_bounded(connection, take, limit, None)
+}
+pub(crate) fn scan_bounded(
+    connection: &Connection,
+    take: &TakeDescriptor,
+    limit: Option<u64>,
+    budget: Option<&crate::InspectionBudget>,
+) -> Result<RecoveryReport> {
+    let result = scan_inner(connection, take, limit, budget);
+    crate::budget::finish(budget, result)
+}
+fn scan_inner(
+    connection: &Connection,
+    take: &TakeDescriptor,
+    limit: Option<u64>,
+    budget: Option<&crate::InspectionBudget>,
+) -> Result<RecoveryReport> {
+    let current_state = state_bounded(connection, budget)?;
     let mut report = RecoveryReport {
         take_id: take.take_id.clone(),
         state: current_state,
@@ -258,10 +320,14 @@ pub(crate) fn scan(
         .collect();
     let mut hash = Sha256::new();
     hash.update(b"OmniuSong.recording-index.v1\0");
+    if budget.is_some() {
+        crate::budget::work(budget, bounded_json(take, MAX_METADATA_BYTES)?.len() as u64)?;
+    }
     hash.update(take.sha256()?.as_bytes());
     let mut statement=connection.prepare("SELECT ordinal,substr(stream_id,1,97),sequence,length(header),length(payload) FROM chunks WHERE ordinal<=?1 ORDER BY ordinal")?;
     let mut rows = statement.query([sql_integer(limit.unwrap_or(i64::MAX as u64))?])?;
     loop {
+        crate::budget::checkpoint(budget)?;
         let row = match rows.next() {
             Ok(Some(row)) => row,
             Ok(None) => break,
@@ -270,6 +336,8 @@ pub(crate) fn scan(
                 break;
             }
         };
+        crate::budget::rows(budget, 6)?;
+        crate::budget::work(budget, 193)?;
         let values: (u64, String, u64, u64, u64) = match (|| -> rusqlite::Result<_> {
             Ok((
                 read_unsigned(row, 0)?,
@@ -299,7 +367,7 @@ pub(crate) fn scan(
             let index = *indices
                 .get(stream.as_str())
                 .ok_or_else(|| RecordingError::Invalid("Unknown stored recording stream".into()))?;
-            let chunk = load_chunk(connection, take, &stream, sequence)?;
+            let chunk = load_chunk_bounded(connection, take, &stream, sequence, budget)?;
             let mut next = report.streams[index].clone();
             next.advance(&chunk.header)?;
             report.streams[index] = next;
@@ -332,7 +400,7 @@ pub(crate) fn scan(
             }
         } else {
             for (index, stream) in take.streams.iter().enumerate() {
-                match prefix(connection, stream) {
+                match prefix_bounded(connection, stream, budget) {
                     Ok(cached) if cached == report.streams[index] => {}
                     Ok(_) => {
                         problem(
@@ -365,8 +433,20 @@ fn interrupted_prefix_hash(
     take: &TakeDescriptor,
     count: u64,
 ) -> Result<String> {
+    interrupted_prefix_hash_bounded(connection, take, count, None)
+}
+fn interrupted_prefix_hash_bounded(
+    connection: &Connection,
+    take: &TakeDescriptor,
+    count: u64,
+    budget: Option<&crate::InspectionBudget>,
+) -> Result<String> {
+    crate::budget::checkpoint(budget)?;
     let mut hash = Sha256::new();
     hash.update(b"OmniuSong.recording-index.v1\0");
+    if budget.is_some() {
+        crate::budget::work(budget, bounded_json(take, MAX_METADATA_BYTES)?.len() as u64)?;
+    }
     hash.update(take.sha256()?.as_bytes());
     let mut statement = connection.prepare(
         "SELECT ordinal,substr(sha256,1,65) FROM recovery_index WHERE ordinal<=?1 ORDER BY ordinal",
@@ -374,6 +454,8 @@ fn interrupted_prefix_hash(
     let mut rows = statement.query([sql_integer(count)?])?;
     let mut seen = 0;
     while let Some(row) = rows.next()? {
+        crate::budget::rows(budget, 3)?;
+        crate::budget::work(budget, 73)?;
         let ordinal = read_unsigned(row, 0)?;
         let sha: String = row.get(1)?;
         require(
@@ -393,6 +475,14 @@ fn interrupted_prefix_hash(
 }
 
 pub(crate) fn load_interrupted(connection: &Connection) -> Result<InterruptedReceipt> {
+    load_interrupted_bounded(connection, None)
+}
+pub(crate) fn load_interrupted_bounded(
+    connection: &Connection,
+    budget: Option<&crate::InspectionBudget>,
+) -> Result<InterruptedReceipt> {
+    crate::budget::rows(budget, 2)?;
+    crate::budget::work(budget, 8)?;
     let length: u64 = connection.query_row(
         "SELECT length(receipt) FROM interruptions WHERE singleton=1",
         [],
@@ -402,6 +492,8 @@ pub(crate) fn load_interrupted(connection: &Connection) -> Result<InterruptedRec
         length <= MAX_METADATA_BYTES as u64,
         "Interruption receipt exceeds byte limit",
     )?;
+    crate::budget::rows(budget, 3)?;
+    crate::budget::work(budget, length.saturating_mul(3).saturating_add(65))?;
     let (bytes, stored): (Vec<u8>, String) = connection.query_row(
         "SELECT receipt,substr(sha256,1,65) FROM interruptions WHERE singleton=1",
         [],
@@ -422,11 +514,15 @@ pub(crate) fn load_interrupted(connection: &Connection) -> Result<InterruptedRec
             && receipt.report.unknown_tail,
         "Interrupted receipt is inconsistent",
     )?;
-    let take = load_descriptor(connection)?;
+    let take = load_descriptor_bounded(connection, budget)?;
     require(
         receipt.report.take_id == take.take_id
-            && interrupted_prefix_hash(connection, &take, receipt.report.verified_chunks)?
-                == receipt.report.chunk_index_sha256,
+            && interrupted_prefix_hash_bounded(
+                connection,
+                &take,
+                receipt.report.verified_chunks,
+                budget,
+            )? == receipt.report.chunk_index_sha256,
         "Interrupted receipt differs from its immutable original chunk index",
     )?;
     Ok(receipt)
@@ -436,10 +532,19 @@ pub(crate) fn verify_sealed(
     connection: &Connection,
     take: &TakeDescriptor,
 ) -> Result<SealedManifest> {
+    verify_sealed_bounded(connection, take, None)
+}
+pub(crate) fn verify_sealed_bounded(
+    connection: &Connection,
+    take: &TakeDescriptor,
+    budget: Option<&crate::InspectionBudget>,
+) -> Result<SealedManifest> {
     require(
-        state(connection)? == TakeState::Sealed,
+        state_bounded(connection, budget)? == TakeState::Sealed,
         "Take is not sealed",
     )?;
+    crate::budget::rows(budget, 2)?;
+    crate::budget::work(budget, 8)?;
     let length: u64 = connection.query_row(
         "SELECT length(body) FROM sealed_manifests WHERE singleton=1",
         [],
@@ -449,6 +554,8 @@ pub(crate) fn verify_sealed(
         length <= (MAX_METADATA_BYTES * 2) as u64,
         "Sealed manifest exceeds byte limit",
     )?;
+    crate::budget::rows(budget, 4)?;
+    crate::budget::work(budget, length.saturating_mul(3).saturating_add(162))?;
     let (bytes,stored,operation):(Vec<u8>,String,String)=connection.query_row("SELECT body,substr(sha256,1,65),substr(operation_id,1,97) FROM sealed_manifests WHERE singleton=1",[],|row|Ok((row.get(0)?,row.get(1)?,row.get(2)?)))?;
     let manifest: SealedManifest = decode(&bytes, MAX_METADATA_BYTES * 2)?;
     manifest.verify_hash()?;
@@ -459,7 +566,7 @@ pub(crate) fn verify_sealed(
             && manifest.canonical_bytes()? == bytes,
         "Stored sealed manifest differs from journal identity",
     )?;
-    let report = scan(connection, take, Some(manifest.body.chunk_count))?;
+    let report = scan_bounded(connection, take, Some(manifest.body.chunk_count), budget)?;
     require(
         report.problems.is_empty()
             && report.streams == manifest.body.streams
@@ -469,7 +576,7 @@ pub(crate) fn verify_sealed(
     )?;
     if let Some(interrupted) = &manifest.body.interrupted {
         require(
-            *interrupted == load_interrupted(connection)?,
+            *interrupted == load_interrupted_bounded(connection, budget)?,
             "Sealed recovery manifest lost its original interruption receipt",
         )?;
         require(
@@ -478,10 +585,17 @@ pub(crate) fn verify_sealed(
         )?;
         require(
             manifest.body.chunk_index_sha256
-                == interrupted_prefix_hash(connection, take, manifest.body.chunk_count)?,
+                == interrupted_prefix_hash_bounded(
+                    connection,
+                    take,
+                    manifest.body.chunk_count,
+                    budget,
+                )?,
             "Recovered manifest differs from its original interrupted prefix",
         )?;
     } else {
+        crate::budget::rows(budget, 2)?;
+        crate::budget::work(budget, 8)?;
         let count: u64 = connection.query_row("SELECT count(*) FROM chunks", [], |row| {
             read_unsigned(row, 0)
         })?;
@@ -489,7 +603,7 @@ pub(crate) fn verify_sealed(
             count == manifest.body.chunk_count,
             "Unreferenced chunks in a normally sealed take",
         )?;
-        let complete = scan(connection, take, None)?;
+        let complete = scan_bounded(connection, take, None, budget)?;
         require(
             complete.problems.is_empty(),
             "Sealed take durable prefix is inconsistent",

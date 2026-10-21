@@ -1,0 +1,103 @@
+{
+  "recordedAtUtc": "2026-10-21T06:12:21.698384+00:00",
+  "passed": true,
+  "catalogIntegrityPassed": true,
+  "priorProjects": 16,
+  "currentProjects": 19,
+  "priorRowsRetained": 338,
+  "priorTables": [
+    {
+      "table": "archive_copies",
+      "retainedOriginalRows": 7,
+      "currentRows": 8
+    },
+    {
+      "table": "archive_copy_proof_operations",
+      "retainedOriginalRows": 73,
+      "currentRows": 76
+    },
+    {
+      "table": "archive_copy_proofs",
+      "retainedOriginalRows": 7,
+      "currentRows": 8
+    },
+    {
+      "table": "archive_project_lineage",
+      "retainedOriginalRows": 9,
+      "currentRows": 10
+    },
+    {
+      "table": "assets",
+      "retainedOriginalRows": 1,
+      "currentRows": 1
+    },
+    {
+      "table": "edits",
+      "retainedOriginalRows": 94,
+      "currentRows": 97
+    },
+    {
+      "table": "imports",
+      "retainedOriginalRows": 5,
+      "currentRows": 5
+    },
+    {
+      "table": "native_takes",
+      "retainedOriginalRows": 4,
+      "currentRows": 5
+    },
+    {
+      "table": "operations",
+      "retainedOriginalRows": 122,
+      "currentRows": 129
+    },
+    {
+      "table": "projects",
+      "retainedOriginalRows": 16,
+      "currentRows": 19
+    }
+  ],
+  "priorImmutableTakesExact": 4,
+  "currentImmutableTakes": 5,
+  "priorDataFilesExact": 59,
+  "retainedStageChecks": [
+    {
+      "path": ".runtime/native-studio/captures/0aa3960d43aa4fadbe4ad91b92959cdb/take.sqlite3",
+      "byteLength": 9703424,
+      "sha256": "5d071ff2c5b4de2dabfc1624fdfdc39d1c4a3902ddabe6cf63ca361f8ec048af"
+    },
+    {
+      "path": ".runtime/native-studio/captures/9d9e0eada2a14f6586a57ea88405f021/take.sqlite3",
+      "byteLength": 14716928,
+      "sha256": "d94a8986ebfa149546d0b5c244117fe969d6a31fae1e5f33913684452729bcaf"
+    },
+    {
+      "path": ".runtime/native-studio/captures/eae59f5fc32a4d91b27408f509c3c761/take.sqlite3",
+      "byteLength": 7495680,
+      "sha256": "d2bb820d41127048071b3d0a250d2658d3e87f8483a4eb84556b165f933319d7"
+    },
+    {
+      "path": ".runtime/native-studio/captures/9d9e0eada2a14f6586a57ea88405f021/take.sqlite3",
+      "byteLength": 14716928,
+      "sha256": "d94a8986ebfa149546d0b5c244117fe969d6a31fae1e5f33913684452729bcaf"
+    }
+  ],
+  "evidence": [
+    {
+      "path": ".runtime/rust-performance-ui/before-store.json",
+      "byteLength": 29644,
+      "sha256": "9ca6265bffa7311b4362844dde6965fa1cb0bdb38b0b3c53450ca8d4e27330b1"
+    },
+    {
+      "path": ".runtime/rust-bounded-inspection/final-store.json",
+      "byteLength": 32486,
+      "sha256": "99c5bd5ab46ae015fbb924b2879906e23a38aa81135aba1dd43e611b5136ae61"
+    },
+    {
+      "path": ".runtime/rust-performance-ui/before-files.json",
+      "byteLength": 11992,
+      "sha256": "1dab4723d3604e4ecf9d9c87fa701f41856a1072c652d536bdec83dd44d5f486"
+    }
+  ],
+  "limits": "Logical rows and original files retained. Catalog bytes legitimately changed for schema 5, three synthetic sessions, explicit intentions and one new owned take. This does not repair the earlier documented disconnect losses or prove physical power-loss durability."
+}
