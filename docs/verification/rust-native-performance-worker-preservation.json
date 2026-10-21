@@ -1,0 +1,27 @@
+{
+  "format": "omniusong.native-performance-worker-preservation",
+  "version": 1,
+  "recordedAtUtc": "2026-10-21T04:28:29.587961+00:00",
+  "passed": true,
+  "before": {
+    "path": ".runtime/rust-performance-worker/before-live-store.json",
+    "sha256": "c91b38bd2cf54e110a5abaf3c6ac502503500eb382ac858d8104fa3a906a5967",
+    "byteLength": 29644
+  },
+  "after": {
+    "path": ".runtime/rust-performance-worker/after-live-store.json",
+    "sha256": "d0028201b19e7402d8a7e1bbe610860bb9ba138598ebbfd5c0c862903f860af8",
+    "byteLength": 29644
+  },
+  "allCatalogTablesAndBytesExact": true,
+  "projectCount": 16,
+  "rows": 338,
+  "immutableTakesExact": 4,
+  "prototypeFilesExact": 30,
+  "runningBundle": {
+    "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+    "sha256": "09789029f54d2d3c9fff0b94d22a3176afe483bc6b439a0cf703d151338f84ec",
+    "byteLength": 88334128
+  },
+  "scope": "Only isolated synthetic native-output fixtures and source/docs changed; installed0978 UI and main originals unchanged."
+}

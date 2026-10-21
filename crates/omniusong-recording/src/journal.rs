@@ -505,6 +505,94 @@ fn invoke(hook: &mut BoundaryHook, boundary: WriteBoundary) -> Result<()> {
     Ok(())
 }
 
+enum Finalization<'a> {
+    Normal,
+    Recovered {
+        original_rows: Option<&'a str>,
+        prefix: Option<&'a RecoveryPrefix>,
+    },
+    Complete(&'a CompletePrefix),
+}
+
+fn require_performance_v2(take: &TakeDescriptor) -> Result<()> {
+    let owned: Vec<_> = take
+        .provenance
+        .iter()
+        .filter(|(key, _)| key.starts_with("omniusong.performance."))
+        .collect();
+    require(
+        owned.len() == 1 && owned[0].0 == "omniusong.performance.v2",
+        "Complete normal prefix requires only supported version-2 performance ownership",
+    )?;
+    let value = owned[0].1.as_object().ok_or_else(|| {
+        RecordingError::Invalid("Invalid version-2 performance configuration".into())
+    })?;
+    require(
+        value.len() == 2
+            && value.get("version").and_then(serde_json::Value::as_u64) == Some(2)
+            && value
+                .get("config")
+                .is_some_and(serde_json::Value::is_object),
+        "Complete normal prefix requires a version-2 performance configuration object",
+    )
+}
+
+/// Checks the whole physical original, never a selected/recovered prefix.
+/// The engine separately validates performance records and actual lifetimes.
+fn complete_snapshot(connection: &Connection, take: &TakeDescriptor) -> Result<CompletePrefix> {
+    let current_descriptor = load_descriptor(connection)?;
+    require(
+        current_descriptor == *take,
+        "Original descriptor changed after journal acquisition",
+    )?;
+    require_performance_v2(&current_descriptor)?;
+    match state(connection)? {
+        TakeState::Recording => {}
+        TakeState::Sealed => {
+            require(
+                verify_sealed(connection, take)?.body.interrupted.is_none(),
+                "Recovered original cannot become a normally completed take",
+            )?;
+        }
+        TakeState::Interrupted => return Err(RecordingError::Interrupted),
+    }
+    let derived: (u64, u64) = connection.query_row(
+        "SELECT (SELECT count(*) FROM interruptions),(SELECT count(*) FROM recovery_index)",
+        [],
+        |row| Ok((read_unsigned(row, 0)?, read_unsigned(row, 1)?)),
+    )?;
+    require(
+        derived == (0, 0),
+        "Normal completion cannot retain recovered-mode metadata",
+    )?;
+    let report = scan(connection, take, None)?;
+    let (physical_chunks, physical_streams): (u64, u64) = connection.query_row(
+        "SELECT (SELECT count(*) FROM chunks),(SELECT count(*) FROM stream_prefix)",
+        [],
+        |row| Ok((read_unsigned(row, 0)?, read_unsigned(row, 1)?)),
+    )?;
+    require(
+        report.problems.is_empty()
+            && report.verified_chunks == physical_chunks
+            && physical_streams == take.streams.len() as u64
+            && report
+                .streams
+                .iter()
+                .all(|prefix| prefix.gap_units == 0 && prefix.gap_chunks == 0),
+        "Complete normal prefix requires every original chunk and stream prefix without gaps or damaged tails",
+    )?;
+    let receipt = CompletePrefix {
+        descriptor_sha256: current_descriptor.sha256()?,
+        original_rows_sha256: crate::inspection::original_rows_hash(connection)?,
+        prefix: RecoveryPrefix {
+            chunk_count: report.verified_chunks,
+            chunk_index_sha256: report.chunk_index_sha256,
+        },
+    };
+    receipt.validate()?;
+    Ok(receipt)
+}
+
 impl Journal {
     pub fn create(path: impl AsRef<Path>, descriptor: &TakeDescriptor) -> Result<Self> {
         descriptor.validate()?;
@@ -647,6 +735,11 @@ impl Journal {
     }
     pub fn descriptor(&self) -> &TakeDescriptor {
         &self.descriptor
+    }
+    /// Read a consistent snapshot while retaining this journal's exclusive
+    /// owner. The borrow prevents writes or owner release until the view drops.
+    pub fn inspect_owned(&self) -> Result<crate::inspection::OwnedJournalView<'_>> {
+        crate::inspection::OwnedJournalView::new(&self.connection, &self.path, &self.descriptor)
     }
     pub fn state(&self) -> Result<TakeState> {
         state(&self.connection)
@@ -988,10 +1081,16 @@ impl Journal {
     }
 
     pub fn seal(&mut self, operation_id: &str) -> Result<SealedManifest> {
-        self.finish(operation_id, false, None, None)
+        self.finish(operation_id, Finalization::Normal)
     }
     pub fn seal_recovered(&mut self, operation_id: &str) -> Result<SealedManifest> {
-        self.finish(operation_id, true, None, None)
+        self.finish(
+            operation_id,
+            Finalization::Recovered {
+                original_rows: None,
+                prefix: None,
+            },
+        )
     }
 
     pub(crate) fn seal_recovered_checked(
@@ -999,7 +1098,13 @@ impl Journal {
         operation_id: &str,
         original_rows: &str,
     ) -> Result<SealedManifest> {
-        self.finish(operation_id, true, Some(original_rows), None)
+        self.finish(
+            operation_id,
+            Finalization::Recovered {
+                original_rows: Some(original_rows),
+                prefix: None,
+            },
+        )
     }
     pub(crate) fn seal_recovered_prefix_checked(
         &mut self,
@@ -1007,23 +1112,56 @@ impl Journal {
         original_rows: &str,
         selection: &RecoveryPrefix,
     ) -> Result<SealedManifest> {
-        self.finish(operation_id, true, Some(original_rows), Some(selection))
+        self.finish(
+            operation_id,
+            Finalization::Recovered {
+                original_rows: Some(original_rows),
+                prefix: Some(selection),
+            },
+        )
+    }
+    /// Snapshot all original rows. This trusted low-level receipt does not prove
+    /// native Finish, callback destruction, cancellation ordering or seal authority.
+    pub fn complete_prefix(&self) -> Result<CompletePrefix> {
+        let tx = self.connection.unchecked_transaction()?;
+        let complete = complete_snapshot(&tx, &self.descriptor)?;
+        tx.commit()?;
+        Ok(complete)
+    }
+    pub fn seal_complete_prefix(
+        &mut self,
+        operation_id: &str,
+        complete: &CompletePrefix,
+    ) -> Result<SealedManifest> {
+        complete.validate()?;
+        self.finish(operation_id, Finalization::Complete(complete))
     }
     fn finish(
         &mut self,
         operation_id: &str,
-        recovered: bool,
-        original_rows: Option<&str>,
-        selected: Option<&RecoveryPrefix>,
+        finalization: Finalization<'_>,
     ) -> Result<SealedManifest> {
         identifier(operation_id)?;
+        let (recovered, original_rows, selected, complete) = match finalization {
+            Finalization::Normal => (false, None, None, None),
+            Finalization::Recovered {
+                original_rows,
+                prefix,
+            } => (true, original_rows, prefix, None),
+            Finalization::Complete(complete) => (
+                false,
+                Some(complete.original_rows_sha256.as_str()),
+                None,
+                Some(complete),
+            ),
+        };
         if let Some(selection) = selected {
             selection.validate()?;
             require(
                 recovered,
                 "Explicit prefix selection requires recovered finalization",
             )?;
-        } else {
+        } else if complete.is_none() {
             require(
                 !self.descriptor.provenance.keys().any(|key| {
                     matches!(
@@ -1038,6 +1176,12 @@ impl Journal {
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
         let current = state(&tx)?;
+        if let Some(expected) = complete {
+            require(
+                complete_snapshot(&tx, &self.descriptor)? == *expected,
+                "Complete original differs from its admitted full-prefix receipt",
+            )?;
+        }
         if let Some(expected) = original_rows {
             require(
                 crate::inspection::original_rows_hash(&tx)? == expected,
@@ -1051,6 +1195,11 @@ impl Journal {
                 || selected.is_some_and(|selection| {
                     manifest.body.chunk_count != selection.chunk_count
                         || manifest.body.chunk_index_sha256 != selection.chunk_index_sha256
+                })
+                || complete.is_some_and(|expected| {
+                    manifest.body.descriptor_sha256 != expected.descriptor_sha256
+                        || manifest.body.chunk_count != expected.prefix.chunk_count
+                        || manifest.body.chunk_index_sha256 != expected.prefix.chunk_index_sha256
                 })
             {
                 return Err(RecordingError::Conflict(
@@ -1137,7 +1286,15 @@ impl Journal {
         if let Some(expected) = original_rows {
             require(
                 crate::inspection::original_rows_hash(&tx)? == expected,
-                "Recovered finalization changed original rows; transaction rolled back",
+                "Checked finalization changed original rows; transaction rolled back",
+            )?;
+        }
+        if let Some(expected) = complete {
+            require(
+                state(&tx)? == TakeState::Sealed
+                    && complete_snapshot(&tx, &self.descriptor)? == *expected
+                    && verify_sealed(&tx, &self.descriptor)? == manifest,
+                "Complete finalization changed mode, metadata or manifest; transaction rolled back",
             )?;
         }
         invoke(&mut self.hook, WriteBoundary::BeforeSealCommit)?;

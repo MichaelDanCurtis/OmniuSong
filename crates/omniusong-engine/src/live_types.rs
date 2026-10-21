@@ -1,9 +1,9 @@
 //! Bounded live-audition interfaces. Queue admission is not rendered delivery.
 use serde::{Deserialize, Serialize};
 
-pub const LIVE_PROTOCOL: &str = "omniusong.engine-live.v1";
+pub const LIVE_PROTOCOL: &str = "omniusong.engine-live.v2";
 pub const ENGINE_BUILD_ID: &str =
-    concat!("omniusong-engine-", env!("CARGO_PKG_VERSION"), "-live-v1");
+    concat!("omniusong-engine-", env!("CARGO_PKG_VERSION"), "-live-v2");
 pub const LIVE_BATCH_EVENTS: usize = 32;
 pub const LIVE_QUEUE_BATCHES: usize = 16;
 pub const LIVE_MAX_SOURCES: usize = 16;

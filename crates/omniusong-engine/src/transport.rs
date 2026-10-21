@@ -69,6 +69,22 @@ fn text(s: &str, max: usize) -> bool {
     !s.is_empty() && s.len() <= max && !s.contains('\0')
 }
 pub(crate) fn command_valid(command: &EngineCommand) -> Result<(), String> {
+    match command {
+        EngineCommand::StartPerformance { request } if !request.is_valid() => {
+            return Err("Invalid recorded-performance Start intent".into());
+        }
+        EngineCommand::FinishPerformance {
+            start_id,
+            scope,
+            finish_id,
+        } if !start_id.is_valid() || !scope.is_valid() || !finish_id.is_valid() => {
+            return Err("Invalid recorded-performance Finish intent".into());
+        }
+        EngineCommand::PerformanceStatus { start_id } if !start_id.is_valid() => {
+            return Err("Invalid recorded-performance identity".into());
+        }
+        _ => {}
+    }
     let device = match command {
         EngineCommand::StartPlayback {
             project_id,
@@ -148,7 +164,7 @@ impl Validate for Request {
     }
 }
 impl WirePayload for Request {
-    const PROTOCOL: &'static str = "omniusong.engine-control.v1";
+    const PROTOCOL: &'static str = "omniusong.engine-control.v2";
     const MAX_BYTES: usize = WIRE_BYTES;
 }
 impl Validate for Response {
@@ -250,6 +266,9 @@ impl Validate for Response {
                 "Invalid initialized profile",
             ),
             Ok(EngineResult::LiveStarted(ready)) => require(ready.is_valid(), "Invalid live ready"),
+            Ok(EngineResult::Performance(status)) => {
+                require(status.is_valid(), "Invalid recorded-performance status")
+            }
             Ok(EngineResult::LiveStatus(progress)) => {
                 require(progress.is_valid(), "Invalid live progress")
             }
@@ -258,7 +277,7 @@ impl Validate for Response {
     }
 }
 impl WirePayload for Response {
-    const PROTOCOL: &'static str = "omniusong.engine-reply.v1";
+    const PROTOCOL: &'static str = "omniusong.engine-reply.v2";
     const MAX_BYTES: usize = WIRE_BYTES;
 }
 pub(crate) fn matches_result(
@@ -285,6 +304,14 @@ pub(crate) fn matches_result(
                 )
                 | (EngineCommand::FinishCapture, EngineResult::Captured(_))
                 | (EngineCommand::Status, EngineResult::Status(_))
+                | (
+                    EngineCommand::StartPerformance { .. }
+                        | EngineCommand::FinishPerformance { .. }
+                        | EngineCommand::PerformanceStatus { .. }
+                        | EngineCommand::Status
+                        | EngineCommand::Stop,
+                    EngineResult::Performance(_)
+                )
         ),
     }
 }
@@ -312,6 +339,8 @@ pub struct EngineClient {
     next_urgent: u64,
     pending_panic: Option<PanicRequest>,
     seen_update: u64,
+    seen_performance: Option<(LiveId, u64)>,
+    performance_ready: Option<LiveScope>,
 }
 impl EngineClient {
     pub fn spawn(executable: PathBuf, store_root: PathBuf) -> Result<Self, String> {
@@ -347,6 +376,8 @@ impl EngineClient {
             next_urgent: 1,
             pending_panic: None,
             seen_update: 0,
+            seen_performance: None,
+            performance_ready: None,
         })
     }
     pub fn try_submit(&mut self, command: EngineCommand) -> Result<(), String> {
@@ -354,6 +385,7 @@ impl EngineClient {
         if matches!(
             command,
             EngineCommand::StartLive { .. }
+                | EngineCommand::StartPerformance { .. }
                 | EngineCommand::StartPlayback { .. }
                 | EngineCommand::StartCapture { .. }
         ) && self.live_lanes.shared.stop_pending()
@@ -365,6 +397,35 @@ impl EngineClient {
         }
         if self.dead.load(Ordering::Acquire) {
             return Err("Audio worker is disconnected; unsealed originals are retained".into());
+        }
+        if matches!(
+            command,
+            EngineCommand::StartLive { .. }
+                | EngineCommand::StartPlayback { .. }
+                | EngineCommand::StartCapture { .. }
+        ) && self
+            .live_lanes
+            .shared
+            .performance_active
+            .load(Ordering::Acquire)
+        {
+            return Err("Stop the retained performance and wait for its real acknowledgment before starting another session".into());
+        }
+        if let EngineCommand::StartPerformance { request } = &command {
+            self.live_lanes.shared.check_start(request)?;
+        }
+        if let EngineCommand::FinishPerformance {
+            start_id,
+            scope,
+            finish_id,
+        } = &command
+        {
+            if self.pending_panic.is_some() || self.live_lanes.shared.stop_pending() {
+                return Err("Finish is unavailable while Panic or Stop is pending".into());
+            }
+            self.live_lanes
+                .shared
+                .check_finish(*start_id, *scope, *finish_id)?;
         }
         let next = self
             .next
@@ -379,6 +440,12 @@ impl EngineClient {
             command: pending.command.clone(),
         }) {
             Ok(()) => {
+                if matches!(pending.command, EngineCommand::FinishPerformance { .. }) {
+                    self.live_lanes
+                        .shared
+                        .finishing
+                        .store(true, Ordering::Release);
+                }
                 self.pending = Some(pending);
                 self.next = next;
                 self.live_lanes.shared.notify();
@@ -488,6 +555,9 @@ impl EngineClient {
         if self.live_lanes.shared.stop_pending() {
             return Err(LiveSubmitError::PanicPending);
         }
+        if self.live_lanes.shared.finishing.load(Ordering::Acquire) {
+            return Err(LiveSubmitError::FinishPending);
+        }
         if !self.live_lanes.shared.live_active.load(Ordering::Acquire) {
             return Err(LiveSubmitError::NotLive);
         }
@@ -535,6 +605,9 @@ impl EngineClient {
         }
         if self.live_lanes.shared.stop_pending() || self.pending_panic.is_some() {
             return Err(LiveSubmitError::PanicPending);
+        }
+        if self.live_lanes.shared.finishing.load(Ordering::Acquire) {
+            return Err(LiveSubmitError::FinishPending);
         }
         if !self.live_lanes.shared.live_active.load(Ordering::Acquire) {
             return Err(LiveSubmitError::NotLive);
@@ -594,6 +667,7 @@ impl EngineClient {
         }
     }
     pub fn try_poll_update(&mut self) -> Option<EngineUpdate> {
+        self.adopt_performance_ready();
         let update = {
             let slot = self.live_lanes.shared.latest.try_lock().ok()?;
             let value = (*slot)?;
@@ -629,6 +703,44 @@ impl EngineClient {
         }
         self.live_lanes.shared.notify();
         Some(update)
+    }
+
+    fn adopt_performance_ready(&mut self) {
+        let Some(status) = self.live_lanes.shared.performance_snapshot() else {
+            return;
+        };
+        let Some(ready) = &status.ready else {
+            return;
+        };
+        // Initial native readiness is installed ONCE. Later heartbeats must not
+        // rewind parent sequence, credits or an acknowledged Panic generation.
+        if self
+            .performance_ready
+            .is_none_or(|scope| scope.session_id != ready.scope.session_id)
+            && !self.live_lanes.shared.stop_pending()
+            && self
+                .live_lanes
+                .shared
+                .performance_active
+                .load(Ordering::Acquire)
+            && self.live_lanes.shared.live_active.load(Ordering::Acquire)
+        {
+            self.ready = Some(ready.clone());
+            self.parent_next = ready.progress.next_sequence().unwrap_or(u64::MAX);
+            self.performance_ready = Some(ready.scope);
+        }
+    }
+    /// Coalesced authenticated stage/status, retained even after actor retirement.
+    /// It is an observation, never normal-seal or native-retirement authority.
+    pub fn try_performance_update(&mut self) -> Option<PerformanceStatus> {
+        self.adopt_performance_ready();
+        let status = self.live_lanes.shared.performance_snapshot()?;
+        let key = (status.identity.start_id, status.revision);
+        if self.seen_performance == Some(key) {
+            return None;
+        }
+        self.seen_performance = Some(key);
+        Some(status)
     }
 
     pub fn is_retired(&self) -> bool {
@@ -684,6 +796,8 @@ mod tests {
                 next_urgent: 1,
                 pending_panic: None,
                 seen_update: 0,
+                seen_performance: None,
+                performance_ready: None,
             },
             rx,
             reply_tx,
@@ -847,5 +961,255 @@ mod tests {
                 .is_ok()
         );
         assert!(response(EngineResult::Playing(status)).validate().is_err());
+    }
+    #[test]
+    fn performance_start_is_prompt_but_notes_wait_for_authenticated_async_ready() {
+        let (mut client, requests, replies) = peer();
+        let root = std::path::Path::new("/synthetic-native");
+        let (start, starting, recording) =
+            live_supervisor::performance_fixture(client.live_lanes.shared.generation, root);
+        client
+            .try_submit(EngineCommand::StartPerformance {
+                request: start.clone(),
+            })
+            .unwrap();
+        let pending = requests.try_recv().unwrap();
+        client
+            .live_lanes
+            .shared
+            .register_start(&start, root)
+            .unwrap();
+        client
+            .live_lanes
+            .shared
+            .publish_performance(&starting)
+            .unwrap();
+        replies
+            .send(Event::Completed(EngineReply {
+                request_id: pending.id,
+                result: Ok(EngineResult::Performance(Box::new(starting))),
+            }))
+            .unwrap();
+        assert!(
+            matches!(client.try_poll().unwrap().result,Ok(EngineResult::Performance(status)) if status.phase==PerformancePhase::Starting && status.ready.is_none())
+        );
+        assert!(client.ready.is_none());
+        assert_eq!(
+            client.try_push_live(LiveBatch::empty(
+                recording.ready.as_ref().unwrap().scope,
+                1,
+                None
+            )),
+            Err(LiveSubmitError::NotLive)
+        );
+        let first = client
+            .live_lanes
+            .shared
+            .publish_performance(&recording)
+            .unwrap();
+        assert!(first);
+        client
+            .live_lanes
+            .shared
+            .publish(
+                EngineUpdate {
+                    worker_generation: client.live_lanes.shared.generation,
+                    revision: 1,
+                    live: recording.live,
+                    urgent: UrgentProgress::default(),
+                    first_fault: None,
+                },
+                first,
+            )
+            .unwrap();
+        client
+            .live_lanes
+            .shared
+            .live_active
+            .store(true, Ordering::Release);
+        assert_eq!(client.try_performance_update().unwrap(), recording);
+        assert!(client.ready.is_some());
+        assert!(client.try_performance_update().is_none());
+        // After retirement the stable retained original still has a checked
+        // identity; no new worker or device setup is triggered by observation.
+        client.dead.store(true, Ordering::Release);
+        client.seen_performance = None;
+        assert_eq!(
+            client.try_performance_update().unwrap().identity,
+            recording.identity
+        );
+    }
+    #[test]
+    fn parent_finish_closes_notes_and_panic_before_worker_dispatch_and_stays_closed_on_error() {
+        let (mut client, requests, replies) = peer();
+        let root = std::path::Path::new("/synthetic-native");
+        let (start, _, recording) =
+            live_supervisor::performance_fixture(client.live_lanes.shared.generation, root);
+        client
+            .live_lanes
+            .shared
+            .register_start(&start, root)
+            .unwrap();
+        client
+            .live_lanes
+            .shared
+            .publish_performance(&recording)
+            .unwrap();
+        client
+            .live_lanes
+            .shared
+            .publish(
+                EngineUpdate {
+                    worker_generation: client.live_lanes.shared.generation,
+                    revision: 1,
+                    live: recording.live,
+                    urgent: UrgentProgress::default(),
+                    first_fault: None,
+                },
+                true,
+            )
+            .unwrap();
+        client
+            .live_lanes
+            .shared
+            .live_active
+            .store(true, Ordering::Release);
+        client.try_performance_update().unwrap();
+        let scope = recording.ready.as_ref().unwrap().scope;
+        // Keep the real bounded live receiver alive to model a held supervisor
+        // without replacing the authenticated Shared state above.
+        let (tx, held_live) = mpsc::sync_channel(LIVE_QUEUE_BATCHES);
+        client.live_lanes.live = tx;
+        client
+            .try_push_live(LiveBatch::empty(scope, 1, None))
+            .unwrap();
+        client
+            .try_submit(EngineCommand::FinishPerformance {
+                start_id: start.id,
+                scope,
+                finish_id: LiveId([13; 16]),
+            })
+            .unwrap();
+        assert_eq!(
+            client.try_push_live(LiveBatch::empty(scope, 2, None)),
+            Err(LiveSubmitError::FinishPending)
+        );
+        assert_eq!(
+            client.request_panic_live(scope),
+            Err(LiveSubmitError::FinishPending)
+        );
+        assert_eq!(held_live.try_recv().unwrap().sequence, 1);
+        let pending = requests.try_recv().unwrap();
+        assert!(matches!(
+            pending.command,
+            EngineCommand::FinishPerformance { .. }
+        ));
+        replies
+            .send(Event::Completed(EngineReply {
+                request_id: pending.id,
+                result: Err("Retained original; completion uncertain".into()),
+            }))
+            .unwrap();
+        assert!(client.try_poll().unwrap().result.is_err());
+        assert_eq!(
+            client.try_push_live(LiveBatch::empty(scope, 2, None)),
+            Err(LiveSubmitError::FinishPending)
+        );
+        assert_eq!(client.parent_next, 2);
+        let stop = client.request_stop().unwrap();
+        assert_eq!(client.request_stop().unwrap(), stop);
+        assert!(
+            client
+                .try_submit(EngineCommand::StartPerformance {
+                    request: PerformanceStart {
+                        id: LiveId([14; 16]),
+                        ..start
+                    }
+                })
+                .is_err()
+        );
+    }
+    #[test]
+    fn performance_heartbeats_never_rewind_parent_sequence_or_acknowledged_panic_scope() {
+        let (mut client, _, _) = peer();
+        let root = std::path::Path::new("/synthetic-native");
+        let (start, _, mut status) =
+            live_supervisor::performance_fixture(client.live_lanes.shared.generation, root);
+        client
+            .live_lanes
+            .shared
+            .register_start(&start, root)
+            .unwrap();
+        client
+            .live_lanes
+            .shared
+            .publish_performance(&status)
+            .unwrap();
+        client
+            .live_lanes
+            .shared
+            .live_active
+            .store(true, Ordering::Release);
+        client.try_performance_update().unwrap();
+        client.parent_next = 8;
+        status.revision += 1;
+        status.live.as_mut().unwrap().worker_accepted_sequence = Some(7);
+        client
+            .live_lanes
+            .shared
+            .publish_performance(&status)
+            .unwrap();
+        client.try_performance_update().unwrap();
+        assert_eq!(client.parent_next, 8);
+        let old_scope = client.ready.as_ref().unwrap().scope;
+        let next_scope = LiveScope {
+            panic_generation: 2,
+            ..old_scope
+        };
+        let (admission, _renderer) = crate::live::live_pair(next_scope, 48000, 1).unwrap();
+        let ticket = UrgentTicket {
+            worker_generation: old_scope.worker_generation,
+            id: 1,
+        };
+        client.pending_panic = Some(PanicRequest {
+            ticket,
+            scope: old_scope,
+        });
+        client
+            .live_lanes
+            .shared
+            .publish(
+                EngineUpdate {
+                    worker_generation: old_scope.worker_generation,
+                    revision: 1,
+                    live: Some(admission.progress()),
+                    urgent: UrgentProgress {
+                        stop: None,
+                        panic: Some(PanicAck {
+                            ticket,
+                            requested_scope: old_scope,
+                            outcome: PanicOutcome::Applied {
+                                new_scope: next_scope,
+                            },
+                        }),
+                    },
+                    first_fault: None,
+                },
+                true,
+            )
+            .unwrap();
+        client.try_poll_update().unwrap();
+        assert_eq!(client.ready.as_ref().unwrap().scope, next_scope);
+        assert_eq!(client.parent_next, 1);
+        status.revision += 1;
+        status.live = Some(admission.progress());
+        client
+            .live_lanes
+            .shared
+            .publish_performance(&status)
+            .unwrap();
+        client.try_performance_update().unwrap();
+        assert_eq!(client.ready.as_ref().unwrap().scope, next_scope);
+        assert_eq!(client.parent_next, 1);
     }
 }

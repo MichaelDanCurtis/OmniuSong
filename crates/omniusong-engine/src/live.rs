@@ -154,6 +154,21 @@ pub struct LiveControl {
     finish: FinishPublication,
 }
 impl LiveControl {
+    /// Observe only this renderer's immutable Finish publication, with faults
+    /// and tap cancellation vetoing even a previously retained acknowledgment.
+    pub(crate) fn finish_ack(
+        &self,
+        tap: &crate::performance_tap::TapControl,
+    ) -> Result<Option<TapFinish>, LiveSubmitError> {
+        if self.faulted() || tap.status().is_err() {
+            return Err(LiveSubmitError::Faulted);
+        }
+        let ack = self.finish.acknowledgment(self.base);
+        if self.faulted() || tap.status().is_err() {
+            return Err(LiveSubmitError::Faulted);
+        }
+        Ok(ack)
+    }
     pub fn frames(&self) -> u64 {
         self.frames.load(Ordering::Acquire)
     }

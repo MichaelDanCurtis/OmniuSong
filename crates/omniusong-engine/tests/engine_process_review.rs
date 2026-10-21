@@ -26,7 +26,7 @@ impl Validate for ProbeRequest {
     }
 }
 impl WirePayload for ProbeRequest {
-    const PROTOCOL: &'static str = "omniusong.engine-control.v1";
+    const PROTOCOL: &'static str = "omniusong.engine-control.v2";
     const MAX_BYTES: usize = 64 * 1024;
 }
 #[derive(Deserialize, Serialize)]
@@ -40,7 +40,7 @@ impl Validate for ProbeResponse {
     }
 }
 impl WirePayload for ProbeResponse {
-    const PROTOCOL: &'static str = "omniusong.engine-reply.v1";
+    const PROTOCOL: &'static str = "omniusong.engine-reply.v2";
     const MAX_BYTES: usize = 64 * 1024;
 }
 const HEARTBEAT_FAULT: &str = "Synthetic output callback fault observed by internal heartbeat";
@@ -112,7 +112,7 @@ fn private_worker_helper() {
             },
             build_id: ENGINE_BUILD_ID.into(),
             limits: default_worker_limits(),
-            capabilities: vec!["native-audio-control-v1".into()],
+            capabilities: vec!["native-audio-control-v2".into()],
         },
         Duration::from_secs(5),
     )

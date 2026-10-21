@@ -83,6 +83,9 @@ fn device(input: bool, selected: Option<&str>) -> Result<cpal::Device, String> {
     }
     Err("Selected endpoint is unavailable or not capable of the requested direction".into())
 }
+pub(crate) fn output_device(selected: Option<&str>) -> Result<cpal::Device, String> {
+    device(false, selected)
+}
 fn root_existing(root: &Path) -> Result<PathBuf, String> {
     let metadata = fs::symlink_metadata(root).map_err(|e| e.to_string())?;
     if !metadata.is_dir() || metadata.file_type().is_symlink() {
@@ -616,8 +619,18 @@ impl LiveOutput {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct PendingPerformanceStop {
+    ticket: UrgentTicket,
+    cancelled_through_control: u64,
+    superseded_panic: Option<(UrgentTicket, LiveScope)>,
+}
 struct Runtime {
     generation: LiveId,
+    performance: Option<crate::performance_session::PerformanceSession>,
+    performance_request: Option<PerformanceStart>,
+    performance_announced: bool,
+    pending_performance_stop: Option<PendingPerformanceStop>,
     live: Option<LiveOutput>,
     last_live: Option<LiveProgress>,
     first_fault: Option<LiveFault>,
@@ -637,6 +650,10 @@ impl Runtime {
         let store = NativeStore::open_existing(&root).map_err(|e| e.to_string())?;
         Ok(Self {
             generation,
+            performance: None,
+            performance_request: None,
+            performance_announced: false,
+            pending_performance_stop: None,
             live: None,
             last_live: None,
             first_fault: None,
@@ -652,6 +669,9 @@ impl Runtime {
         })
     }
     fn stop(&mut self) -> Result<(), String> {
+        if let Some(session) = &mut self.performance {
+            session.cancel("Stop requested; original performance retained");
+        }
         let mut failure = None;
         if let Some(c) = self.capture.take()
             && let Err(e) = c.finish(false)
@@ -709,10 +729,61 @@ impl Runtime {
         }))
     }
     fn update(&mut self) -> Result<EngineUpdate, String> {
+        let performance = if let Some(session) = &mut self.performance {
+            if let Some((ticket, scope)) = self.pending_panic {
+                match session.finish_panic() {
+                    Ok(Some(progress)) => {
+                        self.urgent.panic = Some(PanicAck {
+                            ticket,
+                            requested_scope: scope,
+                            outcome: PanicOutcome::Applied {
+                                new_scope: progress.scope,
+                            },
+                        });
+                        self.pending_panic = None;
+                    }
+                    Ok(None) => {}
+                    Err(_) => {
+                        session.cancel("Performance Panic failed; originals retained");
+                    }
+                }
+            }
+            let status = session.snapshot();
+            if session.is_quiescent()
+                && let Some(stop) = self.pending_performance_stop.take()
+            {
+                let PendingPerformanceStop {
+                    ticket,
+                    cancelled_through_control,
+                    superseded_panic: superseded,
+                } = stop;
+                self.urgent.stop = Some(StopAck {
+                    ticket,
+                    cancelled_through_control,
+                });
+                if let Some((panic_ticket, scope)) = superseded.or(self.pending_panic.take()) {
+                    self.urgent.panic = Some(PanicAck {
+                        ticket: panic_ticket,
+                        requested_scope: scope,
+                        outcome: PanicOutcome::SupersededByStop {
+                            stop_ticket: ticket,
+                        },
+                    });
+                }
+            }
+            if self.performance_announced {
+                status.live
+            } else {
+                None
+            }
+        } else {
+            None
+        };
         let progress = self
             .live
             .as_ref()
             .map(|live| live.admission.progress())
+            .or(performance)
             .or(self.last_live);
         if self.first_fault.is_none() {
             self.first_fault = progress.and_then(|p| p.fault);
@@ -734,19 +805,33 @@ impl Runtime {
             return Err("Audio worker generation is retired".into());
         }
         match action {
-            Action::LiveBatch { batch } => self
-                .live
-                .as_mut()
-                .ok_or("Live audition is not active")?
-                .admission
-                .admit(batch)
-                .map(EngineResult::LiveStatus)
-                .map_err(|e| e.to_string()),
+            Action::LiveBatch { batch } => {
+                if let Some(session) = &mut self.performance {
+                    session
+                        .admit(batch)
+                        .map(EngineResult::LiveStatus)
+                        .map_err(|e| e.to_string())
+                } else {
+                    self.live
+                        .as_mut()
+                        .ok_or("Live audition is not active")?
+                        .admission
+                        .admit(batch)
+                        .map(EngineResult::LiveStatus)
+                        .map_err(|e| e.to_string())
+                }
+            }
             Action::LiveFault {
                 scope,
                 kind,
                 sequence,
             } => {
+                if let Some(session) = &mut self.performance {
+                    return session
+                        .fault(scope, kind, sequence)
+                        .map(EngineResult::LiveStatus)
+                        .map_err(|e| e.to_string());
+                }
                 let live = self.live.as_mut().ok_or("Live audition is not active")?;
                 if live.admission.scope() != scope {
                     return Err("Stale live fault scope".into());
@@ -757,6 +842,21 @@ impl Runtime {
             Action::PanicLive { ticket, scope } => {
                 if ticket.worker_generation != self.generation {
                     return Err("Stale panic worker generation".into());
+                }
+                if let Some(session) = &mut self.performance {
+                    if self
+                        .pending_panic
+                        .is_some_and(|pending| pending != (ticket, scope))
+                    {
+                        return Err("Another Performance Panic is pending".into());
+                    }
+                    session.begin_panic(scope).map_err(|e| e.to_string())?;
+                    self.pending_panic = Some((ticket, scope));
+                    return session
+                        .snapshot()
+                        .live
+                        .map(EngineResult::LiveStatus)
+                        .ok_or("Performance is not ready".into());
                 }
                 let live = self.live.as_mut().ok_or("Live audition is not active")?;
                 if live.admission.scope() != scope {
@@ -781,6 +881,22 @@ impl Runtime {
             } => {
                 if ticket.worker_generation != self.generation {
                     return Err("Stale Stop worker generation".into());
+                }
+                if let Some(session) = &mut self.performance {
+                    let pending = PendingPerformanceStop {
+                        ticket,
+                        cancelled_through_control,
+                        superseded_panic,
+                    };
+                    if let Some(previous) = self.pending_performance_stop
+                        && previous != pending
+                    {
+                        return Err("Another Performance Stop is pending".into());
+                    }
+                    self.pending_performance_stop = Some(pending);
+                    let status =
+                        session.cancel("Urgent Stop requested; original performance retained");
+                    return Ok(EngineResult::Performance(Box::new(status)));
                 }
                 self.stop()?;
                 let panic = superseded_panic.or(self.pending_panic.take());
@@ -807,9 +923,91 @@ impl Runtime {
             return Err("Audio worker generation is retired; no new control admission".into());
         }
         match command {
+            EngineCommand::StartPerformance { request } => {
+                if self
+                    .performance_request
+                    .as_ref()
+                    .is_some_and(|old| old.id == request.id)
+                {
+                    if self
+                        .performance
+                        .as_ref()
+                        .is_none_or(|s| s.request() != &request)
+                    {
+                        return Err("Start ID already binds a different performance intent".into());
+                    }
+                    return self
+                        .performance
+                        .as_mut()
+                        .map(|s| EngineResult::Performance(Box::new(s.snapshot())))
+                        .ok_or("Performance identity unavailable".into());
+                }
+                if self.capture.is_some()
+                    || self.playback.is_some()
+                    || self.live.is_some()
+                    || self.performance.as_ref().is_some_and(|s| !s.is_quiescent())
+                    || self.pending_performance_stop.is_some()
+                    || self.pending_panic.is_some()
+                {
+                    return Err(
+                        "Stop the active audio session before recording a performance".into(),
+                    );
+                }
+                let mut session = crate::performance_session::PerformanceSession::start(
+                    &self.root,
+                    self.generation,
+                    request.clone(),
+                    self.retire.clone(),
+                )?;
+                let status = session.snapshot();
+                if let Some(previous) = &mut self.performance {
+                    self.last_live = previous.snapshot().live.or(self.last_live);
+                }
+                self.performance = Some(session);
+                self.performance_request = Some(request);
+                self.performance_announced = false;
+                self.last = None;
+                Ok(EngineResult::Performance(Box::new(status)))
+            }
+            EngineCommand::FinishPerformance {
+                start_id,
+                scope,
+                finish_id,
+            } => {
+                if self
+                    .performance_request
+                    .as_ref()
+                    .is_none_or(|r| r.id != start_id)
+                {
+                    return Err("Stale Performance Finish identity".into());
+                }
+                let status = self
+                    .performance
+                    .as_mut()
+                    .ok_or("No performance exists")?
+                    .begin_finish(scope, finish_id)?;
+                Ok(EngineResult::Performance(Box::new(status)))
+            }
+            EngineCommand::PerformanceStatus { start_id } => {
+                if self
+                    .performance_request
+                    .as_ref()
+                    .is_none_or(|r| r.id != start_id)
+                {
+                    return Err("Stale Performance status identity".into());
+                }
+                Ok(EngineResult::Performance(Box::new(
+                    self.performance
+                        .as_mut()
+                        .ok_or("No performance exists")?
+                        .snapshot(),
+                )))
+            }
             EngineCommand::Devices => Ok(EngineResult::Devices(inventory()?)),
             EngineCommand::Status => {
-                if let Some(live) = &self.live {
+                if let Some(session) = &mut self.performance {
+                    Ok(EngineResult::Performance(Box::new(session.snapshot())))
+                } else if let Some(live) = &self.live {
                     Ok(EngineResult::LiveStatus(live.admission.progress()))
                 } else {
                     Ok(EngineResult::Status(self.status()?))
@@ -819,7 +1017,12 @@ impl Runtime {
                 output_device,
                 gui_clock,
             } => {
-                if self.capture.is_some() || self.playback.is_some() || self.live.is_some() {
+                if self.capture.is_some()
+                    || self.playback.is_some()
+                    || self.live.is_some()
+                    || self.performance.as_ref().is_some_and(|s| !s.is_quiescent())
+                    || self.pending_performance_stop.is_some()
+                {
                     return Err("Stop the active audio session before live audition".into());
                 }
                 let live = LiveOutput::start(
@@ -834,6 +1037,8 @@ impl Runtime {
                     return Err("Live output faulted before start acknowledgment".into());
                 }
                 self.live = Some(live);
+                self.performance = None;
+                self.performance_request = None;
                 self.last_live = None;
                 self.first_fault = None;
                 self.last = None;
@@ -841,16 +1046,28 @@ impl Runtime {
             }
             EngineCommand::Stop => {
                 self.stop()?;
+                if let Some(session) = &mut self.performance
+                    && !session.is_quiescent()
+                {
+                    return Ok(EngineResult::Performance(Box::new(session.snapshot())));
+                }
                 Ok(EngineResult::Stopped)
             }
             EngineCommand::StartCapture { input_device } => {
-                if self.capture.is_some() || self.playback.is_some() || self.live.is_some() {
+                if self.capture.is_some()
+                    || self.playback.is_some()
+                    || self.live.is_some()
+                    || self.performance.as_ref().is_some_and(|s| !s.is_quiescent())
+                    || self.pending_performance_stop.is_some()
+                {
                     return Err("Solo capture requires stopped playback and no active take".into());
                 }
                 let mut capture =
                     Capture::start(&self.root, input_device.as_deref(), self.retire.clone())?;
                 let status = capture.status();
                 self.capture = Some(capture);
+                self.performance = None;
+                self.performance_request = None;
                 self.last = None;
                 Ok(EngineResult::Capturing(status))
             }
@@ -866,7 +1083,12 @@ impl Runtime {
                 project_id,
                 output_device,
             } => {
-                if self.capture.is_some() || self.playback.is_some() || self.live.is_some() {
+                if self.capture.is_some()
+                    || self.playback.is_some()
+                    || self.live.is_some()
+                    || self.performance.as_ref().is_some_and(|s| !s.is_quiescent())
+                    || self.pending_performance_stop.is_some()
+                {
                     return Err("Stop the active audio session before starting playback".into());
                 }
                 let device = device(false, output_device.as_deref())?;
@@ -950,9 +1172,23 @@ impl Runtime {
                 };
                 let status = playback.status();
                 self.playback = Some(playback);
+                self.performance = None;
+                self.performance_request = None;
                 self.last = None;
                 Ok(EngineResult::Playing(status))
             }
+        }
+    }
+    fn observe_result(&mut self, result: &Result<EngineResult, String>) {
+        if let Ok(EngineResult::Performance(status)) = result
+            && status.ready.is_some()
+            && !self.performance_announced
+        {
+            // Publish a new live scope only alongside a response carrying its
+            // authenticated real Ready, never a raced Starting response.
+            self.performance_announced = true;
+            self.first_fault = None;
+            self.last_live = None;
         }
     }
 }
@@ -1013,7 +1249,7 @@ pub fn run_worker() -> Result<(), String> {
             architecture: architecture(),
             build_id: BUILD.into(),
             limits: default_worker_limits(),
-            capabilities: vec!["native-audio-control-v1".into(), LIVE_PROTOCOL.into()],
+            capabilities: vec!["native-audio-control-v2".into(), LIVE_PROTOCOL.into()],
         },
         Duration::from_secs(5),
     )
@@ -1072,6 +1308,9 @@ pub fn run_worker() -> Result<(), String> {
                 e
             }
         });
+        if let Some(runtime) = &mut runtime {
+            runtime.observe_result(&result);
+        }
         let sent = connection.send_payload(
             Response {
                 update: runtime.as_mut().and_then(|r| r.update().ok()),

@@ -3,9 +3,9 @@
 use crate::{live_types::*, performance_records::*, performance_tap::*};
 use omniusong_core::contracts::{CapturedEvent, Envelope, HostTimestamp};
 use omniusong_recording::{
-    AppendChunk, CHUNK_VERSION, CaptureReader, ChunkHeader, ChunkKind, ChunkRecord, Journal,
-    MAX_AUDIO_CHUNK_BYTES, MAX_EVENT_CHUNK_BYTES, RecoveryPrefix, SealedManifest, SourcePosition,
-    SourceRange, StreamPrefix, TakeDescriptor,
+    AppendChunk, CHUNK_VERSION, CaptureReader, ChunkHeader, ChunkKind, ChunkRecord, CompletePrefix,
+    Journal, MAX_AUDIO_CHUNK_BYTES, MAX_EVENT_CHUNK_BYTES, RecoveryPrefix, SealedManifest,
+    SourcePosition, SourceRange, StreamPrefix, TakeDescriptor,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -445,6 +445,9 @@ pub struct PerformanceWriter {
     progress: WriterProgress,
     group_sequence: u64,
     pending_request: Option<(Vec<OwnedChunk>, PerformanceCheckpoint, String)>,
+    // Retained before the final transaction, including committed-but-unacked
+    // failures. Never reconstruct from a shorter/recovered prefix on retry.
+    pending_seal: Option<(String, CompletePrefix)>,
 }
 impl PerformanceWriter {
     pub fn create(path: &Path, config: PerformanceConfig) -> Result<Self> {
@@ -488,6 +491,7 @@ impl PerformanceWriter {
             },
             group_sequence: 0,
             pending_request: None,
+            pending_seal: None,
         })
     }
     pub fn path(&self) -> &Path {
@@ -498,6 +502,94 @@ impl PerformanceWriter {
     }
     pub fn progress(&self) -> WriterProgress {
         self.progress.clone()
+    }
+    pub(crate) fn seal_native(
+        &mut self,
+        permit: &crate::performance_session::NativeSealPermit,
+    ) -> Result<crate::CapturedTake> {
+        let cut = permit.cut();
+        let descriptor_hash = self.descriptor.sha256().map_err(|e| e.to_string())?;
+        check(
+            self.profile == PerformanceProfile::FinishV2
+                && self.descriptor.take_id.0 == permit.take_id()
+                && descriptor_hash == permit.descriptor_sha256()
+                && self.context.finish == Some(cut)
+                && self.progress.finish_cut == Some(cut)
+                && self.context.scope == cut.fence.scope
+                && self.context.applied == cut.fence.accepted_sequence
+                && self.context.frame == cut.cut_frame
+                && self.current.is_none()
+                && self.pending_request.is_none()
+                && self.members.is_empty()
+                && self.progress.first_error.is_none()
+                && self.progress.capture_fault.is_none()
+                && !self.progress.capture_fault_pending
+                && self.progress.complete_frames == cut.cut_frame
+                && self.progress.durable_frames == cut.cut_frame
+                && self.progress.complete_callbacks == cut.callback_index
+                && self.progress.durable_callbacks == cut.callback_index
+                && self.progress.checkpoint_sha256.is_some(),
+            "Normal performance sealing requires the exact healthy durable Finish",
+        )?;
+        if self.pending_seal.is_none() {
+            let inspection = {
+                let view = self.journal.inspect_owned().map_err(|e| e.to_string())?;
+                inspect_performance_snapshot(view.inspection(), |ordinal| {
+                    view.read_ordinal(ordinal).map_err(|e| e.to_string())
+                })?
+            };
+            let complete = self.journal.complete_prefix().map_err(|e| e.to_string())?;
+            check(
+                inspection.problem.is_none()
+                    && inspection.descriptor_sha256 == descriptor_hash
+                    && inspection.original_rows_sha256 == complete.original_rows_sha256
+                    && inspection.selection.as_ref() == Some(&complete.prefix)
+                    && inspection.finish_cut == Some(cut)
+                    && inspection.checkpoint_sha256 == self.progress.checkpoint_sha256,
+                "Normal performance full-prefix semantic review differs",
+            )?;
+            let mut digest = Sha256::new();
+            digest.update(b"OmniuSong.native-performance-finish.v2\0");
+            for field in [
+                serde_json::to_vec(&permit.start_id()).map_err(|e| e.to_string())?,
+                serde_json::to_vec(&cut).map_err(|e| e.to_string())?,
+                serde_json::to_vec(&complete).map_err(|e| e.to_string())?,
+                self.progress
+                    .checkpoint_sha256
+                    .as_ref()
+                    .unwrap()
+                    .as_bytes()
+                    .to_vec(),
+            ] {
+                digest.update((field.len() as u64).to_le_bytes());
+                digest.update(field);
+            }
+            self.pending_seal = Some((format!("native-finish:{:x}", digest.finalize()), complete));
+        }
+        let (operation, complete) = self.pending_seal.as_ref().unwrap();
+        // The concrete native owner minted this permit only after actual
+        // closure retirement. The cancellation CAS is the final seal gate.
+        permit.authorize_seal()?;
+        let manifest = self
+            .journal
+            .seal_complete_prefix(operation, complete)
+            .map_err(|e| e.to_string())?;
+        check(
+            manifest.body.interrupted.is_none()
+                && manifest.body.descriptor_sha256 == descriptor_hash
+                && manifest.body.chunk_count == complete.prefix.chunk_count
+                && manifest.body.chunk_index_sha256 == complete.prefix.chunk_index_sha256,
+            "Normal performance manifest differs from the retained request",
+        )?;
+        Ok(crate::CapturedTake {
+            journal_path: self.path().to_owned(),
+            take_id: self.descriptor.take_id.0.clone(),
+            manifest_sha256: manifest.sha256,
+            frames: cut.cut_frame,
+            sample_rate: self.config.info.sample_rate,
+            channels: self.config.info.channels,
+            gap_frames: 0,
+        })
     }
     fn latch<T>(&mut self, result: Result<T>) -> Result<T> {
         if let Err(error) = &result
@@ -1244,7 +1336,14 @@ fn verify_group(
 /// Read-only semantic review. A generic chunk prefix is NOT a performance
 /// checkpoint; preserve all rows while selecting the last complete six-stream group.
 pub fn inspect_performance(reader: &CaptureReader) -> Result<PerformanceInspection> {
-    let inspection = reader.inspection();
+    inspect_performance_snapshot(reader.inspection(), |ordinal| {
+        reader.read_ordinal(ordinal).map_err(|e| e.to_string())
+    })
+}
+fn inspect_performance_snapshot(
+    inspection: &omniusong_recording::JournalInspection,
+    mut read_ordinal: impl FnMut(u64) -> Result<ChunkRecord>,
+) -> Result<PerformanceInspection> {
     let config = from_descriptor(&inspection.descriptor)?;
     let profile = descriptor_profile(&inspection.descriptor)?;
     let mut result = PerformanceInspection {
@@ -1271,7 +1370,7 @@ pub fn inspect_performance(reader: &CaptureReader) -> Result<PerformanceInspecti
     index_hash.update(inspection.descriptor_sha256.as_bytes());
     for ordinal in 1..=inspection.report.verified_chunks {
         let checked = (|| -> Result<()> {
-            let chunk = reader.read_ordinal(ordinal).map_err(|e| e.to_string())?;
+            let chunk = read_ordinal(ordinal)?;
             let index = STREAM_IDS
                 .iter()
                 .position(|s| *s == chunk.header.stream_id)

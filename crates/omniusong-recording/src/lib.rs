@@ -4,7 +4,7 @@ mod journal;
 mod snapshot;
 mod types;
 
-pub use inspection::{CaptureReader, JournalInspection};
+pub use inspection::{CaptureReader, JournalInspection, OwnedJournalView};
 pub use journal::Journal;
 pub use snapshot::{BackupReceipt, SealedJournal};
 pub use types::*;

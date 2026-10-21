@@ -23,7 +23,7 @@ impl Validate for Request {
     }
 }
 impl WirePayload for Request {
-    const PROTOCOL: &'static str = "omniusong.engine-control.v1";
+    const PROTOCOL: &'static str = "omniusong.engine-control.v2";
     const MAX_BYTES: usize = 64 * 1024;
 }
 #[derive(Deserialize, Serialize)]
@@ -37,7 +37,7 @@ impl Validate for Response {
     }
 }
 impl WirePayload for Response {
-    const PROTOCOL: &'static str = "omniusong.engine-reply.v1";
+    const PROTOCOL: &'static str = "omniusong.engine-reply.v2";
     const MAX_BYTES: usize = 64 * 1024;
 }
 const REJECTION: &str = "Independent live peer rejected the exact admitted batch";

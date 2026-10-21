@@ -640,6 +640,31 @@ impl RecoveryPrefix {
         )
     }
 }
+/// Trusted storage receipt for a full, gap-free owned version-2 original.
+/// This is not native callback/stream-retirement or normal-seal authority.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CompletePrefix {
+    pub descriptor_sha256: String,
+    pub original_rows_sha256: String,
+    pub prefix: RecoveryPrefix,
+}
+impl CompletePrefix {
+    pub(crate) fn validate(&self) -> Result<()> {
+        self.prefix.validate()?;
+        require(
+            [&self.descriptor_sha256, &self.original_rows_sha256]
+                .iter()
+                .all(|hash| {
+                    hash.len() == 64
+                        && hash
+                            .bytes()
+                            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+                }),
+            "Complete prefix requires canonical descriptor and original-row SHA-256 values",
+        )
+    }
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InterruptedReceipt {

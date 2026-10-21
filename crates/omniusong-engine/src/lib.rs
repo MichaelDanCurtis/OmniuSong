@@ -8,7 +8,10 @@ pub mod live_types;
 pub use live_types::*;
 pub mod performance_records;
 pub mod performance_tap;
+pub mod performance_types;
 pub mod performance_writer;
+pub use performance_types::*;
+mod performance_session;
 pub mod waveform_types;
 pub use waveform_types::*;
 pub mod waveform;
@@ -24,6 +27,17 @@ pub enum EngineCommand {
     StartLive {
         output_device: Option<String>,
         gui_clock: LiveClock,
+    },
+    StartPerformance {
+        request: PerformanceStart,
+    },
+    FinishPerformance {
+        start_id: LiveId,
+        scope: LiveScope,
+        finish_id: LiveId,
+    },
+    PerformanceStatus {
+        start_id: LiveId,
     },
     Stop,
     StartCapture {
@@ -44,7 +58,7 @@ pub struct DeviceInventory {
     pub inputs: Vec<DeviceInfo>,
     pub outputs: Vec<DeviceInfo>,
 }
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct CaptureIdentity {
     pub journal_path: PathBuf,
@@ -85,6 +99,7 @@ pub enum EngineResult {
         worker_generation: LiveId,
     },
     LiveStarted(LiveReady),
+    Performance(Box<PerformanceStatus>),
     LiveStatus(LiveProgress),
     Devices(DeviceInventory),
     Playing(EngineStatus),

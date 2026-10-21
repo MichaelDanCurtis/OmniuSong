@@ -32,6 +32,56 @@ pub struct CaptureReader {
     owner: File,
     inspection: JournalInspection,
 }
+/// Consistent read-only access under an existing journal owner. This cannot be
+/// converted to a recovery writer and never releases/reacquires the owner lock.
+pub struct OwnedJournalView<'a> {
+    transaction: rusqlite::Transaction<'a>,
+    inspection: JournalInspection,
+}
+impl<'a> OwnedJournalView<'a> {
+    pub(crate) fn new(
+        connection: &'a Connection,
+        path: &Path,
+        descriptor: &TakeDescriptor,
+    ) -> Result<Self> {
+        let transaction = connection.unchecked_transaction()?;
+        require(
+            journal::load_descriptor(&transaction)? == *descriptor,
+            "Original descriptor changed after journal acquisition",
+        )?;
+        let inspection = inspect_connection(&transaction, path, descriptor)?;
+        Ok(Self {
+            transaction,
+            inspection,
+        })
+    }
+    pub fn inspection(&self) -> &JournalInspection {
+        &self.inspection
+    }
+    pub fn read_ordinal(&self, ordinal: u64) -> Result<ChunkRecord> {
+        read_ordinal(&self.transaction, &self.inspection, ordinal)
+    }
+}
+fn read_ordinal(
+    connection: &Connection,
+    inspection: &JournalInspection,
+    ordinal: u64,
+) -> Result<ChunkRecord> {
+    require(
+        ordinal > 0 && ordinal <= inspection.report.verified_chunks,
+        "Capture ordinal lies outside the held verified prefix",
+    )?;
+    let (stream, sequence): (String, u64) = connection.query_row(
+        "SELECT substr(stream_id,1,97),sequence FROM chunks WHERE ordinal=?1",
+        [journal::sql_integer(ordinal)?],
+        |row| Ok((row.get(0)?, journal::read_unsigned(row, 1)?)),
+    )?;
+    require(
+        stream.len() <= 96,
+        "Stored capture stream identity exceeds its bound",
+    )?;
+    journal::load_chunk(connection, &inspection.descriptor, &stream, sequence)
+}
 fn ordinary(path: &Path) -> Result<()> {
     let metadata = fs::symlink_metadata(path)?;
     require(
@@ -319,25 +369,7 @@ impl CaptureReader {
     }
     /// Read only a chunk already authenticated in this reader's held snapshot.
     pub fn read_ordinal(&self, ordinal: u64) -> Result<ChunkRecord> {
-        require(
-            ordinal > 0 && ordinal <= self.inspection.report.verified_chunks,
-            "Capture ordinal lies outside the held verified prefix",
-        )?;
-        let (stream, sequence): (String, u64) = self.connection.query_row(
-            "SELECT substr(stream_id,1,97),sequence FROM chunks WHERE ordinal=?1",
-            [journal::sql_integer(ordinal)?],
-            |row| Ok((row.get(0)?, journal::read_unsigned(row, 1)?)),
-        )?;
-        require(
-            stream.len() <= 96,
-            "Stored capture stream identity exceeds its bound",
-        )?;
-        journal::load_chunk(
-            &self.connection,
-            &self.inspection.descriptor,
-            &stream,
-            sequence,
-        )
+        read_ordinal(&self.connection, &self.inspection, ordinal)
     }
     /// Low-level seal operation. A caller replaying a prior review must also
     /// authenticate its retained original-row digest; NativeStore supplies that
