@@ -2,7 +2,7 @@
 //! process-local Copy storage, not a wire format, journal codec or heard-audio claim.
 use crate::live_types::{
     LIVE_MAX_CALLBACK_FRAMES, LIVE_MAX_SOURCES, LIVE_VOICES, LiveBatch, LiveFault, LiveFaultKind,
-    LiveScope,
+    LiveFinishFence, LiveFinishPolicy, LiveScope,
 };
 use rtrb::{Consumer, Producer, RingBuffer};
 use serde::{Deserialize, Serialize};
@@ -19,7 +19,7 @@ pub const TAP_PCM_FRAMES: usize = 256;
 pub const TAP_CHANNELS: usize = 8;
 pub const TAP_MAX_BATCHES: usize = 4;
 pub const TAP_TRANSITIONS: usize = 128;
-pub const TAP_CALLBACK_PACKETS: usize = 70;
+pub const TAP_CALLBACK_PACKETS: usize = 71;
 const WRITING: u32 = u32::MAX;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -94,6 +94,16 @@ pub struct TapEnd {
     pub transition_len: u16,
     pub first_fault: Option<LiveFault>,
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TapFinish {
+    pub fence: LiveFinishFence,
+    pub callback_index: u64,
+    pub cut_frame: u64,
+    pub voices_cut: u16,
+    pub release_tails_cut: u16,
+    pub policy: LiveFinishPolicy,
+}
 // Fixed Copy union is deliberate: callback transfer must never allocate or drop
 // heap owners. Both large variants fit the compile-checked16KiB packet budget.
 #[allow(clippy::large_enum_variant)]
@@ -105,6 +115,7 @@ pub enum PerformancePacketKind {
         disposition: BatchDisposition,
     },
     Pcm(TapPcm),
+    Finish(TapFinish),
     End(TapEnd),
 }
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -228,7 +239,7 @@ impl TapControl {
             callback_index: (index != 0).then_some(index),
         }))
     }
-    fn status(&self) -> Result<(), TapError> {
+    pub(crate) fn status(&self) -> Result<(), TapError> {
         if let Some(fault) = self.first_fault()? {
             return Err(TapError::Faulted(fault));
         }
@@ -363,6 +374,7 @@ struct ActiveCallback {
     batches: u8,
     pcm_frames: u64,
     reservation: usize,
+    finish: Option<TapFinish>,
 }
 pub(crate) struct PerformanceTapProducer {
     info: TapInfo,
@@ -372,6 +384,7 @@ pub(crate) struct PerformanceTapProducer {
     next_callback: u64,
     next_frame: u64,
     next_scope: LiveScope,
+    finished: bool,
 }
 pub(crate) fn tap_pair(
     info: TapInfo,
@@ -404,6 +417,7 @@ pub(crate) fn tap_pair(
             next_callback: 1,
             next_frame: 0,
             next_scope: info.scope,
+            finished: false,
         },
         PerformanceTapOwner {
             info,
@@ -422,6 +436,9 @@ fn same_session(left: LiveScope, right: LiveScope) -> bool {
         && left.session_id == right.session_id
 }
 impl PerformanceTapProducer {
+    pub(crate) fn status(&self) -> Result<(), TapError> {
+        self.control.status()
+    }
     pub fn fault(&self, kind: TapFaultKind, frame: u64) {
         self.control
             .latch(kind, frame, self.active.map(|active| active.index));
@@ -473,7 +490,7 @@ impl PerformanceTapProducer {
     /// Reserve the whole maximum callback transaction BEFORE renderer changes.
     pub fn begin_callback(&mut self, begin: TapBegin) -> Result<u64, TapError> {
         self.control.status()?;
-        if self.active.is_some() {
+        if self.active.is_some() || self.finished {
             return Err(self.malformed());
         }
         let frames = usize::from(begin.frames);
@@ -499,7 +516,7 @@ impl PerformanceTapProducer {
                 Some(self.next_callback),
             ));
         }
-        let reservation = 2 + TAP_MAX_BATCHES + frames.div_ceil(TAP_PCM_FRAMES);
+        let reservation = 3 + TAP_MAX_BATCHES + frames.div_ceil(TAP_PCM_FRAMES);
         if reservation > TAP_CALLBACK_PACKETS
             || self.producer.as_ref().expect("tap producer exists").slots() < reservation
         {
@@ -517,6 +534,7 @@ impl PerformanceTapProducer {
             batches: 0,
             pcm_frames: 0,
             reservation,
+            finish: None,
         });
         self.emit(PerformancePacketKind::Begin(begin))?;
         Ok(index)
@@ -528,7 +546,10 @@ impl PerformanceTapProducer {
     ) -> Result<(), TapError> {
         self.control.status()?;
         let active = self.active.ok_or_else(|| self.malformed())?;
-        if usize::from(active.batches) >= TAP_MAX_BATCHES || active.pcm_frames != 0 {
+        if usize::from(active.batches) >= TAP_MAX_BATCHES
+            || active.pcm_frames != 0
+            || active.finish.is_some()
+        {
             return Err(self.malformed());
         }
         if disposition == BatchDisposition::Applied
@@ -549,7 +570,8 @@ impl PerformanceTapProducer {
         let frames = usize::from(pcm.frames);
         let samples = frames.checked_mul(usize::from(pcm.channels));
         let next = active.pcm_frames.checked_add(u64::from(pcm.frames));
-        if frames == 0
+        if active.finish.is_some()
+            || frames == 0
             || frames > TAP_PCM_FRAMES
             || pcm.channels != self.info.channels
             || pcm.start_frame != active.begin.start_frame + active.pcm_frames
@@ -566,6 +588,25 @@ impl PerformanceTapProducer {
         }
         self.emit(PerformancePacketKind::Pcm(pcm))?;
         self.active.as_mut().expect("active callback").pcm_frames = next.expect("checked frames");
+        Ok(())
+    }
+    pub fn push_finish(&mut self, finish: TapFinish) -> Result<(), TapError> {
+        self.control.status()?;
+        let active = self.active.ok_or_else(|| self.malformed())?;
+        if active.finish.is_some()
+            || active.pcm_frames != u64::from(active.begin.frames)
+            || finish.callback_index != active.index
+            || finish.cut_frame != active.begin.start_frame + u64::from(active.begin.frames)
+            || finish.fence.scope != active.begin.scope
+            || !finish.fence.id.is_valid()
+            || finish.fence.accepted_sequence == Some(0)
+            || usize::from(finish.voices_cut) > LIVE_VOICES
+            || finish.release_tails_cut > finish.voices_cut
+        {
+            return Err(self.malformed());
+        }
+        self.emit(PerformancePacketKind::Finish(finish))?;
+        self.active.as_mut().expect("active callback").finish = Some(finish);
         Ok(())
     }
     pub fn end_callback(&mut self, end: TapEnd) -> Result<(), TapError> {
@@ -634,6 +675,16 @@ impl PerformanceTapProducer {
         }) {
             return Err(self.malformed());
         }
+        if active.finish.is_some_and(|finish| {
+            end.scope_after != finish.fence.scope
+                || end.applied_sequence != finish.fence.accepted_sequence
+                || end.active_voices != 0
+                || end.release_tail_voices != 0
+                || end.first_fault.is_some()
+                || end.clears.iter().any(Option::is_some)
+        }) {
+            return Err(self.malformed());
+        }
         let version = self.control.completed_version.load(Ordering::SeqCst);
         let Some(next_version) = version.checked_add(2) else {
             return Err(self.fail(
@@ -661,6 +712,7 @@ impl PerformanceTapProducer {
         self.next_frame = end.end_frame;
         self.next_scope = after;
         self.next_callback = active.index + 1;
+        self.finished = active.finish.is_some();
         self.active = None;
         Ok(())
     }
@@ -860,31 +912,187 @@ mod tests {
         assert_eq!(count, 70);
         drop(p);
     }
+    fn finish(info: TapInfo, frame: u64) -> TapFinish {
+        TapFinish {
+            fence: LiveFinishFence {
+                id: LiveId([3; 16]),
+                scope: info.scope,
+                accepted_sequence: None,
+            },
+            callback_index: 1,
+            cut_frame: frame,
+            voices_cut: 2,
+            release_tails_cut: 1,
+            policy: LiveFinishPolicy::CutAtCompleteCallbackEnd,
+        }
+    }
+    #[test]
+    fn finish_uses_the_seventy_first_reserved_slot_before_end_and_closes_the_tap() {
+        let i = info();
+        let (mut p, mut owner, _retention) = tap_pair(i).unwrap();
+        p.begin_callback(begin(i, 0, 16_384)).unwrap();
+        for sequence in 1..=4 {
+            p.push_batch(
+                LiveBatch::empty(i.scope, sequence, None),
+                BatchDisposition::Applied,
+            )
+            .unwrap();
+        }
+        for at in (0..16_384).step_by(256) {
+            p.push_pcm(pcm(i, at, 256)).unwrap();
+        }
+        let mut f = finish(i, 16_384);
+        f.fence.accepted_sequence = Some(4);
+        p.push_finish(f).unwrap();
+        let mut e = end(i, 16_384);
+        e.applied_sequence = Some(4);
+        p.end_callback(e).unwrap();
+        let mut packets = Vec::new();
+        while let Some(packet) = owner.try_pop().unwrap() {
+            packets.push(packet);
+        }
+        assert_eq!(packets.len(), 71);
+        for (ordinal, packet) in packets.iter().enumerate() {
+            assert_eq!(usize::from(packet.ordinal), ordinal);
+        }
+        assert_eq!(packets[69].kind, PerformancePacketKind::Finish(f));
+        assert_eq!(packets[70].kind, PerformancePacketKind::End(e));
+        assert_eq!(owner.control().snapshot().unwrap().completed_frames, 16_384);
+        assert!(matches!(
+            p.begin_callback(begin(i, 16_384, 1)),
+            Err(TapError::Faulted(TapFault {
+                kind: TapFaultKind::MalformedPacket,
+                ..
+            }))
+        ));
+        assert!(owner.try_pop().unwrap().is_none());
+    }
+    #[test]
+    fn malformed_early_duplicate_and_post_finish_payloads_never_publish_end() {
+        let i = info();
+        for case in 0..11 {
+            let (mut p, mut owner, _retention) = tap_pair(i).unwrap();
+            p.begin_callback(begin(i, 0, 1)).unwrap();
+            if case != 0 {
+                p.push_pcm(pcm(i, 0, 1)).unwrap();
+            }
+            let mut f = finish(i, 1);
+            let result = match case {
+                1..=3 => {
+                    p.push_finish(f).unwrap();
+                    match case {
+                        1 => p.push_finish(f),
+                        2 => p.push_pcm(pcm(i, 1, 1)),
+                        _ => p.push_batch(
+                            LiveBatch::empty(i.scope, 1, None),
+                            BatchDisposition::Applied,
+                        ),
+                    }
+                }
+                _ => {
+                    match case {
+                        4 => f.callback_index = 2,
+                        5 => f.cut_frame = 2,
+                        6 => f.fence.id = LiveId([0; 16]),
+                        7 => f.fence.accepted_sequence = Some(0),
+                        8 => f.voices_cut = 65,
+                        9 => f.release_tails_cut = 3,
+                        10 => f.fence.scope.panic_generation += 1,
+                        _ => (),
+                    }
+                    p.push_finish(f)
+                }
+            };
+            assert!(
+                matches!(
+                    result,
+                    Err(TapError::Faulted(TapFault {
+                        kind: TapFaultKind::MalformedPacket,
+                        ..
+                    }))
+                ),
+                "case {case}"
+            );
+            assert_eq!(
+                owner.control().snapshot().unwrap().completed_callback_index,
+                0
+            );
+            while let Some(packet) = owner.try_pop().unwrap() {
+                assert!(!matches!(packet.kind, PerformancePacketKind::End(_)));
+            }
+        }
+    }
+    #[test]
+    fn finish_requires_matching_fault_free_zero_voice_end() {
+        let i = info();
+        for case in 0..6 {
+            let (mut p, mut owner, _retention) = tap_pair(i).unwrap();
+            p.begin_callback(begin(i, 0, 1)).unwrap();
+            p.push_pcm(pcm(i, 0, 1)).unwrap();
+            p.push_finish(finish(i, 1)).unwrap();
+            let mut e = end(i, 1);
+            match case {
+                0 => e.applied_sequence = Some(1),
+                1 => e.active_voices = 1,
+                2 => e.release_tail_voices = 1,
+                3 => {
+                    e.first_fault = Some(LiveFault {
+                        scope: i.scope,
+                        kind: LiveFaultKind::Device,
+                        frame: 1,
+                        sequence: None,
+                    })
+                }
+                4 => {
+                    e.clears[0] = Some(TapClear {
+                        scope: i.scope,
+                        frame: 1,
+                        reason: TapClearReason::FaultPending,
+                    })
+                }
+                _ => e.scope_after.panic_generation += 1,
+            }
+            assert!(
+                matches!(
+                    p.end_callback(e),
+                    Err(TapError::Faulted(TapFault {
+                        kind: TapFaultKind::MalformedPacket,
+                        ..
+                    }))
+                ),
+                "case {case}"
+            );
+            assert_eq!(owner.control().snapshot().unwrap().completed_frames, 0);
+            while let Some(packet) = owner.try_pop().unwrap() {
+                assert!(!matches!(packet.kind, PerformancePacketKind::End(_)));
+            }
+        }
+    }
     #[test]
     fn insufficient_reservation_faults_before_any_begin_and_remains_drainable() {
         let i = info();
         let (mut p, mut owner, _retention) = tap_pair(i).unwrap();
-        for frame in 0..84 {
+        for frame in 0..83 {
             complete(&mut p, i, frame, 1);
         }
-        let error = p.begin_callback(begin(i, 84, 1)).unwrap_err();
+        let error = p.begin_callback(begin(i, 83, 1)).unwrap_err();
         assert!(matches!(
             error,
             TapError::Faulted(TapFault {
                 kind: TapFaultKind::Overflow,
-                frame: 84,
-                callback_index: Some(85)
+                frame: 83,
+                callback_index: Some(84)
             })
         ));
         let snapshot = owner.control().snapshot().unwrap();
-        assert_eq!(snapshot.completed_frames, 84);
-        assert_eq!(snapshot.completed_callback_index, 84);
+        assert_eq!(snapshot.completed_frames, 83);
+        assert_eq!(snapshot.completed_callback_index, 83);
         let mut count = 0;
         while owner.try_pop().unwrap().is_some() {
             count += 1;
         }
-        assert_eq!(count, 252);
-        assert_eq!(p.begin_callback(begin(i, 84, 1)).unwrap_err(), error);
+        assert_eq!(count, 249);
+        assert_eq!(p.begin_callback(begin(i, 83, 1)).unwrap_err(), error);
         drop(p);
     }
     #[test]

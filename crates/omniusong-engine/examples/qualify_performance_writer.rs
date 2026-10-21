@@ -566,6 +566,7 @@ fn main() -> Result<()> {
                     pcm_at += usize::from(pcm.frames);
                     pcm_packets += 1;
                 }
+                PerformancePacketKind::Finish(_) => panic!("Legacy fixture never requests Finish"),
                 PerformancePacketKind::End(end) => {
                     assert_eq!(pcm_at, offset + count);
                     assert_eq!(end.end_frame, pcm_at as u64);

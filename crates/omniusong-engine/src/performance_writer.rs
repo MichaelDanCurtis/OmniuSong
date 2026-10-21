@@ -1,4 +1,5 @@
-//! Off-callback incremental performance originals. No device or normal Finish API.
+//! Off-callback incremental performance originals and callback Finish evidence.
+//! No device lifecycle or normal-seal authority is supplied here.
 use crate::{live_types::*, performance_records::*, performance_tap::*};
 use omniusong_core::contracts::{CapturedEvent, Envelope, HostTimestamp};
 use omniusong_recording::{
@@ -101,9 +102,11 @@ struct Context {
     capture_fault: Option<LiveFault>,
     capture_pending: bool,
     fault_cleared: bool,
+    profile: PerformanceProfile,
+    finish: Option<TapFinish>,
 }
 impl Context {
-    fn new(info: TapInfo) -> Self {
+    fn new(info: TapInfo, profile: PerformanceProfile) -> Self {
         Self {
             scope: info.scope,
             next_callback: 1,
@@ -113,6 +116,8 @@ impl Context {
             capture_fault: None,
             capture_pending: false,
             fault_cleared: false,
+            profile,
+            finish: None,
         }
     }
 }
@@ -123,6 +128,7 @@ struct Callback {
     batches: Vec<(u16, LiveBatch, BatchDisposition)>,
     pcm: Vec<u8>,
     frames: u64,
+    finish: Option<TapFinish>,
 }
 impl Callback {
     fn new(
@@ -134,7 +140,8 @@ impl Callback {
             return Err("Performance callback must start with Begin".into());
         };
         check(
-            packet.callback_index == context.next_callback
+            context.finish.is_none()
+                && packet.callback_index == context.next_callback
                 && packet.ordinal == 0
                 && begin.scope == context.scope
                 && begin.start_frame == context.frame
@@ -154,6 +161,7 @@ impl Callback {
             batches: Vec::with_capacity(4),
             pcm: Vec::new(),
             frames: 0,
+            finish: None,
         })
     }
     fn push(&mut self, packet: PerformancePacket) -> Result<Option<TapEnd>> {
@@ -162,6 +170,10 @@ impl Callback {
                 && packet.ordinal == self.next_ordinal
                 && usize::from(packet.ordinal) < TAP_CALLBACK_PACKETS,
             "Missing/reordered performance packet",
+        )?;
+        check(
+            self.finish.is_none() || matches!(packet.kind, PerformancePacketKind::End(_)),
+            "Only End may follow the callback Finish cut",
         )?;
         self.next_ordinal += 1;
         match packet.kind {
@@ -190,6 +202,17 @@ impl Callback {
                     self.pcm.extend_from_slice(&value.to_le_bytes());
                 }
                 self.frames += u64::from(pcm.frames);
+                Ok(None)
+            }
+            PerformancePacketKind::Finish(finish) => {
+                check(
+                    self.finish.is_none()
+                        && self.frames == u64::from(self.begin.frames)
+                        && finish.callback_index == self.index
+                        && finish.cut_frame == self.begin.start_frame + self.frames,
+                    "Finish must follow the complete callback PCM exactly once",
+                )?;
+                self.finish = Some(finish);
                 Ok(None)
             }
             PerformancePacketKind::End(end) => {
@@ -348,6 +371,34 @@ impl Callback {
                 "First capture fault disappeared",
             )?;
         }
+        if let Some(finish) = self.finish {
+            check(
+                context.profile == PerformanceProfile::FinishV2
+                    && context.finish.is_none()
+                    && finish.fence.id.is_valid()
+                    && finish.fence.scope == self.begin.scope
+                    && finish.fence.scope == end.scope_after
+                    && finish.fence.accepted_sequence == next.applied
+                    && finish.fence.accepted_sequence != Some(0)
+                    && finish.callback_index == self.index
+                    && finish.cut_frame == end.end_frame
+                    && finish.policy == LiveFinishPolicy::CutAtCompleteCallbackEnd
+                    && finish.voices_cut <= LIVE_VOICES as u16
+                    && finish.release_tails_cut <= finish.voices_cut
+                    && end.active_voices == 0
+                    && end.release_tail_voices == 0
+                    && !panic
+                    && end.clears.iter().all(Option::is_none)
+                    && next.capture_fault.is_none()
+                    && !next.capture_pending
+                    && self
+                        .batches
+                        .iter()
+                        .all(|(_, _, d)| *d == BatchDisposition::Applied),
+                "Finish contradicts its profile, applied fence, healthy callback or hard cut",
+            )?;
+            next.finish = Some(finish);
+        }
         next.scope = end.scope_after;
         next.frame = end.end_frame;
         next.next_callback = next
@@ -371,6 +422,8 @@ pub struct WriterProgress {
     pub first_error: Option<String>,
     pub capture_fault: Option<LiveFault>,
     pub capture_fault_pending: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub finish_cut: Option<TapFinish>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RetainedPerformance {
@@ -382,6 +435,7 @@ pub struct RetainedPerformance {
 pub struct PerformanceWriter {
     journal: Journal,
     config: PerformanceConfig,
+    profile: PerformanceProfile,
     descriptor: TakeDescriptor,
     context: Context,
     current: Option<Callback>,
@@ -394,13 +448,26 @@ pub struct PerformanceWriter {
 }
 impl PerformanceWriter {
     pub fn create(path: &Path, config: PerformanceConfig) -> Result<Self> {
-        let descriptor = create_descriptor(&config)?;
+        Self::create_for(path, config, PerformanceProfile::OriginalV1)
+    }
+    /// Explicit v2 profile; only this profile can retain a callback Finish cut.
+    /// This does not authorize a normal seal or prove native closure retirement.
+    pub fn create_finishable(path: &Path, config: PerformanceConfig) -> Result<Self> {
+        Self::create_for(path, config, PerformanceProfile::FinishV2)
+    }
+    fn create_for(
+        path: &Path,
+        config: PerformanceConfig,
+        profile: PerformanceProfile,
+    ) -> Result<Self> {
+        let descriptor = create_descriptor_for(&config, profile)?;
         let prefixes = initial_prefixes(&descriptor);
         let journal = Journal::create(path, &descriptor).map_err(|e| e.to_string())?;
         Ok(Self {
-            context: Context::new(config.info),
+            context: Context::new(config.info, profile),
             journal,
             config,
+            profile,
             descriptor,
             current: None,
             prefixes: prefixes.clone(),
@@ -417,6 +484,7 @@ impl PerformanceWriter {
                 first_error: None,
                 capture_fault: None,
                 capture_fault_pending: false,
+                finish_cut: None,
             },
             group_sequence: 0,
             pending_request: None,
@@ -456,6 +524,12 @@ impl PerformanceWriter {
         if self.current.is_none() {
             self.current = Some(Callback::new(packet, &self.config, &self.context)?);
             return Ok(());
+        }
+        if matches!(packet.kind, PerformancePacketKind::Finish(_)) {
+            check(
+                self.profile == PerformanceProfile::FinishV2,
+                "Version-1 originals cannot contain a Finish cut",
+            )?;
         }
         let end = self
             .current
@@ -504,9 +578,11 @@ impl PerformanceWriter {
         self.progress.complete_frames = end.end_frame;
         self.progress.capture_fault = self.context.capture_fault;
         self.progress.capture_fault_pending = self.context.capture_pending;
+        self.progress.finish_cut = self.context.finish;
         if self.context.frame - self.progress.durable_frames
             >= u64::from(self.config.info.sample_rate).div_ceil(4)
             || callback.index - self.progress.durable_callbacks >= MAX_GROUP_CALLBACKS
+            || self.context.finish.is_some()
         {
             self.flush_inner()?;
         }
@@ -579,7 +655,10 @@ impl PerformanceWriter {
             });
         }
         let mut records: [Vec<(LocalRecord, u64)>; 6] = std::array::from_fn(|_| Vec::new());
-        let record = |record| LocalRecord { version: 1, record };
+        let record = |record| LocalRecord {
+            version: self.profile.version(),
+            record,
+        };
         records[5].push((
             record(PerformanceRecord::Begin {
                 callback_index: callback.index,
@@ -646,6 +725,17 @@ impl PerformanceWriter {
                     transition.frame,
                 ));
             }
+        }
+        if let Some(finish) = callback.finish {
+            records[5].push((
+                record(PerformanceRecord::Finish {
+                    callback_index: callback.index,
+                    finish,
+                }),
+                finish.cut_frame,
+            ));
+        }
+        if let Some(end) = end {
             records[5].push((
                 record(PerformanceRecord::End {
                     callback_index: callback.index,
@@ -737,7 +827,7 @@ impl PerformanceWriter {
             &self.config,
             5,
             &LocalRecord {
-                version: 1,
+                version: self.profile.version(),
                 record: PerformanceRecord::Checkpoint {
                     checkpoint: checkpoint.clone(),
                 },
@@ -851,6 +941,8 @@ pub struct PerformanceInspection {
     pub problem: Option<String>,
     pub capture_fault: Option<LiveFault>,
     pub capture_fault_pending: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub finish_cut: Option<TapFinish>,
 }
 
 type DecodedRecord = (Vec<u8>, Envelope<CapturedEvent>, LocalRecord);
@@ -880,6 +972,7 @@ fn records(payload: &[u8]) -> Result<Vec<DecodedRecord>> {
 }
 fn contextual_records(
     config: &PerformanceConfig,
+    profile: PerformanceProfile,
     index: usize,
     chunk: &ChunkRecord,
 ) -> Result<Vec<(Vec<u8>, LocalRecord)>> {
@@ -889,6 +982,10 @@ fn contextual_records(
     )?;
     let mut result = Vec::new();
     for (ordinal, (bytes, envelope, record)) in records(&chunk.payload)?.into_iter().enumerate() {
+        check(
+            record.version == profile.version(),
+            "Record profile differs from its declared original",
+        )?;
         let expected = encode_record(
             config,
             index,
@@ -910,6 +1007,7 @@ fn contextual_records(
 }
 fn verify_group(
     config: &PerformanceConfig,
+    profile: PerformanceProfile,
     members: &[ChunkRecord],
     checkpoint: &PerformanceCheckpoint,
     before: &[StreamPrefix],
@@ -946,7 +1044,7 @@ fn verify_group(
             chunk.header.clock_anchors.is_empty(),
             "Performance originals have no inferred clock anchors",
         )?;
-        let decoded = contextual_records(config, index, chunk)?;
+        let decoded = contextual_records(config, profile, index, chunk)?;
         if index < 5 {
             for (bytes, record) in decoded {
                 check(
@@ -994,7 +1092,10 @@ fn verify_group(
             } => {
                 let cb = callback.as_mut().ok_or("Batch outside callback")?;
                 check(
-                    observed == cb.begin.start_frame && clears.is_empty() && transitions.is_empty(),
+                    observed == cb.begin.start_frame
+                        && clears.is_empty()
+                        && transitions.is_empty()
+                        && cb.finish.is_none(),
                     "Batch observation differs from its exact callback boundary",
                 )?;
                 cb.push(PerformancePacket {
@@ -1011,7 +1112,9 @@ fn verify_group(
                 clear,
             } => {
                 check(
-                    callback.as_ref().is_some_and(|c| c.index == callback_index)
+                    callback
+                        .as_ref()
+                        .is_some_and(|c| c.index == callback_index && c.finish.is_none())
                         && clears.len() < 2,
                     "Unexpected clear record",
                 )?;
@@ -1022,11 +1125,29 @@ fn verify_group(
                 transition,
             } => {
                 check(
-                    callback.as_ref().is_some_and(|c| c.index == callback_index)
+                    callback
+                        .as_ref()
+                        .is_some_and(|c| c.index == callback_index && c.finish.is_none())
                         && transitions.len() < TAP_TRANSITIONS,
                     "Unexpected transition record",
                 )?;
                 transitions.push(transition);
+            }
+            PerformanceRecord::Finish {
+                callback_index,
+                finish,
+            } => {
+                let cb = callback.as_mut().ok_or("Finish outside callback")?;
+                check(
+                    profile == PerformanceProfile::FinishV2
+                        && cb.finish.is_none()
+                        && cb.index == callback_index
+                        && finish.callback_index == callback_index
+                        && observed == finish.cut_frame
+                        && finish.cut_frame == cb.begin.start_frame + u64::from(cb.begin.frames),
+                    "Unexpected, duplicate or re-timed Finish record",
+                )?;
+                cb.finish = Some(finish);
             }
             PerformanceRecord::End {
                 callback_index,
@@ -1076,7 +1197,7 @@ fn verify_group(
                         let original = original.ok_or("Missing applied source event")?;
                         let index = usize::from(original.source);
                         let record = LocalRecord {
-                            version: 1,
+                            version: profile.version(),
                             record: PerformanceRecord::AppliedEvent {
                                 callback_index: cb.index,
                                 batch_ordinal: *batch_ordinal,
@@ -1125,6 +1246,7 @@ fn verify_group(
 pub fn inspect_performance(reader: &CaptureReader) -> Result<PerformanceInspection> {
     let inspection = reader.inspection();
     let config = from_descriptor(&inspection.descriptor)?;
+    let profile = descriptor_profile(&inspection.descriptor)?;
     let mut result = PerformanceInspection {
         descriptor_sha256: inspection.descriptor_sha256.clone(),
         original_rows_sha256: inspection.original_rows_sha256.clone(),
@@ -1137,8 +1259,9 @@ pub fn inspect_performance(reader: &CaptureReader) -> Result<PerformanceInspecti
         problem: None,
         capture_fault: None,
         capture_fault_pending: false,
+        finish_cut: None,
     };
-    let mut context = Context::new(config.info);
+    let mut context = Context::new(config.info, profile);
     let mut prefixes = initial_prefixes(&inspection.descriptor);
     let mut members = Vec::new();
     let mut group_bytes = 0usize;
@@ -1168,7 +1291,7 @@ pub fn inspect_performance(reader: &CaptureReader) -> Result<PerformanceInspecti
                 "Performance group exceeds8MiB",
             )?;
             let decoded = if index == 5 {
-                contextual_records(&config, index, &chunk)?
+                contextual_records(&config, profile, index, &chunk)?
             } else {
                 Vec::new()
             };
@@ -1228,9 +1351,11 @@ pub fn inspect_performance(reader: &CaptureReader) -> Result<PerformanceInspecti
                         && chunk.header.observed_end.ticks == checkpoint.audio_end,
                     "Checkpoint clock differs from rendered frame axis",
                 )?;
-                context = verify_group(&config, &members, &checkpoint, &prefixes, &context)?;
+                context =
+                    verify_group(&config, profile, &members, &checkpoint, &prefixes, &context)?;
                 result.capture_fault = context.capture_fault;
                 result.capture_fault_pending = context.capture_pending;
+                result.finish_cut = context.finish;
                 result.selection = Some(RecoveryPrefix {
                     chunk_count: ordinal,
                     chunk_index_sha256: format!("{:x}", index_hash.clone().finalize()),
@@ -1281,7 +1406,8 @@ pub fn recover_performance(
         && current.original_rows_sha256 == expected.original_rows_sha256
         && current.selection == expected.selection
         && current.checkpoint_sha256 == expected.checkpoint_sha256
-        && current.checkpoint == expected.checkpoint;
+        && current.checkpoint == expected.checkpoint
+        && current.finish_cut == expected.finish_cut;
     check(
         stable && (reader.inspection().manifest.is_some() || current == *expected),
         "Performance originals/review changed; inspect again",

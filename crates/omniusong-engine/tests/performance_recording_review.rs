@@ -158,6 +158,7 @@ fn check_group(
                 pcm.extend_from_slice(&value.samples[..samples]);
                 expected_frame += u64::from(value.frames);
             }
+            PerformancePacketKind::Finish(_) => panic!("Legacy fixture never requests Finish"),
             PerformancePacketKind::End(_) => assert_eq!(ordinal, packets.len() - 1),
         }
     }
@@ -378,7 +379,9 @@ fn four_total_ingress_packets_bound_every_callback_including_empty_batches() {
         assert_eq!(end.applied_sequence, Some(4));
         assert_eq!(admission.progress().worker_accepted_sequence, Some(16));
         if frames == 16_384 {
-            assert_eq!(packets.len(), TAP_CALLBACK_PACKETS);
+            // Ordinary callbacks retain 70 packets; the one extra reserved
+            // slot belongs to the explicit Finish control record.
+            assert_eq!(packets.len(), TAP_CALLBACK_PACKETS - 1);
         }
     }
 }
@@ -772,5 +775,5 @@ fn capture_packets_have_fixed_storage_and_no_drop_owners() {
     assert!(!std::mem::needs_drop::<PerformancePacket>());
     assert!(std::mem::size_of::<PerformancePacket>() <= 16 * 1024);
     assert!(std::mem::size_of::<PerformancePacket>() * TAP_SLOTS <= 4 * 1024 * 1024);
-    assert_eq!(TAP_CALLBACK_PACKETS, 2 + 4 + 16_384 / TAP_PCM_FRAMES);
+    assert_eq!(TAP_CALLBACK_PACKETS, 2 + 4 + 16_384 / TAP_PCM_FRAMES + 1);
 }

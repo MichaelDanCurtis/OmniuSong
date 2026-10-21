@@ -344,36 +344,45 @@ fn replay_requires_same_operation_recovered_mode_selected_count_and_hash() {
 
 #[test]
 fn any_performance_marker_blocks_generic_paths_but_explicit_selection_is_available() {
-    for marker in [
-        serde_json::Value::Null,
-        serde_json::json!(false),
-        serde_json::json!({"unsupportedVersion":999}),
+    for namespaces in [
+        &["omniusong.performance.v1"][..],
+        &["omniusong.performance.v2"][..],
+        &["omniusong.performance.v1", "omniusong.performance.v2"][..],
     ] {
-        let f = Fixture::new();
-        let t = descriptor(Some(marker));
-        let mut j = Journal::create(f.path(), &t).unwrap();
-        j.append(&header(&t, 0, 0), &[1; 8]).unwrap();
-        let before = fs::read(f.path()).unwrap();
-        assert!(j.seal("generic").is_err());
-        assert!(j.seal_recovered("generic").is_err());
-        assert_eq!(j.state().unwrap(), TakeState::Recording);
-        assert_eq!(fs::read(f.path()).unwrap(), before);
-        drop(j);
-        assert!(
-            CaptureReader::open(f.path())
-                .unwrap()
-                .recover("generic")
-                .is_err()
-        );
-        assert_eq!(fs::read(f.path()).unwrap(), before);
-        let reader = CaptureReader::open(f.path()).unwrap();
-        let selected = select(&reader, 1);
-        let (_, replayed) = reader
-            .recover_prefix("explicit-lowlevel-selection", &selected)
-            .unwrap();
-        assert!(!replayed);
-        let mut j = Journal::open(f.path()).unwrap();
-        assert!(j.seal_recovered("explicit-lowlevel-selection").is_err());
+        for marker in [
+            serde_json::Value::Null,
+            serde_json::json!(false),
+            serde_json::json!({"unsupportedVersion":999}),
+        ] {
+            let f = Fixture::new();
+            let mut t = descriptor(None);
+            for namespace in namespaces {
+                t.provenance.insert((*namespace).into(), marker.clone());
+            }
+            let mut j = Journal::create(f.path(), &t).unwrap();
+            j.append(&header(&t, 0, 0), &[1; 8]).unwrap();
+            let before = fs::read(f.path()).unwrap();
+            assert!(j.seal("generic").is_err());
+            assert!(j.seal_recovered("generic").is_err());
+            assert_eq!(j.state().unwrap(), TakeState::Recording);
+            assert_eq!(fs::read(f.path()).unwrap(), before);
+            drop(j);
+            assert!(
+                CaptureReader::open(f.path())
+                    .unwrap()
+                    .recover("generic")
+                    .is_err()
+            );
+            assert_eq!(fs::read(f.path()).unwrap(), before);
+            let reader = CaptureReader::open(f.path()).unwrap();
+            let selected = select(&reader, 1);
+            let (_, replayed) = reader
+                .recover_prefix("explicit-lowlevel-selection", &selected)
+                .unwrap();
+            assert!(!replayed);
+            let mut j = Journal::open(f.path()).unwrap();
+            assert!(j.seal_recovered("explicit-lowlevel-selection").is_err());
+        }
     }
 }
 

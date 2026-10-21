@@ -3,8 +3,8 @@
 use crate::live_types::*;
 use crate::performance_tap::{
     self, BatchDisposition, PerformanceTapOwner, PerformanceTapProducer, PerformanceTapRetention,
-    TapBegin, TapClear, TapClearReason, TapEnd, TapFaultKind, TapInfo, TapPcm, TapTransition,
-    TapTransitionKind,
+    TapBegin, TapClear, TapClearReason, TapControl, TapEnd, TapFaultKind, TapFinish, TapInfo,
+    TapPcm, TapTransition, TapTransitionKind,
 };
 use rtrb::{Consumer, Producer, RingBuffer};
 use std::sync::{
@@ -13,6 +13,89 @@ use std::sync::{
 };
 const EXPIRED: u64 = 1 << 63;
 const TABLE: usize = 2048;
+
+struct FinishPublication {
+    request_ready: AtomicBool,
+    id_low: AtomicU64,
+    id_high: AtomicU64,
+    generation: AtomicU64,
+    sequence: AtomicU64,
+    ack_ready: AtomicBool,
+    callback_index: AtomicU64,
+    cut_frame: AtomicU64,
+    cut_counts: AtomicU32,
+}
+impl FinishPublication {
+    fn new() -> Self {
+        Self {
+            request_ready: AtomicBool::new(false),
+            id_low: AtomicU64::new(0),
+            id_high: AtomicU64::new(0),
+            generation: AtomicU64::new(0),
+            sequence: AtomicU64::new(0),
+            ack_ready: AtomicBool::new(false),
+            callback_index: AtomicU64::new(0),
+            cut_frame: AtomicU64::new(0),
+            cut_counts: AtomicU32::new(0),
+        }
+    }
+    fn request(&self, base: LiveScope) -> Option<LiveFinishFence> {
+        if !self.request_ready.load(Ordering::Acquire) {
+            return None;
+        }
+        let mut id = [0u8; 16];
+        id[..8].copy_from_slice(&self.id_low.load(Ordering::Relaxed).to_le_bytes());
+        id[8..].copy_from_slice(&self.id_high.load(Ordering::Relaxed).to_le_bytes());
+        let sequence = self.sequence.load(Ordering::Relaxed);
+        Some(LiveFinishFence {
+            id: LiveId(id),
+            scope: LiveScope {
+                panic_generation: self.generation.load(Ordering::Relaxed),
+                ..base
+            },
+            accepted_sequence: (sequence != 0).then_some(sequence),
+        })
+    }
+    fn publish(&self, fence: LiveFinishFence) {
+        self.id_low.store(
+            u64::from_le_bytes(fence.id.0[..8].try_into().expect("fixed UUID half")),
+            Ordering::Relaxed,
+        );
+        self.id_high.store(
+            u64::from_le_bytes(fence.id.0[8..].try_into().expect("fixed UUID half")),
+            Ordering::Relaxed,
+        );
+        self.generation
+            .store(fence.scope.panic_generation, Ordering::Relaxed);
+        self.sequence
+            .store(fence.accepted_sequence.unwrap_or(0), Ordering::Relaxed);
+        self.request_ready.store(true, Ordering::Release);
+    }
+    fn acknowledge(&self, finish: TapFinish) {
+        self.callback_index
+            .store(finish.callback_index, Ordering::Relaxed);
+        self.cut_frame.store(finish.cut_frame, Ordering::Relaxed);
+        self.cut_counts.store(
+            u32::from(finish.voices_cut) | (u32::from(finish.release_tails_cut) << 16),
+            Ordering::Relaxed,
+        );
+        self.ack_ready.store(true, Ordering::Release);
+    }
+    fn acknowledgment(&self, base: LiveScope) -> Option<TapFinish> {
+        if !self.ack_ready.load(Ordering::Acquire) {
+            return None;
+        }
+        let counts = self.cut_counts.load(Ordering::Relaxed);
+        Some(TapFinish {
+            fence: self.request(base)?,
+            callback_index: self.callback_index.load(Ordering::Relaxed),
+            cut_frame: self.cut_frame.load(Ordering::Relaxed),
+            voices_cut: (counts & 0xffff) as u16,
+            release_tails_cut: (counts >> 16) as u16,
+            policy: LiveFinishPolicy::CutAtCompleteCallbackEnd,
+        })
+    }
+}
 
 fn code(kind: LiveFaultKind) -> u32 {
     match kind {
@@ -68,6 +151,7 @@ pub struct LiveControl {
     fault_generation: AtomicU64,
     render_done: AtomicBool,
     error_done: AtomicBool,
+    finish: FinishPublication,
 }
 impl LiveControl {
     pub fn frames(&self) -> u64 {
@@ -153,6 +237,51 @@ impl LiveControl {
                 Ordering::Acquire,
             ) {
                 Ok(_) => return Ok(()),
+                Err(value) => old = value,
+            }
+        }
+        self.fault(LiveFaultKind::Clock, None);
+        Err(LiveSubmitError::Faulted)
+    }
+    fn extend_finish(&self) -> Result<(), LiveSubmitError> {
+        let Some(new) = self
+            .frames()
+            .checked_add((6 * LIVE_MAX_CALLBACK_FRAMES) as u64)
+            .filter(|frame| *frame < EXPIRED)
+        else {
+            self.fault(LiveFaultKind::CounterExhausted, None);
+            return Err(LiveSubmitError::Faulted);
+        };
+        let mut old = self.deadline.load(Ordering::Acquire);
+        for _ in 0..3 {
+            if old & EXPIRED != 0 || self.faulted() {
+                return Err(LiveSubmitError::Faulted);
+            }
+            if self.frames() >= old {
+                if self
+                    .deadline
+                    .compare_exchange(old, old | EXPIRED, Ordering::AcqRel, Ordering::Acquire)
+                    .is_ok()
+                {
+                    self.fault_at(LiveFaultKind::LeaseExpired, None, old);
+                    return Err(LiveSubmitError::Faulted);
+                }
+                old = self.deadline.load(Ordering::Acquire);
+                continue;
+            }
+            match self.deadline.compare_exchange(
+                old,
+                old.max(new),
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => {
+                    return if self.faulted() {
+                        Err(LiveSubmitError::Faulted)
+                    } else {
+                        Ok(())
+                    };
+                }
                 Err(value) => old = value,
             }
         }
@@ -276,6 +405,8 @@ pub struct LiveAdmission {
     pending_panic: Option<LiveScope>,
     // Retains the recording ring off callback through renderer destruction.
     _recording_retention: Option<PerformanceTapRetention>,
+    recording_control: Option<Arc<TapControl>>,
+    finish: Option<LiveFinishFence>,
 }
 struct RecordingState {
     producer: PerformanceTapProducer,
@@ -283,6 +414,7 @@ struct RecordingState {
     transitions: [Option<TapTransition>; 128],
     transition_len: u16,
     fault_cleared: bool,
+    callback_index: u64,
 }
 impl RecordingState {
     fn reset_callback(&mut self) {
@@ -325,6 +457,7 @@ pub struct LiveRenderer {
     frame: u64,
     late: u64,
     recording: Option<RecordingState>,
+    finished: bool,
 }
 pub fn live_pair(
     scope: LiveScope,
@@ -360,6 +493,7 @@ pub fn live_pair(
         fault_generation: AtomicU64::new(scope.panic_generation),
         render_done: AtomicBool::new(false),
         error_done: AtomicBool::new(false),
+        finish: FinishPublication::new(),
     });
     let (producer, consumer) = RingBuffer::new(LIVE_QUEUE_BATCHES);
     Ok((
@@ -378,6 +512,8 @@ pub fn live_pair(
             source_ticks: [None; LIVE_MAX_SOURCES],
             pending_panic: None,
             _recording_retention: None,
+            recording_control: None,
+            finish: None,
         },
         LiveRenderer {
             scope,
@@ -391,6 +527,7 @@ pub fn live_pair(
             frame: 0,
             late: 0,
             recording: None,
+            finished: false,
         },
     ))
 }
@@ -410,12 +547,14 @@ pub fn recording_live_pair(
     })
     .map_err(|error| format!("Cannot prepare performance transfer: {error:?}"))?;
     admission._recording_retention = Some(retention);
+    admission.recording_control = Some(owner.control());
     renderer.recording = Some(RecordingState {
         producer,
         clears: [None; 2],
         transitions: [None; 128],
         transition_len: 0,
         fault_cleared: false,
+        callback_index: 0,
     });
     Ok((admission, renderer, owner))
 }
@@ -427,19 +566,24 @@ impl LiveAdmission {
         self.scope
     }
     pub fn lease_credit(&self) -> Option<LeaseCredit> {
-        if self.control.faulted() {
+        if self.control.faulted() || self.finish.is_some() {
             None
         } else {
             self.token
         }
     }
     pub fn progress(&self) -> LiveProgress {
+        // Acquire the one-shot ACK BEFORE any mutable callback observations.
+        // Its immutable cut/fence supplies the completed snapshot: observing
+        // fresh ACK after previously sampled voice counts could mix two eras.
+        let acknowledgment = self.control.finish.acknowledgment(self.control.base);
         let applied = self.control.applied.load(Ordering::Acquire);
         let voice_counts = self.control.active.load(Ordering::Acquire);
         let fault_code = self.control.fault_code.load(Ordering::Acquire);
         let fault = self.control.fault_from_code(fault_code);
         let scope = fault.map_or(self.scope, |f| f.scope);
         let same_scope = scope == self.scope;
+        let cut = acknowledgment.filter(|ack| ack.fence.scope == scope);
         LiveProgress {
             scope,
             state: if fault_code == u32::MAX {
@@ -448,24 +592,41 @@ impl LiveAdmission {
                 LiveState::Faulted
             } else if self.pending_panic.is_some() {
                 LiveState::Panicking
+            } else if cut.is_some() {
+                LiveState::FinishedCut
+            } else if self.finish.is_some() {
+                LiveState::Finishing
             } else {
                 LiveState::Running
             },
             worker_accepted_sequence: if same_scope { self.accepted } else { None },
             callback_applied_sequence: if same_scope {
-                (applied != 0).then_some(applied)
+                cut.map_or((applied != 0).then_some(applied), |ack| {
+                    ack.fence.accepted_sequence
+                })
             } else {
                 None
             },
-            active_voices: (voice_counts & 0xffff) as u16,
-            release_tail_voices: (voice_counts >> 16) as u16,
+            active_voices: if cut.is_some() {
+                0
+            } else {
+                (voice_counts & 0xffff) as u16
+            },
+            release_tail_voices: if cut.is_some() {
+                0
+            } else {
+                (voice_counts >> 16) as u16
+            },
             late_releases: self.control.late.load(Ordering::Acquire),
             rejected_batches: self.control.rejected.load(Ordering::Acquire),
             overflow_batches: self.control.overflow.load(Ordering::Acquire),
-            frames: self.control.frames(),
+            frames: cut.map_or_else(|| self.control.frames(), |ack| ack.cut_frame),
             peak: f32::from_bits(self.control.peak.load(Ordering::Acquire)),
             lease_deadline_frame: self.control.deadline.load(Ordering::Acquire) & !EXPIRED,
-            lease_credit: if fault_code == 0 && self.pending_panic.is_none() {
+            lease_credit: if fault_code == 0
+                && self.pending_panic.is_none()
+                && self.finish.is_none()
+            {
                 self.token
             } else {
                 None
@@ -492,6 +653,9 @@ impl LiveAdmission {
         }
         if self.control.faulted() {
             return Err(LiveSubmitError::Faulted);
+        }
+        if self.finish.is_some() {
+            return Err(LiveSubmitError::FinishPending);
         }
         if self.pending_panic.is_some() {
             return Err(LiveSubmitError::PanicPending);
@@ -566,6 +730,9 @@ impl LiveAdmission {
         if self.control.faulted() {
             return Err(LiveSubmitError::Faulted);
         }
+        if self.finish.is_some() {
+            return Err(LiveSubmitError::FinishPending);
+        }
         if let Some(next) = self.pending_panic {
             return Ok(next);
         }
@@ -588,6 +755,9 @@ impl LiveAdmission {
         if self.control.faulted() {
             return Err(LiveSubmitError::Faulted);
         }
+        if self.finish.is_some() {
+            return Err(LiveSubmitError::FinishPending);
+        }
         let Some(next) = self.pending_panic else {
             return Ok(None);
         };
@@ -605,12 +775,81 @@ impl LiveAdmission {
         });
         Ok(Some(self.progress()))
     }
+    fn finish_healthy(&self) -> Result<(), LiveSubmitError> {
+        if self.control.faulted() {
+            return Err(LiveSubmitError::Faulted);
+        }
+        let tap = self
+            .recording_control
+            .as_ref()
+            .ok_or(LiveSubmitError::NotLive)?;
+        if tap.status().is_err() {
+            self.control.fault(LiveFaultKind::RecordingTap, None);
+            return Err(LiveSubmitError::Faulted);
+        }
+        Ok(())
+    }
+    pub fn begin_finish(
+        &mut self,
+        scope: LiveScope,
+        id: LiveId,
+    ) -> Result<LiveFinishFence, LiveSubmitError> {
+        if scope != self.scope {
+            return Err(LiveSubmitError::StaleScope);
+        }
+        if !id.is_valid() {
+            return Err(LiveSubmitError::Invalid);
+        }
+        self.finish_healthy()?;
+        if let Some(fence) = self.finish {
+            return if fence.scope == scope && fence.id == id {
+                Ok(fence)
+            } else {
+                Err(LiveSubmitError::FinishPending)
+            };
+        }
+        if self.pending_panic.is_some() {
+            return Err(LiveSubmitError::PanicPending);
+        }
+        self.control.extend_finish()?;
+        self.finish_healthy()?;
+        let fence = LiveFinishFence {
+            id,
+            scope,
+            accepted_sequence: self.accepted,
+        };
+        self.finish = Some(fence);
+        self.token = None;
+        self.control.finish.publish(fence);
+        Ok(fence)
+    }
+    /// A retained callback ACK is not normal-seal authority. A later device or
+    /// tap fault/cancellation vetoes this healthy result even after the cut.
+    pub fn finish_ack(&self) -> Result<Option<TapFinish>, LiveSubmitError> {
+        self.finish_healthy()?;
+        let Some(fence) = self.finish else {
+            return Ok(None);
+        };
+        let acknowledgment = self.control.finish.acknowledgment(self.control.base);
+        if acknowledgment.is_some_and(|ack| ack.fence != fence) {
+            self.control.fault(LiveFaultKind::Sequence, None);
+            return Err(LiveSubmitError::Faulted);
+        }
+        self.finish_healthy()?;
+        Ok(acknowledgment)
+    }
     pub fn backing_owner_count(&self) -> usize {
         Arc::strong_count(&self.tables)
     }
 }
 impl LiveRenderer {
     fn capture_batch(&mut self, batch: LiveBatch, disposition: BatchDisposition) -> bool {
+        if self.control.finish.request_ready.load(Ordering::Acquire)
+            && disposition != BatchDisposition::Applied
+        {
+            self.control
+                .fault(LiveFaultKind::Sequence, Some(batch.sequence));
+        }
         if self
             .recording
             .as_mut()
@@ -949,10 +1188,15 @@ impl LiveRenderer {
     }
     fn render<T>(&mut self, out: &mut [T], convert: impl Fn(f32) -> T) {
         let frames = out.len() / self.channels;
-        let end = self
-            .frame
-            .checked_add(frames as u64)
-            .filter(|end| *end < EXPIRED);
+        let end = if self.finished {
+            // Silence after a cut has no new source-frame extent. Shape still
+            // validates below, without overflowing a frozen high origin.
+            Some(self.frame)
+        } else {
+            self.frame
+                .checked_add(frames as u64)
+                .filter(|end| *end < EXPIRED)
+        };
         if out.is_empty()
             || !out.len().is_multiple_of(self.channels)
             || frames > LIVE_MAX_CALLBACK_FRAMES
@@ -976,33 +1220,57 @@ impl LiveRenderer {
             return;
         }
         let end = end.expect("validated whole callback extent");
+        if self.finished {
+            for sample in out {
+                *sample = convert(0.0);
+            }
+            self.control.peak.store(0, Ordering::Release);
+            return;
+        }
         // Reserve evidence for the ENTIRE invocation before applying any queued
         // event or sounding a new voice. A broken tap permanently fails closed.
         if let Some(recording) = &mut self.recording {
             recording.reset_callback();
-            if recording
-                .producer
-                .begin_callback(TapBegin {
-                    scope: self.scope,
-                    start_frame: self.frame,
-                    frames: frames as u16,
-                    sample_rate: self.rate,
-                    channels: self.channels as u16,
-                })
-                .is_err()
-            {
-                self.control
-                    .fault_at(LiveFaultKind::RecordingTap, None, self.frame);
-                self.clear();
-                for sample in out {
-                    *sample = convert(0.0);
+            match recording.producer.begin_callback(TapBegin {
+                scope: self.scope,
+                start_frame: self.frame,
+                frames: frames as u16,
+                sample_rate: self.rate,
+                channels: self.channels as u16,
+            }) {
+                Ok(index) => recording.callback_index = index,
+                Err(_) => {
+                    self.control
+                        .fault_at(LiveFaultKind::RecordingTap, None, self.frame);
+                    self.clear();
+                    for sample in out {
+                        *sample = convert(0.0);
+                    }
+                    self.frame = end;
+                    self.control.frames.store(end, Ordering::Release);
+                    return;
                 }
-                self.frame = end;
-                self.control.frames.store(end, Ordering::Release);
-                return;
             }
         }
+        // A later publication belongs to the next callback, never this earlier
+        // boundary. All accepted originals still drain under the four limit.
+        let finish_request = self.control.finish.request(self.control.base);
         self.boundary();
+        let finish_candidate = finish_request.filter(|fence| {
+            if fence.scope != self.scope {
+                self.control.fault(LiveFaultKind::Sequence, None);
+                return false;
+            }
+            if !self.consumer.as_ref().expect("live consumer").is_empty() {
+                return false;
+            }
+            let applied = self.control.applied.load(Ordering::Acquire);
+            if fence.accepted_sequence != (applied != 0).then_some(applied) {
+                self.control.fault(LiveFaultKind::Sequence, None);
+                return false;
+            }
+            !self.control.faulted()
+        });
         let mut peak = 0.0f32;
         let mut interrupted = false;
         // Fixed256-frame logical-F32 packets precede native device conversion.
@@ -1058,14 +1326,52 @@ impl LiveRenderer {
             .iter()
             .filter(|v| v.active && v.releasing)
             .count() as u32;
+        let mut finish_packet = None;
+        if !interrupted
+            && !self.control.faulted()
+            && let Some(fence) = finish_candidate
+            && self
+                .recording
+                .as_ref()
+                .is_some_and(|recording| recording.producer.status().is_ok())
+        {
+            let finish = TapFinish {
+                fence,
+                callback_index: self
+                    .recording
+                    .as_ref()
+                    .expect("recorded finish")
+                    .callback_index,
+                cut_frame: self.frame,
+                voices_cut: active as u16,
+                release_tails_cut: tails as u16,
+                policy: LiveFinishPolicy::CutAtCompleteCallbackEnd,
+            };
+            // This aggregate hard cut is not a human NoteOff or voice transition.
+            self.clear();
+            self.finished = true;
+            if self
+                .recording
+                .as_mut()
+                .expect("recorded finish")
+                .producer
+                .push_finish(finish)
+                .is_ok()
+            {
+                finish_packet = Some(finish);
+            } else {
+                self.control
+                    .fault_at(LiveFaultKind::RecordingTap, None, self.frame);
+            }
+        }
         if !interrupted && let Some(recording) = &mut self.recording {
             let applied = self.control.applied.load(Ordering::Acquire);
             let evidence = TapEnd {
                 end_frame: self.frame,
                 scope_after: self.scope,
                 applied_sequence: (applied != 0).then_some(applied),
-                active_voices: active as u16,
-                release_tail_voices: tails as u16,
+                active_voices: if self.finished { 0 } else { active as u16 },
+                release_tail_voices: if self.finished { 0 } else { tails as u16 },
                 clears: recording.clears,
                 transitions: recording.transitions,
                 transition_len: recording.transition_len,
@@ -1075,6 +1381,15 @@ impl LiveRenderer {
                 self.control
                     .fault_at(LiveFaultKind::RecordingTap, None, self.frame);
                 self.clear_for_fault();
+            } else if let Some(finish) = finish_packet {
+                // End is retained before the separate ACK publication. A fault
+                // or receiver loss can still veto sealing after this proof.
+                if !self.control.faulted() && recording.producer.status().is_ok() {
+                    self.control.finish.acknowledge(finish);
+                } else {
+                    self.control
+                        .fault_at(LiveFaultKind::RecordingTap, None, self.frame);
+                }
             }
         }
         let active = self.voices.iter().filter(|v| v.active).count() as u32;
@@ -1147,6 +1462,158 @@ mod tests {
         })
         .unwrap();
         b
+    }
+    #[test]
+    fn finish_publication_during_render_belongs_to_the_next_callback() {
+        use crate::performance_tap::PerformancePacketKind;
+        use std::cell::Cell;
+        let scope = pair().0.scope();
+        let (mut admission, mut renderer, mut owner) = recording_live_pair(scope, 8000, 1).unwrap();
+        admission.admit(note(scope, 1, 1)).unwrap();
+        // Hold only the final immutable request publication until sample one.
+        // This deterministically models admission concurrent with a callback.
+        let fence = LiveFinishFence {
+            id: LiveId([3; 16]),
+            scope,
+            accepted_sequence: Some(1),
+        };
+        admission.control.extend_finish().unwrap();
+        admission.finish = Some(fence);
+        admission.token = None;
+        let published = Cell::new(false);
+        let control = admission.control.clone();
+        renderer.render(&mut [0.0; 128], |value| {
+            if !published.replace(true) {
+                control.finish.publish(fence);
+            }
+            value
+        });
+        assert_eq!(admission.finish_ack().unwrap(), None);
+        let progress = admission.progress();
+        assert_eq!(progress.state, LiveState::Finishing);
+        assert!(progress.is_valid());
+        while let Some(packet) = owner.try_pop().unwrap() {
+            assert!(!matches!(packet.kind, PerformancePacketKind::Finish(_)));
+        }
+        renderer.render_into(&mut [0.0; 1]);
+        let ack = admission.finish_ack().unwrap().unwrap();
+        assert_eq!((ack.callback_index, ack.cut_frame), (2, 129));
+        assert_eq!(admission.progress().state, LiveState::FinishedCut);
+        assert!(admission.progress().is_valid());
+    }
+    #[test]
+    fn finish_cancellation_during_pcm_and_unpublished_fault_both_veto_ack() {
+        use crate::performance_tap::PerformancePacketKind;
+        use std::cell::Cell;
+        for pending_fault in [false, true] {
+            let scope = pair().0.scope();
+            let (mut admission, mut renderer, mut owner) =
+                recording_live_pair(scope, 8000, 1).unwrap();
+            admission.admit(note(scope, 1, 1)).unwrap();
+            admission.begin_finish(scope, LiveId([3; 16])).unwrap();
+            if pending_fault {
+                admission
+                    .control
+                    .fault_code
+                    .store(u32::MAX, Ordering::Release);
+            }
+            let tap = owner.control();
+            let samples = Cell::new(0);
+            renderer.render(&mut [0.0; 128], |value| {
+                samples.set(samples.get() + 1);
+                if !pending_fault && samples.get() == 128 {
+                    tap.cancel();
+                }
+                value
+            });
+            assert_eq!(admission.finish_ack(), Err(LiveSubmitError::Faulted));
+            while let Some(packet) = owner.try_pop().unwrap() {
+                assert!(!matches!(packet.kind, PerformancePacketKind::Finish(_)));
+            }
+            if pending_fault {
+                assert_eq!(admission.progress().state, LiveState::Panicking);
+                assert!(admission.progress().is_valid());
+                admission.control.fault_frame.store(0, Ordering::Relaxed);
+                admission
+                    .control
+                    .fault_generation
+                    .store(scope.panic_generation, Ordering::Relaxed);
+                admission
+                    .control
+                    .fault_code
+                    .store(code(LiveFaultKind::Device), Ordering::Release);
+                assert_eq!(
+                    admission.progress().fault.unwrap().kind,
+                    LiveFaultKind::Device
+                );
+                assert!(admission.progress().is_valid());
+            }
+        }
+    }
+    #[test]
+    fn finished_progress_uses_immutable_cut_instead_of_earlier_callback_observations() {
+        let scope = pair().0.scope();
+        let (mut admission, mut renderer, _owner) = recording_live_pair(scope, 8000, 1).unwrap();
+        admission.admit(note(scope, 1, 1)).unwrap();
+        admission.begin_finish(scope, LiveId([3; 16])).unwrap();
+        renderer.render_into(&mut [0.0; 128]);
+        let ack = admission.finish_ack().unwrap().unwrap();
+        // Deliberately supply an incompatible pre-cut observation tuple. The
+        // acquired ACK, rather than these independently sampled fields, owns
+        // every field required for a valid FinishedCut snapshot.
+        admission
+            .control
+            .active
+            .store(3 | (2 << 16), Ordering::Release);
+        admission.control.applied.store(0, Ordering::Release);
+        admission.control.frames.store(0, Ordering::Release);
+        let progress = admission.progress();
+        assert_eq!(progress.state, LiveState::FinishedCut);
+        assert_eq!(progress.frames, ack.cut_frame);
+        assert_eq!(
+            progress.callback_applied_sequence,
+            ack.fence.accepted_sequence
+        );
+        assert_eq!(
+            (progress.active_voices, progress.release_tail_voices),
+            (0, 0)
+        );
+        assert!(progress.is_valid());
+        assert!(admission.lease_credit().is_none());
+    }
+    #[test]
+    fn finish_preserves_longer_live_deadline_and_rejects_expiry_or_counter_exhaustion() {
+        let scope = pair().0.scope();
+        let (mut admission, _renderer, _owner) = recording_live_pair(scope, 768_000, 1).unwrap();
+        admission.begin_finish(scope, LiveId([3; 16])).unwrap();
+        assert_eq!(admission.progress().lease_deadline_frame, 768_000);
+        for exhausted in [false, true] {
+            let (mut admission, _renderer, _owner) = recording_live_pair(scope, 8000, 1).unwrap();
+            admission.control.frames.store(
+                if exhausted { EXPIRED - 1 } else { 8000 },
+                Ordering::Release,
+            );
+            assert_eq!(
+                admission.begin_finish(scope, LiveId([3; 16])),
+                Err(LiveSubmitError::Faulted)
+            );
+            assert!(admission.finish.is_none());
+            assert!(
+                !admission
+                    .control
+                    .finish
+                    .request_ready
+                    .load(Ordering::Acquire)
+            );
+            assert_eq!(
+                admission.control.first_fault().unwrap().kind,
+                if exhausted {
+                    LiveFaultKind::CounterExhausted
+                } else {
+                    LiveFaultKind::LeaseExpired
+                }
+            );
+        }
     }
     #[test]
     fn recording_pending_fault_clear_retains_actual_frame_without_guessed_cause() {

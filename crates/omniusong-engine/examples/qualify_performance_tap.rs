@@ -368,6 +368,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     tap_pcm_packets += 1;
                     pcm_at += usize::from(pcm.frames);
                 }
+                PerformancePacketKind::Finish(_) => panic!("Legacy fixture never requests Finish"),
                 PerformancePacketKind::End(end) => {
                     assert!(saw_begin);
                     saw_end = true;

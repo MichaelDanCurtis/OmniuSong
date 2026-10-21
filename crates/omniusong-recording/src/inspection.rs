@@ -345,11 +345,12 @@ impl CaptureReader {
     pub fn recover(self, operation_id: &str) -> Result<(SealedManifest, bool)> {
         identifier(operation_id)?;
         require(
-            !self
-                .inspection
-                .descriptor
-                .provenance
-                .contains_key("omniusong.performance.v1"),
+            !self.inspection.descriptor.provenance.keys().any(|key| {
+                matches!(
+                    key.as_str(),
+                    "omniusong.performance.v1" | "omniusong.performance.v2"
+                )
+            }),
             "Performance originals require an explicit format-aware selected recovery prefix",
         )?;
         if let Some(manifest) = &self.inspection.manifest {

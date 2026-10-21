@@ -1025,10 +1025,12 @@ impl Journal {
             )?;
         } else {
             require(
-                !self
-                    .descriptor
-                    .provenance
-                    .contains_key("omniusong.performance.v1"),
+                !self.descriptor.provenance.keys().any(|key| {
+                    matches!(
+                        key.as_str(),
+                        "omniusong.performance.v1" | "omniusong.performance.v2"
+                    )
+                }),
                 "Performance originals require an explicit format-aware selected recovery prefix",
             )?;
         }

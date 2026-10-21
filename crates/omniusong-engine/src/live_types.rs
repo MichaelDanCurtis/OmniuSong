@@ -35,6 +35,18 @@ impl LiveScope {
         self.worker_generation.is_valid() && self.session_id.is_valid() && self.panic_generation > 0
     }
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LiveFinishFence {
+    pub id: LiveId,
+    pub scope: LiveScope,
+    pub accepted_sequence: Option<u64>,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+pub enum LiveFinishPolicy {
+    CutAtCompleteCallbackEnd,
+}
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LiveClock {
@@ -196,6 +208,7 @@ pub enum LiveSubmitError {
     StaleScope,
     Invalid,
     PanicPending,
+    FinishPending,
     Saturated,
     Faulted,
     Retired,
@@ -207,6 +220,7 @@ impl std::fmt::Display for LiveSubmitError {
             Self::StaleScope => "Live session or generation changed",
             Self::Invalid => "Invalid live event batch",
             Self::PanicPending => "Waiting for callback-confirmed all notes off",
+            Self::FinishPending => "Recorded performance Finish permanently closed live admission",
             Self::Saturated => "Live event capacity exceeded",
             Self::Faulted => "Live audition faulted; stop before starting again",
             Self::Retired => "Audio worker is retired",
@@ -232,6 +246,8 @@ pub struct LeaseCredit {
 pub enum LiveState {
     Running,
     Panicking,
+    Finishing,
+    FinishedCut,
     Faulted,
     Stopped,
 }
@@ -305,10 +321,20 @@ impl LiveProgress {
                         && self.lease_credit.is_some()
                         && self.lease_deadline_frame > 0
                 }
-                LiveState::Panicking => {
+                LiveState::Panicking | LiveState::Finishing => {
                     self.fault.is_none()
                         && self.lease_credit.is_none()
                         && self.lease_deadline_frame > 0
+                }
+                LiveState::FinishedCut => {
+                    self.fault.is_none()
+                        && self.lease_credit.is_none()
+                        && self.lease_deadline_frame > 0
+                        && self.frames > 0
+                        && self.frames <= i64::MAX as u64
+                        && self.active_voices == 0
+                        && self.release_tail_voices == 0
+                        && self.callback_applied_sequence == self.worker_accepted_sequence
                 }
                 LiveState::Faulted => self.fault.is_some() && self.lease_credit.is_none(),
                 LiveState::Stopped => self.active_voices == 0 && self.lease_credit.is_none(),

@@ -2,11 +2,11 @@
 //! Local GUI observations and render-frame evidence remain separate clocks.
 use crate::live_types::{
     LIVE_BATCH_EVENTS, LIVE_MAX_CALLBACK_FRAMES, LIVE_VOICES, LiveBatch, LiveClock, LiveEvent,
-    LiveFault, LiveScope, LiveSourceBinding, LiveSourceKind,
+    LiveFault, LiveFinishPolicy, LiveScope, LiveSourceBinding, LiveSourceKind,
 };
 use crate::performance_tap::{
     BatchDisposition, TAP_CHANNELS, TAP_MAX_BATCHES, TAP_TRANSITIONS, TapBegin, TapClear,
-    TapClearReason, TapInfo, TapTransition,
+    TapClearReason, TapFinish, TapInfo, TapTransition,
 };
 use omniusong_core::contracts::{
     CaptureTime, CapturedEvent, ClockDomainId, ClockEpochId, EndpointId, Envelope, EventId,
@@ -21,8 +21,35 @@ use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const PERFORMANCE_NAMESPACE: &str = "omniusong.performance.v1";
+pub const PERFORMANCE_NAMESPACE_V2: &str = "omniusong.performance.v2";
 pub const STREAM_IDS: [&str; 6] = ["audio", "gui-1", "gui-2", "gui-3", "gui-4", "control"];
 pub const RECORD_VERSION: u16 = 1;
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PerformanceProfile {
+    OriginalV1,
+    FinishV2,
+}
+impl PerformanceProfile {
+    pub const fn version(self) -> u16 {
+        match self {
+            Self::OriginalV1 => RECORD_VERSION,
+            Self::FinishV2 => 2,
+        }
+    }
+    pub const fn namespace(self) -> &'static str {
+        match self {
+            Self::OriginalV1 => PERFORMANCE_NAMESPACE,
+            Self::FinishV2 => PERFORMANCE_NAMESPACE_V2,
+        }
+    }
+    fn from_version(version: u16) -> Result<Self, String> {
+        match version {
+            RECORD_VERSION => Ok(Self::OriginalV1),
+            2 => Ok(Self::FinishV2),
+            _ => Err("Unsupported local performance record version".into()),
+        }
+    }
+}
 const RENDER_DOMAIN: &str = "omniusong.render-frames";
 const KINDS: [LiveSourceKind; 4] = [
     LiveSourceKind::ComputerKeys,
@@ -161,6 +188,12 @@ impl PerformanceConfig {
 }
 
 pub fn create_descriptor(config: &PerformanceConfig) -> Result<TakeDescriptor, String> {
+    create_descriptor_for(config, PerformanceProfile::OriginalV1)
+}
+pub fn create_descriptor_for(
+    config: &PerformanceConfig,
+    profile: PerformanceProfile,
+) -> Result<TakeDescriptor, String> {
     config.validate()?;
     let gui_clock = gui_clock(config)?;
     let render_clock = render_clock(config);
@@ -214,9 +247,9 @@ pub fn create_descriptor(config: &PerformanceConfig) -> Result<TakeDescriptor, S
         take_id: config.take_id.clone(),
         streams,
         provenance: BTreeMap::from([(
-            PERFORMANCE_NAMESPACE.into(),
+            profile.namespace().into(),
             serde_json::to_value(Provenance {
-                version: RECORD_VERSION,
+                version: profile.version(),
                 config: config.clone(),
             })
             .map_err(|e| e.to_string())?,
@@ -225,23 +258,51 @@ pub fn create_descriptor(config: &PerformanceConfig) -> Result<TakeDescriptor, S
     descriptor.validate().map_err(|e| e.to_string())?;
     Ok(descriptor)
 }
-pub fn from_descriptor(descriptor: &TakeDescriptor) -> Result<PerformanceConfig, String> {
+/// Exactly one owned profile marker is allowed, including in generic-valid
+/// extension maps. An unsupported future marker must never fall back to v1.
+fn owned_profile(
+    extensions: &BTreeMap<String, serde_json::Value>,
+) -> Result<PerformanceProfile, String> {
+    let mut markers = extensions
+        .keys()
+        .filter(|key| key.starts_with("omniusong.performance."));
+    let marker = markers.next().ok_or("No owned performance namespace")?;
+    require(
+        markers.next().is_none(),
+        "Mixed owned performance namespaces",
+    )?;
+    match marker.as_str() {
+        PERFORMANCE_NAMESPACE => Ok(PerformanceProfile::OriginalV1),
+        PERFORMANCE_NAMESPACE_V2 => Ok(PerformanceProfile::FinishV2),
+        _ => Err("Unsupported owned performance namespace".into()),
+    }
+}
+fn validated_descriptor(
+    descriptor: &TakeDescriptor,
+) -> Result<(PerformanceProfile, PerformanceConfig), String> {
     descriptor.validate().map_err(|e| e.to_string())?;
+    let profile = owned_profile(&descriptor.provenance)?;
     let owned = descriptor
         .provenance
-        .get(PERFORMANCE_NAMESPACE)
-        .ok_or("Descriptor has no owned performance provenance")?;
+        .get(profile.namespace())
+        .ok_or("Missing owned provenance")?;
     let provenance: Provenance = serde_json::from_value(owned.clone())
         .map_err(|e| format!("Invalid owned performance provenance: {e}"))?;
     require(
-        provenance.version == RECORD_VERSION,
-        "Unsupported performance provenance version",
+        provenance.version == profile.version(),
+        "Performance namespace and provenance version differ",
     )?;
     require(
-        create_descriptor(&provenance.config)? == *descriptor,
+        create_descriptor_for(&provenance.config, profile)? == *descriptor,
         "Performance descriptor differs from its exact declared configuration",
     )?;
-    Ok(provenance.config)
+    Ok((profile, provenance.config))
+}
+pub fn descriptor_profile(descriptor: &TakeDescriptor) -> Result<PerformanceProfile, String> {
+    validated_descriptor(descriptor).map(|(profile, _)| profile)
+}
+pub fn from_descriptor(descriptor: &TakeDescriptor) -> Result<PerformanceConfig, String> {
+    validated_descriptor(descriptor).map(|(_, config)| config)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -283,6 +344,10 @@ pub enum PerformanceRecord {
     Transition {
         callback_index: u64,
         transition: TapTransition,
+    },
+    Finish {
+        callback_index: u64,
+        finish: TapFinish,
     },
     End {
         callback_index: u64,
@@ -343,10 +408,7 @@ fn single_event_valid(
 }
 impl LocalRecord {
     pub fn validate(&self) -> Result<(), String> {
-        require(
-            self.version == RECORD_VERSION,
-            "Unsupported local performance record version",
-        )?;
+        let profile = PerformanceProfile::from_version(self.version)?;
         match &self.record {
             PerformanceRecord::Begin {
                 callback_index,
@@ -408,6 +470,25 @@ impl LocalRecord {
                         && transition.voice > 0
                         && frame_valid(transition.frame),
                     "Invalid automatic performance transition",
+                )?;
+            }
+            PerformanceRecord::Finish {
+                callback_index,
+                finish,
+            } => {
+                require(
+                    profile == PerformanceProfile::FinishV2
+                        && *callback_index > 0
+                        && finish.callback_index == *callback_index
+                        && finish.fence.id.is_valid()
+                        && finish.fence.scope.is_valid()
+                        && finish.fence.accepted_sequence != Some(0)
+                        && finish.cut_frame > 0
+                        && frame_valid(finish.cut_frame)
+                        && usize::from(finish.voices_cut) <= LIVE_VOICES
+                        && finish.release_tails_cut <= finish.voices_cut
+                        && finish.policy == LiveFinishPolicy::CutAtCompleteCallbackEnd,
+                    "Invalid v2 performance Finish shape",
                 )?;
             }
             PerformanceRecord::End {
@@ -529,6 +610,7 @@ pub fn encode_record(
 ) -> Result<Vec<u8>, String> {
     config.validate()?;
     record.validate()?;
+    let profile = PerformanceProfile::from_version(record.version)?;
     require(
         (1..STREAM_IDS.len()).contains(&stream_index) && event_ordinal < i64::MAX as u64,
         "Invalid performance event stream or source ordinal",
@@ -560,6 +642,7 @@ pub fn encode_record(
             PerformanceRecord::Begin { begin, .. } => Some(begin.start_frame),
             PerformanceRecord::Clear { clear, .. } => Some(clear.frame),
             PerformanceRecord::Transition { transition, .. } => Some(transition.frame),
+            PerformanceRecord::Finish { finish, .. } => Some(finish.cut_frame),
             PerformanceRecord::End { end_frame, .. } => Some(*end_frame),
             PerformanceRecord::Checkpoint { checkpoint } => Some(checkpoint.audio_end),
             _ => None,
@@ -618,7 +701,7 @@ pub fn encode_record(
         raw: RawPacket::Local,
         musical: MusicalEvent::Uninterpreted,
         extensions: BTreeMap::from([(
-            PERFORMANCE_NAMESPACE.into(),
+            profile.namespace().into(),
             serde_json::to_value(record).map_err(|e| e.to_string())?,
         )]),
     };
@@ -641,14 +724,40 @@ pub fn decode_envelope(bytes: &[u8]) -> Result<(Envelope<CapturedEvent>, LocalRe
             && envelope.payload.time.alignment.is_none(),
         "Performance records require local uninterpreted unaligned evidence",
     )?;
+    let profile = owned_profile(&envelope.payload.extensions)?;
+    // Owned markers belong only to the payload extension. Do not accept a
+    // second, even matching marker hidden in another generic extension map.
+    for extensions in [
+        &envelope.extensions,
+        &envelope.payload.source.extensions,
+        &envelope.payload.time.extensions,
+    ] {
+        require(
+            !extensions
+                .keys()
+                .any(|key| key.starts_with("omniusong.performance.")),
+            "Misplaced owned performance namespace",
+        )?;
+    }
     let owned = envelope
         .payload
         .extensions
-        .get(PERFORMANCE_NAMESPACE)
-        .ok_or("Capture envelope has no owned performance record")?;
+        .get(profile.namespace())
+        .ok_or("Missing owned local record")?;
     let record: LocalRecord = serde_json::from_value(owned.clone())
         .map_err(|e| format!("Invalid owned local performance record: {e}"))?;
     record.validate()?;
+    require(
+        record.version == profile.version(),
+        "Performance namespace and local record version differ",
+    )?;
+    if let PerformanceRecord::Finish { finish, .. } = &record.record {
+        require(
+            envelope.payload.time.observed.domain.0 == RENDER_DOMAIN
+                && envelope.payload.time.observed.ticks == finish.cut_frame,
+            "Finish observation must be its exact render-frame cut",
+        )?;
+    }
     Ok((envelope, record))
 }
 pub fn decode_record(bytes: &[u8]) -> Result<LocalRecord, String> {
@@ -661,7 +770,10 @@ pub fn checkpoint_sha256(encoded_envelope_bytes: &[u8]) -> Result<String, String
         "Checkpoint digest requires a validated checkpoint envelope",
     )?;
     let mut hash = Sha256::new();
-    hash.update(b"OmniuSong.performance-checkpoint.v1\0");
+    hash.update(match PerformanceProfile::from_version(record.version)? {
+        PerformanceProfile::OriginalV1 => b"OmniuSong.performance-checkpoint.v1\0",
+        PerformanceProfile::FinishV2 => b"OmniuSong.performance-checkpoint.v2\0",
+    });
     hash.update(encoded_envelope_bytes);
     Ok(format!("{:x}", hash.finalize()))
 }
