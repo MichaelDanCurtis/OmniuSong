@@ -10,6 +10,8 @@ The subsequent `a948b887…` attempt failed a live-progress guard. Its original 
 
 The `ffc90e34…` attempt recorded keys/pads, held a sustained voice and requested Finish. The UI showed 856576 rendered and durable frames, 1673 complete callbacks and Sealing, then reported only “Audio worker generation is retired; no new control admission.” The retained 14,716,928-byte source has no manifest and was never attached. Its SHA-256 is `d94a8986ebfa149546d0b5c244117fe969d6a31fae1e5f33913684452729bcaf`. Intent revision 2 retains the exact requested Finish; the initial revision 1 naturally contains no Finish. The later explicit Keep locally choice releases the review without deleting that evidence. The app was closed through its native window control and its process exit verified.
 
+The failed stage also retains `take.sqlite3-journal` (16,928 bytes, SHA-256 `8d14f3889fd97e5ecefcd858cc1590d68fa08eb148f13cceb40c662930dcf306`). The earlier profile already lists this name; the sidecar was preserved and fingerprinted after app exit. The new bounded reader deliberately refuses any rollback/WAL sidecar, so this particular failed stage has not passed that service review. The trusted clone cost helper uses the existing unbounded read-only reader; that does not authorize deleting a sidecar or using the stage through the bounded API. No claim of hot/cold-journal recovery authority follows from its header.
+
 The exact failing phase cannot be recovered from that generic diagnostic. No source repair, recovery, resumed recording, fabricated callback receipt or normal seal has been applied to this original.
 
 ## Isolated storage measurements

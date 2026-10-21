@@ -99,5 +99,14 @@
       "sha256": "1dab4723d3604e4ecf9d9c87fa701f41856a1072c652d536bdec83dd44d5f486"
     }
   ],
-  "limits": "Logical rows and original files retained. Catalog bytes legitimately changed for schema 5, three synthetic sessions, explicit intentions and one new owned take. This does not repair the earlier documented disconnect losses or prove physical power-loss durability."
+  "limits": "Logical rows and original files retained. Catalog bytes legitimately changed for schema 5, three synthetic sessions, explicit intentions and one new owned take. This does not repair the earlier documented disconnect losses or prove physical power-loss durability.",
+  "retainedFailedSealSidecars": [
+    {
+      "path": ".runtime/native-studio/captures/9d9e0eada2a14f6586a57ea88405f021/take.sqlite3-journal",
+      "byteLength": 16928,
+      "sha256": "8d14f3889fd97e5ecefcd858cc1590d68fa08eb148f13cceb40c662930dcf306"
+    }
+  ],
+  "sidecarObservationAtUtc": "2026-10-21T06:18:28.259137+00:00",
+  "sidecarLimits": "Retained rollback-journal bytes were fingerprinted after app exit. The earlier clone profile reports the same source directory names including this journal, but did not fingerprint sidecar bytes before its run. The main SQLite source remained exact. No sidecar was removed or recovery authorized."
 }

@@ -1994,8 +1994,8 @@
   "nativeAppExited": true,
   "preservation": {
     "path": "docs/verification/rust-bounded-performance-preservation.json",
-    "sha256": "9c33134b3118fec35a99832f9ff1b7ec7f6a900db7210849f0e21bd23f0cd8b2",
-    "byteLength": 3101
+    "byteLength": 3749,
+    "sha256": "4ca6a67b052c9e33b1d20d0473ade63171caf3d8dc906cd875cae541508dcba0"
   },
   "nextWork": [
     "After goal Resume, package diagnostic source and observe exact native retirement on a fresh software-output take.",
@@ -2007,7 +2007,8 @@
     "The 12.795799-second trusted-storage profile exceeds the unchanged ten-second deadline but does not prove the actual native retirement cause.",
     "VM/work budgets bound service work; stalled filesystem calls are not forcibly cancellable and these limits are not wall-time guarantees.",
     "Source inspection APIs mint no recovery, attachment, resume or normal-seal authority.",
-    "Source acceptance does not qualify native input, listening, physical/software latency, thirty-minute stability, MIDI 2/MPE, inference, plugins, installers or Windows."
+    "Source acceptance does not qualify native input, listening, physical/software latency, thirty-minute stability, MIDI 2/MPE, inference, plugins, installers or Windows.",
+    "The longer failed source retains a rollback journal and has not passed the new bounded reader, which refuses sidecars. The trusted cost helper uses the existing unbounded read-only reader; neither this measurement nor the sidecar header authorizes recovery or removal."
   ],
   "reviews": [
     {
@@ -2027,8 +2028,15 @@
     },
     {
       "path": "docs/reviews/RUST-RECORDING-SEAL-COST.md",
-      "sha256": "4359be2ef496515c692d3a8cac0f39d4f046e4607fd11550b59cd622b0f13c6e",
-      "byteLength": 5417
+      "sha256": "7af2124e5c50a319d04b36b5268ca92d42209f97e6fa627ccf421fb7b15f8bfd",
+      "byteLength": 6042
+    }
+  ],
+  "retainedFailedSealSidecars": [
+    {
+      "path": ".runtime/native-studio/captures/9d9e0eada2a14f6586a57ea88405f021/take.sqlite3-journal",
+      "byteLength": 16928,
+      "sha256": "8d14f3889fd97e5ecefcd858cc1590d68fa08eb148f13cceb40c662930dcf306"
     }
   ]
 }
