@@ -9,6 +9,7 @@ mod live_ui;
 mod note_editor_review;
 mod note_ui;
 mod recovery_ui;
+mod waveform_ui;
 
 use audio_ui::AudioUi;
 use clip_ui::{ClipAction, ClipContext, ClipEditor};
@@ -175,6 +176,7 @@ struct StudioApp {
     selected_track: usize,
     notes: NoteEditor,
     clips: ClipEditor,
+    waveform: waveform_ui::WaveformUi,
     pending: Option<Action>,
     status: String,
     error: Option<String>,
@@ -213,6 +215,7 @@ impl StudioApp {
             selected_track: 0,
             notes: NoteEditor::default(),
             clips: ClipEditor::default(),
+            waveform: waveform_ui::WaveformUi::default(),
             pending: None,
             status: "Opening your local studio.".into(),
             error: None,
@@ -1306,6 +1309,11 @@ impl StudioApp {
         let ctx = root.ctx().clone();
         self.poll();
         self.poll_audio();
+        self.waveform
+            .poll(self.document.as_ref(), self.clips.selection.as_ref());
+        if self.waveform.pending() {
+            ctx.request_repaint_after(Duration::from_millis(50));
+        }
         if !self.ready {
             self.loading_ui(root);
             self.draft_guard_ui(&ctx);
@@ -1525,8 +1533,8 @@ impl StudioApp {
                 });
             });
         egui::CentralPanel::default().show(root, |ui| {
-            if !available {ui.disable();}
             egui::ScrollArea::vertical().id_salt("session-editor").show(ui,|ui|{
+            ui.add_enabled_ui(available, |ui| {
             if self.document.is_none() {
                 ui.add_space(60.0); ui.heading("Your music stays yours.");
                 ui.label("Create a native session, or bring in an existing OmniuSong project.");
@@ -1608,6 +1616,11 @@ impl StudioApp {
                     ui.add_enabled(false, egui::Button::new("Connect MIDI · pending"));
                     ui.add_enabled(false, egui::Button::new("Load audio plugin · pending"));
                 });
+            }
+            });
+            if let Some(document) = &self.document {
+                ui.separator();
+                self.waveform.ui(ui, &self.paths.native, document, self.clips.selection.as_ref(), self.clips.draft.as_ref(), waveform_ui::WaveformAccess { unresolved: self.clips.unresolved(), allow_start: available });
             }
             });
         });

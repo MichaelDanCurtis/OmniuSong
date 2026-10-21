@@ -246,40 +246,80 @@ fn same_file(left: &fs::Metadata, right: &fs::Metadata) -> Result<()> {
     )
 }
 
-fn hash_file(mut file: &File) -> Result<(u64, String)> {
+#[cfg(test)]
+fn hash_file(file: &File) -> Result<(u64, String)> {
+    hash_file_cancellable(file, u64::MAX, &|| false)
+}
+
+fn check_cancelled(cancelled: &dyn Fn() -> bool) -> Result<()> {
+    require(!cancelled(), "Waveform preparation cancelled")
+}
+
+fn hash_file_cancellable(
+    mut file: &File,
+    max_bytes: u64,
+    cancelled: &dyn Fn() -> bool,
+) -> Result<(u64, String)> {
     let mut hash = Sha256::new();
     let mut count = 0_u64;
     let mut buffer = [0_u8; 64 * 1024];
     loop {
-        let size = file.read(&mut buffer)?;
+        check_cancelled(cancelled)?;
+        let remaining = max_bytes.saturating_sub(count);
+        let read_limit = remaining.saturating_add(1).min(buffer.len() as u64) as usize;
+        let size = file.read(&mut buffer[..read_limit])?;
         if size == 0 {
             break;
         }
         count = count
             .checked_add(size as u64)
             .ok_or_else(|| StoreError::Invalid("Owned take byte count overflow".into()))?;
+        require(
+            count <= max_bytes,
+            "Owned take grew beyond its authenticated inspection byte limit",
+        )?;
         hash.update(&buffer[..size]);
     }
     Ok((count, format!("{:x}", hash.finalize())))
 }
 
 pub(crate) fn verify_owned_take(root: &Path, object: &TakeObject) -> Result<SealedJournal> {
+    verify_owned_take_bounded(root, object, u64::MAX, &|| false)
+}
+
+pub(crate) fn verify_owned_take_bounded(
+    root: &Path,
+    object: &TakeObject,
+    max_bytes: u64,
+    cancelled: &dyn Fn() -> bool,
+) -> Result<SealedJournal> {
     validate_object(object)?;
+    require(
+        object.byte_length <= max_bytes,
+        "Owned take exceeds the inspection byte limit",
+    )?;
+    check_cancelled(cancelled)?;
     let path = object_path(root, &object.object_sha256)?;
     let before = ordinary_object(&path)?;
+    require(
+        before.len() <= max_bytes,
+        "Owned take exceeds the inspection byte limit",
+    )?;
     require(
         before.len() == object.byte_length,
         "Owned take file length differs from its registration",
     )?;
     let file = File::open(&path)?;
     same_file(&before, &file.metadata()?)?;
+    check_cancelled(cancelled)?;
     let sealed = SealedJournal::open(&path)?;
+    check_cancelled(cancelled)?;
     require(
         sealed.manifest() == &object.manifest && sealed.descriptor().take_id == object.take_id,
         "Owned take differs from its registered sealed manifest",
     )?;
     same_file(&before, &ordinary_object(&path)?)?;
-    let (count, sha) = hash_file(&file)?;
+    let (count, sha) = hash_file_cancellable(&file, max_bytes.min(object.byte_length), cancelled)?;
     require(
         count == object.byte_length && sha == object.object_sha256,
         "Owned take file hash is damaged",
@@ -289,7 +329,7 @@ pub(crate) fn verify_owned_take(root: &Path, object: &TakeObject) -> Result<Seal
     Ok(sealed)
 }
 
-fn check_reference(object: &TakeObject, reference: &TakeReference) -> Result<()> {
+pub(crate) fn check_reference(object: &TakeObject, reference: &TakeReference) -> Result<()> {
     reference.validate()?;
     require(
         reference.take_id == object.take_id && reference.manifest_sha256 == object.manifest_sha256,

@@ -5,7 +5,11 @@ mod archive;
 mod archive_copy;
 mod captures;
 mod operations;
+mod reader;
 mod takes;
+pub use reader::NativeReader;
+#[cfg(test)]
+mod reader_tests;
 pub use archive::{
     ARCHIVE_APPLICATION_ID, ARCHIVE_CHUNK_BYTES, ARCHIVE_METADATA_BYTES, ARCHIVE_PAYLOAD_BYTES,
     ARCHIVE_VERSION, ArchiveReceipt,

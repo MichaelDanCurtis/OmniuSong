@@ -31,6 +31,12 @@ fn u32le(b: &[u8], p: usize) -> Result<u32, String> {
     Ok(u32::from_le_bytes([v[0], v[1], v[2], v[3]]))
 }
 pub fn inspect_wav(bytes: &[u8]) -> Result<WavInfo, String> {
+    inspect_wav_with_channel_limit(bytes, MAX_CHANNELS)
+}
+pub(crate) fn inspect_wav_with_channel_limit(
+    bytes: &[u8],
+    max_channels: usize,
+) -> Result<WavInfo, String> {
     if bytes.len() > 30 * 1024 * 1024
         || bytes.get(..4) != Some(b"RIFF")
         || bytes.get(8..12) != Some(b"WAVE")
@@ -61,7 +67,8 @@ pub fn inspect_wav(bytes: &[u8]) -> Result<WavInfo, String> {
             let rate = u32le(bytes, start + 4)?;
             let bits = u16le(bytes, start + 14)?;
             let align = u16le(bytes, start + 12)?;
-            if !(1..=MAX_CHANNELS as u16).contains(&channels)
+            if channels == 0
+                || channels as usize > max_channels
                 || !(8000..=768000).contains(&rate)
                 || !((tag == 1 && matches!(bits, 16 | 24 | 32)) || (tag == 3 && bits == 32))
                 || align as usize != channels as usize * (bits as usize / 8)
@@ -114,10 +121,19 @@ fn signed_sample(bytes: &[u8], bits: u16, float: bool) -> Result<f32, String> {
     Ok(v)
 }
 pub fn wav_sample(bytes: &[u8], info: &WavInfo, frame: u64, channel: u16) -> Result<f32, String> {
+    wav_sample_with_channel_limit(bytes, info, frame, channel, MAX_CHANNELS)
+}
+pub(crate) fn wav_sample_with_channel_limit(
+    bytes: &[u8],
+    info: &WavInfo,
+    frame: u64,
+    channel: u16,
+    max_channels: usize,
+) -> Result<f32, String> {
     if frame >= info.frames
         || channel >= info.channels
         || info.channels == 0
-        || info.channels as usize > MAX_CHANNELS
+        || info.channels as usize > max_channels
         || !matches!(
             (info.bits, info.float),
             (16, false) | (24, false) | (32, false) | (32, true)
@@ -165,8 +181,18 @@ pub fn pcm_sample(
     frame: u64,
     channel: u16,
 ) -> Result<f32, String> {
+    pcm_sample_with_channel_limit(bytes, format, frames, frame, channel, MAX_CHANNELS)
+}
+pub(crate) fn pcm_sample_with_channel_limit(
+    bytes: &[u8],
+    format: &PcmFormat,
+    frames: u64,
+    frame: u64,
+    channel: u16,
+    max_channels: usize,
+) -> Result<f32, String> {
     if format.channels == 0
-        || format.channels as usize > MAX_CHANNELS
+        || format.channels as usize > max_channels
         || frame >= frames
         || channel >= format.channels
     {

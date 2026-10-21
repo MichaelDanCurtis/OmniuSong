@@ -710,7 +710,7 @@ impl ClipEditor {
             return None;
         }
         ui.heading("Audio clip editor");
-        ui.small("Non-destructive saved-source views · no waveform, stretch or draft audition");
+        ui.small("Non-destructive saved-source views · source waveform below · no stretch or draft audition");
         if selected_track["kind"] == "audio" {
             if selected_track.get("audio").is_some_and(Value::is_object) {
                 let selection = ClipSelection {

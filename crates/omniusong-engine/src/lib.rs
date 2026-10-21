@@ -6,6 +6,9 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 pub mod live_types;
 pub use live_types::*;
+pub mod waveform_types;
+pub use waveform_types::*;
+pub mod waveform;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "command", rename_all = "snake_case", deny_unknown_fields)]
