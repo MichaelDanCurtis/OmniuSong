@@ -2174,6 +2174,7 @@ dependencies = [
  "omniusong-recording",
  "omniusong-store",
  "rtrb",
+ "rusqlite",
  "serde",
  "serde_json",
  "sha2",

@@ -1,5 +1,5 @@
 use crate::types::*;
-use rusqlite::{Connection, OpenFlags, TransactionBehavior, params};
+use rusqlite::{Connection, OpenFlags, OptionalExtension, TransactionBehavior, params};
 use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
@@ -668,6 +668,221 @@ impl Journal {
         load_chunk(&self.connection, &self.descriptor, stream_id, sequence)
     }
 
+    /// Atomically append 1..=64 chunks, up to 8 MiB of canonical headers and
+    /// payloads. All-old exact consecutive originals replay; mixed old/new
+    /// requests conflict. The content digest is not a historical commit proof.
+    /// Existing chunk hooks fire per insert, then once before/after group commit.
+    pub fn append_group(&mut self, chunks: &[AppendChunk<'_>]) -> Result<AppendGroupReceipt> {
+        require(
+            !chunks.is_empty() && chunks.len() <= MAX_APPEND_GROUP_CHUNKS,
+            "Append group must contain 1..64 chunks",
+        )?;
+        let mut total = 0usize;
+        let mut prepared = Vec::with_capacity(chunks.len());
+        let mut addresses = std::collections::BTreeSet::new();
+        let mut group_hash = Sha256::new();
+        group_hash.update(b"OmniuSong.recording-append-group.v1\0");
+        group_hash.update(self.descriptor.sha256()?.as_bytes());
+        // Complete input validation and byte accounting precede any SQL mutation.
+        for chunk in chunks {
+            let bytes = chunk.header.canonical_bytes()?;
+            total = total
+                .checked_add(bytes.len())
+                .and_then(|v| v.checked_add(chunk.payload.len()))
+                .filter(|v| *v <= MAX_APPEND_GROUP_BYTES)
+                .ok_or_else(|| {
+                    RecordingError::Invalid(
+                        "Append group exceeds 8 MiB of canonical headers and payloads".into(),
+                    )
+                })?;
+            chunk.header.validate(&self.descriptor, chunk.payload)?;
+            if !addresses.insert((chunk.header.stream_id.as_str(), chunk.header.sequence)) {
+                return Err(RecordingError::Conflict(
+                    "Append group repeats an immutable chunk address".into(),
+                ));
+            }
+            let sha256 = chunk.header.sha256(chunk.payload)?;
+            group_hash.update(sha256.as_bytes());
+            prepared.push((bytes, sha256));
+        }
+        let group_sha256 = format!("{:x}", group_hash.finalize());
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let mut ordinals = Vec::with_capacity(chunks.len());
+        for chunk in chunks {
+            let ordinal = tx
+                .query_row(
+                    "SELECT ordinal FROM chunks WHERE stream_id=?1 AND sequence=?2",
+                    params![chunk.header.stream_id, sql_integer(chunk.header.sequence)?],
+                    |row| read_unsigned(row, 0),
+                )
+                .optional()?;
+            ordinals.push(ordinal);
+        }
+        let old = ordinals.iter().filter(|ordinal| ordinal.is_some()).count();
+        if old != 0 && old != chunks.len() {
+            return Err(RecordingError::Conflict(
+                "Append group mixes old and new immutable chunks".into(),
+            ));
+        }
+        if old == chunks.len() {
+            let first_ordinal = ordinals[0].expect("all chunks exist");
+            for (index, ordinal) in ordinals.iter().enumerate() {
+                if first_ordinal.checked_add(index as u64) != *ordinal {
+                    return Err(RecordingError::Conflict(
+                        "Append group retry is not in consecutive global original order".into(),
+                    ));
+                }
+            }
+            let report = match state(&tx)? {
+                TakeState::Sealed => {
+                    let manifest = verify_sealed(&tx, &self.descriptor)?;
+                    scan(&tx, &self.descriptor, Some(manifest.body.chunk_count))?
+                }
+                TakeState::Interrupted => {
+                    let receipt = load_interrupted(&tx)?;
+                    let report = scan(&tx, &self.descriptor, Some(receipt.report.verified_chunks))?;
+                    require(
+                        report.chunk_index_sha256
+                            == interrupted_prefix_hash(
+                                &tx,
+                                &self.descriptor,
+                                report.verified_chunks,
+                            )?,
+                        "Group retry differs from its interrupted original prefix",
+                    )?;
+                    report
+                }
+                TakeState::Recording => scan(&tx, &self.descriptor, None)?,
+            };
+            let last_ordinal = ordinals
+                .last()
+                .copied()
+                .flatten()
+                .expect("nonempty old group");
+            require(
+                first_ordinal > 0 && last_ordinal <= report.verified_chunks,
+                "Group retry lies outside the proven original prefix",
+            )?;
+            let mut receipts = Vec::with_capacity(chunks.len());
+            for (chunk, (bytes, sha256)) in chunks.iter().zip(&prepared) {
+                let stored = load_chunk(
+                    &tx,
+                    &self.descriptor,
+                    &chunk.header.stream_id,
+                    chunk.header.sequence,
+                )?;
+                if stored.sha256 != *sha256
+                    || stored.header.canonical_bytes()? != *bytes
+                    || stored.payload != chunk.payload
+                {
+                    return Err(RecordingError::Conflict(
+                        "Conflicting retry of immutable append group".into(),
+                    ));
+                }
+                let durable = report
+                    .streams
+                    .iter()
+                    .find(|prefix| prefix.stream_id == chunk.header.stream_id)
+                    .expect("validated stream")
+                    .clone();
+                require(
+                    chunk.header.sequence < durable.next_sequence,
+                    "Group retry lies outside a proven stream prefix",
+                )?;
+                receipts.push(ChunkReceipt {
+                    take_id: self.descriptor.take_id.clone(),
+                    stream_id: chunk.header.stream_id.clone(),
+                    sequence: chunk.header.sequence,
+                    sha256: sha256.clone(),
+                    durable_prefix: durable,
+                    replayed: true,
+                });
+            }
+            tx.commit()?;
+            return Ok(AppendGroupReceipt {
+                group_sha256,
+                first_ordinal,
+                last_ordinal,
+                chunks: receipts,
+                replayed: true,
+            });
+        }
+        match state(&tx)? {
+            TakeState::Interrupted => return Err(RecordingError::Interrupted),
+            TakeState::Sealed => {
+                return Err(RecordingError::Invalid(
+                    "Sealed take cannot append original data".into(),
+                ));
+            }
+            TakeState::Recording => {}
+        }
+        let mut prefixes = BTreeMap::new();
+        for chunk in chunks {
+            if !prefixes.contains_key(&chunk.header.stream_id) {
+                let stream = self
+                    .descriptor
+                    .streams
+                    .iter()
+                    .find(|stream| stream.stream_id == chunk.header.stream_id)
+                    .expect("validated stream");
+                prefixes.insert(chunk.header.stream_id.clone(), prefix(&tx, stream)?);
+            }
+            prefixes
+                .get_mut(&chunk.header.stream_id)
+                .expect("simulated stream")
+                .advance(chunk.header)?;
+        }
+        let previous: u64 =
+            tx.query_row("SELECT COALESCE(MAX(ordinal),0) FROM chunks", [], |row| {
+                read_unsigned(row, 0)
+            })?;
+        let first_ordinal = previous
+            .checked_add(1)
+            .ok_or_else(|| RecordingError::Invalid("Append group ordinal overflow".into()))?;
+        let last_ordinal = previous
+            .checked_add(chunks.len() as u64)
+            .filter(|v| *v <= i64::MAX as u64)
+            .ok_or_else(|| {
+                RecordingError::Invalid("Append group ordinal exceeds SQLite range".into())
+            })?;
+        for (index, (chunk, (bytes, sha256))) in chunks.iter().zip(&prepared).enumerate() {
+            tx.execute("INSERT INTO chunks(stream_id,sequence,header,payload,sha256) VALUES(?1,?2,?3,?4,?5)", params![chunk.header.stream_id, sql_integer(chunk.header.sequence)?, bytes, chunk.payload, sha256])?;
+            require(
+                u64::try_from(tx.last_insert_rowid()).ok()
+                    == first_ordinal.checked_add(index as u64),
+                "Append group assigned a nonconsecutive global ordinal",
+            )?;
+            invoke(&mut self.hook, WriteBoundary::AfterChunkInsert)?;
+        }
+        for durable in prefixes.values() {
+            store_prefix(&tx, durable)?;
+        }
+        let receipts = chunks
+            .iter()
+            .zip(&prepared)
+            .map(|(chunk, (_, sha256))| ChunkReceipt {
+                take_id: self.descriptor.take_id.clone(),
+                stream_id: chunk.header.stream_id.clone(),
+                sequence: chunk.header.sequence,
+                sha256: sha256.clone(),
+                durable_prefix: prefixes[&chunk.header.stream_id].clone(),
+                replayed: false,
+            })
+            .collect();
+        invoke(&mut self.hook, WriteBoundary::BeforeChunkCommit)?;
+        tx.commit()?;
+        invoke(&mut self.hook, WriteBoundary::AfterChunkCommit)?;
+        Ok(AppendGroupReceipt {
+            group_sha256,
+            first_ordinal,
+            last_ordinal,
+            chunks: receipts,
+            replayed: false,
+        })
+    }
+
     pub fn append(&mut self, header: &ChunkHeader, payload: &[u8]) -> Result<ChunkReceipt> {
         header.validate(&self.descriptor, payload)?;
         let sha256 = header.sha256(payload)?;
@@ -773,10 +988,10 @@ impl Journal {
     }
 
     pub fn seal(&mut self, operation_id: &str) -> Result<SealedManifest> {
-        self.finish(operation_id, false, None)
+        self.finish(operation_id, false, None, None)
     }
     pub fn seal_recovered(&mut self, operation_id: &str) -> Result<SealedManifest> {
-        self.finish(operation_id, true, None)
+        self.finish(operation_id, true, None, None)
     }
 
     pub(crate) fn seal_recovered_checked(
@@ -784,24 +999,38 @@ impl Journal {
         operation_id: &str,
         original_rows: &str,
     ) -> Result<SealedManifest> {
-        self.finish(operation_id, true, Some(original_rows))
+        self.finish(operation_id, true, Some(original_rows), None)
+    }
+    pub(crate) fn seal_recovered_prefix_checked(
+        &mut self,
+        operation_id: &str,
+        original_rows: &str,
+        selection: &RecoveryPrefix,
+    ) -> Result<SealedManifest> {
+        self.finish(operation_id, true, Some(original_rows), Some(selection))
     }
     fn finish(
         &mut self,
         operation_id: &str,
         recovered: bool,
         original_rows: Option<&str>,
+        selected: Option<&RecoveryPrefix>,
     ) -> Result<SealedManifest> {
         identifier(operation_id)?;
-        if let Some(manifest) = self.sealed_manifest()? {
-            if manifest.body.operation_id != operation_id
-                || manifest.body.interrupted.is_some() != recovered
-            {
-                return Err(RecordingError::Conflict(
-                    "Conflicting retry of sealed take finalization".into(),
-                ));
-            }
-            return Ok(manifest);
+        if let Some(selection) = selected {
+            selection.validate()?;
+            require(
+                recovered,
+                "Explicit prefix selection requires recovered finalization",
+            )?;
+        } else {
+            require(
+                !self
+                    .descriptor
+                    .provenance
+                    .contains_key("omniusong.performance.v1"),
+                "Performance originals require an explicit format-aware selected recovery prefix",
+            )?;
         }
         let tx = self
             .connection
@@ -813,12 +1042,50 @@ impl Journal {
                 "Original capture rows changed after recovery admission",
             )?;
         }
+        if current == TakeState::Sealed {
+            let manifest = verify_sealed(&tx, &self.descriptor)?;
+            if manifest.body.operation_id != operation_id
+                || manifest.body.interrupted.is_some() != recovered
+                || selected.is_some_and(|selection| {
+                    manifest.body.chunk_count != selection.chunk_count
+                        || manifest.body.chunk_index_sha256 != selection.chunk_index_sha256
+                })
+            {
+                return Err(RecordingError::Conflict(
+                    "Conflicting retry of sealed take finalization".into(),
+                ));
+            }
+            tx.commit()?;
+            return Ok(manifest);
+        }
         require(
             (!recovered && current == TakeState::Recording)
                 || (recovered && current == TakeState::Interrupted),
             "Finalization mode does not match take state",
         )?;
-        let report = scan(&tx, &self.descriptor, None)?;
+        let report = scan(
+            &tx,
+            &self.descriptor,
+            selected.map(|selection| selection.chunk_count),
+        )?;
+        if let Some(selection) = selected {
+            require(
+                report.problems.is_empty()
+                    && report.verified_chunks == selection.chunk_count
+                    && report.chunk_index_sha256 == selection.chunk_index_sha256,
+                "Selected recovery prefix differs from verified original chunks",
+            )?;
+            require(
+                report
+                    .streams
+                    .iter()
+                    .zip(&self.descriptor.streams)
+                    .any(|(prefix, stream)| {
+                        matches!(stream.kind, StreamKind::Audio { .. }) && prefix.recorded_units > 0
+                    }),
+                "Selected recovery prefix must contain recorded audio",
+            )?;
+        }
         let interrupted = if recovered {
             let receipt = load_interrupted(&tx)?;
             require(
@@ -875,5 +1142,142 @@ impl Journal {
         tx.commit()?;
         invoke(&mut self.hook, WriteBoundary::AfterSealCommit)?;
         Ok(manifest)
+    }
+}
+
+#[cfg(test)]
+mod selected_prefix_boundaries {
+    use super::*;
+    fn fixture() -> (PathBuf, Journal, RecoveryPrefix, String) {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../.runtime/selected-prefix-boundaries")
+            .join(uuid::Uuid::new_v4().to_string());
+        std::fs::create_dir_all(&path).unwrap();
+        let path = path.join("take.sqlite3");
+        let take = TakeDescriptor {
+            version: JOURNAL_VERSION,
+            take_id: TakeId(uuid::Uuid::new_v4().to_string()),
+            streams: vec![StreamDescriptor {
+                stream_id: "audio".into(),
+                segment_id: "segment".into(),
+                source_id: "synthetic".into(),
+                source_name: "Synthetic PCM, no device".into(),
+                source_connection_generation: 1,
+                host_clock: HostClock {
+                    domain: ClockDomainId("clock".into()),
+                    epoch: ClockEpochId("epoch".into()),
+                    ticks_per_second_numerator: 48_000,
+                    ticks_per_second_denominator: 1,
+                },
+                kind: StreamKind::Audio {
+                    format: PcmFormat {
+                        sample_rate: 48_000,
+                        channels: 1,
+                        encoding: PcmEncoding::F32Le,
+                        layout: PcmLayout::Interleaved,
+                    },
+                    audio_epoch: ClockEpochId("audio".into()),
+                },
+                initial_source_position: 0,
+            }],
+            provenance: BTreeMap::from([(
+                "omniusong.performance.v1".into(),
+                serde_json::Value::Null,
+            )]),
+        };
+        let mut journal = Journal::create(&path, &take).unwrap();
+        for sequence in 0..3 {
+            let stream = &take.streams[0];
+            let stamp = HostTimestamp {
+                domain: stream.host_clock.domain.clone(),
+                epoch: stream.host_clock.epoch.clone(),
+                ticks: sequence,
+            };
+            let header = ChunkHeader {
+                version: CHUNK_VERSION,
+                take_id: take.take_id.clone(),
+                stream_id: stream.stream_id.clone(),
+                segment_id: stream.segment_id.clone(),
+                sequence,
+                range: SourceRange::AudioFrames {
+                    start: sequence,
+                    count: 1,
+                },
+                interpretation: stream.kind.clone(),
+                observed_start: stamp.clone(),
+                observed_end: stamp,
+                clock_anchors: vec![],
+                kind: ChunkKind::Content,
+            };
+            journal.append(&header, &0.25f32.to_le_bytes()).unwrap();
+        }
+        drop(journal);
+        let journal = Journal::open(&path).unwrap();
+        let report = scan(&journal.connection, &take, Some(1)).unwrap();
+        let selection = RecoveryPrefix {
+            chunk_count: 1,
+            chunk_index_sha256: report.chunk_index_sha256,
+        };
+        let original = crate::inspection::original_rows_hash(&journal.connection).unwrap();
+        (path, journal, selection, original)
+    }
+    #[test]
+    fn selected_seal_boundaries_rollback_or_replay_lost_ack_without_original_row_change() {
+        for boundary in [
+            WriteBoundary::AfterManifestInsert,
+            WriteBoundary::BeforeSealCommit,
+            WriteBoundary::AfterSealCommit,
+        ] {
+            let (path, mut journal, selection, original) = fixture();
+            journal.set_boundary_hook(move |point| {
+                if point == boundary {
+                    Err(RecordingError::Invalid(
+                        "Injected selected seal boundary".into(),
+                    ))
+                } else {
+                    Ok(())
+                }
+            });
+            assert!(
+                journal
+                    .seal_recovered_prefix_checked("selected-hook", &original, &selection)
+                    .is_err()
+            );
+            journal.clear_boundary_hook();
+            assert_eq!(
+                crate::inspection::original_rows_hash(&journal.connection).unwrap(),
+                original
+            );
+            let count: u64 = journal
+                .connection
+                .query_row("SELECT count(*) FROM chunks", [], |row| {
+                    read_unsigned(row, 0)
+                })
+                .unwrap();
+            assert_eq!(count, 3);
+            if boundary == WriteBoundary::AfterSealCommit {
+                assert_eq!(journal.state().unwrap(), TakeState::Sealed);
+            } else {
+                assert_eq!(journal.state().unwrap(), TakeState::Interrupted);
+                assert!(journal.sealed_manifest().unwrap().is_none());
+            }
+            let manifest = journal
+                .seal_recovered_prefix_checked("selected-hook", &original, &selection)
+                .unwrap();
+            assert_eq!(manifest.body.chunk_count, 1);
+            assert_eq!(
+                journal
+                    .seal_recovered_prefix_checked("selected-hook", &original, &selection)
+                    .unwrap(),
+                manifest
+            );
+            assert!(
+                journal
+                    .seal_recovered_prefix_checked("selected-hook", &"0".repeat(64), &selection)
+                    .is_err()
+            );
+            drop(journal);
+            let _ = std::fs::remove_dir_all(path.parent().unwrap());
+        }
     }
 }

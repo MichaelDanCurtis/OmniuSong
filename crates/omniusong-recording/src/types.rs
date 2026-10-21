@@ -18,6 +18,8 @@ pub const MAX_EVENT_CHUNK_BYTES: usize = 64 * 1024;
 pub const MAX_METADATA_BYTES: usize = 256 * 1024;
 pub const MAX_HEADER_BYTES: usize = 64 * 1024;
 pub const MAX_STREAMS: usize = 64;
+pub const MAX_APPEND_GROUP_CHUNKS: usize = 64;
+pub const MAX_APPEND_GROUP_BYTES: usize = 8 * 1024 * 1024;
 
 #[derive(Debug)]
 pub enum RecordingError {
@@ -566,6 +568,24 @@ pub struct ChunkReceipt {
     pub durable_prefix: StreamPrefix,
     pub replayed: bool,
 }
+/// Borrowed originals for one bounded atomic append transaction.
+#[derive(Debug, Clone, Copy)]
+pub struct AppendChunk<'a> {
+    pub header: &'a ChunkHeader,
+    pub payload: &'a [u8],
+}
+/// The content hash identifies this ordered request, not historical proof that
+/// these rows were first committed together. Replay may recognize rows that
+/// were originally written by individual append calls.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppendGroupReceipt {
+    pub group_sha256: String,
+    pub first_ordinal: u64,
+    pub last_ordinal: u64,
+    pub chunks: Vec<ChunkReceipt>,
+    pub replayed: bool,
+}
 #[derive(Debug, Clone, PartialEq)]
 pub struct ChunkRecord {
     pub header: ChunkHeader,
@@ -597,6 +617,28 @@ pub struct RecoveryReport {
     pub chunk_index_sha256: String,
     pub problems: Vec<RecoveryProblem>,
     pub unknown_tail: bool,
+}
+/// Explicit low-level original prefix chosen by a caller's format-aware scan.
+/// This binds bytes/order only; it does not validate engine checkpoint semantics.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecoveryPrefix {
+    pub chunk_count: u64,
+    pub chunk_index_sha256: String,
+}
+impl RecoveryPrefix {
+    pub(crate) fn validate(&self) -> Result<()> {
+        require(
+            self.chunk_count > 0
+                && self.chunk_count <= i64::MAX as u64
+                && self.chunk_index_sha256.len() == 64
+                && self
+                    .chunk_index_sha256
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)),
+            "Selected recovery prefix must have a nonempty bounded count and canonical SHA-256",
+        )
+    }
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

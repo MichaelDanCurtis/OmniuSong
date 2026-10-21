@@ -5,6 +5,7 @@ use crate::live_types::{
     LiveScope,
 };
 use rtrb::{Consumer, Producer, RingBuffer};
+use serde::{Deserialize, Serialize};
 use std::{
     fmt,
     sync::{
@@ -21,13 +22,15 @@ pub const TAP_TRANSITIONS: usize = 128;
 pub const TAP_CALLBACK_PACKETS: usize = 70;
 const WRITING: u32 = u32::MAX;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TapInfo {
     pub scope: LiveScope,
     pub sample_rate: u32,
     pub channels: u16,
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TapBegin {
     pub scope: LiveScope,
     pub start_frame: u64,
@@ -35,7 +38,8 @@ pub struct TapBegin {
     pub sample_rate: u32,
     pub channels: u16,
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub enum BatchDisposition {
     Applied,
     DiscardedStale,
@@ -49,24 +53,28 @@ pub struct TapPcm {
     pub channels: u16,
     pub samples: [f32; TAP_PCM_FRAMES * TAP_CHANNELS],
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub enum TapClearReason {
     Panic { next_generation: u64 },
     Fault { kind: LiveFaultKind },
     FaultPending,
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TapClear {
     pub scope: LiveScope,
     pub frame: u64,
     pub reason: TapClearReason,
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub enum TapTransitionKind {
     AutoRelease { release_velocity16: u16 },
     VoiceEnded,
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TapTransition {
     pub scope: LiveScope,
     pub source: u8,

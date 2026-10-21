@@ -1,4 +1,4 @@
-Finish OmniuSong as a complete, installable native music workstation written in Rust for Mac and Windows. Deliver Mac first, then Windows, using a shared architecture and portable project format.
+Finish OmniuSong as a complete, installable native music workstation written in Rust for Mac and Windows. Deliver Mac first, then Windows, using a shared architecture and portable project format. The UI needs to be beautiful, easy to use, very crisp, extremely functional.
 
 Combine hands-on music making with multiple interchangeable AI models, expressive keyboards, pads, microphones, instruments, and plugins. The finished product must let a musician play, sing, compose, generate, arrange, edit, perform, mix, and export complete songs while retaining control over every creative decision. MIDI 2.0 and MPE are mandatory throughout the application.
 

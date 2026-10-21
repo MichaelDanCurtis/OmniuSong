@@ -317,11 +317,41 @@ impl CaptureReader {
     pub fn inspection(&self) -> &JournalInspection {
         &self.inspection
     }
+    /// Read only a chunk already authenticated in this reader's held snapshot.
+    pub fn read_ordinal(&self, ordinal: u64) -> Result<ChunkRecord> {
+        require(
+            ordinal > 0 && ordinal <= self.inspection.report.verified_chunks,
+            "Capture ordinal lies outside the held verified prefix",
+        )?;
+        let (stream, sequence): (String, u64) = self.connection.query_row(
+            "SELECT substr(stream_id,1,97),sequence FROM chunks WHERE ordinal=?1",
+            [journal::sql_integer(ordinal)?],
+            |row| Ok((row.get(0)?, journal::read_unsigned(row, 1)?)),
+        )?;
+        require(
+            stream.len() <= 96,
+            "Stored capture stream identity exceeds its bound",
+        )?;
+        journal::load_chunk(
+            &self.connection,
+            &self.inspection.descriptor,
+            &stream,
+            sequence,
+        )
+    }
     /// Low-level seal operation. A caller replaying a prior review must also
     /// authenticate its retained original-row digest; NativeStore supplies that
     /// admission check and derives the operation from the complete review.
     pub fn recover(self, operation_id: &str) -> Result<(SealedManifest, bool)> {
         identifier(operation_id)?;
+        require(
+            !self
+                .inspection
+                .descriptor
+                .provenance
+                .contains_key("omniusong.performance.v1"),
+            "Performance originals require an explicit format-aware selected recovery prefix",
+        )?;
         if let Some(manifest) = &self.inspection.manifest {
             require(
                 manifest.body.operation_id == operation_id && manifest.body.interrupted.is_some(),
@@ -366,5 +396,82 @@ impl CaptureReader {
             "Recovered manifest differs from the exact reviewed prefix",
         )?;
         Ok((manifest, false))
+    }
+    /// Explicit byte-prefix recovery. The caller, rather than this recording
+    /// crate, must establish that its chosen engine checkpoint is complete.
+    /// All later original rows remain in the journal and its backups.
+    pub fn recover_prefix(
+        self,
+        operation_id: &str,
+        selection: &RecoveryPrefix,
+    ) -> Result<(SealedManifest, bool)> {
+        identifier(operation_id)?;
+        selection.validate()?;
+        require(
+            selection.chunk_count <= self.inspection.report.verified_chunks,
+            "Selected recovery prefix exceeds the held retained verified prefix",
+        )?;
+        let report = journal::scan(
+            &self.connection,
+            &self.inspection.descriptor,
+            Some(selection.chunk_count),
+        )?;
+        require(
+            report.problems.is_empty()
+                && report.verified_chunks == selection.chunk_count
+                && report.chunk_index_sha256 == selection.chunk_index_sha256,
+            "Selected recovery prefix hash/count differs from the held original",
+        )?;
+        require(
+            report
+                .streams
+                .iter()
+                .zip(&self.inspection.descriptor.streams)
+                .any(|(prefix, stream)| {
+                    matches!(stream.kind, StreamKind::Audio { .. }) && prefix.recorded_units > 0
+                }),
+            "Selected recovery prefix must contain recorded audio",
+        )?;
+        let replayed = self.inspection.manifest.is_some();
+        if let Some(manifest) = &self.inspection.manifest {
+            require(
+                manifest.body.operation_id == operation_id
+                    && manifest.body.interrupted.is_some()
+                    && manifest.body.chunk_count == selection.chunk_count
+                    && manifest.body.chunk_index_sha256 == selection.chunk_index_sha256,
+                "Conflicting retry of selected prefix recovery",
+            )?;
+        }
+        let Self {
+            connection,
+            owner,
+            inspection,
+        } = self;
+        drop(connection);
+        let mut journal = Journal::open_owned(inspection.path.clone(), owner, Some(&inspection))?;
+        let mut expected = inspection.report.clone();
+        if !replayed {
+            expected.state = TakeState::Interrupted;
+            expected.unknown_tail = true;
+        }
+        require(
+            journal.descriptor() == &inspection.descriptor
+                && journal.recovery_report()? == expected,
+            "Reviewed original changed during selected recovery acquisition",
+        )?;
+        let manifest = journal.seal_recovered_prefix_checked(
+            operation_id,
+            &inspection.original_rows_sha256,
+            selection,
+        )?;
+        require(
+            manifest.body.descriptor_sha256 == inspection.descriptor_sha256
+                && manifest.body.chunk_count == selection.chunk_count
+                && manifest.body.chunk_index_sha256 == selection.chunk_index_sha256
+                && manifest.body.streams == report.streams
+                && manifest.body.payload_bytes == report.verified_payload_bytes,
+            "Recovered manifest differs from the exact selected original prefix",
+        )?;
+        Ok((manifest, replayed))
     }
 }
