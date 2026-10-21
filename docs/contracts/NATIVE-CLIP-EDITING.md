@@ -4,7 +4,7 @@ Status: backend implemented and independently software-qualified. See the
 [425-entry gate](../verification/rust-native-clip-editing-tests.json) and
 [independent review](../reviews/RUST-CLIP-EDITING.md). This contract does not qualify
 native clip controls, a waveform, input recording, listening, or a new packaged
-binary. The separately qualified 85ef6cd7… note-editor bundle remains unchanged.
+binary. The later [216d native clip walkthrough](../verification/rust-native-clip-editor-ui.json) qualifies its controls separately; earlier 425/85ef receipts retain their own boundaries.
 
 ## Scope and identity
 
@@ -112,7 +112,7 @@ downgrade during Restore/Undo/Redo.
 
 ## Persistence, archives and verification
 
-Only pure, pre-write semantic edit failures map to EditRejected. Source damage,
+Pure, pre-write semantic edit failures map to EditRejected. In the native clip UI packet, clip operations also authenticate the current document references and owned files after replay/revision checks and before mutation. An explicitly Set native audio source window outside that same authenticated descriptor/sealed-prefix interval is a known EditRejected choice. This narrow comparison does not apply to Keep, Restore, identity/rate/unit damage or any source-read error. Source damage,
 unknown I/O/SQL failures and post-commit uncertainty keep conservative handling.
 Replay checks the identical original request before revision admission, verifies
 sources and returns its original result without applying again or rebasing.

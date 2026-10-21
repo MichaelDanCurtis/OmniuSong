@@ -40,7 +40,8 @@ const STORE_SCHEMA_VERSION: u32 = 4;
 #[derive(Debug)]
 pub enum StoreError {
     Document(DocumentError),
-    /// A pure note mutation rejected before project/history/receipt writes.
+    /// A pure musical mutation, or an explicitly requested audio window outside
+    /// an authenticated current source prefix, rejected before any edit writes.
     /// Never use this for damaged reads, replay verification or commit errors.
     EditRejected(DocumentError),
     Database(rusqlite::Error),

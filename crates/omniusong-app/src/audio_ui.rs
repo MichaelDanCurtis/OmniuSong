@@ -584,6 +584,7 @@ impl AudioUi {
         &mut self,
         ui: &mut egui::Ui,
         can_start: bool,
+        can_retry_attachment: bool,
         context: Option<(String, u64)>,
     ) -> bool {
         let mut retry = false;
@@ -712,7 +713,7 @@ impl AudioUi {
             ));
             if ui
                 .add_enabled(
-                    !sealed.publishing && can_start,
+                    !sealed.publishing && can_retry_attachment,
                     egui::Button::new("Retry attach sealed take"),
                 )
                 .clicked()
@@ -883,7 +884,7 @@ mod tests {
                 ..Default::default()
             },
             |ui| {
-                audio.ui(ui, false, None);
+                audio.ui(ui, false, false, None);
             },
         );
         output.textures_delta.clear();

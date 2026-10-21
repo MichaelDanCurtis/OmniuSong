@@ -172,6 +172,11 @@ impl NoteEditor {
     pub fn unresolved(&self) -> bool {
         self.failure.is_some()
     }
+    pub fn clear_selection(&mut self) {
+        self.selection = None;
+        self.draft = None;
+        self.changed();
+    }
     pub fn select(
         &mut self,
         doc: &ProjectDocument,

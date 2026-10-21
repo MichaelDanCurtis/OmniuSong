@@ -8,10 +8,11 @@ use super::{
     navigate_in_transaction, save_in_transaction,
 };
 use omniusong_core::{
-    ProjectDocument,
+    ClipPatch, DocumentClipAddress, DocumentError, ProjectDocument, ValueChange,
     contracts::{EditOperation, EditScope, ProjectEditIntent, Validate, WORKER_MAX_BYTES},
-    native::MAX_NATIVE_PROJECT_BYTES,
+    native::{MAX_NATIVE_PROJECT_BYTES, TakeRange},
 };
+use omniusong_recording::{SourcePosition, StreamKind};
 use rusqlite::{OptionalExtension, TransactionBehavior, params};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -31,6 +32,86 @@ struct StoredOperation {
     committed_revision: i64,
     result: String,
     result_sha256: String,
+}
+
+/// Called only after current references and owned bytes have been authenticated.
+/// A new requested window outside that same proven audio prefix is a known user
+/// rejection. Every identity, source-integrity and storage error stays conservative.
+fn check_requested_audio_window(
+    connection: &rusqlite::Connection,
+    current: &ProjectDocument,
+    candidate: &ProjectDocument,
+    address: &DocumentClipAddress,
+    patch: &ClipPatch,
+) -> Result<()> {
+    let (DocumentClipAddress::NativeAudio { clip_id, .. }, ClipPatch::NativeAudio(patch)) =
+        (address, patch)
+    else {
+        return Ok(());
+    };
+    let ValueChange::Set { value: requested } = &patch.source_window else {
+        return Ok(());
+    };
+    let before = current
+        .take_clips()?
+        .into_iter()
+        .find(|clip| &clip.id == clip_id)
+        .ok_or_else(|| StoreError::Invalid("Current audio clip disappeared".into()))?;
+    let after = candidate
+        .take_clips()?
+        .into_iter()
+        .find(|clip| &clip.id == clip_id)
+        .ok_or_else(|| StoreError::Invalid("Candidate audio clip disappeared".into()))?;
+    if before.source != after.source
+        || before.position.sample_rate != after.position.sample_rate
+        || !matches!(before.range, TakeRange::AudioFrames { .. })
+        || after.range
+            != (TakeRange::AudioFrames {
+                start: requested.start_frame,
+                count: requested.frame_count,
+            })
+    {
+        return Err(StoreError::Invalid(
+            "Clip edit changed its authenticated audio source identity or unit".into(),
+        ));
+    }
+    let object = super::takes::load_take(connection, &before.source.take_id)?;
+    let stream = object
+        .manifest
+        .body
+        .descriptor
+        .streams
+        .iter()
+        .find(|stream| stream.stream_id == before.source.stream_id)
+        .ok_or_else(|| StoreError::Invalid("Authenticated audio stream is missing".into()))?;
+    let prefix = object
+        .manifest
+        .body
+        .streams
+        .iter()
+        .find(|prefix| prefix.stream_id == before.source.stream_id)
+        .ok_or_else(|| StoreError::Invalid("Authenticated audio prefix is missing".into()))?;
+    let (StreamKind::Audio { format, .. }, SourcePosition::AudioFrames(end)) =
+        (&stream.kind, &prefix.source_end)
+    else {
+        return Err(StoreError::Invalid(
+            "Authenticated source is not an audio frame stream".into(),
+        ));
+    };
+    if object.manifest_sha256 != before.source.manifest_sha256
+        || format.sample_rate != before.position.sample_rate
+    {
+        return Err(StoreError::Invalid(
+            "Authenticated audio identity or rate changed".into(),
+        ));
+    }
+    if after.range.start() < stream.initial_source_position || after.range.end()? > *end {
+        return Err(StoreError::EditRejected(DocumentError(format!(
+            "Requested source window must stay within verified audio frames {}–{}",
+            stream.initial_source_position, end
+        ))));
+    }
+    Ok(())
 }
 
 pub(crate) fn replay_operation(
@@ -149,6 +230,13 @@ impl NativeStore {
         if current.revision() != intent.expected_revision {
             return Err(StoreError::Conflict);
         }
+        if matches!(
+            intent.edit,
+            EditOperation::UpdateClip { .. } | EditOperation::RestoreClip { .. }
+        ) {
+            check_references(&tx, &current)?;
+            super::takes::verify_document_files(&self.root, &tx, &current)?;
+        }
         let document=match &intent.edit {
             EditOperation::Rename{name}=>{let mut next=current;next.rename(name)?;save_in_transaction(&tx,&self.root,&next,intent.expected_revision)?},
             EditOperation::SetTempo{bpm}=>{let mut next=current;next.set_tempo(*bpm)?;save_in_transaction(&tx,&self.root,&next,intent.expected_revision)?},
@@ -171,6 +259,7 @@ impl NativeStore {
             EditOperation::UpdateClip{patch,timeline}=>{
                 let EditScope::DocumentClip{address}=&intent.scope else{return Err(StoreError::Invalid("Clip edit requires document-clip scope".into()));};
                 let next=current.update_clip(address,patch,*timeline).map_err(StoreError::EditRejected)?;
+                check_requested_audio_window(&tx, &current, &next, address, patch)?;
                 save_in_transaction(&tx,&self.root,&next,intent.expected_revision)?
             },
             EditOperation::RestoreClip{timeline}=>{
