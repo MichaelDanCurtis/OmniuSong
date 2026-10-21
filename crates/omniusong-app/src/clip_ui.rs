@@ -1,5 +1,6 @@
 //! Window-local clip settings. No source objects, complete payloads or documents
 //! are serialized, cloned or mutated by paint. The session worker owns commits.
+use crate::arrangement_types::PlacementValue;
 use eframe::egui;
 use omniusong_core::contracts::{
     EditOperation, EditScope, OperationId, ProjectEditIntent, ProjectId, Validate,
@@ -435,6 +436,75 @@ impl ClipEditor {
             draft: self.draft.clone(),
             serial: self.serial,
         }
+    }
+    /// Stage only placement into the existing exact draft. No project/source
+    /// mutation or service admission occurs here; Save keeps combined checks.
+    pub fn stage_placement(
+        &mut self,
+        doc: &ProjectDocument,
+        expected: &ClipContext,
+        value: PlacementValue,
+    ) -> Result<(), String> {
+        if self.unresolved() {
+            return Err("Resolve the retained clip edit before moving a clip".into());
+        }
+        if expected.serial != self.serial
+            || expected.selection != self.selection
+            || expected.draft != self.draft
+        {
+            return Err(
+                "The clip selection or draft changed during the arrangement gesture".into(),
+            );
+        }
+        let draft = self
+            .draft
+            .as_ref()
+            .ok_or("Select an audio clip before moving it")?;
+        if draft.base_revision != doc.revision()
+            || draft.selection.project_id != doc.id()
+            || self.selection.as_ref() != Some(&draft.selection)
+        {
+            return Err(
+                "The saved arrangement changed; select the current clip before moving it".into(),
+            );
+        }
+        editable(doc, &draft.selection)?;
+        if source_identity(doc, &draft.selection).as_ref() != Some(&draft.source) {
+            return Err("The clip source changed; select it afresh before moving it".into());
+        }
+        value.validate_for(&draft.selection.address)?;
+        let raw = clip(doc, &draft.selection).ok_or("The arrangement clip disappeared")?;
+        let current = match &draft.fields {
+            ClipDraftFields::LegacyAudio(fields) => match fields.start_tick.mode {
+                FieldMode::Keep => raw.get("startTick").and_then(Value::as_u64).or(Some(0)),
+                FieldMode::Remove => Some(0),
+                FieldMode::Set => integer::<u64>(&fields.start_tick.text, false, "Clip start").ok(),
+            }
+            .map(PlacementValue::LegacyTick),
+            ClipDraftFields::NativeAudio(fields) => match fields.position_mode {
+                ValueMode::Keep => raw["position"]["frame"].as_i64(),
+                ValueMode::Set => integer::<i64>(&fields.position_frame, true, "Placement").ok(),
+            }
+            .map(PlacementValue::NativeFrame),
+        };
+        // Even explicit Remove/Set spelling must survive a no-op gesture.
+        if current == Some(value) {
+            return Ok(());
+        }
+        let draft = self.draft.as_mut().expect("validated clip draft");
+        match (&mut draft.fields, value) {
+            (ClipDraftFields::LegacyAudio(fields), PlacementValue::LegacyTick(value)) => {
+                fields.start_tick.mode = FieldMode::Set;
+                fields.start_tick.text = value.to_string();
+            }
+            (ClipDraftFields::NativeAudio(fields), PlacementValue::NativeFrame(value)) => {
+                fields.position_mode = ValueMode::Set;
+                fields.position_frame = value.to_string();
+            }
+            _ => return Err("Arrangement placement and clip representation differ".into()),
+        }
+        self.changed();
+        Ok(())
     }
     pub fn dirty(&self) -> bool {
         self.draft.as_ref().is_some_and(ClipDraft::dirty)

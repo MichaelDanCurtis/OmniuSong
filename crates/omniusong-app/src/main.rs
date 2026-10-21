@@ -1,5 +1,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+#[cfg(test)]
+mod arrangement_integration_review;
+mod arrangement_math;
+mod arrangement_types;
+mod arrangement_ui;
 mod audio_ui;
 #[cfg(test)]
 mod clip_editor_integration_review;
@@ -11,6 +16,7 @@ mod note_ui;
 mod recovery_ui;
 mod waveform_ui;
 
+use arrangement_types::PlacementValue;
 use audio_ui::AudioUi;
 use clip_ui::{ClipAction, ClipContext, ClipEditor};
 use eframe::egui;
@@ -140,6 +146,10 @@ enum Action {
     Recovery(RecoveryAction),
     Note(NoteAction),
     Clip(ClipAction),
+    StagePlacement {
+        expected: Box<ClipContext>,
+        value: PlacementValue,
+    },
     Close,
 }
 #[derive(Clone)]
@@ -177,6 +187,7 @@ struct StudioApp {
     notes: NoteEditor,
     clips: ClipEditor,
     waveform: waveform_ui::WaveformUi,
+    arrangement: arrangement_ui::ArrangementUi,
     pending: Option<Action>,
     status: String,
     error: Option<String>,
@@ -216,6 +227,7 @@ impl StudioApp {
             notes: NoteEditor::default(),
             clips: ClipEditor::default(),
             waveform: waveform_ui::WaveformUi::default(),
+            arrangement: arrangement_ui::ArrangementUi::default(),
             pending: None,
             status: "Opening your local studio.".into(),
             error: None,
@@ -313,6 +325,7 @@ impl StudioApp {
             && !self.audio.blocks_session()
     }
     fn install_document(&mut self, view: DocumentView) {
+        self.arrangement.document_installed();
         let old_track = self
             .document
             .as_ref()
@@ -699,7 +712,8 @@ impl StudioApp {
                 | ClipAction::ReleaseRejected,
             )
             | Action::Save
-            | Action::Refresh => false,
+            | Action::Refresh
+            | Action::StagePlacement { .. } => false,
             Action::Recovery(recovery) if recovery.read_only() => false,
             _ => self.dirty(),
         };
@@ -744,6 +758,30 @@ impl StudioApp {
                 "Suspend or review the retained musical edit before another session action".into(),
             );
         }
+        if let Action::StagePlacement { expected, value } = &action {
+            if !self.ready
+                || self.disconnected()
+                || self.metadata_dirty()
+                || self.notes.dirty()
+                || self.musical_unresolved()
+                || self.pending.is_some()
+                || self.closing
+                || self.audio_close_requested
+                || self.recovery_close_requested
+                || self.note_close_requested
+                || self.clip_close_requested
+            {
+                return Err(
+                    "Resolve session state and other drafts before moving this clip".into(),
+                );
+            }
+            let doc = self.document.as_ref().ok_or("No open session")?;
+            self.clips.stage_placement(doc, expected, *value)?;
+            self.status =
+                "Placement staged locally. Review the clip, then Save clip or Discard clip draft."
+                    .into();
+            return Ok(());
+        }
         // Local choices never touch the service. Resolve guards run before here.
         if let Action::Note(choice) = &action {
             match choice {
@@ -753,6 +791,13 @@ impl StudioApp {
                     }
                     let doc = self.document.as_ref().ok_or("No open session")?;
                     self.notes.select(doc, selection.clone())?;
+                    self.selected_track = doc
+                        .tracks()
+                        .iter()
+                        .position(|track| track["id"].as_str() == Some(&selection.address.track_id))
+                        .ok_or("Track is no longer present")?;
+                    self.clips.clear_selection();
+                    self.roll_needs_center = true;
                     return Ok(());
                 }
                 NoteAction::Track(id) => {
@@ -877,6 +922,18 @@ impl StudioApp {
                     }
                     let doc = self.document.as_ref().ok_or("No open session")?;
                     self.clips.select(doc, selection.clone())?;
+                    let track_id = match &selection.address {
+                        omniusong_core::DocumentClipAddress::LegacyAudio { track_id }
+                        | omniusong_core::DocumentClipAddress::NativeAudio { track_id, .. } => {
+                            track_id
+                        }
+                    };
+                    self.selected_track = doc
+                        .tracks()
+                        .iter()
+                        .position(|track| track["id"].as_str() == Some(track_id))
+                        .ok_or("Track is no longer present")?;
+                    self.notes.clear_selection();
                     return Ok(());
                 }
                 ClipAction::BeginClip => {
@@ -1072,6 +1129,7 @@ impl StudioApp {
                 self.closing = true;
                 return Ok(());
             }
+            Action::StagePlacement { .. } => unreachable!("placement is handled locally"),
         };
         self.submit(command, action, after)
     }
@@ -1534,6 +1592,30 @@ impl StudioApp {
             });
         egui::CentralPanel::default().show(root, |ui| {
             egui::ScrollArea::vertical().id_salt("session-editor").show(ui,|ui|{
+            if let Some(document) = &self.document {
+                let allow_select = available && self.pending.is_none() && !self.closing
+                    && !self.audio_close_requested && !self.recovery_close_requested
+                    && !self.note_close_requested && !self.clip_close_requested
+                    && !self.musical_unresolved();
+                let selected_track = document.tracks().get(self.selected_track)
+                    .and_then(|track| track["id"].as_str());
+                let clip_context = self.clips.context();
+                let allow_stage = allow_select && !self.metadata_dirty() && !self.notes.dirty();
+                if let Some(choice) = self.arrangement.show(ui, document, selected_track,
+                    &clip_context, arrangement_ui::ArrangementAccess {
+                        allow_select,
+                        allow_stage,
+                    }) {
+                    requested = Some(match choice {
+                        arrangement_ui::ArrangementAction::SelectTrack(id) => Action::Note(NoteAction::Track(id)),
+                        arrangement_ui::ArrangementAction::SelectClip(selection) => Action::Clip(ClipAction::Select(selection)),
+                        arrangement_ui::ArrangementAction::StagePlacement { expected, value } => Action::StagePlacement { expected, value },
+                        arrangement_ui::ArrangementAction::SaveClip => Action::Clip(ClipAction::Save),
+                        arrangement_ui::ArrangementAction::DiscardClip => Action::Clip(ClipAction::Discard),
+                    });
+                }
+                ui.separator();
+            }
             ui.add_enabled_ui(available, |ui| {
             if self.document.is_none() {
                 ui.add_space(60.0); ui.heading("Your music stays yours.");

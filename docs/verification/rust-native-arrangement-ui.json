@@ -1,0 +1,46 @@
+{
+  "format": "omniusong.native-arrangement-runtime-pending",
+  "version": 1,
+  "recordedAtUtc": "2026-10-21T01:32:33.279243+00:00",
+  "completed": false,
+  "scope": "Actual0978Mac package startup only; no arrangement workflow qualification.",
+  "packagedBinary": {
+    "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+    "sha256": "09789029f54d2d3c9fff0b94d22a3176afe483bc6b439a0cf703d151338f84ec",
+    "byteLength": 88334128
+  },
+  "sourceGate": {
+    "path": "docs/verification/rust-native-arrangement-tests.json",
+    "sha256": "eb97e9dca3648c5e62267867df0def52d337511c382f03411972839d75a99604",
+    "byteLength": 24491
+  },
+  "startupAx": {
+    "path": ".runtime/rust-arrangement-ui/initial-launch.ax.txt",
+    "sha256": "d1d9b23fe351c89109ac94f5dfb5be43915dc173d2c1d0cf4622b19835fa080b",
+    "byteLength": 795
+  },
+  "startupScreenshot": {
+    "path": ".runtime/rust-arrangement-ui/initial-launch.png",
+    "sha256": "aa3a01fdc53668ecc58d9d651755389ce18aff2714c3d10c4999ccb41bc305d1",
+    "byteLength": 49980
+  },
+  "stackSample": {
+    "path": ".runtime/rust-arrangement-ui/initial-launch-sample.txt",
+    "sha256": "4c45ff0b26a6b4656cdf85854229229360c6f5dc464cc98cd57545ed2cd021b5",
+    "byteLength": 371325
+  },
+  "observed": "Responsive loading frame. Session worker waits in SQLite external-drive database posix open. Prior development builds required macOS drive prompt approval; current prompt visibility is for the user to confirm.",
+  "userActionRequested": "Choose Allow on any new OmniuSong Native external-drive prompt as previously authorized. Computer control cannot operate this system prompt.",
+  "actualWorkflowStillPending": [
+    "Select and drag/nudge exact clips in a fresh synthetic restore copy",
+    "Save/Discard, history and source preservation",
+    "Complete archive export/inspection",
+    "Both-process exit and exact-binary restart/reopen",
+    "Native saved-session output/Stop"
+  ],
+  "preservation": {
+    "path": "docs/verification/rust-native-arrangement-source-preservation.json",
+    "sha256": "ea8b0d4e2cd0f642cb43662283abf59f8f6e40c13bb2b6a8bd8814d269f764ce",
+    "byteLength": 2261
+  }
+}
