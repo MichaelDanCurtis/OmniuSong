@@ -540,6 +540,16 @@ pub(crate) fn verify_sealed_bounded(
     take: &TakeDescriptor,
     budget: Option<&crate::InspectionBudget>,
 ) -> Result<SealedManifest> {
+    verify_sealed_with_report_bounded(connection, take, budget).map(|(manifest, _)| manifest)
+}
+/// The selected report has already authenticated every referenced chunk under
+/// this connection's snapshot. Reuse it only with the manifest verified here;
+/// it is neither a caller-supplied proof nor a normal-seal capability.
+pub(crate) fn verify_sealed_with_report_bounded(
+    connection: &Connection,
+    take: &TakeDescriptor,
+    budget: Option<&crate::InspectionBudget>,
+) -> Result<(SealedManifest, RecoveryReport)> {
     require(
         state_bounded(connection, budget)? == TakeState::Sealed,
         "Take is not sealed",
@@ -604,13 +614,22 @@ pub(crate) fn verify_sealed_bounded(
             count == manifest.body.chunk_count,
             "Unreferenced chunks in a normally sealed take",
         )?;
-        let complete = scan_bounded(connection, take, None, budget)?;
-        require(
-            complete.problems.is_empty(),
-            "Sealed take durable prefix is inconsistent",
-        )?;
+        // The selected scan authenticated exactly ordinals 1..=chunk_count;
+        // the cardinality check above excludes every additional row. The only
+        // extra check performed by an unbounded scan is its durable prefix
+        // comparison. Perform that comparison for every declared stream using
+        // the already authenticated report instead of rereading all payloads.
+        for (stream, verified) in take.streams.iter().zip(&report.streams) {
+            let cached = prefix_bounded(connection, stream, budget);
+            // As with scan_bounded, a sticky stop wins over a prefix error.
+            crate::budget::checkpoint(budget)?;
+            require(
+                cached.is_ok_and(|cached| cached == *verified),
+                "Sealed take durable prefix is inconsistent",
+            )?;
+        }
     }
-    Ok(manifest)
+    Ok((manifest, report))
 }
 
 fn invoke(hook: &mut BoundaryHook, boundary: WriteBoundary) -> Result<()> {

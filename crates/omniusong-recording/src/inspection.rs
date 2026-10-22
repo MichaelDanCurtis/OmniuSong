@@ -557,19 +557,16 @@ fn inspect_inner(
     if state == TakeState::Interrupted {
         journal::load_interrupted_bounded(connection, budget)?;
     }
-    let manifest = if state == TakeState::Sealed {
-        Some(journal::verify_sealed_bounded(
-            connection, descriptor, budget,
-        )?)
+    let (manifest, mut report) = if state == TakeState::Sealed {
+        let (manifest, report) =
+            journal::verify_sealed_with_report_bounded(connection, descriptor, budget)?;
+        (Some(manifest), report)
     } else {
-        None
+        (
+            None,
+            journal::scan_bounded(connection, descriptor, None, budget)?,
+        )
     };
-    let mut report = journal::scan_bounded(
-        connection,
-        descriptor,
-        manifest.as_ref().map(|m| m.body.chunk_count),
-        budget,
-    )?;
     report.unknown_tail = manifest
         .as_ref()
         .is_none_or(|m| m.body.interrupted.is_some());

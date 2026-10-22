@@ -16,6 +16,8 @@ pub use snapshot::{BackupReceipt, SealedJournal};
 pub use types::*;
 
 #[cfg(test)]
+mod inspection_report_reuse_tests;
+#[cfg(test)]
 mod snapshot_tests;
 #[cfg(test)]
 mod tests;

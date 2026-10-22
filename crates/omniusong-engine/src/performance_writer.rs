@@ -1177,6 +1177,34 @@ fn contextual_records(
     )?;
     Ok(result)
 }
+fn verify_audio_bus_chunk(
+    chunk: &ChunkRecord,
+    budget: Option<&InspectionBudget>,
+) -> InspectionResult<()> {
+    // Loading authenticated the bytes and SHA; finite-f32 validation
+    // is another full payload traversal under the same governor.
+    if let Some(budget) = budget {
+        budget.charge_work(
+            u64::try_from(chunk.payload.len()).map_err(|_| "PCM decode byte count overflow")?,
+        )?;
+    }
+    check(
+        chunk.header.clock_anchors.is_empty()
+            && chunk.header.observed_start.ticks == chunk.header.range.start()
+            && chunk.header.observed_end.ticks
+                == chunk.header.range.end().map_err(|e| e.to_string())?
+            && chunk.payload.as_chunks::<4>().1.is_empty()
+            && chunk
+                .payload
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .all(|b| f32::from_le_bytes(*b).is_finite()),
+        "Audio bus clock/PCM mismatch",
+    )?;
+    Ok(())
+}
+
 fn verify_group(
     config: &PerformanceConfig,
     profile: PerformanceProfile,
@@ -1198,20 +1226,7 @@ fn verify_group(
             .position(|s| *s == chunk.header.stream_id)
             .ok_or("Unknown performance stream")?;
         if index == 0 {
-            check(
-                chunk.header.clock_anchors.is_empty()
-                    && chunk.header.observed_start.ticks == chunk.header.range.start()
-                    && chunk.header.observed_end.ticks
-                        == chunk.header.range.end().map_err(|e| e.to_string())?
-                    && chunk.payload.as_chunks::<4>().1.is_empty()
-                    && chunk
-                        .payload
-                        .as_chunks::<4>()
-                        .0
-                        .iter()
-                        .all(|b| f32::from_le_bytes(*b).is_finite()),
-                "Audio bus clock/PCM mismatch",
-            )?;
+            verify_audio_bus_chunk(chunk, budget)?;
             audio.push((chunk.header.range.start(), chunk.header.range.count()));
             continue;
         }
@@ -1571,6 +1586,8 @@ fn inspect_performance_snapshot_bounded(
             } else {
                 None
             };
+            index_hash.update(ordinal.to_le_bytes());
+            index_hash.update(chunk.sha256.as_bytes());
             if checkpoint.is_none() {
                 check(
                     members.len() < MAX_GROUP_MEMBERS
@@ -1579,10 +1596,11 @@ fn inspect_performance_snapshot_bounded(
                             .any(|(_, r)| matches!(r.record, PerformanceRecord::Checkpoint { .. })),
                     "Checkpoint must be a final singleton chunk",
                 )?;
-                members.push(chunk.clone());
+                // The authenticated record is already owned. Retain it until
+                // its checkpoint without copying every PCM payload again.
+                members.push(chunk);
+                return Ok(());
             }
-            index_hash.update(ordinal.to_le_bytes());
-            index_hash.update(chunk.sha256.as_bytes());
             if let Some(checkpoint) = checkpoint {
                 if let Some(budget) = budget {
                     budget.visit_groups(1)?;
@@ -1790,6 +1808,59 @@ mod tests {
         writer.close_interrupted().unwrap();
         (path, config)
     }
+    #[test]
+    fn every_pcm_validation_pass_is_charged_before_traversal_and_nan_still_refuses() {
+        use omniusong_recording::{InspectionLimits, InspectionResource};
+        use std::sync::{Arc, atomic::AtomicBool};
+        let (path, _) = bounded_unit_source();
+        let before = std::fs::read(&path).unwrap();
+        let reader = CaptureReader::open(&path).unwrap();
+        let chunk = reader.read_ordinal(1).unwrap();
+        assert_eq!(chunk.header.stream_id, "audio");
+        let bytes = chunk.payload.len() as u64;
+        assert!(bytes >= 4);
+        let budget = InspectionBudget::new(
+            InspectionLimits::default(),
+            Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap();
+        for pass in 1..=2 {
+            verify_audio_bus_chunk(&chunk, Some(&budget)).unwrap();
+            assert_eq!(budget.usage().work_bytes, pass * bytes);
+        }
+        let limited = InspectionBudget::new(
+            InspectionLimits {
+                max_work_bytes: bytes - 1,
+                ..Default::default()
+            },
+            Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap();
+        let mut invalid = chunk.clone();
+        invalid.payload[..4].copy_from_slice(&f32::NAN.to_le_bytes());
+        // Even an invalid sample is not traversed before cumulative admission.
+        assert!(
+            matches!(verify_audio_bus_chunk(&invalid, Some(&limited)), Err(InspectionFailure::Stopped(RecordingError::InspectionLimit { resource: InspectionResource::WorkBytes, limit, attempted })) if limit == bytes - 1 && attempted == bytes)
+        );
+        assert_eq!(limited.usage().work_bytes, 0);
+        assert!(matches!(
+            limited.checkpoint(),
+            Err(RecordingError::InspectionLimit { .. })
+        ));
+        let ample = InspectionBudget::new(
+            InspectionLimits::default(),
+            Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap();
+        assert!(
+            matches!(verify_audio_bus_chunk(&invalid, Some(&ample)), Err(InspectionFailure::Semantic(message)) if message == "Audio bus clock/PCM mismatch")
+        );
+        assert_eq!(ample.usage().work_bytes, bytes);
+        drop(reader);
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
     #[test]
     fn every_contextual_decode_is_charged_and_record_limit_refuses_before_next_owned_allocation() {
         use omniusong_recording::{InspectionLimits, InspectionResource};

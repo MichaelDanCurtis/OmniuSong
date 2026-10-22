@@ -215,13 +215,19 @@ enum NoticeKind {
 struct Notice {
     kind: NoticeKind,
     text: String,
+    stage_id: Option<String>,
 }
 impl Notice {
     fn new(kind: NoticeKind, text: impl AsRef<str>) -> Self {
         Self {
             kind,
             text: summary(text.as_ref()),
+            stage_id: None,
         }
+    }
+    fn for_stage(mut self, stage_id: &str) -> Self {
+        self.stage_id = Some(stage_id.to_owned());
+        self
     }
     fn failure(error: &ServiceError) -> Self {
         let lead = match error.kind {
@@ -878,11 +884,13 @@ impl PerformanceSourceUi {
         }
     }
     fn notice(&mut self, request: &SourceRequest, notice: Notice) {
-        *match request {
-            SourceRequest::Scan => &mut self.scan_notice,
-            SourceRequest::RefreshRequests => &mut self.request_notice,
-            SourceRequest::Inspect { .. } => &mut self.inspection_notice,
-        } = Some(notice);
+        match request {
+            SourceRequest::Scan => self.scan_notice = Some(notice),
+            SourceRequest::RefreshRequests => self.request_notice = Some(notice),
+            SourceRequest::Inspect { stage_id, .. } => {
+                self.inspection_notice = Some(notice.for_stage(stage_id));
+            }
+        }
     }
     pub(super) fn completed(
         &mut self,
@@ -959,16 +967,19 @@ impl PerformanceSourceUi {
                         review.current = !previous;
                         self.review = Some(review);
                         self.rebuild_rows();
-                        self.inspection_notice = Some(Notice::new(
-                            NoticeKind::Information,
-                            if previous {
-                                "Inspection finished for the previous selection."
-                            } else if cancelled {
-                                "Inspection finished before cancellation took effect."
-                            } else {
-                                "Inspection complete. Original unchanged."
-                            },
-                        ));
+                        self.notice(
+                            request,
+                            Notice::new(
+                                NoticeKind::Information,
+                                if previous {
+                                    "Inspection finished for the previous selection."
+                                } else if cancelled {
+                                    "Inspection finished before cancellation took effect."
+                                } else {
+                                    "Inspection complete. Original unchanged."
+                                },
+                            ),
+                        );
                         self.rebuild_comparison();
                     }
                     Err(error) => self.notice(request, Notice::new(NoticeKind::Protocol, error)),
@@ -980,19 +991,22 @@ impl PerformanceSourceUi {
     pub(super) fn cancel_requested(&mut self, id: RequestId, accepted: bool) {
         if let Some(pending) = &mut self.pending
             && pending.id == id
-            && matches!(pending.request, SourceRequest::Inspect { .. })
+            && let SourceRequest::Inspect { stage_id, .. } = &pending.request
             && !pending.cancel_attempted
         {
             pending.cancel_attempted = true;
             pending.cancel_requested = accepted;
-            self.inspection_notice = Some(Notice::new(
-                NoticeKind::Information,
-                if accepted {
-                    "Cancellation requested · waiting for the inspection worker."
-                } else {
-                    "This inspection is no longer cancellable. Waiting for its matching completion."
-                },
-            ));
+            self.inspection_notice = Some(
+                Notice::new(
+                    NoticeKind::Information,
+                    if accepted {
+                        "Cancellation requested · waiting for the inspection worker."
+                    } else {
+                        "This inspection is no longer cancellable. Waiting for its matching completion."
+                    },
+                )
+                .for_stage(stage_id),
+            );
         }
     }
     pub(super) fn observe_requests(
@@ -1238,6 +1252,16 @@ impl PerformanceSourceUi {
         .into_iter()
         .flatten()
         {
+            if let Some(stage_id) = &notice.stage_id {
+                // Selection can change while this exact request is pending or
+                // after it failed. Never attribute its notice to the new row.
+                let lead = if self.selected.as_deref() == Some(stage_id) {
+                    "Inspection notice for original"
+                } else {
+                    "Inspection notice for another original"
+                };
+                ui.add(egui::Label::new(format!("{lead}: {stage_id}")).wrap());
+            }
             if matches!(
                 notice.kind,
                 NoticeKind::Protocol | NoticeKind::Service(FailureKind::StorageUnavailable)
@@ -1568,6 +1592,15 @@ mod tests {
         width: f32,
         scroll_offset: f32,
     ) -> (egui::FullOutput, Option<SourceAction>, f32) {
+        frame_with_events(context, model, width, scroll_offset, Vec::new())
+    }
+    fn frame_with_events(
+        context: &egui::Context,
+        model: &mut PerformanceSourceUi,
+        width: f32,
+        scroll_offset: f32,
+        events: Vec<egui::Event>,
+    ) -> (egui::FullOutput, Option<SourceAction>, f32) {
         let mut action = None;
         let mut content_width = 0.0;
         let mut input = egui::RawInput {
@@ -1575,6 +1608,7 @@ mod tests {
                 egui::Pos2::ZERO,
                 egui::vec2(width, 1000.0),
             )),
+            events,
             ..Default::default()
         };
         // Supply the backend's device scale directly. A pending zoom change on
@@ -1621,6 +1655,52 @@ mod tests {
         });
         output.textures_delta.clear();
         (output, action, content_width)
+    }
+    fn click(
+        context: &egui::Context,
+        model: &mut PerformanceSourceUi,
+        label: &str,
+    ) -> Option<SourceAction> {
+        let _ = frame(context, model, 700.0);
+        let tree = frame(context, model, 700.0)
+            .0
+            .platform_output
+            .accesskit_update
+            .unwrap();
+        let target = tree
+            .nodes
+            .iter()
+            .find(|(_, node)| node.label() == Some(label))
+            .unwrap_or_else(|| panic!("Missing source action {label}"))
+            .0;
+        frame_with_events(
+            context,
+            model,
+            700.0,
+            0.0,
+            vec![egui::Event::AccessKitActionRequest(
+                egui::accesskit::ActionRequest {
+                    action: egui::accesskit::Action::Click,
+                    target_tree: tree.tree_id,
+                    target_node: target,
+                    data: None,
+                },
+            )],
+        )
+        .1
+    }
+    fn frame_text(context: &egui::Context, model: &mut PerformanceSourceUi) -> Vec<String> {
+        let (output, action, _) = frame(context, model, 700.0);
+        assert!(action.is_none(), "painting must not submit a read");
+        output
+            .platform_output
+            .accesskit_update
+            .unwrap()
+            .nodes
+            .iter()
+            .flat_map(|(_, node)| node.label().into_iter().chain(node.value()))
+            .map(str::to_owned)
+            .collect()
     }
 
     #[test]
@@ -1730,6 +1810,143 @@ mod tests {
         assert!(model.select(B));
         assert!(model.visible_review().is_none());
         assert_eq!(model.last_review().unwrap().stage_id, A);
+    }
+
+    #[test]
+    fn failed_inspection_notice_keeps_its_source_across_accessible_selection_changes() {
+        let context = egui::Context::default();
+        context.enable_accesskit();
+        let mut model = seeded();
+        inspected(&mut model, 2);
+        let original = model.last_review().unwrap().clone();
+        let request = model.inspection_request().unwrap();
+        model.submitted(&request, id(3));
+        model.completed(
+            &request,
+            id(3),
+            Err(&ServiceError {
+                kind: FailureKind::InspectionLimit,
+                message: "WorkBytes limit reached for synthetic original A".into(),
+                outcome_unknown: false,
+            }),
+        );
+        let text = frame_text(&context, &mut model);
+        assert!(text.contains(&format!("Inspection notice for original: {A}")));
+        assert!(
+            text.iter()
+                .any(|line| line.contains("current inspection limit"))
+        );
+        assert!(text.iter().any(|line| line == "Previous inspection"));
+
+        let label = model
+            .rows
+            .iter()
+            .find(|row| row.stage == B)
+            .unwrap()
+            .label
+            .clone();
+        assert!(click(&context, &mut model, &label).is_none());
+        assert_eq!(model.selected.as_deref(), Some(B));
+        let text = frame_text(&context, &mut model);
+        assert!(text.contains(&format!("Selected original: {B}")));
+        assert!(text.contains(&format!("Inspection notice for another original: {A}")));
+        assert!(!text.contains(&format!("Inspection notice for original: {B}")));
+        assert!(
+            text.iter()
+                .any(|line| line.contains("current inspection limit"))
+        );
+        assert!(
+            text.iter().any(|line| {
+                line == "This selected original has not been inspected in this view."
+            })
+        );
+        assert!(text.contains(&format!("Previous inspection retained for {A}.")));
+        assert_eq!(model.last_review(), Some(&original));
+        assert!(model.visible_review().is_none());
+        assert!(model.pending_inspection().is_none());
+
+        let label = model
+            .rows
+            .iter()
+            .find(|row| row.stage == A)
+            .unwrap()
+            .label
+            .clone();
+        assert!(click(&context, &mut model, &label).is_none());
+        let text = frame_text(&context, &mut model);
+        assert!(text.contains(&format!("Selected original: {A}")));
+        assert!(text.contains(&format!("Inspection notice for original: {A}")));
+        assert!(text.iter().any(|line| line == "Previous inspection"));
+        let notice = model.inspection_notice.as_ref().unwrap();
+        assert_eq!(notice.stage_id.as_deref(), Some(A));
+        assert_eq!(
+            notice.kind,
+            NoticeKind::Service(FailureKind::InspectionLimit)
+        );
+        assert_eq!(model.last_review(), Some(&original));
+        assert!(model.visible_review().is_none());
+    }
+
+    #[test]
+    fn pending_previous_source_cancels_its_exact_request_without_releasing_credit_early() {
+        let context = egui::Context::default();
+        context.enable_accesskit();
+        let mut model = seeded();
+        let request = model.inspection_request().unwrap();
+        model.submitted(&request, id(2));
+        let label = model
+            .rows
+            .iter()
+            .find(|row| row.stage == B)
+            .unwrap()
+            .label
+            .clone();
+        assert!(click(&context, &mut model, &label).is_none());
+        assert_eq!(model.selected.as_deref(), Some(B));
+        assert_eq!(model.pending_inspection(), Some(id(2)));
+        assert_eq!(model.pending.as_ref().unwrap().request, request);
+        assert!(model.inspection_request().is_none());
+        let text = frame_text(&context, &mut model);
+        assert!(text.contains(&format!("Inspecting saved original {A}")));
+        assert!(text.contains(&format!("Inspection notice for another original: {A}")));
+        assert_eq!(
+            click(&context, &mut model, "Cancel inspection"),
+            Some(SourceAction::CancelInspection(id(2)))
+        );
+        model.cancel_requested(id(2), true);
+        assert_eq!(model.pending_inspection(), Some(id(2)));
+        assert_eq!(model.pending.as_ref().unwrap().request, request);
+        assert!(model.inspection_request().is_none());
+        let error = ServiceError {
+            kind: FailureKind::InspectionCancelled,
+            message: "cooperative cancellation of A".into(),
+            outcome_unknown: false,
+        };
+        let wrong_request = SourceRequest::Inspect {
+            stage_id: B.into(),
+            view_epoch: model.epoch,
+        };
+        model.completed(&wrong_request, id(2), Err(&error));
+        assert_eq!(model.pending_inspection(), Some(id(2)));
+        model.completed(&request, id(2), Err(&error));
+        assert!(model.pending_inspection().is_none());
+        let notice = model.inspection_notice.as_ref().unwrap();
+        assert_eq!(notice.stage_id.as_deref(), Some(A));
+        assert_eq!(
+            notice.kind,
+            NoticeKind::Service(FailureKind::InspectionCancelled)
+        );
+        let text = frame_text(&context, &mut model);
+        assert!(text.contains(&format!("Selected original: {B}")));
+        assert!(text.contains(&format!("Inspection notice for another original: {A}")));
+        assert!(
+            text.iter()
+                .any(|line| line == "Inspection cancelled. Original unchanged.")
+        );
+        assert!(matches!(
+            model.inspection_request(),
+            Some(SourceRequest::Inspect { stage_id, .. }) if stage_id == B
+        ));
     }
 
     #[test]

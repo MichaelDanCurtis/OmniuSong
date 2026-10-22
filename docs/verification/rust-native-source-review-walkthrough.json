@@ -1,0 +1,509 @@
+{
+  "atUtc": "2026-10-22T14:51:26.220271+00:00",
+  "scope": "Actual installed 7473 read-only source-review walkthrough, partial acceptance with two discovered bugs. Not corrected-build, recovery/attachment UI, long-capacity, physical input, listening, DPI or Windows acceptance.",
+  "binarySha256": "7473e06646fcbbe3556b0687c38a0e5b601bda57c9768a1b349a36fd247f4041",
+  "frozenSourceCommit": "3c7b4506d0b65ab92aa9c963cf6e3e39157909cd",
+  "frozenSourcePacket": {
+    "path": "docs/verification/rust-native-performance-source-review-tests.json",
+    "sha256": "05ba42e15234045997bf1b6c3d631ab20be81bba3fbbe14d5198ff944bb36db1",
+    "byteLength": 46131
+  },
+  "checks": {
+    "explicitScan": {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/02-explicit-scan.ax.txt",
+      "sha256": "2a1e50c88fd0c47eee9f531123e29ca56e028418f151c135b7aa1f1331798807",
+      "byteLength": 7913
+    },
+    "normalLongLimitFound": {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/04-cancel-or-completed-normal.ax.txt",
+      "sha256": "69bfa6d7486c6cf07c6261203ef789f7c39dcb53884c4dc95bb06be70e937700",
+      "byteLength": 14382
+    },
+    "shortNormal": {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/05-short-normal-with-draft.ax.txt",
+      "sha256": "2cfffba87f9fff5fbfe6fd2e7da614cdad926d7e21c5ea0e02e80e080dd59b7f",
+      "byteLength": 18402
+    },
+    "noteDraft": {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/09-failed-source-completion.ax.txt",
+      "sha256": "eaaf6afcbd21c4c39281dae775e2048ca2c73a128e15c3e2a80d7d98a2b20e3e",
+      "byteLength": 17493
+    },
+    "actualCancellation": {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/10-native-cancel-outcome.ax.txt",
+      "sha256": "e06be5d05f3a1edbd56720edc1b4afb53f86feb85bb1c1abf06d2a45423bc116",
+      "byteLength": 14160
+    },
+    "sidecarRefusal": {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/11-sidecar-refusal-note-draft.ax.txt",
+      "sha256": "cf64f3c74b94fbb779d934bc09222d52af849aef57777f81f76f95c03893279a",
+      "byteLength": 13706
+    },
+    "sourceLocalRecovery": {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/12-source-local-error-recovery.ax.txt",
+      "sha256": "d6054c4337697f2f1a61af2c41726beb65f362698ea926ebd29e3a16e19da44b",
+      "byteLength": 17493
+    },
+    "clipDraftAndRefresh": {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/16-clip-draft-after-source-and-request-read.ax.txt",
+      "sha256": "0dbab9f5c3ebddcd4ad2f293f43fc11ad614a8a800a37d67617a53857ba5f3d7",
+      "byteLength": 18664
+    },
+    "outputCompletion": {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/19-source-panel-output.ax.txt",
+      "sha256": "5f2baf8a36a37ed399673652e6e94995e0223d3b93ec6a1ece70b91e061d28ac",
+      "byteLength": 16896
+    },
+    "liveOutput": {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/22-live-output-before-stop.ax.txt",
+      "sha256": "3e3d26e26f3aa8f3d229efbc4f9a147087f077cf46c869e9d647ce0557ad2f96",
+      "byteLength": 20193
+    },
+    "actualLiveStop": {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/23-live-output-stopped.ax.txt",
+      "sha256": "2bcc7a13a096b9add43db0cfdae4cf1a99374863b1b446f6ec5f286b6cf30804",
+      "byteLength": 16744
+    },
+    "compactCancellation": {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/30-compact-cancel-outcome.ax.txt",
+      "sha256": "f89ce36c3b39b5b645afac2fca12db5b6584b36b6c121826aeed515b92bf8190",
+      "byteLength": 11092
+    },
+    "restartNoScan": {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/32-restart-without-source-scan.ax.txt",
+      "sha256": "fd03b04ca5ed3026992ffea8f75287c00d7a483528797fb9cab9c9da95077aba",
+      "byteLength": 7829
+    },
+    "reopenedUnchangedNote": {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/33-original-note-session-reopened.ax.txt",
+      "sha256": "8d7f41a53f2e22c2a22ab3a89f7d354f6a0b58725e6e837c30c5f2a3098762a0",
+      "byteLength": 11150
+    },
+    "requestsWithoutInspection": {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/34-request-only-selected-without-scan.ax.txt",
+      "sha256": "920fb1665963422929e611df572e6da97e772b34dfe8e1ab59edbe630b87ef75",
+      "byteLength": 12509
+    }
+  },
+  "artifacts": [
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/01-initial.ax.txt",
+      "sha256": "fd03b04ca5ed3026992ffea8f75287c00d7a483528797fb9cab9c9da95077aba",
+      "byteLength": 7829
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/01-initial.jpg",
+      "sha256": "160aca097d44aea80b3b3171803920d0d6156c3e3cc19eb629a1400721b01a63",
+      "byteLength": 186134
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/02-explicit-scan.ax.txt",
+      "sha256": "2a1e50c88fd0c47eee9f531123e29ca56e028418f151c135b7aa1f1331798807",
+      "byteLength": 7913
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/02-explicit-scan.jpg",
+      "sha256": "bb8a3bf6874de976bc21e353651819d0a1a5ef572f1d8c3dc246f94cd48825d8",
+      "byteLength": 188889
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/03-metadata-draft-source-selected.ax.txt",
+      "sha256": "487dc36fc6390195fda176f8d73e25085642c52bf74450b36c10e2c42f33942c",
+      "byteLength": 14145
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/03-metadata-draft-source-selected.jpg",
+      "sha256": "08d4b650fb5f2893a08cab1a4fdd1d4a759476e6606cf219d3d836d3775ecec9",
+      "byteLength": 325755
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/04-cancel-or-completed-normal.ax.txt",
+      "sha256": "69bfa6d7486c6cf07c6261203ef789f7c39dcb53884c4dc95bb06be70e937700",
+      "byteLength": 14382
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/04-cancel-or-completed-normal.jpg",
+      "sha256": "11ae8f094102830c438bdcc0aae91bc8cad63351e056fe9051336a00d077dfcd",
+      "byteLength": 330615
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/05-short-normal-with-draft.ax.txt",
+      "sha256": "2cfffba87f9fff5fbfe6fd2e7da614cdad926d7e21c5ea0e02e80e080dd59b7f",
+      "byteLength": 18402
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/05-short-normal-with-draft.jpg",
+      "sha256": "668d45e31b04958bf02632ec0a5789236d6e5e3bd67b29be80263c40334744e6",
+      "byteLength": 332353
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/06-close-draft-guard.ax.txt",
+      "sha256": "2d3f578af206b6c162936bda469dca9278fa0bfe1cd02b6af5a04d5065ff8b83",
+      "byteLength": 18660
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/06-close-draft-guard.jpg",
+      "sha256": "25b67c5773f86f65685bdd975fa31968665c225d38692143ff622b39bcb6bffd",
+      "byteLength": 284608
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/07-note-draft-previous-review.ax.txt",
+      "sha256": "066e61757047720f1691a0713d3109c5783f4dc337af4d09ccd6358409103341",
+      "byteLength": 13642
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/07-note-draft-previous-review.jpg",
+      "sha256": "7eefe8e960555fef7445629bf8c4ef399e5592bf24f44aa02af23929e3f924bb",
+      "byteLength": 326559
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/08-cancel-outcome.ax.txt",
+      "sha256": "3993c13ade14a4e2a98a9fac120b6d0b857f9ccacd4fba4977b31a4d5a7ddf1c",
+      "byteLength": 14377
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/08-cancel-outcome.jpg",
+      "sha256": "e357860c74bb86a52df2244d9fc89e9d60eec8705df89029c3b1578047466e01",
+      "byteLength": 302461
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/08-cancel-pending.ax.txt",
+      "sha256": "bc9b11a5b97f2b95f4f709f03875f571b92beeea19ee266da45ebe9a3f8a7dd0",
+      "byteLength": 9038
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/09-failed-source-completion.ax.txt",
+      "sha256": "eaaf6afcbd21c4c39281dae775e2048ca2c73a128e15c3e2a80d7d98a2b20e3e",
+      "byteLength": 17493
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/09-failed-source-completion.jpg",
+      "sha256": "bfc12fbe90ab2dd2c5d62985b9762075e8fa20959189242407cee62738db11a5",
+      "byteLength": 334947
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/10-native-cancel-outcome.ax.txt",
+      "sha256": "e06be5d05f3a1edbd56720edc1b4afb53f86feb85bb1c1abf06d2a45423bc116",
+      "byteLength": 14160
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/10-native-cancel-outcome.jpg",
+      "sha256": "dca697fce9047c498993160431809e2d5a170d345fc8abff72d51fa027709cc4",
+      "byteLength": 331072
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/10-native-cancel-pending.ax.txt",
+      "sha256": "6fe0fdcf23ef3d28a1ffdfc1606ed8cdc167596346533d0f7bed98819112d3db",
+      "byteLength": 14907
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/11-sidecar-refusal-note-draft.ax.txt",
+      "sha256": "cf64f3c74b94fbb779d934bc09222d52af849aef57777f81f76f95c03893279a",
+      "byteLength": 13706
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/11-sidecar-refusal-note-draft.jpg",
+      "sha256": "f5bdc2debbbf50f270744adc25246bc9930413ad4da45479a8102f2c412bb2e4",
+      "byteLength": 332296
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/12-source-local-error-recovery.ax.txt",
+      "sha256": "d6054c4337697f2f1a61af2c41726beb65f362698ea926ebd29e3a16e19da44b",
+      "byteLength": 17493
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/12-source-local-error-recovery.jpg",
+      "sha256": "09339b9dfbd2e2f550290653d0b4d1d1bdba27993f9f380684349fa6d5b389f1",
+      "byteLength": 334970
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/13-note-draft-close-guard.ax.txt",
+      "sha256": "5e562e7e786d090564b24c88bf70b16d3e14125d2c3a5acd6cd7228826f4c3d0",
+      "byteLength": 17759
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/13-note-draft-close-guard.jpg",
+      "sha256": "42840e2e5150837660298f0df044e6743487b055debefb69d11142fd69f1da71",
+      "byteLength": 287012
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/14-note-discarded.ax.txt",
+      "sha256": "e521e95f2a4fb9ec414dddfc8eeab993ab848990f14d434903abf61e6960023a",
+      "byteLength": 17321
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/15-clip-draft-before-source-read.ax.txt",
+      "sha256": "1100fc41ada1612f075ac226a186329ca749a6e6a592637ec0e2e4ad10323e00",
+      "byteLength": 17880
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/15-clip-draft-before-source-read.jpg",
+      "sha256": "6e563b8e418c91fa3af9207cc68edf08d1f9e9171334093eea8f51ee0743e5ac",
+      "byteLength": 337684
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/16-clip-draft-after-source-and-request-read.ax.txt",
+      "sha256": "0dbab9f5c3ebddcd4ad2f293f43fc11ad614a8a800a37d67617a53857ba5f3d7",
+      "byteLength": 18664
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/16-clip-draft-after-source-and-request-read.jpg",
+      "sha256": "7a504ec641366016aebd2d5eb99f596cbb0169cd225b8340020bc2d5bb5503f3",
+      "byteLength": 337202
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/17-clip-draft-close-guard.ax.txt",
+      "sha256": "1620f339058ae2dbdd290d49b64c2c2e7b4a036acef7ee5c2c7c939e1f0d67e5",
+      "byteLength": 19014
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/17-clip-draft-close-guard.jpg",
+      "sha256": "20a00494ac994b833591c4d5601ed4ccfffdaaf736ead66ea9afe5cdbde8e171",
+      "byteLength": 284532
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/18-clip-discarded.ax.txt",
+      "sha256": "3862d089dab2b92e26d5d276cb0a9b73130c1ee8e5c158e0438ddaa5baaf8c10",
+      "byteLength": 18528
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/19-source-panel-output.ax.txt",
+      "sha256": "5f2baf8a36a37ed399673652e6e94995e0223d3b93ec6a1ece70b91e061d28ac",
+      "byteLength": 16896
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/19-source-panel-output.jpg",
+      "sha256": "3b7a5ca7d4e383df0343607e1e2763f2cd5aeaecf131f10eba2a3cbb9ef4d034",
+      "byteLength": 320031
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/20-output-stop.ax.txt",
+      "sha256": "33674c7569f5984d03879eba8acfaf6365e2473761662b75ecd81f1d0beba48c",
+      "byteLength": 16741
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/20-output-stop.jpg",
+      "sha256": "2c1cefed885de6ecb96ad70afc985543bbb1e20086e4f011651717a24d79fd1b",
+      "byteLength": 313323
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/21-live-output-source-panel.ax.txt",
+      "sha256": "f59490e5a266dcab9f45418bcdae80ce6ce21d9e16f46e48b6cf9416a18e5f96",
+      "byteLength": 20101
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/21-live-output-source-panel.jpg",
+      "sha256": "74143ed13745ffdf129037cd8093814e7c0de0f2d4a052b17422da8007726734",
+      "byteLength": 265622
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/22-live-output-before-stop.ax.txt",
+      "sha256": "3e3d26e26f3aa8f3d229efbc4f9a147087f077cf46c869e9d647ce0557ad2f96",
+      "byteLength": 20193
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/22-live-output-before-stop.jpg",
+      "sha256": "8b9f3da77e7babaeaa5e5db913147aeeb5d339a87717755253c6e8446b4cd1b6",
+      "byteLength": 266535
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/23-live-output-stopped.ax.txt",
+      "sha256": "2bcc7a13a096b9add43db0cfdae4cf1a99374863b1b446f6ec5f286b6cf30804",
+      "byteLength": 16744
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/23-live-output-stopped.jpg",
+      "sha256": "61defbeb5bdc41a03d4f7c1d2f765eebb37f3ea8ae8f1e370a9e7b8302dc2233",
+      "byteLength": 313649
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/24-narrow-source-review.ax.txt",
+      "sha256": "2bcc7a13a096b9add43db0cfdae4cf1a99374863b1b446f6ec5f286b6cf30804",
+      "byteLength": 16744
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/24-narrow-source-review.jpg",
+      "sha256": "d7ef89fbba0bc7224e153a51e0d3666f3f202994b29ab6832cc58a29b15d9942",
+      "byteLength": 313781
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/25-native-window-zoom.ax.txt",
+      "sha256": "fc9b3a3f3a6c6099883b2e48b7df47b18f4ca9ce56c69f55d0e35dfb019a8327",
+      "byteLength": 16690
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/25-native-window-zoom.jpg",
+      "sha256": "ae4fa6857a70a66f2845ce5036d7acf6e82a6a9b8d59f5c45cea103b42bdb4d3",
+      "byteLength": 640951
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/26-edge-resize-attempt.ax.txt",
+      "sha256": "2bcc7a13a096b9add43db0cfdae4cf1a99374863b1b446f6ec5f286b6cf30804",
+      "byteLength": 16744
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/26-edge-resize-attempt.jpg",
+      "sha256": "c06c7fac1fe772fcee8a6c31b5dffce35e6a093748f37c725fad9395e1c8fa20",
+      "byteLength": 313761
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/27-minimum-width-source-pane.ax.txt",
+      "sha256": "2bcc7a13a096b9add43db0cfdae4cf1a99374863b1b446f6ec5f286b6cf30804",
+      "byteLength": 16744
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/27-minimum-width-source-pane.jpg",
+      "sha256": "0d10fedfc6bfd7f2d72835dde387c3902c1b659b1cffc68c2b4c2b4889494926",
+      "byteLength": 314717
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/28-splitter-value-attempt.ax.txt",
+      "sha256": "8ba9abae45da965bc3a5a969919a3759b1cc0eeb8030fce798550fec5db62391",
+      "byteLength": 16744
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/28-splitter-value-attempt.jpg",
+      "sha256": "70776db4961fcd4ab61a592ebbec7ede1ee4e66a2e59f04917ea85a303365e97",
+      "byteLength": 291655
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/29-compact-collapsed-pending.ax.txt",
+      "sha256": "04df122dfffe782a4b3266600927d8fa873d1b05b959940794092f8026db8ca5",
+      "byteLength": 11756
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/29-compact-collapsed-pending.jpg",
+      "sha256": "13da0ac9fb78fe7b7f8cdd8ce6604b0010f51cd597ba74095c1da851c0beee76",
+      "byteLength": 273560
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/30-compact-cancel-outcome.ax.txt",
+      "sha256": "f89ce36c3b39b5b645afac2fca12db5b6584b36b6c121826aeed515b92bf8190",
+      "byteLength": 11092
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/30-compact-cancel-outcome.jpg",
+      "sha256": "6abdc7fbb5731cdb76f021c21e9e533e0735002fe5cdb58b602830eb9ca999ce",
+      "byteLength": 269326
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/31-before-explicit-close.ax.txt",
+      "sha256": "1d3abcc265e50c4e522a3e437418a66ff3e79cdaf7746bf398f93ce49d9452b6",
+      "byteLength": 11092
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/31-before-explicit-close.jpg",
+      "sha256": "8baa23914a5d6564124a390b11fd823e932f1d70b6dd615d93e508ca2ee5cc7f",
+      "byteLength": 271317
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/32-restart-without-source-scan.ax.txt",
+      "sha256": "fd03b04ca5ed3026992ffea8f75287c00d7a483528797fb9cab9c9da95077aba",
+      "byteLength": 7829
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/32-restart-without-source-scan.jpg",
+      "sha256": "160aca097d44aea80b3b3171803920d0d6156c3e3cc19eb629a1400721b01a63",
+      "byteLength": 186134
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/33-original-note-session-reopened.ax.txt",
+      "sha256": "8d7f41a53f2e22c2a22ab3a89f7d354f6a0b58725e6e837c30c5f2a3098762a0",
+      "byteLength": 11150
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/33-original-note-session-reopened.jpg",
+      "sha256": "01ca03f9b98915f3e8df59707220038ad6cab994ac97ff0512db2a4d4b6e9d17",
+      "byteLength": 266085
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/34-request-only-selected-without-scan.ax.txt",
+      "sha256": "920fb1665963422929e611df572e6da97e772b34dfe8e1ab59edbe630b87ef75",
+      "byteLength": 12509
+    },
+    {
+      "path": ".runtime/rust-performance-source-ui/native-20261022/34-request-only-selected-without-scan.jpg",
+      "sha256": "44740c7c57d68f3f171d70c833a3c2cd5cbe188a53d6e6ec2385ef51d608d55c",
+      "byteLength": 313792
+    }
+  ],
+  "preservation": {
+    "projects": 22,
+    "catalogRows": 403,
+    "protectedFiles": 80,
+    "allTablesIdsFilesCatalogBinaryExactBeforeAfterCloseAndRestart": true,
+    "snapshots": [
+      {
+        "path": ".runtime/rust-seal-native/source-ui-before-native.json",
+        "sha256": "346faca9ac70b1dbe0056c5e80b7959e33e684d6cf18d823e2c059750323328a",
+        "byteLength": 50926
+      },
+      {
+        "path": ".runtime/rust-seal-native/source-ui-after-close.json",
+        "sha256": "71b6f4dd2dd45c7528063d7ed95e5b83075e429eef0d0f028fee1b848b6f9dd0",
+        "byteLength": 50926
+      },
+      {
+        "path": ".runtime/rust-seal-native/source-ui-after-restart.json",
+        "sha256": "0bfa07adcd789200334c2919644e96a4b3dac434adfc4e8a5dd9c385113bde10",
+        "byteLength": 50926
+      }
+    ],
+    "comparison": {
+      "path": ".runtime/rust-inspection-reuse/native-baseline-preservation.json",
+      "sha256": "27ed742985d49fd4c65471b533d12261f76712bdf0752d651e78e079062876ed",
+      "byteLength": 6604
+    }
+  },
+  "foundIssues": [
+    {
+      "issue": "106-second normal source exhausted unchanged cumulative WorkBytes ceiling before review",
+      "source": "330dadc5d344489f819abebd4ebe693b",
+      "result": "No successful DTO; original/drafts retained and worker credit returned. Redundant scans fixed only in later source."
+    },
+    {
+      "issue": "Previous inspection notice lacked originating stage after changing selection",
+      "result": "Later source carries exact notice stage; this old walkthrough does not qualify the fix."
+    }
+  ],
+  "qualifiedBoundedBehavior": [
+    "Explicit Scan and explicit Inspect are separate; selection/painting never submits inspection.",
+    "Short normal/failed-checkpoint semantic review and saved-request comparisons remain separate from mutation.",
+    "Metadata/note/clip drafts survive source reads; actual close guards then explicit discard restore saved values.",
+    "Exact native cancellation, sidecar refusal with no cleanup, healthy later source inspection.",
+    "Saved output completion and actual live-output Stop with source controls guarded; no input opened.",
+    "260px source pane via actual AX splitter; collapse keeps Cancel reachable.",
+    "Actual process exit/restart and original r16 note reopening; requests display without automatic directory scan."
+  ],
+  "attemptsNotAcceptance": [
+    "08 cancellation lookup used a diff and never sent Cancel; only10 and29/30 prove cancellation.",
+    "20 Stop occurred after finite playback had completed;23 proves active live Stop.",
+    "24/26/27 outer-window/pointer resize attempts did not resize.28 proves a260px source pane only.",
+    "25 window zoom from1440x1032 to3840x2034 is geometry, not OS display/DPI qualification.",
+    "JPEG artifact extensions corrected without image conversion."
+  ],
+  "operatorRollback": {
+    "manifest": {
+      "path": "backups/native-schema5-before-migration-20261022T144111Z/manifest.json",
+      "sha256": "1c071a6e0dccaa18e477f3fd1f0c0e8e0686be90874787d090ce135444b1e7e2",
+      "byteLength": 33433
+    },
+    "ready": {
+      "path": "backups/native-schema5-before-migration-20261022T144111Z/READY.json",
+      "sha256": "6de3f2aaceebd8d80f54c58585c68d6dfa4adce06260f339a2fe964961e7c463",
+      "byteLength": 249
+    },
+    "files": 86,
+    "directories": 24,
+    "payloadBytes": 386045156,
+    "independentRawAuditPassed": true,
+    "restorationPerformed": false,
+    "powerLossQualified": false
+  },
+  "remaining": [
+    "Corrected integrated optimized package and native106/122 review, notice association and preservation repeat.",
+    "Whole-window minimum size, display scaling, physical/listening/input and Windows checks.",
+    "Native source recovery/attachment/archive controls and full milestone2.",
+    "30-minute segmented/progressive design and actual acceptance."
+  ]
+}
