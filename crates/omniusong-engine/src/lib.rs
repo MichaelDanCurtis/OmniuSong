@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 pub mod live_types;
 pub use live_types::*;
+pub mod performance_copy;
 pub mod performance_records;
 pub mod performance_tap;
 pub mod performance_types;

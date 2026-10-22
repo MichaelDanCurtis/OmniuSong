@@ -1,3 +1,4 @@
+pub(crate) mod copy_finalization;
 use crate::types::*;
 use rusqlite::{Connection, OpenFlags, OptionalExtension, TransactionBehavior, params};
 use sha2::{Digest, Sha256};

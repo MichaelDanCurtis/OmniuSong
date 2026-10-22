@@ -1,5 +1,7 @@
 # OmniuSong
 
+The [bounded copy-recovery libraries](docs/verification/rust-native-copy-recovery-tests.json) now preserve an exact evidence image and recover a selected checkpoint only on a separate working copy. Fresh six-stream reviews, one cumulative governor, exclusive artifacts, recovered-only finalization and retained uncertain results pass **909 workspace tests** and **23 focused optimized checks**, with formatting, warnings-denied Clippy and the default build. This is Unix source/software qualification: durable execution/reconciliation, existing-action retry, attachment/export and native UI remain pending. The installed app and all **22 projects / 403 catalog rows / 80 original files** remain unchanged.
+
 A Mac-first music workstation where people play, sing, edit, and direct multiple AI models. Windows follows through the same portable project format and model adapters.
 
 ## Native Rust migration

@@ -7,6 +7,12 @@ use crate::{
 use rusqlite::{Connection, OpenFlags, Statement, params};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+mod copy_recovery;
+pub use copy_recovery::{
+    COPY_RECOVERY_MAX_ARTIFACT_BYTES, COPY_RECOVERY_MAX_WORKING_BYTES, CopyRecoveryBoundary,
+    CopyRecoveryError, CopyRecoveryReceipt, RecoveryCopy, RecoveryCopyPaths,
+};
+
 use std::{
     fs::{self, File, OpenOptions},
     io::{Read, Seek, SeekFrom},
@@ -33,6 +39,7 @@ pub struct CaptureReader {
     owner: File,
     inspection: JournalInspection,
     budget: Option<InspectionBudget>,
+    anchors: Option<copy_recovery::SourceAnchors>,
 }
 /// Consistent read-only access under an existing journal owner. This cannot be
 /// converted to a recovery writer and never releases/reacquires the owner lock.
@@ -583,6 +590,16 @@ impl CaptureReader {
         let result = (|| -> Result<Self> {
             let path = preflight_path(path.as_ref(), budget)?;
             let owner = existing_owner(&path)?;
+            Self::open_bounded_owned(&path, budget, owner)
+        })();
+        budget.finish(result)
+    }
+    fn open_bounded_owned(path: &Path, budget: &InspectionBudget, owner: File) -> Result<Self> {
+        let result = (|| -> Result<Self> {
+            // Recheck all sidecars after owner acquisition. The opened file and
+            // lock identities remain anchored for any later explicit copy.
+            let path = preflight_path(path, budget)?;
+            let anchors = copy_recovery::SourceAnchors::capture(&path, &owner)?;
             ordinary(&path)?;
             let connection = Connection::open_with_flags(
                 &path,
@@ -603,11 +620,15 @@ impl CaptureReader {
             let descriptor = journal::load_descriptor_bounded(&connection, Some(budget))?;
             let inspection =
                 inspect_connection_bounded(&connection, &path, &descriptor, Some(budget))?;
+            if let Some(anchors) = &anchors {
+                anchors.check(&path, &owner)?;
+            }
             Ok(Self {
                 connection,
                 owner,
                 inspection,
                 budget: Some(budget.share()),
+                anchors,
             })
         })();
         budget.finish(result)
@@ -660,6 +681,7 @@ impl CaptureReader {
             owner,
             inspection,
             budget: None,
+            anchors: None,
         })
     }
     pub fn inspection(&self) -> &JournalInspection {
@@ -716,6 +738,7 @@ impl CaptureReader {
             owner,
             inspection,
             budget: _,
+            anchors: _,
         } = self;
         drop(connection);
         let mut journal = Journal::open_owned(inspection.path.clone(), owner, Some(&inspection))?;
@@ -793,6 +816,7 @@ impl CaptureReader {
             owner,
             inspection,
             budget: _,
+            anchors: _,
         } = self;
         drop(connection);
         let mut journal = Journal::open_owned(inspection.path.clone(), owner, Some(&inspection))?;
