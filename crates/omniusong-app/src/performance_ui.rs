@@ -28,6 +28,12 @@ struct Task {
     command: Command,
     effect: Effect,
 }
+#[derive(Clone, Copy)]
+enum StoragePresentationStage {
+    Queued,
+    Active,
+    Retry,
+}
 struct Card {
     intent: PerformanceIntent,
     receipt: Option<PerformanceIntentReceipt>,
@@ -41,6 +47,16 @@ struct Card {
     first_error: Option<String>,
     prior_unknown: bool,
     unstarted_rejected: bool,
+}
+
+struct PerformancePresentation<'a> {
+    heading: &'static str,
+    body: &'a str,
+    pending_notice: Option<&'static str>,
+    storage_notice: Option<&'static str>,
+    history_notice: Option<&'static str>,
+    first_audio_error: Option<&'a str>,
+    error: Option<&'a str>,
 }
 
 pub(super) struct PerformanceUi {
@@ -59,6 +75,203 @@ pub(super) struct PerformanceUi {
 impl PerformanceUi {
     pub(super) fn new() -> Self {
         Self { root: None, listed: false, retained: vec![], card: None, queued: None, active: None, retry: None, engine: None, error: None, local_cancelled:false, message: "Record keys/pads saves the procedural output and callback originals locally. No microphone is opened.".into() }
+    }
+    fn presentation(&self) -> PerformancePresentation<'_> {
+        let storage_notice = self
+            .active
+            .as_ref()
+            .map(|task| Self::storage_notice(task, StoragePresentationStage::Active))
+            .or_else(|| {
+                self.queued
+                    .as_ref()
+                    .map(|task| Self::storage_notice(task, StoragePresentationStage::Queued))
+            })
+            .or_else(|| {
+                self.retry
+                    .as_ref()
+                    .map(|task| Self::storage_notice(task, StoragePresentationStage::Retry))
+            });
+        let Some(card) = &self.card else {
+            return PerformancePresentation {
+                heading: "Recorded output",
+                body: &self.message,
+                pending_notice: None,
+                storage_notice,
+                history_notice: None,
+                first_audio_error: None,
+                error: self.error.as_deref(),
+            };
+        };
+        let status = card.status.as_ref();
+        let phase = status.map(|status| status.phase);
+        let sealed = status.is_some_and(|status| status.sealed.is_some());
+        let (heading, body) = if sealed && card.attached {
+            (
+                "Attachment operation confirmed",
+                "The exact attachment operation completed, possibly by replay. Current song placement may since have changed.",
+            )
+        } else if sealed {
+            (
+                "Recording saved locally",
+                "A normal manifest was confirmed. Output release and completeness of every GUI event remain separate observations.",
+            )
+        } else if phase == Some(PerformancePhase::Failed) {
+            (
+                "Recording failed",
+                "The worker reported a recording failure. Inspect any retained stage before use; a complete final tail is not confirmed.",
+            )
+        } else if phase == Some(PerformancePhase::Interrupted) {
+            (
+                "Recording interrupted",
+                "Preserve any staged evidence. Review its checkpoint and final tail separately before use.",
+            )
+        } else if phase == Some(PerformancePhase::SealUncertain) {
+            (
+                "Seal outcome uncertain",
+                "Preserve the exact source and choices. Success, rollback and restart are not confirmed.",
+            )
+        } else if card.started_here && card.stopped {
+            (
+                "Recording inactive",
+                "Active recording controls are closed. The worker status below is the last observation; this state does not identify the acknowledgement or retirement cause.",
+            )
+        } else if card.cancelled && card.started_here {
+            (
+                "Stop requested · confirmation pending",
+                "Input is closed. The actual output-owner result remains pending; a complete final tail is not confirmed.",
+            )
+        } else if card.cancelled && card.receipt.is_some() {
+            (
+                "Saved recording choice",
+                "This is stored request history. Its source has not been inspected here, and this window did not start or resume recording.",
+            )
+        } else if card.cancelled {
+            (
+                "Unstarted recording choice",
+                "The local recording choice and its outcome are retained. Persistence, source existence and rollback are not inferred.",
+            )
+        } else if phase == Some(PerformancePhase::Finishing) {
+            (
+                "Finishing recording",
+                "The worker is processing Finish. Full finalization is not confirmed.",
+            )
+        } else if phase == Some(PerformancePhase::Stopping) {
+            (
+                "Stopping recording",
+                "The worker reported stopping. This observation does not confirm the urgent Stop acknowledgement.",
+            )
+        } else if phase == Some(PerformancePhase::Sealing) {
+            (
+                "Saving recorded original",
+                "The worker is finalizing the original. A saved normal manifest is not yet confirmed.",
+            )
+        } else if card.intent.finish.is_some() {
+            if status.is_some_and(|status| status.cut.is_some()) {
+                (
+                    "Finish requested",
+                    "Local input is closed and a callback cut was reported. A saved original and completeness of every GUI event are not confirmed.",
+                )
+            } else {
+                (
+                    "Finish requested",
+                    "Local input is closed. The callback Finish cut has not yet been observed; finalization is not confirmed.",
+                )
+            }
+        } else if phase == Some(PerformancePhase::Recording) {
+            (
+                "Recording keys and pads",
+                "The worker reported recording procedural output. Callback originals and GUI observations are retained separately.",
+            )
+        } else if phase == Some(PerformancePhase::Starting) || card.started_here {
+            (
+                "Preparing recording output",
+                "Start was requested. Output readiness and human input have not yet been confirmed.",
+            )
+        } else if !card.prior_unknown
+            && !card.unstarted_rejected
+            && self.retry.is_none()
+            && self
+                .active
+                .as_ref()
+                .or(self.queued.as_ref())
+                .is_some_and(|task| {
+                    task.effect == Effect::Start
+                        && matches!(task.command, Command::SavePerformanceIntent { .. })
+                })
+        {
+            (
+                "Preparing recording choice",
+                "The local Start choice is queued or saving. Output readiness is not confirmed.",
+            )
+        } else if card.receipt.is_some() {
+            (
+                "Saved recording choice",
+                "This is a stored request, without a verified source or active audio observation.",
+            )
+        } else {
+            (
+                "Unstarted recording choice",
+                "The local exact choice is retained. Persistence and source existence are not confirmed.",
+            )
+        };
+        PerformancePresentation {
+            heading,
+            body,
+            pending_notice: (sealed && card.started_here && !card.stopped).then_some(
+                "Output release is still pending. The saved original alone does not confirm Stop.",
+            ),
+            storage_notice,
+            history_notice: card
+                .prior_unknown
+                .then_some("An earlier recording storage outcome was uncertain."),
+            first_audio_error: card.first_error.as_deref(),
+            error: self.error.as_deref(),
+        }
+    }
+    fn storage_notice(task: &Task, stage: StoragePresentationStage) -> &'static str {
+        let notices = match (&task.effect, &task.command) {
+            (Effect::List, Command::ListPerformanceIntents) => [
+                "Saved-choice listing queued for storage.",
+                "Loading saved recording choices.",
+                "Saved-choice listing retained for explicit retry.",
+            ],
+            (Effect::Start, Command::SavePerformanceIntent { .. }) => [
+                "Start choice queued for storage.",
+                "Saving Start choice.",
+                "Start choice retained for explicit retry.",
+            ],
+            (Effect::Finish, Command::SavePerformanceIntent { .. }) => [
+                "Finish choice queued for storage.",
+                "Saving Finish choice.",
+                "Finish choice retained for explicit retry.",
+            ],
+            (Effect::PrepareRelease, Command::SavePerformanceIntent { .. }) => [
+                "Retained recording choice queued for storage.",
+                "Saving Retained recording choice.",
+                "Retained recording choice retained for explicit retry.",
+            ],
+            (Effect::Attach, Command::SavePerformanceIntent { .. }) => [
+                "Attachment choice queued for storage.",
+                "Saving Attachment choice.",
+                "Attachment choice retained for explicit retry.",
+            ],
+            (Effect::Attach, Command::AttachPerformance { .. }) => [
+                "Stored attachment queued for storage.",
+                "Applying stored attachment.",
+                "Stored attachment retained for explicit retry.",
+            ],
+            (Effect::Release, Command::SavePerformanceIntent { .. }) => [
+                "Return-to-session choice queued for storage.",
+                "Saving Return-to-session choice.",
+                "Return-to-session choice retained for explicit retry.",
+            ],
+            _ => return "Recording storage choice has an inconsistent shape.",
+        };
+        match stage {
+            StoragePresentationStage::Queued => notices[0],
+            StoragePresentationStage::Active => notices[1],
+            StoragePresentationStage::Retry => notices[2],
+        }
     }
     pub(super) fn set_root(&mut self, root: PathBuf) {
         self.root = Some(root);
@@ -666,16 +879,29 @@ impl PerformanceUi {
         context: Option<&(String, u64)>,
     ) {
         ui.strong("Recorded keys and pads · output only");
-        ui.small(&self.message);
-        if let Some(card) = &self.card {
-            if let Some(error) = &card.first_error {
+        {
+            let presentation = self.presentation();
+            ui.strong(presentation.heading);
+            ui.small(presentation.body);
+            if let Some(notice) = presentation.pending_notice {
+                ui.label(notice);
+            }
+            if let Some(notice) = presentation.storage_notice {
+                ui.small(notice);
+            }
+            if let Some(notice) = presentation.history_notice {
+                ui.label(notice);
+            }
+            if let Some(error) = presentation.first_audio_error {
                 ui.colored_label(
                     ui.visuals().error_fg_color,
                     format!("First audio failure: {error}"),
                 );
             }
+        }
+        if let Some(card) = &self.card {
             if let Some(status) = &card.status {
-                ui.label(format!("{:?}", status.phase));
+                ui.label(format!("Last worker status: {:?}", status.phase));
                 if let Some(ready) = &status.ready {
                     ui.label(format!(
                         "{} · {} Hz · {} channels · {}",
@@ -696,9 +922,9 @@ impl PerformanceUi {
                 }
                 if status.sealed.is_some() {
                     ui.strong(if card.attached {
-                        "Original attached"
+                        "Attachment operation confirmed"
                     } else {
-                        "Original saved locally · not attached"
+                        "Original saved locally · attachment not confirmed here"
                     });
                 } else if matches!(
                     status.phase,
@@ -706,10 +932,8 @@ impl PerformanceUi {
                         | PerformancePhase::Interrupted
                         | PerformancePhase::SealUncertain
                 ) {
-                    ui.label("Original retained · final tail unknown. Performance-aware inspection/recovery is not available here yet.");
+                    ui.label("Final tail unknown. Inspect any retained stage in saved-performance review before use; recovery is not available here yet.");
                 }
-            } else {
-                ui.label("Saved recording choice · source has not been inspected. No recording is resumed.");
             }
             ui.small("Parent transfer-loss count: unavailable / unknown. Durable frames do not prove that every GUI event was saved.");
             let attach = card.stopped
@@ -803,7 +1027,7 @@ impl PerformanceUi {
                 self.dismiss_unstarted();
             }
         }
-        if let Some(error) = &self.error {
+        if let Some(error) = self.presentation().error {
             ui.colored_label(ui.visuals().error_fg_color, error);
         }
         let retry_target_ok = self.retry.as_ref().is_none_or(|task| {
@@ -856,6 +1080,10 @@ impl PerformanceUi {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "performance_presentation_review.rs"]
+mod presentation_review;
 
 #[cfg(test)]
 pub(crate) mod test_support {
