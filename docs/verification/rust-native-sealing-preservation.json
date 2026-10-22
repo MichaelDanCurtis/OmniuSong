@@ -1,0 +1,19 @@
+{
+  "atUtc": "2026-10-22T07:14:12.204437+00:00",
+  "passed": true,
+  "priorProjectsRetained": 19,
+  "priorCatalogRowsRetained": 368,
+  "currentProjects": 20,
+  "priorFilesExact": 69,
+  "priorOwnedTakesExact": 5,
+  "currentOwnedTakes": 5,
+  "addedProjects": [
+    "44107bb9-122d-4454-88fb-4cef2f6fb0ff"
+  ],
+  "mutationScope": "One synthetic diagnostic project and three append-only Start/Finish/keep-local intent revisions. No new attachment or owned take. Original failed stages and rollback sidecar remain exact. Optimized UI has not passed startup.",
+  "evidence": [
+    ".runtime/rust-seal-fix/before-store.json",
+    ".runtime/rust-seal-fix/after-diagnostic-store.json",
+    ".runtime/rust-seal-fix/before-files.json"
+  ]
+}

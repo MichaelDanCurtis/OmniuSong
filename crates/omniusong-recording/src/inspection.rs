@@ -4,7 +4,7 @@ use crate::{
     journal::{self, Journal},
     types::*,
 };
-use rusqlite::{Connection, OpenFlags, params};
+use rusqlite::{Connection, OpenFlags, Statement, params};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
@@ -321,23 +321,49 @@ fn physical_hash_bounded(path: &Path, budget: Option<&InspectionBudget>) -> Resu
     )?;
     Ok((count, format!("{:x}", hash.finalize())))
 }
+struct OriginalFieldQueries<'connection> {
+    metadata: Statement<'connection>,
+    scalar: Statement<'connection>,
+    bytes: Statement<'connection>,
+}
+impl<'connection> OriginalFieldQueries<'connection> {
+    fn new(
+        connection: &'connection Connection,
+        table: &str,
+        column: &str,
+        budget: Option<&InspectionBudget>,
+    ) -> Result<Self> {
+        // Table names are compile-time fixed; column names are bounded metadata
+        // identifiers, quoted once per hash rather than once per original row.
+        let column = format!("\"{}\"", column.replace('"', "\"\""));
+        crate::budget::checkpoint(budget)?;
+        let metadata = connection.prepare(&format!(
+            "SELECT typeof({column}),length(CAST({column} AS BLOB)) FROM {table} WHERE rowid=?1"
+        ))?;
+        crate::budget::checkpoint(budget)?;
+        let scalar = connection.prepare(&format!("SELECT {column} FROM {table} WHERE rowid=?1"))?;
+        crate::budget::checkpoint(budget)?;
+        let bytes = connection.prepare(&format!(
+            "SELECT substr(CAST({column} AS BLOB),?2,?3) FROM {table} WHERE rowid=?1"
+        ))?;
+        Ok(Self {
+            metadata,
+            scalar,
+            bytes,
+        })
+    }
+}
 fn hash_field(
-    connection: &Connection,
-    table: &str,
-    column: &str,
+    queries: &mut OriginalFieldQueries<'_>,
     rowid: i64,
     hash: &mut Sha256,
     budget: Option<&InspectionBudget>,
 ) -> Result<()> {
     crate::budget::rows(budget, 3)?;
     crate::budget::work(budget, 32)?;
-    // Table names are compile-time fixed; column names are bounded metadata
-    // identifiers quoted by the caller, never executable path/user SQL.
-    let sql = format!(
-        "SELECT typeof({column}),length(CAST({column} AS BLOB)) FROM {table} WHERE rowid=?1"
-    );
-    let (kind, len): (String, Option<i64>) =
-        connection.query_row(&sql, [rowid], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    let (kind, len): (String, Option<i64>) = queries
+        .metadata
+        .query_row([rowid], |r| Ok((r.get(0)?, r.get(1)?)))?;
     hash.update((kind.len() as u64).to_le_bytes());
     hash.update(kind.as_bytes());
     match kind.as_str() {
@@ -345,21 +371,13 @@ fn hash_field(
         "integer" => {
             crate::budget::rows(budget, 2)?;
             crate::budget::work(budget, 16)?;
-            let n: i64 = connection.query_row(
-                &format!("SELECT {column} FROM {table} WHERE rowid=?1"),
-                [rowid],
-                |r| r.get(0),
-            )?;
+            let n: i64 = queries.scalar.query_row([rowid], |r| r.get(0))?;
             hash.update(n.to_le_bytes());
         }
         "real" => {
             crate::budget::rows(budget, 2)?;
             crate::budget::work(budget, 16)?;
-            let n: f64 = connection.query_row(
-                &format!("SELECT {column} FROM {table} WHERE rowid=?1"),
-                [rowid],
-                |r| r.get(0),
-            )?;
+            let n: f64 = queries.scalar.query_row([rowid], |r| r.get(0))?;
             hash.update(n.to_bits().to_le_bytes());
         }
         "text" | "blob" => {
@@ -372,10 +390,7 @@ fn hash_field(
                 let count = (len - offset).min(64 * 1024);
                 crate::budget::rows(budget, 2)?;
                 crate::budget::work(budget, count.saturating_mul(2))?;
-                let bytes: Vec<u8> = connection.query_row(
-                    &format!(
-                        "SELECT substr(CAST({column} AS BLOB),?2,?3) FROM {table} WHERE rowid=?1"
-                    ),
+                let bytes: Vec<u8> = queries.bytes.query_row(
                     params![
                         rowid,
                         journal::sql_integer(offset + 1)?,
@@ -480,6 +495,12 @@ pub(crate) fn original_rows_hash_bounded(
             hash.update((name.len() as u64).to_le_bytes());
             hash.update(name.as_bytes());
         }
+        // At most three statements per bounded included column, scoped to this
+        // table and hash pass. Every original field is still read and hashed.
+        let mut field_queries = columns
+            .iter()
+            .map(|column| OriginalFieldQueries::new(connection, table, column, budget))
+            .collect::<Result<Vec<_>>>()?;
         let mut statement =
             connection.prepare(&format!("SELECT rowid FROM {table} ORDER BY rowid"))?;
         let mut rows = statement.query([])?;
@@ -489,9 +510,8 @@ pub(crate) fn original_rows_hash_bounded(
             crate::budget::work(budget, 16)?;
             let rowid: i64 = row.get(0)?;
             hash.update(rowid.to_le_bytes());
-            for column in &columns {
-                let quoted = format!("\"{}\"", column.replace('"', "\"\""));
-                hash_field(connection, table, &quoted, rowid, &mut hash, budget)?;
+            for queries in &mut field_queries {
+                hash_field(queries, rowid, &mut hash, budget)?;
             }
             count += 1;
         }
@@ -499,6 +519,10 @@ pub(crate) fn original_rows_hash_bounded(
     }
     Ok(format!("{:x}", hash.finalize()))
 }
+
+#[cfg(test)]
+#[path = "inspection/hash_tests.rs"]
+mod hash_tests;
 pub(crate) fn inspect_connection(
     connection: &Connection,
     path: &Path,
