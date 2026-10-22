@@ -1,5 +1,5 @@
 //! Explicit full-root retained evidence, restored only into an inert namespace.
-use crate::{NativeStore, Result, StoreError};
+use crate::{EvidenceFailure, NativeStore, Result, StoreError};
 use omniusong_recording::InspectionBudget;
 use rusqlite::{
     Connection, OpenFlags,
@@ -16,6 +16,8 @@ use std::{
 };
 
 mod raw;
+#[cfg(test)]
+mod reviewed_restore_tests;
 #[cfg(test)]
 mod tests;
 
@@ -791,7 +793,11 @@ fn validate_catalog_closure(
     budget.checkpoint()?;
     Ok(())
 }
-fn catalog_snapshot(store: &NativeStore, path: &Path, budget: &InspectionBudget) -> Result<()> {
+fn catalog_snapshot(
+    store: &NativeStore,
+    path: &Path,
+    budget: &InspectionBudget,
+) -> std::result::Result<(), EvidenceFailure> {
     let reservation = exclusive_file(path, false)?;
     let mut target = Connection::open_with_flags(
         path,
@@ -802,13 +808,15 @@ fn catalog_snapshot(store: &NativeStore, path: &Path, budget: &InspectionBudget)
     let page_size = crate::archive::unsigned(
         store
             .connection
-            .pragma_query_value(None, "page_size", |r| r.get(0))?,
+            .pragma_query_value(None, "page_size", |r| r.get(0))
+            .map_err(EvidenceFailure::live_catalog)?,
         "page size",
     )?;
     let pages = crate::archive::unsigned(
         store
             .connection
-            .pragma_query_value(None, "page_count", |r| r.get(0))?,
+            .pragma_query_value(None, "page_count", |r| r.get(0))
+            .map_err(EvidenceFailure::live_catalog)?,
         "page count",
     )?;
     budget.observe_file_bytes(
@@ -817,17 +825,20 @@ fn catalog_snapshot(store: &NativeStore, path: &Path, budget: &InspectionBudget)
             .ok_or_else(|| StoreError::Invalid("Catalog size overflow".into()))?,
     )?;
     {
-        let backup = Backup::new(&store.connection, &mut target)?;
+        let backup = Backup::new(&store.connection, &mut target)
+            .map_err(EvidenceFailure::backup_transfer)?;
         loop {
             budget.charge_work(32 * page_size)?;
-            match backup.step(16)? {
+            match backup.step(16).map_err(EvidenceFailure::backup_transfer)? {
                 StepResult::Done => break,
                 StepResult::More => (),
-                StepResult::Busy | StepResult::Locked => return Err(StoreError::Conflict),
+                StepResult::Busy | StepResult::Locked => {
+                    return Err(EvidenceFailure::backup_transfer(StoreError::Conflict));
+                }
                 _ => {
-                    return Err(StoreError::Invalid(
+                    return Err(EvidenceFailure::backup_transfer(StoreError::Invalid(
                         "Unsupported SQLite Backup result".into(),
-                    ));
+                    )));
                 }
             }
         }
@@ -880,6 +891,7 @@ enum EvidenceExportBoundary {
 enum EvidenceRestoreBoundary {
     AfterDirectoryCreated,
     BeforeCompletion,
+    AfterCompletionWritten,
 }
 
 struct RestoreAnchors {
@@ -1023,26 +1035,40 @@ impl NativeStore {
         export_id: &str,
         budget: &InspectionBudget,
     ) -> Result<EvidenceArchiveReceipt> {
-        let result = self.export_evidence_inner(path.as_ref(), export_id, budget);
-        budget.checkpoint()?;
-        result
+        self.export_retained_evidence_full_root_typed(path, export_id, budget)
+            .map_err(EvidenceFailure::into_store_error)
     }
-    fn export_evidence_inner(
+    /// Preserves the failing resource domain and any later sticky budget stop.
+    /// New background jobs must use this API to distinguish archived SQLite
+    /// bytes from live-catalog or mixed-source SQLite Backup failures.
+    pub fn export_retained_evidence_full_root_typed(
         &mut self,
-        path: &Path,
+        path: impl AsRef<Path>,
         export_id: &str,
         budget: &InspectionBudget,
-    ) -> Result<EvidenceArchiveReceipt> {
-        self.export_evidence_using(path, export_id, budget, |_| Ok(()))
+    ) -> std::result::Result<EvidenceArchiveReceipt, EvidenceFailure> {
+        let result = self.export_evidence_typed_using(path.as_ref(), export_id, budget, |_| Ok(()));
+        crate::evidence_failure::finish(budget, result)
     }
-    // Private fault/race observations never become user actions or authority.
+    #[cfg(test)]
     fn export_evidence_using(
         &mut self,
         path: &Path,
         export_id: &str,
         budget: &InspectionBudget,
-        mut observe: impl FnMut(EvidenceExportBoundary) -> Result<()>,
+        observe: impl FnMut(EvidenceExportBoundary) -> Result<()>,
     ) -> Result<EvidenceArchiveReceipt> {
+        self.export_evidence_typed_using(path, export_id, budget, observe)
+            .map_err(EvidenceFailure::into_store_error)
+    }
+    // Private fault/race observations never become user actions or authority.
+    fn export_evidence_typed_using(
+        &mut self,
+        path: &Path,
+        export_id: &str,
+        budget: &InspectionBudget,
+        mut observe: impl FnMut(EvidenceExportBoundary) -> Result<()>,
+    ) -> std::result::Result<EvidenceArchiveReceipt, EvidenceFailure> {
         require(
             valid_id(export_id),
             "Evidence export needs a fresh nonzero32hex identity",
@@ -1073,10 +1099,12 @@ impl NativeStore {
         same(&catalog_source_stamp, &catalog_source_stamp)?;
         let data_version: i64 = self
             .connection
-            .pragma_query_value(None, "data_version", |r| r.get(0))?;
+            .pragma_query_value(None, "data_version", |r| r.get(0))
+            .map_err(EvidenceFailure::live_catalog)?;
         let raw = raw::RawEvidenceSet::acquire(&self.root, budget)?;
         observe(EvidenceExportBoundary::AfterInventory)?;
-        let absences = required_links(&self.connection, &self.root, raw.entries(), budget)?;
+        let absences = required_links(&self.connection, &self.root, raw.entries(), budget)
+            .map_err(EvidenceFailure::live_catalog)?;
         let stage = crate::archive::private_directory(
             path.parent().expect("validated parent"),
             "evidence-catalog",
@@ -1110,7 +1138,8 @@ impl NativeStore {
                 .into(),
             catalog_schema: self
                 .connection
-                .pragma_query_value(None, "user_version", |r| r.get(0))?,
+                .pragma_query_value(None, "user_version", |r| r.get(0))
+                .map_err(EvidenceFailure::live_catalog)?,
             roots: raw.roots().to_vec(),
             absences,
             entries,
@@ -1177,7 +1206,8 @@ impl NativeStore {
         raw.verify(budget)?;
         require(
             self.connection
-                .pragma_query_value(None, "data_version", |r| r.get::<_, i64>(0))?
+                .pragma_query_value(None, "data_version", |r| r.get::<_, i64>(0))
+                .map_err(EvidenceFailure::live_catalog)?
                 == data_version,
             "Catalog changed during evidence export; incomplete bytes were retained",
         )?;
@@ -1205,8 +1235,11 @@ impl NativeStore {
         fs::remove_dir(&stage)?;
         Ok(observed.receipt)
     }
-    /// Restores numbered raw objects outside this live root; no database opens,
-    /// action admission, project import, recovery or attachment follows.
+    /// Restores numbered raw objects outside this live root without binding a
+    /// prior review. No database opens, action admission, project import,
+    /// recovery or attachment follows.
+    /// A late error/cancellation may coexist with complete inert evidence.
+    /// Inspect existing artifacts; do not infer rollback or retry create-new.
     pub fn restore_retained_evidence(
         &self,
         archive: impl AsRef<Path>,
@@ -1215,14 +1248,51 @@ impl NativeStore {
     ) -> Result<EvidenceRestoreReceipt> {
         self.restore_evidence_using(archive.as_ref(), directory.as_ref(), budget, |_, _| Ok(()))
     }
+    /// Restores inert evidence only when the same held archive read matches the
+    /// strict whole-container SHA256 from the caller's prior inspection.
+    /// A digest mismatch precedes completion, but a later error/cancellation
+    /// may leave `complete.json` and all objects. That outcome is uncertain and
+    /// needs read-only artifact reconciliation, never a blind create-new retry.
+    pub fn restore_retained_evidence_reviewed(
+        &self,
+        archive: impl AsRef<Path>,
+        directory: impl AsRef<Path>,
+        expected_archive_sha256: &str,
+        budget: &InspectionBudget,
+    ) -> Result<EvidenceRestoreReceipt> {
+        self.restore_evidence_with_review_using(
+            archive.as_ref(),
+            directory.as_ref(),
+            Some(expected_archive_sha256),
+            budget,
+            |_, _| Ok(()),
+        )
+    }
     fn restore_evidence_using(
         &self,
         archive: &Path,
         directory: &Path,
         budget: &InspectionBudget,
+        observe: impl FnMut(EvidenceRestoreBoundary, &Path) -> Result<()>,
+    ) -> Result<EvidenceRestoreReceipt> {
+        self.restore_evidence_with_review_using(archive, directory, None, budget, observe)
+    }
+    fn restore_evidence_with_review_using(
+        &self,
+        archive: &Path,
+        directory: &Path,
+        expected_archive_sha256: Option<&str>,
+        budget: &InspectionBudget,
         mut observe: impl FnMut(EvidenceRestoreBoundary, &Path) -> Result<()>,
     ) -> Result<EvidenceRestoreReceipt> {
         let result = (|| {
+            budget.checkpoint()?;
+            if let Some(expected) = expected_archive_sha256 {
+                require(
+                    crate::archive::digest_valid(expected),
+                    "Reviewed evidence restore needs a strict lowercase64hex archive SHA256",
+                )?;
+            }
             let directory = destination(directory, &self.root)?;
             archive_filename(archive)?;
             let _paths = crate::retained_file_coordination::evidence_restore(archive, &directory)?;
@@ -1241,6 +1311,12 @@ impl NativeStore {
             anchors.verify()?;
             let inspected = read_archive(&mut file, archive, budget, Some(&directory))?;
             verify_archive_anchor(archive, &file, &before)?;
+            if let Some(expected) = expected_archive_sha256 {
+                require(
+                    inspected.receipt.sha256 == expected,
+                    "Evidence archive differs from the reviewed SHA256; inert partial evidence was retained",
+                )?;
+            }
             observe(EvidenceRestoreBoundary::BeforeCompletion, &directory)?;
             anchors.prove_objects(&inspected.manifest, budget)?;
             crate::archive::sync_directory(&directory.join("objects"))?;
@@ -1250,11 +1326,10 @@ impl NativeStore {
                 archive: inspected.receipt,
             };
             budget.checkpoint()?;
-            write_exclusive(
-                &directory.join("complete.json"),
-                &bounded_json(&receipt, budget)?,
-                budget,
-            )?;
+            let completion = bounded_json(&receipt, budget)?;
+            verify_archive_anchor(archive, &file, &before)?;
+            write_exclusive(&directory.join("complete.json"), &completion, budget)?;
+            observe(EvidenceRestoreBoundary::AfterCompletionWritten, &directory)?;
             crate::archive::sync_directory(&directory)?;
             crate::archive::sync_directory(directory.parent().expect("validated parent"))?;
             anchors.members(&inspected.manifest, true, budget)?;

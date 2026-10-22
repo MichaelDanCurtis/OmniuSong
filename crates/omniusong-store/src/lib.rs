@@ -5,6 +5,7 @@ mod archive;
 mod archive_copy;
 mod captures;
 mod evidence_archive;
+mod evidence_failure;
 mod operations;
 mod performance_attachment_check;
 mod performance_intents;
@@ -34,6 +35,7 @@ pub use evidence_archive::{
     EvidenceEntry, EvidenceEntryKind, EvidenceManifest, EvidenceRestoreReceipt, EvidenceRoot,
     MAX_EVIDENCE_ENTRIES, MAX_EVIDENCE_MANIFEST_BYTES, inspect_evidence_archive,
 };
+pub use evidence_failure::{EvidenceFailure, EvidenceFailureOrigin};
 pub use operations::EditReceipt;
 pub use performance_intents::StoredPerformanceIntent;
 pub use performance_source_actions::{

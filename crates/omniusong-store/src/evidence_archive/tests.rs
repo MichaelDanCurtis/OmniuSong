@@ -3,6 +3,9 @@
 //! linkage, not a legal typed session history or native recording authority.
 #![cfg(unix)]
 
+#[path = "export_origin_tests.rs"]
+mod export_origin_tests;
+
 use super::*;
 use crate::STORE_SCHEMA_VERSION;
 use omniusong_core::{ProjectDocument, contracts::TakeId};
