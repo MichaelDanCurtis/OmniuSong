@@ -13,6 +13,9 @@ mod live_ui;
 #[cfg(test)]
 mod note_editor_review;
 mod note_ui;
+#[cfg(test)]
+mod performance_source_integration_review;
+mod performance_source_ui;
 mod performance_ui;
 mod recovery_ui;
 mod waveform_ui;
@@ -31,6 +34,7 @@ use omniusong_session::{
     ArchiveInspection, Command, Completion, DocumentView, FailureKind, LegacyProject, Library,
     Reply, RequestId, RestoreCopyIntent, SessionService,
 };
+use performance_source_ui::{PerformanceSourceUi, SourceAction, SourceAvailability, SourceRequest};
 use recovery_ui::{RecoveryAction, RecoveryUi};
 use serde_json::Value;
 use std::{
@@ -145,6 +149,7 @@ enum Action {
         publication: Box<omniusong_store::TakePublication>,
     },
     Performance(Box<Command>),
+    PerformanceSource(SourceRequest),
     Recovery(RecoveryAction),
     Note(NoteAction),
     Clip(ClipAction),
@@ -202,6 +207,7 @@ struct StudioApp {
     audio_executable: Option<PathBuf>,
     audio_close_requested: bool,
     recovery: RecoveryUi,
+    performance_sources: PerformanceSourceUi,
     recovery_close_requested: bool,
     note_close_requested: bool,
     clip_close_requested: bool,
@@ -244,6 +250,7 @@ impl StudioApp {
             audio_executable: None,
             audio_close_requested: false,
             recovery: RecoveryUi::new(),
+            performance_sources: PerformanceSourceUi::new(),
             recovery_close_requested: false,
             note_close_requested: false,
             clip_close_requested: false,
@@ -301,6 +308,7 @@ impl StudioApp {
                 action,
                 Action::Close
                     | Action::Refresh
+                    | Action::PerformanceSource(_)
                     | Action::Note(
                         NoteAction::Retry
                             | NoteAction::Suspend
@@ -374,6 +382,8 @@ impl StudioApp {
         };
         match spawned {
             Ok(service) => {
+                self.performance_sources
+                    .generation_changed(service.generation());
                 self.service = Some(service);
                 if let Err(error) = self.submit(Command::Initialize, Action::Refresh, None) {
                     self.error = Some(error.to_string());
@@ -383,6 +393,31 @@ impl StudioApp {
         }
     }
     fn submit(&mut self, command: Command, action: Action, after: Option<Action>) -> AppResult<()> {
+        if matches!(
+            command,
+            Command::ScanPerformanceSources | Command::InspectPerformanceSource { .. }
+        ) && !matches!(action, Action::PerformanceSource(_))
+        {
+            return Err("Performance source reads require their read-only action route".into());
+        }
+        if let Action::PerformanceSource(request) = &action {
+            let allowed = match (request, &command) {
+                (SourceRequest::Scan, Command::ScanPerformanceSources)
+                | (SourceRequest::RefreshRequests, Command::ListPerformanceIntents) => true,
+                (
+                    SourceRequest::Inspect { stage_id, .. },
+                    Command::InspectPerformanceSource { stage_id: actual },
+                ) => stage_id == actual,
+                _ => false,
+            };
+            if !allowed
+                || after.is_some()
+                || (matches!(request, SourceRequest::Inspect { .. })
+                    && self.performance_sources.inspection_request().as_ref() != Some(request))
+            {
+                return Err("Source review accepts only its exact read-only command, without a continuation".into());
+            }
+        }
         let context = self.context();
         let draft = self.draft.clone();
         let note_context = self.notes.context();
@@ -407,13 +442,30 @@ impl StudioApp {
                     clip_context,
                     after,
                 });
+                if let Some(Active {
+                    action: Action::PerformanceSource(request),
+                    ..
+                }) = &self.active
+                {
+                    self.performance_sources.submitted(request, id);
+                }
                 self.error = None;
-                self.status =
+                self.status = if matches!(self.active.as_ref().map(|active| &active.action), Some(Action::PerformanceSource(_))) {
+                    "Read-only saved-recording review is running in the background. The original is kept unchanged."
+                } else {
                     "Work is running in the background. If the app closes, it may already have saved; reopening lets you inspect the result."
-                        .into();
+                }.into();
                 Ok(())
             }
             Err(error) => {
+                if error.kind == omniusong_session::SubmitFailure::Disconnected {
+                    self.performance_sources
+                        .worker_lost(service.generation(), &error.message);
+                }
+                if let Action::PerformanceSource(request) = &action {
+                    self.performance_sources
+                        .submission_failed(request, &error.message);
+                }
                 if let Action::Recovery(recovery) = &action {
                     self.recovery.failed(recovery);
                 }
@@ -429,7 +481,13 @@ impl StudioApp {
                     self.clips
                         .not_admitted(intent.clone(), error.message.clone());
                 }
-                if error.command.retry_safe() && !matches!(action, Action::Performance(_)) {
+                if error.command.retry_safe()
+                    && !matches!(
+                        action,
+                        Action::Performance(_) | Action::PerformanceSource(_)
+                    )
+                    && !(matches!(error.command, Command::Initialize) && self.retry.is_some())
+                {
                     self.retry = Some(Active {
                         id: RequestId {
                             generation: service.generation(),
@@ -455,10 +513,15 @@ impl StudioApp {
         if service.is_disconnected() {
             return;
         }
+        let generation = service.generation();
         match service.try_poll() {
             Ok(Some(completion)) => self.complete(completion),
             Ok(None) => {}
             Err(error) => {
+                if error.kind == FailureKind::Disconnected {
+                    self.performance_sources
+                        .worker_lost(generation, &error.message);
+                }
                 if error.kind == FailureKind::Disconnected
                     && let Some(active) = self.active.take()
                     && active.command.retry_safe()
@@ -494,7 +557,10 @@ impl StudioApp {
                             active.clip_context.draft.clone(),
                         );
                     }
-                    if !matches!(active.action, Action::Performance(_)) {
+                    if !matches!(
+                        active.action,
+                        Action::Performance(_) | Action::PerformanceSource(_)
+                    ) {
                         self.retry = Some(active);
                     }
                 }
@@ -510,10 +576,57 @@ impl StudioApp {
             self.error = Some("Ignored a completion without an active action".into());
             return;
         };
-        if active.id != completion.id {
+        let source_reply_matches = match (&active.action, &completion.result) {
+            (Action::PerformanceSource(SourceRequest::Scan), Ok(Reply::PerformanceSources(_)))
+            | (
+                Action::PerformanceSource(SourceRequest::RefreshRequests),
+                Ok(Reply::PerformanceIntents(_)),
+            )
+            | (
+                Action::PerformanceSource(SourceRequest::Inspect { .. }),
+                Ok(Reply::PerformanceSourceInspected(_)),
+            ) => true,
+            (Action::PerformanceSource(_), Ok(_)) => false,
+            _ => true,
+        };
+        if active.id != completion.id
+            || active.command.kind() != completion.kind
+            || !source_reply_matches
+        {
             self.active = Some(active);
             self.error = Some("Ignored a stale session completion".into());
             return;
+        }
+        // Read-only source review owns no document or mutation continuation.
+        // In particular, neither success nor a source-local failure may retire
+        // an exact project-edit retry retained elsewhere in this window.
+        if let Action::PerformanceSource(request) = &active.action {
+            self.performance_sources
+                .completed(request, active.id, completion.result.as_ref());
+            if let Err(error) = &completion.result {
+                if error.kind == FailureKind::StorageUnavailable {
+                    self.reconnect_existing = true;
+                    self.performance_sources
+                        .worker_lost(active.id.generation, &error.message);
+                    self.status = "Storage worker stopped. Your draft was kept; reconnect explicitly before another action.".into();
+                } else {
+                    self.status =
+                        "Saved-recording review finished. The original and local drafts were kept."
+                            .into();
+                }
+                self.error = Some(error.message.chars().take(512).collect());
+            } else {
+                self.status = "Read-only saved-recording review finished. See the source card for observed facts.".into();
+                self.error = None;
+            }
+            return;
+        }
+        if matches!(active.action, Action::Performance(_))
+            && matches!(active.command, Command::ListPerformanceIntents)
+            && let Ok(Reply::PerformanceIntents(receipts)) = &completion.result
+        {
+            self.performance_sources
+                .observe_requests(active.id.generation, receipts);
         }
         if matches!(active.action, Action::Performance(_)) {
             self.audio
@@ -559,6 +672,8 @@ impl StudioApp {
                     self.audio.publication_failed();
                 }
                 if error.kind == FailureKind::StorageUnavailable {
+                    self.performance_sources
+                        .worker_lost(active.id.generation, &error.message);
                     self.reconnect_existing = true;
                     self.status="Storage worker stopped. Your draft was kept; reconnect explicitly before another action.".into();
                 } else {
@@ -592,6 +707,7 @@ impl StudioApp {
                 let mut after = None;
                 match reply {
                     Reply::Library(library) => {
+                        self.performance_sources.generation_changed(active.id.generation);
                         self.library(library);
                         self.ready = true;
                         self.reconnect_existing = true;
@@ -693,6 +809,7 @@ impl StudioApp {
         }
         if self.recovery.blocks_session()
             && !matches!(&action,Action::Recovery(recovery)if recovery.read_only()||matches!(recovery,RecoveryAction::Attach {..}))
+            && !matches!(action, Action::PerformanceSource(_))
         {
             if matches!(action, Action::Close) {
                 self.recovery_close_requested = true;
@@ -736,6 +853,7 @@ impl StudioApp {
             )
             | Action::Save
             | Action::Refresh
+            | Action::PerformanceSource(_)
             | Action::StagePlacement { .. } => false,
             Action::Recovery(recovery) if recovery.read_only() => false,
             _ => self.dirty(),
@@ -762,7 +880,61 @@ impl StudioApp {
             self.error = Some(error.to_string());
         }
     }
+    fn handle_performance_source_action(&mut self, action: SourceAction) {
+        match action {
+            SourceAction::Submit(request) => self.request(Action::PerformanceSource(request)),
+            SourceAction::CancelInspection(id) => {
+                // Cancellation is an urgent control for the existing read,
+                // not a new service submission. Keep both credits until its
+                // exact completion or actual disconnection is observed.
+                let exact = self.performance_sources.pending_inspection() == Some(id)
+                    && self.active.as_ref().is_some_and(|active| {
+                        active.id == id
+                            && matches!(
+                                &active.action,
+                                Action::PerformanceSource(SourceRequest::Inspect { .. })
+                            )
+                            && matches!(active.command, Command::InspectPerformanceSource { .. })
+                    });
+                let accepted = exact
+                    && self
+                        .service
+                        .as_ref()
+                        .is_some_and(|service| service.cancel_source_inspection(id));
+                self.performance_sources.cancel_requested(id, accepted);
+            }
+        }
+    }
     fn dispatch(&mut self, action: Action, after: Option<Action>) -> AppResult<()> {
+        if let Action::PerformanceSource(request) = &action {
+            // Unlike musical actions, these reads can retain every local
+            // draft/failed choice. They still share the sole worker and obey
+            // the native audio-owner guard; they never carry a continuation.
+            let result = if after.is_some() {
+                Err("Source review cannot carry an action continuation".into())
+            } else if !self.ready || self.busy() || self.disconnected() || self.service.is_none() {
+                Err(
+                    "Session storage is unavailable or busy; inspect again explicitly when ready"
+                        .into(),
+                )
+            } else if self.audio.blocks_session() {
+                Err("Finish or stop audio and resolve the retained recording before inspecting originals".into())
+            } else if matches!(request, SourceRequest::Inspect { .. })
+                && self.performance_sources.inspection_request().as_ref() != Some(request)
+            {
+                Err(
+                    "The source selection changed; choose Inspect again for the current source"
+                        .into(),
+                )
+            } else {
+                return self.submit(request.command(), action.clone(), None);
+            };
+            if let Err(error) = &result {
+                self.performance_sources
+                    .submission_failed(request, &format!("{error}"));
+            }
+            return result;
+        }
         if let Action::Performance(command) = &action {
             // Recording intentions share the sole storage service. They must be
             // admitted even while the audio guard is held (Finish and release),
@@ -1161,6 +1333,9 @@ impl StudioApp {
             Action::Performance(_) => {
                 unreachable!("recording intentions use the guarded service path")
             }
+            Action::PerformanceSource(_) => {
+                unreachable!("source review uses the read-only service path")
+            }
             Action::Note(choice) => {
                 if self.metadata_dirty() || self.clips.dirty() || self.clips.unresolved() {
                     return Err(
@@ -1276,6 +1451,10 @@ impl StudioApp {
         let Some(active) = self.retry.clone() else {
             return;
         };
+        if matches!(active.action, Action::PerformanceSource(_)) {
+            self.error = Some("Choose a fresh explicit read in Saved performances.".into());
+            return;
+        }
         if note_command(&active.command) {
             if let Err(error) = self.retry_note() {
                 self.error = Some(error.to_string());
@@ -1541,6 +1720,29 @@ impl StudioApp {
         let recovery_available =
             !self.busy() && !self.disconnected() && !self.audio.blocks_session();
         let mut recovery_requested = None;
+        let mut performance_source_requested = None;
+        let source_availability = SourceAvailability {
+            can_submit: self.ready
+                && self.service.is_some()
+                && !self.busy()
+                && !self.disconnected()
+                && !self.audio.blocks_session()
+                && !self.closing,
+            generation: self.service.as_ref().map(SessionService::generation),
+            unavailable_reason: if self.disconnected() || !self.ready {
+                Some("Reconnect session storage before reading originals.".into())
+            } else if self.audio.blocks_session() {
+                Some("Finish or stop audio and resolve the retained recording first.".into())
+            } else if self.busy() {
+                Some(
+                    "The session worker is busy. Inspection cancellation remains available.".into(),
+                )
+            } else if self.closing {
+                Some("The window is closing.".into())
+            } else {
+                None
+            },
+        };
         let recovery_draft_dirty = self.dirty();
         egui::Panel::right("retained-captures")
             .default_size(340.0)
@@ -1549,6 +1751,9 @@ impl StudioApp {
                 egui::ScrollArea::vertical()
                     .id_salt("retained-capture-review")
                     .show(ui, |ui| {
+                        performance_source_requested =
+                            self.performance_sources.ui(ui, &source_availability);
+                        ui.separator();
                         recovery_requested = self.recovery.ui(
                             ui,
                             recovery_available,
@@ -1557,6 +1762,9 @@ impl StudioApp {
                         );
                     });
             });
+        if let Some(action) = performance_source_requested {
+            self.handle_performance_source_action(action);
+        }
         if let Some(recovery) = recovery_requested {
             self.request(Action::Recovery(recovery));
         }
