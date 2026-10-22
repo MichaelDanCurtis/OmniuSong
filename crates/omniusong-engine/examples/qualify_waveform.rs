@@ -86,7 +86,7 @@ fn requests(document: &ProjectDocument) -> Outcome<(Vec<WaveformRequest>, Vec<Va
                 },
                 bins: 1024,
             });
-        } else if document.schema_version() == 2 && track["kind"] == "recording" {
+        } else if document.supports_native_takes() && track["kind"] == "recording" {
             for raw in track["recording"]["clips"]
                 .as_array()
                 .ok_or("Validated recording clips missing")?

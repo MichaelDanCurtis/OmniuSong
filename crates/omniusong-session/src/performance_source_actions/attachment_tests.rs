@@ -34,6 +34,73 @@ fn checksum(bytes: &[u8]) -> String {
 }
 
 #[test]
+fn unsupported_projection_target_refuses_before_recovered_original_ingestion() {
+    use serde_json::json;
+    let (f, mut backend, source, _, verified) = verified(fixture::Mode::Tail);
+    let pending = choose(&mut backend, &verified, &source, CHOICE, None, 240);
+    let publication = publication(&pending).clone();
+    let target = backend
+        .store()
+        .unwrap()
+        .load(&publication.project_id.0)
+        .unwrap();
+    let mut value = target.value().clone();
+    // A core-shaped envelope deliberately has no semantic source proof.
+    let review_sha = "a".repeat(64);
+    let manifest_sha = "b".repeat(64);
+    let retained = json!({"version":1,"review_sha256":review_sha,"request":{"source":{"take_id":"unverified-original","manifest_sha256":manifest_sha}}}).to_string();
+    value["schemaVersion"] = 3.into();
+    value["performanceProjections"] = json!({"version":1,"entries":[{
+        "id":"unsupported-projection","version":1,
+        "source":{"takeId":"unverified-original","manifestSha256":manifest_sha,"streamId":"audio"},
+        "review":{"version":1,"canonicalJson":retained,"reviewSha256":review_sha},
+        "lanes":[{"source":1,"trackId":"absent-derived-lane","instrument":"keys","originalNotes":[{
+            "noteId":"reserved-original-note","identitySha256":"c".repeat(64),
+            "values":{"pitch":60,"start_tick":0,"duration_ticks":960,"velocity16":32768}
+        }]}]
+    }]});
+    let unsupported = ProjectDocument::from_value(value).unwrap();
+    let native = f.paths().native;
+    let catalog = native.join("studio.sqlite3");
+    let connection = rusqlite::Connection::open(&catalog).unwrap();
+    connection
+        .execute(
+            "UPDATE projects SET payload=?1 WHERE id=?2",
+            rusqlite::params![
+                String::from_utf8(unsupported.to_json().unwrap()).unwrap(),
+                publication.project_id.0
+            ],
+        )
+        .unwrap();
+    drop(connection);
+    let before = fixture::tree(&native);
+    let history = fixture::history(&mut backend);
+    let source_before = fs::read(f.source_path()).unwrap();
+    assert!(
+        !backend
+            .store()
+            .unwrap()
+            .has_registered_take(&publication.clip.source.take_id)
+            .unwrap()
+    );
+    let error = attach(&mut backend, &pending).unwrap_err();
+    assert!(
+        error.message.contains("Performance projection ownership"),
+        "{error:?}"
+    );
+    assert_eq!(fixture::tree(&native), before);
+    assert_eq!(fixture::history(&mut backend), history);
+    assert_eq!(fs::read(f.source_path()).unwrap(), source_before);
+    assert!(
+        !backend
+            .store()
+            .unwrap()
+            .has_registered_take(&publication.clip.source.take_id)
+            .unwrap()
+    );
+}
+
+#[test]
 fn actual_six_stream_recovery_choices_archive_and_restore_as_inert_exact_evidence() {
     use omniusong_recording::{InspectionBudget, InspectionLimits};
     use omniusong_store::{

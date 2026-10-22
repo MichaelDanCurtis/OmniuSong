@@ -9,6 +9,7 @@ pub mod contracts;
 pub mod native;
 pub mod note_edit;
 pub mod note_edit_types;
+pub mod performance_projection;
 pub use clip_edit_types::{
     AudioSourceWindow, ClipPatch, ClipTimelinePolicy, DocumentClipAddress, FieldChange,
     LegacyAudioClipPatch, NativeAudioClipPatch, ValueChange,
@@ -349,7 +350,7 @@ impl ProjectDocument {
             .expect("validated schema version")
     }
     pub fn metadata_limit(&self) -> usize {
-        if self.schema_version() == native::NATIVE_SCHEMA_VERSION {
+        if self.supports_native_takes() {
             MAX_NATIVE_PROJECT_BYTES
         } else {
             MAX_PROJECT_BYTES
@@ -443,10 +444,10 @@ impl ProjectDocument {
     fn validate(&self) -> Result<()> {
         let p = &self.value;
         require(
-            matches!(p["schemaVersion"].as_u64(), Some(1 | 2)),
+            matches!(p["schemaVersion"].as_u64(), Some(1..=3)),
             "Unsupported project schema; source was not changed",
         )?;
-        let native = self.schema_version() == native::NATIVE_SCHEMA_VERSION;
+        let native = self.supports_native_takes();
         text(&p["id"], 1, 80, "project identity")?;
         require(
             p["id"]
@@ -533,6 +534,7 @@ impl ProjectDocument {
         if native {
             native::validate_recording_tracks(tracks)?;
         }
+        performance_projection::validate_document_registry(self)?;
         require(
             p["history"].as_array().is_some_and(|h| h.len() <= 5000),
             "Invalid project history",

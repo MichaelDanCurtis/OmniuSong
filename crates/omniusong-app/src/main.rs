@@ -2135,7 +2135,7 @@ impl StudioApp {
                         }
                     });
                     let track = &tracks[self.selected_track];
-                    if document.schema_version()==2 && track["kind"] == "recording" {
+                    if document.supports_native_takes() && track["kind"] == "recording" {
                         ui.label(format!("Recording · {}", if track["muted"] == true { "muted" } else { "unmuted" }));
                         if let Some(payload)=self.recordings.get(self.selected_track).and_then(Option::as_ref){ui.small(format!("{} declared source view(s); audio clips are editable, event sources remain read-only.",payload.clips.len()));}
                         if let Some(choice)=self.clips.ui(ui,document,track["id"].as_str().unwrap_or_default(),available,self.draft.is_dirty(document)||self.notes.dirty(),self.notes.unresolved()){requested=Some(Action::Clip(choice));}

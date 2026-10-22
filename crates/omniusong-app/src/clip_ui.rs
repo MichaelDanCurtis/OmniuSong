@@ -385,7 +385,7 @@ pub(super) fn clip<'a>(doc: &'a ProjectDocument, selection: &ClipSelection) -> O
             track.get("audio").filter(|v| v.is_object())
         }
         DocumentClipAddress::NativeAudio { clip_id, .. }
-            if doc.schema_version() == 2 && track["kind"] == "recording" =>
+            if doc.supports_native_takes() && track["kind"] == "recording" =>
         {
             track["recording"]["clips"].as_array()?.iter().find(|clip| {
                 clip["id"].as_str() == Some(clip_id) && clip["range"]["unit"] == "audio_frames"
@@ -775,7 +775,7 @@ impl ClipEditor {
         let mut action = None;
         let selected_track = track(doc, track_key)?;
         if selected_track["kind"] != "audio"
-            && !(doc.schema_version() == 2 && selected_track["kind"] == "recording")
+            && !(doc.supports_native_takes() && selected_track["kind"] == "recording")
         {
             return None;
         }

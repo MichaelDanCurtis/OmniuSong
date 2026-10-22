@@ -199,6 +199,7 @@ impl Bundle {
         )
     }
     pub(super) fn references(&mut self, document: &ProjectDocument) -> Result<()> {
+        super::projection_boundary::reject_unverified_projection(document)?;
         self.assets.extend(document.referenced_assets()?);
         self.takes.extend(document.referenced_takes()?);
         ensure(
@@ -612,6 +613,7 @@ pub(super) fn copy_metadata(
         bundle.metadata(before.len() + after.len() + project_id.len() + 8)?;
         let before_doc = ProjectDocument::from_json(before.as_bytes())?;
         let after_doc = ProjectDocument::from_json(after.as_bytes())?;
+        super::projection_boundary::reject_opaque_promotion(&before_doc, &after_doc)?;
         ensure(
             before_doc.id() == project_id
                 && after_doc.id() == project_id

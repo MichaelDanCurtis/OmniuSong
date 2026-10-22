@@ -10,6 +10,7 @@ mod operations;
 mod performance_attachment_check;
 mod performance_intents;
 mod performance_source_actions;
+mod projection_boundary;
 mod reader;
 mod recovered_takes;
 mod retained_file_coordination;
@@ -173,10 +174,12 @@ fn load_document(connection: &Connection, id: &str) -> Result<ProjectDocument> {
             "Stored project identity/revision is inconsistent".into(),
         ));
     }
+    projection_boundary::reject_unverified_projection(&document)?;
     Ok(document)
 }
 
 fn check_references(connection: &Connection, project: &ProjectDocument) -> Result<()> {
+    projection_boundary::reject_unverified_projection(project)?;
     for id in project.referenced_assets()? {
         read_asset(connection, &id)?;
     }
@@ -243,6 +246,7 @@ fn save_in_transaction_with_budget(
     if current.revision() != expected_revision {
         return Err(StoreError::Conflict);
     }
+    projection_boundary::reject_opaque_promotion(&current, document)?;
     check_references(connection, document)?;
     if let Some(budget) = budget {
         takes::verify_document_files_with_budget(root, connection, document, budget)?;
@@ -301,10 +305,9 @@ fn navigate_in_transaction(
     } else {
         cursor
     };
-    let column = if redo { "after_json" } else { "before_json" };
-    let snapshot: Option<Option<String>> = connection.query_row(
-        &format!("SELECT CASE WHEN octet_length({column})<=?3 THEN {column} END FROM edits WHERE project_id=?1 AND sequence=?2"),
-        params![id,target,MAX_NATIVE_PROJECT_BYTES as i64], |row| row.get(0),
+    let snapshot: Option<(Option<String>, Option<String>)> = connection.query_row(
+        "SELECT CASE WHEN octet_length(before_json)<=?3 THEN before_json END,CASE WHEN octet_length(after_json)<=?3 THEN after_json END FROM edits WHERE project_id=?1 AND sequence=?2",
+        params![id,target,MAX_NATIVE_PROJECT_BYTES as i64], |row| Ok((row.get(0)?, row.get(1)?)),
     ).optional()?;
     let snapshot = snapshot.ok_or_else(|| {
         StoreError::Invalid(
@@ -316,10 +319,28 @@ fn navigate_in_transaction(
             .into(),
         )
     })?;
-    let snapshot = snapshot.ok_or_else(|| {
-        StoreError::Invalid("Stored history exceeds its document size limit".into())
-    })?;
-    let next = ProjectDocument::from_json(snapshot.as_bytes())?.with_revision(
+    let (Some(before), Some(after)) = snapshot else {
+        return Err(StoreError::Invalid(
+            "Stored history exceeds its document size limit".into(),
+        ));
+    };
+    let before = ProjectDocument::from_json(before.as_bytes())?;
+    let after = ProjectDocument::from_json(after.as_bytes())?;
+    // Validate the recorded forward operation, even during reverse navigation.
+    // Checking current -> target would incorrectly reject Undo of a legitimate
+    // downgrade that preserved an older schema's opaque field.
+    projection_boundary::reject_unverified_projection(&before)?;
+    projection_boundary::reject_unverified_projection(&after)?;
+    projection_boundary::reject_opaque_promotion(&before, &after)?;
+    if before.id() != id
+        || after.id() != id
+        || before.revision().checked_add(1) != Some(after.revision())
+    {
+        return Err(StoreError::Invalid(
+            "Stored edit history identity/revision pair is inconsistent".into(),
+        ));
+    }
+    let next = if redo { after } else { before }.with_revision(
         expected_revision
             .checked_add(1)
             .ok_or_else(|| StoreError::Invalid("Project revision is out of range".into()))?,
@@ -551,6 +572,8 @@ impl NativeStore {
                 .and_then(|payload| ProjectDocument::from_json(payload.as_bytes()))
                 .and_then(|p| {
                     if p.id() == id && Some(p.revision()) == u64::try_from(revision).ok() {
+                        projection_boundary::reject_unverified_projection(&p)
+                            .map_err(|error| DocumentError(error.to_string()))?;
                         Ok(p)
                     } else {
                         Err(DocumentError(
@@ -585,6 +608,13 @@ impl NativeStore {
         .collect()
     }
 
+    /// Metadata capability admission only. This opens no take file and grants
+    /// no source-authentication, revision, replay or publication authority.
+    /// Mutation paths must repeat their complete checks at commit.
+    pub fn check_project_metadata_admission(&self, id: &str) -> Result<()> {
+        load_document(&self.connection, id).map(|_| ())
+    }
+
     pub fn load(&self, id: &str) -> Result<ProjectDocument> {
         let document = load_document(&self.connection, id)?;
         check_references(&self.connection, &document)?;
@@ -600,6 +630,7 @@ impl NativeStore {
     }
 
     pub fn create(&mut self, document: &ProjectDocument) -> Result<ProjectDocument> {
+        projection_boundary::reject_unverified_projection(document)?;
         takes::verify_document_files(&self.root, &self.connection, document)?;
         let tx = self
             .connection

@@ -103,7 +103,9 @@ struct Proof {
 }
 impl Proof {
     fn document(&self) -> Result<ProjectDocument> {
-        Ok(ProjectDocument::from_value(self.result.clone())?)
+        let document = ProjectDocument::from_value(self.result.clone())?;
+        super::projection_boundary::reject_unverified_projection(&document)?;
+        Ok(document)
     }
     fn validate(&self) -> Result<()> {
         self.operation_id

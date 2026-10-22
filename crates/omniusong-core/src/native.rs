@@ -298,6 +298,12 @@ pub(crate) fn validate_recording_tracks(tracks: &[Value]) -> Result<()> {
 }
 
 impl ProjectDocument {
+    /// Native take ownership is a capability of musical schemas 2 and 3.
+    /// This does not authenticate projection receipts or grant publication.
+    pub fn supports_native_takes(&self) -> bool {
+        matches!(self.schema_version(), 2 | 3)
+    }
+
     /// Explicit, value-preserving upgrade. Publication owns revision/history.
     pub fn upgrade_native(&self) -> Result<Self> {
         require(
@@ -318,8 +324,8 @@ impl ProjectDocument {
         clip: TakeClip,
     ) -> Result<()> {
         require(
-            self.schema_version() == NATIVE_SCHEMA_VERSION,
-            "Appending a sealed take requires explicit schema-2 upgrade",
+            self.supports_native_takes(),
+            "Appending a sealed take requires a native take-capable schema",
         )?;
         identifier(track_id, "track identity")?;
         require(
@@ -368,7 +374,7 @@ impl ProjectDocument {
 
     /// Only schema-owned native paths are projected; legacy metadata stays opaque.
     pub fn take_clips(&self) -> Result<Vec<TakeClip>> {
-        if self.schema_version() != NATIVE_SCHEMA_VERSION {
+        if !self.supports_native_takes() {
             return Ok(Vec::new());
         }
         let mut clips = Vec::new();
@@ -383,11 +389,13 @@ impl ProjectDocument {
     }
 
     pub fn referenced_takes(&self) -> Result<BTreeSet<TakeReference>> {
-        Ok(self
+        let mut references: BTreeSet<_> = self
             .take_clips()?
             .into_iter()
             .map(|clip| clip.source)
-            .collect())
+            .collect();
+        references.extend(self.projection_source_references()?);
+        Ok(references)
     }
 }
 

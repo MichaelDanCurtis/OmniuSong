@@ -1,7 +1,7 @@
 //! Read-only reconciliation of an already committed performance attachment.
 use crate::{NativeStore, Result, StoreError, TakePublication};
 use crate::{operations::replay_operation, takes::publication_request};
-use omniusong_core::native::{NATIVE_SCHEMA_VERSION, TakeClip};
+use omniusong_core::native::TakeClip;
 
 impl NativeStore {
     /// Exact historical publication proof, without opening any take file.
@@ -53,9 +53,7 @@ pub(crate) fn checked_publication_receipt(
         .map(serde_json::from_value)
         .transpose()
         .map_err(|error| StoreError::Invalid(error.to_string()))?;
-    if receipt.document.schema_version() != NATIVE_SCHEMA_VERSION
-        || clip.as_ref() != Some(&intent.clip)
-    {
+    if !receipt.document.supports_native_takes() || clip.as_ref() != Some(&intent.clip) {
         return Err(StoreError::Invalid(
             "Stored attachment result differs from its requested track or clip".into(),
         ));

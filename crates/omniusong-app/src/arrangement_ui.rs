@@ -330,7 +330,7 @@ impl Cache {
                 items: Vec::new(),
                 notes: None,
             };
-            if doc.schema_version() == 2 && track["kind"] == "recording" {
+            if doc.supports_native_takes() && track["kind"] == "recording" {
                 if let Some(clips) = track["recording"]["clips"].as_array() {
                     for raw in clips {
                         if items >= MAX_ITEMS {

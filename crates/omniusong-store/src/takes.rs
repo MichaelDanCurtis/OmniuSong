@@ -405,13 +405,29 @@ fn visit_document_takes<F>(
 where
     F: FnMut(&TakeObject) -> Result<()>,
 {
+    super::projection_boundary::reject_unverified_projection(document)?;
     let clips = document.take_clips()?;
-    let mut grouped: BTreeMap<&TakeId, Vec<&TakeClip>> = BTreeMap::new();
+    let references = document.referenced_takes()?;
+    let mut grouped: BTreeMap<&TakeId, (Vec<&TakeClip>, Vec<&TakeReference>)> = BTreeMap::new();
     for clip in &clips {
-        grouped.entry(&clip.source.take_id).or_default().push(clip);
+        grouped
+            .entry(&clip.source.take_id)
+            .or_default()
+            .0
+            .push(clip);
     }
-    for (take_id, clips) in grouped {
+    for reference in &references {
+        grouped
+            .entry(&reference.take_id)
+            .or_default()
+            .1
+            .push(reference);
+    }
+    for (take_id, (clips, references)) in grouped {
         let object = load_take(connection, take_id)?;
+        for reference in references {
+            check_reference(&object, reference)?;
+        }
         for clip in clips {
             check_clip(&object, clip)?;
         }
@@ -554,6 +570,9 @@ impl NativeStore {
                 tx.commit()?;
                 return Ok(receipt);
             }
+            // Refuse unsupported ownership before ingestion can retain a new
+            // object. Recheck revision in publish_take after the copy.
+            load_document(&tx, &intent.project_id.0)?;
             // Release the project transaction before reading/copying a capture.
             tx.commit()?;
         }

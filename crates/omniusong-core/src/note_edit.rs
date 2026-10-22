@@ -121,6 +121,10 @@ impl ProjectDocument {
         NoteId(address.note_id.clone())
             .validate()
             .map_err(contract)?;
+        require(
+            !self.projection_note_id_reserved(&address.note_id)?,
+            "Original projected note identity is reserved; use Undo to restore a deleted note",
+        )?;
         let track = track_index(self, address)?;
         let notes = self.tracks()[track]["notes"]
             .as_array()

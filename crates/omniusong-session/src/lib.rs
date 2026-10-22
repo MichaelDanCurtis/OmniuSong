@@ -89,7 +89,7 @@ impl DocumentView {
         let mut recordings = Vec::with_capacity(document.tracks().len());
         let mut provenance = Vec::with_capacity(document.tracks().len());
         for track in document.tracks() {
-            if document.schema_version() == 2 && track["kind"] == "recording" {
+            if document.supports_native_takes() && track["kind"] == "recording" {
                 let payload: RecordingPayload = serde_json::from_value(track["recording"].clone())
                     .map_err(|e| ServiceError::rejected(e.to_string()))?;
                 payload

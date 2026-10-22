@@ -198,6 +198,7 @@ pub(crate) fn insert_operation_inner(
     request: &str,
     document: &ProjectDocument,
 ) -> Result<()> {
+    super::projection_boundary::reject_unverified_projection(document)?;
     let previous = i64::try_from(expected_revision)
         .map_err(|_| StoreError::Invalid("Operation revision is out of range".into()))?;
     let committed = i64::try_from(document.revision())

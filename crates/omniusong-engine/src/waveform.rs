@@ -65,7 +65,7 @@ fn raw_clip<'a>(
             .filter(|v| v.is_object())
             .ok_or_else(|| "Audio track has no saved clip".into()),
         DocumentClipAddress::NativeAudio { clip_id, .. }
-            if document.schema_version() == 2 && track["kind"] == "recording" =>
+            if document.supports_native_takes() && track["kind"] == "recording" =>
         {
             track["recording"]["clips"]
                 .as_array()
@@ -1361,6 +1361,30 @@ mod tests {
         assert_eq!(result.authenticated_sha256, sha(&before));
         assert_eq!(fs::read(&path).unwrap(), before);
     }
+    #[test]
+    fn empty_projection_schema_preserves_authenticated_native_waveform() {
+        let fixture = Fixture::new();
+        let (mut request, path) = native_fixture(&fixture.0, true);
+        let original = fs::read(&path).unwrap();
+        let root = fixture.0.join("store");
+        let before = prepare_waveform(&root, &request, || false).unwrap();
+        let mut store = NativeStore::open_existing(&root).unwrap();
+        let current = store.load(&request.project_id).unwrap();
+        let promoted = current.upgrade_performance_projection_schema().unwrap();
+        let saved = store.save(&promoted, current.revision()).unwrap();
+        assert_eq!(saved.schema_version(), 3);
+        request.expected_revision = saved.revision();
+        drop(store);
+        let after = prepare_waveform(&root, &request, || false).unwrap();
+        assert_eq!(after.source_start_frame, before.source_start_frame);
+        assert_eq!(after.frame_count, before.frame_count);
+        assert_eq!(after.channels, before.channels);
+        assert_eq!(after.channel_bins, before.channel_bins);
+        assert_eq!(after.unknown_tail, before.unknown_tail);
+        assert_eq!(after.authenticated_sha256, before.authenticated_sha256);
+        assert_eq!(fs::read(path).unwrap(), original);
+    }
+
     #[test]
     fn recovered_native_prefix_reports_unknown_tail_without_inventing_extent() {
         let fixture = Fixture::new();

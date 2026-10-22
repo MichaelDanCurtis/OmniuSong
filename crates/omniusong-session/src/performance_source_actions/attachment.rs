@@ -226,6 +226,13 @@ impl NativeBackend {
             "Only the current pending reviewed attachment may execute",
         )?;
         budget.checkpoint().map_err(local)?;
+        // Reject unsupported project ownership before a recovered object can
+        // be ingested. This is only metadata preflight; commit revalidates the
+        // exact revision, complete source history and original identities.
+        self.store()?
+            .check_project_metadata_admission(&choice.publication.project_id.0)
+            .map_err(source_store)?;
+        budget.checkpoint().map_err(local)?;
         let source = review(loaded.raw_review(request.id)?)?.0;
         let payload = committed_payload(
             &state,
