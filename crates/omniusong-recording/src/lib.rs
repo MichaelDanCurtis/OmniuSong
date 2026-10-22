@@ -3,6 +3,7 @@ mod budget;
 mod inspection;
 mod journal;
 mod snapshot;
+mod snapshot_identity;
 mod types;
 
 pub use budget::{InspectionBudget, InspectionLimits, InspectionResource, InspectionUsage};
@@ -17,6 +18,8 @@ pub use types::*;
 
 #[cfg(test)]
 mod inspection_report_reuse_tests;
+#[cfg(all(test, unix))]
+mod snapshot_identity_tests;
 #[cfg(test)]
 mod snapshot_tests;
 #[cfg(test)]

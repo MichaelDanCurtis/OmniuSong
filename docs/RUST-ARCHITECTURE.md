@@ -28,11 +28,14 @@ SQLite is a native library, allowed by the goal. Its [atomic commit design](http
 | `omniusong-store` | Transactional snapshots/history, integrity checks, exact import receipts and source assets | Audio callback, destructive writes to prototype sessions |
 | `omniusong-app` | Native views, accessible controls, editor drafts and presentation of commands/results | Model/audio work in paint callbacks, direct source recording mutation |
 | `omniusong-recording` | Separate per-take journals, bounded immutable chunks, durable prefixes, recovery/index proofs and sealing | Device callback, automatic recording resume, opaque schema-1 publication |
+| `omniusong-performance` | Device-free owned local-performance types/codec, shared checkpoint verification and authenticated procedural note projection | Devices, tap/ring lifecycle, native normal-seal authority, project commits or UI |
 | `omniusong-ipc` | Bounded non-realtime framing/admission and private Unix child control connections | Audio callback, project commits, unqualified Windows transport or plugin sandbox claims |
 | `omniusong-session` | Capacity-one background storage commands, durable retry identity, session/archive operations and sealed-capture attachment | Audio callback, GUI paint, automatic uncertain-operation replay |
 | `omniusong-engine` | Private native-audio worker, bounded saved-session preparation, CoreAudio output, solo-input adapter and incremental capture transfer | Project publication, model/plugin work or filesystem/IPC in sample callbacks |
 
 The first [native audio boundary](contracts/NATIVE-AUDIO-ENGINE.md) uses CPAL 0.18.2, rtrb 0.4.0 and a narrowly patched, provenance-retained coreaudio-rs 0.14.2. General streaming graphs/live voices, separate device/MIDI adapters, `midi` (UMP/MPE/CI/Clip File semantics), `jobs`, `models`, `plugins` and platform packaging remain planned boundaries. Add a crate when it owns working behavior and tests, rather than empty scaffolding.
+
+The [performance projection boundary](contracts/NATIVE-PERFORMANCE-PROJECTION.md) places shared interpretation below the engine so later store/archive publication can recompute against the same held original without a store-to-engine cycle. Existing engine paths reexport the same owned types and verifier. Runtime queues, callbacks and private native seal permits stay in the engine. Read-only projection is separate from schema-3 project ownership, atomic publication and native note controls; those subsequent stages must not accept a caller-produced digest as source authority.
 
 ## Decision 3: audio and expressive events remain distinct from control
 

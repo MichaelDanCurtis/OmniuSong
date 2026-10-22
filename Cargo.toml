@@ -5,6 +5,7 @@ members = [
     "crates/omniusong-app",
     "crates/omniusong-ipc",
     "crates/omniusong-recording",
+    "crates/omniusong-performance",
     "crates/omniusong-session",
     "crates/omniusong-engine",
 ]
@@ -25,6 +26,7 @@ omniusong-core = { path = "crates/omniusong-core" }
 omniusong-store = { path = "crates/omniusong-store" }
 omniusong-ipc = { path = "crates/omniusong-ipc" }
 omniusong-recording = { path = "crates/omniusong-recording" }
+omniusong-performance = { path = "crates/omniusong-performance" }
 omniusong-session = { path = "crates/omniusong-session" }
 omniusong-engine = { path = "crates/omniusong-engine" }
 cpal = { version = "=0.18.2", default-features = false }

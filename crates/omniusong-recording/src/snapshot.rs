@@ -26,6 +26,7 @@ pub struct SealedJournal {
     descriptor: TakeDescriptor,
     manifest: SealedManifest,
     budget: Option<crate::InspectionBudget>,
+    identity: Option<crate::snapshot_identity::SnapshotIdentity>,
 }
 
 /// Identity of the durable exported SQLite file, distinct from logical identity.
@@ -44,6 +45,7 @@ impl SealedJournal {
     pub fn open_bounded(path: impl AsRef<Path>, budget: &crate::InspectionBudget) -> Result<Self> {
         let result = (|| -> Result<Self> {
             let path = crate::inspection::preflight_path(path.as_ref(), budget)?;
+            let identity = crate::snapshot_identity::SnapshotIdentity::capture(&path, budget)?;
             let connection = Connection::open_with_flags(
                 &path,
                 OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
@@ -63,12 +65,14 @@ impl SealedJournal {
             let descriptor = crate::journal::load_descriptor_bounded(&connection, Some(budget))?;
             let manifest =
                 crate::journal::verify_sealed_bounded(&connection, &descriptor, Some(budget))?;
+            identity.verify(&connection, &path, budget)?;
             Ok(Self {
                 connection,
                 path,
                 descriptor,
                 manifest,
                 budget: Some(budget.share()),
+                identity: Some(identity),
             })
         })();
         budget.finish(result)
@@ -110,6 +114,7 @@ impl SealedJournal {
             descriptor,
             manifest,
             budget: None,
+            identity: None,
         })
     }
 
@@ -126,12 +131,29 @@ impl SealedJournal {
         &self.manifest
     }
 
+    /// Recheck the physical source against SQLite's held snapshot. This is a
+    /// bounded read-only identity check, not a writer lock or sealing permit.
+    /// Unsupported VFS identity checks refuse rather than assert equivalence.
+    /// Call again after a multi-pass interpretation before accepting its result.
+    pub fn verify_source_identity(&self) -> Result<()> {
+        let budget = self.budget.as_ref().ok_or_else(|| {
+            RecordingError::Invalid("Source identity proof requires a bounded sealed reader".into())
+        })?;
+        let identity = self.identity.as_ref().ok_or_else(|| {
+            RecordingError::Invalid("Bounded sealed source has no opening identity".into())
+        })?;
+        budget.finish(identity.verify(&self.connection, &self.path, budget))
+    }
+
     /// Authenticate the full retained original under this existing read-only
     /// snapshot, including any rows outside a recovered selected prefix.
     /// This never acquires a capture owner, creates a sidecar, or permits writes.
     /// The result is review evidence, not authority to resume or normally seal.
     pub fn inspect_snapshot(&self) -> Result<crate::JournalInspection> {
         let result = (|| -> Result<crate::JournalInspection> {
+            if self.budget.is_some() {
+                self.verify_source_identity()?;
+            }
             let inspection = crate::inspection::inspect_connection_bounded(
                 &self.connection,
                 &self.path,
@@ -142,6 +164,9 @@ impl SealedJournal {
                 inspection.manifest.as_ref() == Some(&self.manifest),
                 "Sealed inspection differs from its held manifest",
             )?;
+            if self.budget.is_some() {
+                self.verify_source_identity()?;
+            }
             Ok(inspection)
         })();
         crate::budget::finish(self.budget.as_ref(), result)
@@ -153,16 +178,23 @@ impl SealedJournal {
         let budget = self.budget.as_ref().ok_or_else(|| {
             RecordingError::Invalid("Recovered schema proof needs a bounded sealed reader".into())
         })?;
-        budget.finish(crate::journal::copy_finalization::validate_copy_schema(
-            &self.connection,
-            budget,
-        ))
+        self.verify_source_identity()?;
+        let result =
+            crate::journal::copy_finalization::validate_copy_schema(&self.connection, budget);
+        budget.checkpoint()?;
+        if result.is_ok() {
+            self.verify_source_identity()?;
+        }
+        budget.finish(result)
     }
 
     /// Read only chunks selected by the sealed manifest, never an unknown tail.
     pub fn read_chunk(&self, stream: &str, sequence: u64) -> Result<ChunkRecord> {
         let result = (|| -> Result<ChunkRecord> {
             crate::budget::checkpoint(self.budget.as_ref())?;
+            if self.budget.is_some() {
+                self.verify_source_identity()?;
+            }
             let prefix = self
                 .manifest
                 .body
@@ -174,13 +206,17 @@ impl SealedJournal {
                 sequence < prefix.next_sequence,
                 "Chunk is outside the sealed original prefix",
             )?;
-            crate::journal::load_chunk_bounded(
+            let chunk = crate::journal::load_chunk_bounded(
                 &self.connection,
                 &self.descriptor,
                 stream,
                 sequence,
                 self.budget.as_ref(),
-            )
+            )?;
+            if self.budget.is_some() {
+                self.verify_source_identity()?;
+            }
+            Ok(chunk)
         })();
         crate::budget::finish(self.budget.as_ref(), result)
     }
@@ -214,6 +250,9 @@ impl SealedJournal {
         F: FnMut(u64, &ChunkRecord) -> Result<()>,
     {
         let result = (|| -> Result<()> {
+            if self.budget.is_some() {
+                self.verify_source_identity()?;
+            }
             let mut prefixes: Vec<_> = self
                 .descriptor
                 .streams
@@ -253,7 +292,11 @@ impl SealedJournal {
                     && bytes == self.manifest.body.payload_bytes
                     && format!("{:x}", hash.finalize()) == self.manifest.body.chunk_index_sha256,
                 "Visited chunks differ from the sealed manifest",
-            )
+            )?;
+            if self.budget.is_some() {
+                self.verify_source_identity()?;
+            }
+            Ok(())
         })();
         crate::budget::finish(self.budget.as_ref(), result)
     }

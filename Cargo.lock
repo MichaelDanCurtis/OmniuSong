@@ -2172,6 +2172,7 @@ dependencies = [
  "cpal",
  "omniusong-core",
  "omniusong-ipc",
+ "omniusong-performance",
  "omniusong-recording",
  "omniusong-store",
  "rtrb",
@@ -2189,6 +2190,18 @@ dependencies = [
  "getrandom 0.4.3",
  "omniusong-core",
  "serde_json",
+ "uuid",
+]
+
+[[package]]
+name = "omniusong-performance"
+version = "0.2.0"
+dependencies = [
+ "omniusong-core",
+ "omniusong-recording",
+ "serde",
+ "serde_json",
+ "sha2",
  "uuid",
 ]
 
