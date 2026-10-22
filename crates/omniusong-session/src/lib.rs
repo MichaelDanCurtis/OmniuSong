@@ -18,10 +18,14 @@ pub use performance_intents::{
     PerformanceFinishIntent, PerformanceIntent, PerformanceIntentReceipt,
 };
 pub use performance_source_actions::{
-    PerformanceSourceActionKind, PerformanceSourceActionState, PerformanceSourceExecutionPhase,
-    PerformanceSourceExecutionReceipt, PerformanceSourceExecutionRevision,
-    PerformanceSourceIntentReference, PreparedPerformanceSourceAction,
-    PreparedPerformanceSourceActionReceipt, RecoveredPerformanceSourceResult,
+    PerformanceSourceActionKind, PerformanceSourceActionState, PerformanceSourceAttachmentChoice,
+    PerformanceSourceAttachmentReceipt, PerformanceSourceAttachmentState,
+    PerformanceSourceAttachmentStatus, PerformanceSourceDecision, PerformanceSourceDecisionEvent,
+    PerformanceSourceDecisionRevision, PerformanceSourceDecisionState,
+    PerformanceSourceExecutionPhase, PerformanceSourceExecutionReceipt,
+    PerformanceSourceExecutionRevision, PerformanceSourceIntentReference,
+    PreparedPerformanceSourceAction, PreparedPerformanceSourceActionReceipt,
+    RecoveredPerformanceSourceResult, attachment_operation_id,
 };
 pub use performance_sources::{PerformanceSource, PerformanceSourceReview, PerformanceSourceScan};
 use std::{
@@ -141,6 +145,22 @@ pub enum Command {
         revision: u64,
         payload_sha256: String,
     },
+    SavePerformanceSourceDecision {
+        id: String,
+        revision: u64,
+        payload_sha256: String,
+        decision: Box<PerformanceSourceDecision>,
+    },
+    AttachPerformanceSource {
+        id: String,
+        revision: u64,
+        payload_sha256: String,
+    },
+    ReconcilePerformanceSourceAttachment {
+        id: String,
+        revision: u64,
+        payload_sha256: String,
+    },
     AttachPerformance {
         id: omniusong_engine::LiveId,
         revision: u64,
@@ -185,6 +205,9 @@ pub enum CommandKind {
     ListPerformanceSourceActionStates,
     ExecutePerformanceSourceAction,
     ReconcilePerformanceSourceAction,
+    SavePerformanceSourceDecision,
+    AttachPerformanceSource,
+    ReconcilePerformanceSourceAttachment,
     AttachPerformance,
     ScanPerformanceSources,
     InspectPerformanceSource,
@@ -222,6 +245,13 @@ impl Command {
             Self::ReconcilePerformanceSourceAction { .. } => {
                 CommandKind::ReconcilePerformanceSourceAction
             }
+            Self::SavePerformanceSourceDecision { .. } => {
+                CommandKind::SavePerformanceSourceDecision
+            }
+            Self::AttachPerformanceSource { .. } => CommandKind::AttachPerformanceSource,
+            Self::ReconcilePerformanceSourceAttachment { .. } => {
+                CommandKind::ReconcilePerformanceSourceAttachment
+            }
             Self::AttachPerformance { .. } => CommandKind::AttachPerformance,
             Self::ScanPerformanceSources => CommandKind::ScanPerformanceSources,
             Self::InspectPerformanceSource { .. } => CommandKind::InspectPerformanceSource,
@@ -249,6 +279,8 @@ impl Command {
                 | Self::SavePerformanceIntent { .. }
                 | Self::SavePreparedPerformanceSourceAction { .. }
                 | Self::ExecutePerformanceSourceAction { .. }
+                | Self::SavePerformanceSourceDecision { .. }
+                | Self::AttachPerformanceSource { .. }
                 | Self::AttachPerformance { .. }
                 | Self::RecoverCapture { .. }
                 | Self::ExportArchive { .. }
@@ -258,7 +290,12 @@ impl Command {
     // Read-only reconciliation observes a prior durable execution. Losing its
     // worker/reply cannot establish that execution's outcome or roll it back.
     fn outcome_unknown_on_worker_failure(&self) -> bool {
-        self.mutates() || matches!(self, Self::ReconcilePerformanceSourceAction { .. })
+        self.mutates()
+            || matches!(
+                self,
+                Self::ReconcilePerformanceSourceAction { .. }
+                    | Self::ReconcilePerformanceSourceAttachment { .. }
+            )
     }
     pub fn validate(&self) -> Result<(), ServiceError> {
         let path = |path: &Path| {
@@ -291,10 +328,29 @@ impl Command {
                 id,
                 revision,
                 payload_sha256,
+            }
+            | Self::SavePerformanceSourceDecision {
+                id,
+                revision,
+                payload_sha256,
+                ..
+            }
+            | Self::AttachPerformanceSource {
+                id,
+                revision,
+                payload_sha256,
+            }
+            | Self::ReconcilePerformanceSourceAttachment {
+                id,
+                revision,
+                payload_sha256,
             } => {
                 performance_sources::validate_stage_id(id)
                     .map_err(|e| ServiceError::rejected(e.message))?;
-                if (1..=3).contains(revision)
+                if let Self::SavePerformanceSourceDecision { decision, .. } = self {
+                    decision.validate()?;
+                }
+                if (1..=16).contains(revision)
                     && payload_sha256.len() == 64
                     && payload_sha256
                         .bytes()
@@ -473,6 +529,8 @@ pub enum Reply {
     PreparedPerformanceSourceActions(Vec<PreparedPerformanceSourceActionReceipt>),
     PerformanceSourceActionStates(Vec<PerformanceSourceActionState>),
     PerformanceSourceExecution(Box<PerformanceSourceExecutionReceipt>),
+    PerformanceSourceDecision(Box<PerformanceSourceActionState>),
+    PerformanceSourceAttachment(Box<PerformanceSourceAttachmentReceipt>),
 }
 impl Reply {
     fn matches(&self, kind: CommandKind) -> bool {
@@ -524,6 +582,15 @@ impl Reply {
                     CommandKind::ListPerformanceSourceActionStates
                 )
                 | (
+                    Self::PerformanceSourceDecision(_),
+                    CommandKind::SavePerformanceSourceDecision
+                )
+                | (
+                    Self::PerformanceSourceAttachment(_),
+                    CommandKind::AttachPerformanceSource
+                        | CommandKind::ReconcilePerformanceSourceAttachment
+                )
+                | (
                     Self::PerformanceSourceExecution(_),
                     CommandKind::ExecutePerformanceSourceAction
                         | CommandKind::ReconcilePerformanceSourceAction
@@ -531,6 +598,17 @@ impl Reply {
         )
     }
 }
+fn terminal_storage_failure(result: &Result<Reply, ServiceError>) -> Option<ServiceError> {
+    let error = match result {
+        Err(error) => Some(error),
+        Ok(Reply::PerformanceSourceAttachment(receipt)) => receipt.current_document_error.as_ref(),
+        _ => None,
+    };
+    error
+        .filter(|e| e.kind == FailureKind::StorageUnavailable)
+        .cloned()
+}
+
 #[derive(Debug)]
 pub struct Completion {
     pub id: RequestId,
@@ -662,6 +740,9 @@ pub trait Backend: Send + 'static {
             command,
             Command::ExecutePerformanceSourceAction { .. }
                 | Command::ReconcilePerformanceSourceAction { .. }
+                | Command::AttachPerformanceSource { .. }
+                | Command::ReconcilePerformanceSourceAttachment { .. }
+                | Command::SavePerformanceSourceDecision { .. }
         ) {
             self.handle(command)
         } else {
@@ -737,9 +818,7 @@ impl SessionService {
                         &inspection_cancelled,
                         &source_action_cancelled,
                     );
-                    let terminal = result
-                        .as_ref()
-                        .is_err_and(|error| error.kind == FailureKind::StorageUnavailable);
+                    let terminal = terminal_storage_failure(&result).is_some();
                     if responses
                         .try_send(Completion {
                             id: request.id,
@@ -798,6 +877,8 @@ impl SessionService {
                     request.command,
                     Command::ExecutePerformanceSourceAction { .. }
                         | Command::ReconcilePerformanceSourceAction { .. }
+                        | Command::AttachPerformanceSource { .. }
+                        | Command::ReconcilePerformanceSourceAttachment { .. }
                 )
         }) {
             self.source_action_cancelled.store(true, Ordering::Release);
@@ -912,13 +993,9 @@ impl SessionService {
                 } else {
                     None
                 };
-                if completion
-                    .result
-                    .as_ref()
-                    .is_err_and(|error| error.kind == FailureKind::StorageUnavailable)
-                {
+                if let Some(error) = terminal_storage_failure(&completion.result) {
                     self.disconnected = true;
-                    self.terminal_failure = completion.result.as_ref().err().cloned();
+                    self.terminal_failure = Some(error);
                 }
                 Ok(Some(completion))
             }
@@ -1101,6 +1178,26 @@ impl Backend for NativeBackend {
                 payload_sha256,
                 Arc::clone(source_action_cancelled),
             ),
+            Command::AttachPerformanceSource {
+                id,
+                revision,
+                payload_sha256,
+            } => self.attach_source_choice(
+                id,
+                *revision,
+                payload_sha256,
+                Arc::clone(source_action_cancelled),
+            ),
+            Command::ReconcilePerformanceSourceAttachment {
+                id,
+                revision,
+                payload_sha256,
+            } => self.reconcile_source_attachment(
+                id,
+                *revision,
+                payload_sha256,
+                Arc::clone(source_action_cancelled),
+            ),
             _ => self.handle_with_cancel(command, inspection_cancelled),
         }
     }
@@ -1238,6 +1335,32 @@ impl Backend for NativeBackend {
                 payload_sha256,
                 Arc::new(AtomicBool::new(false)),
             ),
+            Command::SavePerformanceSourceDecision {
+                id,
+                revision,
+                payload_sha256,
+                decision,
+            } => self.save_source_decision(id, *revision, payload_sha256, decision),
+            Command::AttachPerformanceSource {
+                id,
+                revision,
+                payload_sha256,
+            } => self.attach_source_choice(
+                id,
+                *revision,
+                payload_sha256,
+                Arc::new(AtomicBool::new(false)),
+            ),
+            Command::ReconcilePerformanceSourceAttachment {
+                id,
+                revision,
+                payload_sha256,
+            } => self.reconcile_source_attachment(
+                id,
+                *revision,
+                payload_sha256,
+                Arc::new(AtomicBool::new(false)),
+            ),
             Command::AttachPerformance { id, revision } => {
                 self.attach_performance_intention(*id, *revision)
             }
@@ -1284,7 +1407,12 @@ impl Backend for NativeBackend {
         })();
         result.map_err(|mut error: ServiceError| {
             if command.mutates()
-                && !matches!(command, Command::ExecutePerformanceSourceAction { .. })
+                && !matches!(
+                    command,
+                    Command::ExecutePerformanceSourceAction { .. }
+                        | Command::SavePerformanceSourceDecision { .. }
+                        | Command::AttachPerformanceSource { .. }
+                )
                 && !matches!(
                     error.kind,
                     FailureKind::RevisionConflict

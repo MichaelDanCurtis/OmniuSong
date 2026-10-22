@@ -80,7 +80,7 @@ fn bounded_blob(row: &Row<'_>, index: usize) -> Result<Vec<u8>> {
 
 /// One consistent transaction must surround this complete bounded read. SQL
 /// guards prevent oversized or incorrectly typed fields from reaching Rust.
-fn load_history(connection: &Connection) -> Result<PerformanceSourceActionHistory> {
+pub(crate) fn load_history(connection: &Connection) -> Result<PerformanceSourceActionHistory> {
     let mut history = PerformanceSourceActionHistory::default();
     let mut review_indexes = BTreeMap::new();
     {
@@ -253,94 +253,111 @@ impl NativeStore {
         payload: &[u8],
         expected_history: Option<&PerformanceSourceActionHistory>,
     ) -> Result<StoredPerformanceSourceAction> {
-        if !valid_id(id) {
-            return Err(invalid(
-                "Performance source action ID must be exactly 32 lowercase hexadecimal digits and nonzero",
-            ));
-        }
-        validate_object(review, MAX_PERFORMANCE_SOURCE_REVIEW_BYTES, "review")?;
-        validate_object(payload, MAX_PERFORMANCE_SOURCE_ACTION_BYTES, "action")?;
         let tx = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let mut history = load_history(&tx)?;
-        if expected_history.is_some_and(|expected| expected != &history) {
-            return Err(StoreError::Conflict);
-        }
-        let existing_review = history.reviews.iter().find(|row| row.id == id);
-        if existing_review.is_some_and(|stored| stored.payload != review) {
-            return Err(invalid(
-                "Performance source action requires its original exact immutable review bytes",
-            ));
-        }
-        let previous = history.revisions.iter().rev().find(|row| row.id == id);
-        // Only CURRENT exact-byte replay may bypass stale/None CAS or a full
-        // ledger. Review equality and the entire retained history were checked.
-        if let Some(previous) = previous.filter(|stored| stored.payload == payload) {
-            let receipt = previous.clone();
-            tx.commit()?;
-            return Ok(receipt);
-        }
-        let revision = match previous {
-            None if expected_revision.is_none() => {
-                if history.reviews.len() >= MAX_PERFORMANCE_SOURCE_ACTIONS {
-                    return Err(invalid(
-                        "All 32 retained performance source action identities are occupied",
-                    ));
-                }
-                1
-            }
-            Some(previous) if expected_revision == Some(previous.revision) => {
-                if previous.revision >= MAX_PERFORMANCE_SOURCE_ACTION_REVISIONS {
-                    return Err(invalid(
-                        "Performance source action reached its 16 retained revision limit",
-                    ));
-                }
-                previous.revision + 1
-            }
-            _ => return Err(StoreError::Conflict),
-        };
-        let review_blob_sha256 = checksum(review);
-        let receipt = StoredPerformanceSourceAction {
-            id: id.into(),
-            revision,
-            review_blob_sha256: review_blob_sha256.clone(),
-            payload: payload.to_vec(),
-            payload_sha256: checksum(payload),
-        };
-        if existing_review.is_none() {
-            tx.execute(
-                "INSERT INTO performance_source_reviews(id,payload,payload_sha256) VALUES(?1,?2,?3)",
-                params![id, review, &review_blob_sha256],
-            )?;
-            history.reviews.push(StoredPerformanceSourceReview {
-                id: id.into(),
-                payload: review.to_vec(),
-                payload_sha256: review_blob_sha256,
-            });
-            history.reviews.sort_by(|a, b| a.id.cmp(&b.id));
-        }
-        tx.execute(
-            "INSERT INTO performance_source_actions(id,revision,review_blob_sha256,payload,payload_sha256) VALUES(?1,?2,?3,?4,?5)",
-            params![id, revision as i64, &receipt.review_blob_sha256, payload, &receipt.payload_sha256],
+        let receipt = append_in_transaction(
+            &tx,
+            id,
+            expected_revision,
+            review,
+            payload,
+            expected_history,
         )?;
-        history.revisions.push(receipt.clone());
-        history
-            .revisions
-            .sort_by(|a, b| a.id.cmp(&b.id).then(a.revision.cmp(&b.revision)));
-        // Authenticate the complete postimage and compare exact rows, including
-        // unrelated identities and reviews. Trigger-created surplus or edits
-        // must roll back with the first review and action append.
-        if load_history(&tx)? != history {
-            return Err(invalid(
-                "Performance source action insertion changed retained history; transaction rolled back",
-            ));
-        }
         tx.commit()?;
         Ok(receipt)
     }
 }
 
+pub(crate) fn append_in_transaction(
+    connection: &Connection,
+    id: &str,
+    expected_revision: Option<u64>,
+    review: &[u8],
+    payload: &[u8],
+    expected_history: Option<&PerformanceSourceActionHistory>,
+) -> Result<StoredPerformanceSourceAction> {
+    if !valid_id(id) {
+        return Err(invalid(
+            "Performance source action ID must be exactly 32 lowercase hexadecimal digits and nonzero",
+        ));
+    }
+    validate_object(review, MAX_PERFORMANCE_SOURCE_REVIEW_BYTES, "review")?;
+    validate_object(payload, MAX_PERFORMANCE_SOURCE_ACTION_BYTES, "action")?;
+    let mut history = load_history(connection)?;
+    if expected_history.is_some_and(|expected| expected != &history) {
+        return Err(StoreError::Conflict);
+    }
+    let existing_review = history.reviews.iter().find(|row| row.id == id);
+    if existing_review.is_some_and(|stored| stored.payload != review) {
+        return Err(invalid(
+            "Performance source action requires its original exact immutable review bytes",
+        ));
+    }
+    let previous = history.revisions.iter().rev().find(|row| row.id == id);
+    // Only CURRENT exact-byte replay may bypass stale/None CAS or a full
+    // ledger. Review equality and the entire retained history were checked.
+    if let Some(previous) = previous.filter(|stored| stored.payload == payload) {
+        let receipt = previous.clone();
+        return Ok(receipt);
+    }
+    let revision = match previous {
+        None if expected_revision.is_none() => {
+            if history.reviews.len() >= MAX_PERFORMANCE_SOURCE_ACTIONS {
+                return Err(invalid(
+                    "All 32 retained performance source action identities are occupied",
+                ));
+            }
+            1
+        }
+        Some(previous) if expected_revision == Some(previous.revision) => {
+            if previous.revision >= MAX_PERFORMANCE_SOURCE_ACTION_REVISIONS {
+                return Err(invalid(
+                    "Performance source action reached its 16 retained revision limit",
+                ));
+            }
+            previous.revision + 1
+        }
+        _ => return Err(StoreError::Conflict),
+    };
+    let review_blob_sha256 = checksum(review);
+    let receipt = StoredPerformanceSourceAction {
+        id: id.into(),
+        revision,
+        review_blob_sha256: review_blob_sha256.clone(),
+        payload: payload.to_vec(),
+        payload_sha256: checksum(payload),
+    };
+    if existing_review.is_none() {
+        connection.execute(
+            "INSERT INTO performance_source_reviews(id,payload,payload_sha256) VALUES(?1,?2,?3)",
+            params![id, review, &review_blob_sha256],
+        )?;
+        history.reviews.push(StoredPerformanceSourceReview {
+            id: id.into(),
+            payload: review.to_vec(),
+            payload_sha256: review_blob_sha256,
+        });
+        history.reviews.sort_by(|a, b| a.id.cmp(&b.id));
+    }
+    connection.execute(
+            "INSERT INTO performance_source_actions(id,revision,review_blob_sha256,payload,payload_sha256) VALUES(?1,?2,?3,?4,?5)",
+            params![id, revision as i64, &receipt.review_blob_sha256, payload, &receipt.payload_sha256],
+        )?;
+    history.revisions.push(receipt.clone());
+    history
+        .revisions
+        .sort_by(|a, b| a.id.cmp(&b.id).then(a.revision.cmp(&b.revision)));
+    // Authenticate the complete postimage and compare exact rows, including
+    // unrelated identities and reviews. Trigger-created surplus or edits
+    // must roll back with the first review and action append.
+    if load_history(connection)? != history {
+        return Err(invalid(
+            "Performance source action insertion changed retained history; transaction rolled back",
+        ));
+    }
+    Ok(receipt)
+}
 #[cfg(test)]
 #[path = "performance_source_actions_review.rs"]
 mod review;

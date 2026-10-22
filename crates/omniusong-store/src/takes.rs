@@ -118,7 +118,7 @@ pub(crate) fn publication_request(intent: &TakePublication) -> Result<String> {
     Ok(request)
 }
 
-fn validate_object(object: &TakeObject) -> Result<()> {
+pub(crate) fn validate_object(object: &TakeObject) -> Result<()> {
     object
         .take_id
         .validate()
@@ -175,7 +175,7 @@ pub(crate) fn load_take(connection: &Connection, take_id: &TakeId) -> Result<Tak
     Ok(object)
 }
 
-fn has_take(connection: &Connection, take_id: &TakeId) -> Result<bool> {
+pub(crate) fn has_take(connection: &Connection, take_id: &TakeId) -> Result<bool> {
     Ok(connection.query_row(
         "SELECT EXISTS(SELECT 1 FROM native_takes WHERE take_id=?1)",
         [&take_id.0],
@@ -184,7 +184,7 @@ fn has_take(connection: &Connection, take_id: &TakeId) -> Result<bool> {
 }
 
 /// Resolve only the real owned directory; neither a symlink nor a redirect is admitted.
-fn takes_directory(root: &Path, create: bool) -> Result<PathBuf> {
+pub(crate) fn takes_directory(root: &Path, create: bool) -> Result<PathBuf> {
     let metadata = fs::symlink_metadata(root)?;
     require(
         metadata.is_dir() && !metadata.file_type().is_symlink(),
@@ -214,7 +214,7 @@ pub(crate) fn object_path(root: &Path, sha: &str) -> Result<PathBuf> {
     Ok(takes_directory(root, false)?.join(format!("{sha}.sqlite3")))
 }
 
-fn ordinary_object(path: &Path) -> Result<fs::Metadata> {
+pub(crate) fn ordinary_object(path: &Path) -> Result<fs::Metadata> {
     let metadata = fs::symlink_metadata(path)?;
     require(
         metadata.is_file() && !metadata.file_type().is_symlink(),
@@ -231,7 +231,7 @@ fn ordinary_object(path: &Path) -> Result<fs::Metadata> {
     Ok(metadata)
 }
 
-fn same_file(left: &fs::Metadata, right: &fs::Metadata) -> Result<()> {
+pub(crate) fn same_file(left: &fs::Metadata, right: &fs::Metadata) -> Result<()> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;
@@ -427,6 +427,18 @@ pub(crate) fn check_take_references(
     visit_document_takes(connection, document, |_| Ok(()))
 }
 
+pub(crate) fn verify_document_files_with_budget(
+    root: &Path,
+    connection: &Connection,
+    document: &ProjectDocument,
+    budget: &omniusong_recording::InspectionBudget,
+) -> Result<()> {
+    visit_document_takes(connection, document, |object| {
+        super::recovered_takes::verify_owned_with_budget(root, object, budget)?;
+        Ok(())
+    })
+}
+
 pub(crate) fn verify_document_files(
     root: &Path,
     connection: &Connection,
@@ -524,6 +536,7 @@ impl NativeStore {
         source: impl AsRef<Path>,
         intent: &TakePublication,
     ) -> Result<EditReceipt> {
+        super::source_attachment::reject_reserved_operation(&intent.operation_id.0)?;
         let request = publication_request(intent)?;
         {
             let tx = self
@@ -566,6 +579,7 @@ impl NativeStore {
     }
 
     pub fn publish_take(&mut self, intent: &TakePublication) -> Result<EditReceipt> {
+        super::source_attachment::reject_reserved_operation(&intent.operation_id.0)?;
         let request = publication_request(intent)?;
         let tx = self
             .connection

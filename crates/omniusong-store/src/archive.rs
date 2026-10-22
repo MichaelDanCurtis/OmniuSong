@@ -699,6 +699,9 @@ pub(super) fn copy_metadata(
             ],
         );
         if let Some(target) = destination {
+            if matches!(target, Destination::Store(_)) {
+                super::source_attachment::reject_reserved_operation(&id)?;
+            }
             target.connection().execute(
                 "INSERT INTO operations VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",
                 params![

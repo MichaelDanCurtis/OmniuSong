@@ -400,6 +400,9 @@ impl StudioApp {
                 | Command::ListPerformanceSourceActionStates
                 | Command::ExecutePerformanceSourceAction { .. }
                 | Command::ReconcilePerformanceSourceAction { .. }
+                | Command::SavePerformanceSourceDecision { .. }
+                | Command::AttachPerformanceSource { .. }
+                | Command::ReconcilePerformanceSourceAttachment { .. }
         ) {
             return Err("Prepared source choices remain backend-only until their explicit review UI is delivered".into());
         }
@@ -797,7 +800,8 @@ impl StudioApp {
                     Reply::PreparedPerformanceSourceAction(_) | Reply::PreparedPerformanceSourceActions(_) => {
                         self.status = "Prepared source choice retained locally. No copy, recovery, audio or attachment was started.".into();
                     }
-                    Reply::PerformanceSourceActionStates(_) | Reply::PerformanceSourceExecution(_) => {
+                    Reply::PerformanceSourceActionStates(_) | Reply::PerformanceSourceExecution(_)
+                    | Reply::PerformanceSourceDecision(_) | Reply::PerformanceSourceAttachment(_) => {
                         self.status = "Source-action evidence returned to its backend route; no project attachment was started.".into();
                     }
                 }

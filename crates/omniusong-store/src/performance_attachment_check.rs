@@ -4,55 +4,65 @@ use crate::{operations::replay_operation, takes::publication_request};
 use omniusong_core::native::{NATIVE_SCHEMA_VERSION, TakeClip};
 
 impl NativeStore {
-    /// Verify the exact durable publication receipt without executing it.
-    ///
-    /// `false` means that this operation has no receipt. A conflicting or damaged
-    /// receipt is an error. This proves the historical attachment commitment,
-    /// not current placement, project revision, or physical source availability.
-    /// Registered references are authenticated, but take files are never opened.
-    pub fn performance_attachment_committed(&self, intent: &TakePublication) -> Result<bool> {
-        let request = publication_request(intent)?;
+    /// Exact historical publication proof, without opening any take file.
+    pub fn take_publication_receipt(
+        &self,
+        intent: &TakePublication,
+    ) -> Result<Option<crate::EditReceipt>> {
         let tx = self.connection.unchecked_transaction()?;
-        let Some(receipt) = replay_operation(
-            &tx,
-            &intent.operation_id.0,
-            &intent.project_id.0,
-            intent.expected_revision,
-            &request,
-        )?
-        else {
-            tx.rollback()?;
-            return Ok(false);
-        };
-        // A checksum authenticates stored bytes, not their agreement with the
-        // requested destination. Keep this check scoped to the historical
-        // postimage; later edits must not change the commitment answer.
-        let track = receipt
-            .document
-            .tracks()
-            .iter()
-            .find(|track| track["id"] == intent.track_id.0);
-        let clip = track
-            .filter(|track| track["kind"] == "recording" && track["locked"] == false)
-            .and_then(|track| track["recording"]["clips"].as_array())
-            .and_then(|clips| clips.iter().find(|clip| clip["id"] == intent.clip.id));
-        let clip: Option<TakeClip> = clip
-            .cloned()
-            .map(serde_json::from_value)
-            .transpose()
-            .map_err(|error| StoreError::Invalid(error.to_string()))?;
-        if receipt.document.schema_version() != NATIVE_SCHEMA_VERSION
-            || clip.as_ref() != Some(&intent.clip)
-        {
-            return Err(StoreError::Invalid(
-                "Stored attachment result differs from its requested track or clip".into(),
-            ));
-        }
-        // An existing recording track retains its prior name; track_name in a
-        // publication is a creation default, not an unconditional rename.
+        let receipt = checked_publication_receipt(&tx, intent)?;
         tx.rollback()?;
-        Ok(true)
+        Ok(receipt)
     }
+
+    /// Historical commitment, independent of current placement/availability.
+    pub fn performance_attachment_committed(&self, intent: &TakePublication) -> Result<bool> {
+        Ok(self.take_publication_receipt(intent)?.is_some())
+    }
+}
+
+pub(crate) fn checked_publication_receipt(
+    connection: &rusqlite::Connection,
+    intent: &TakePublication,
+) -> Result<Option<crate::EditReceipt>> {
+    let request = publication_request(intent)?;
+    let Some(receipt) = replay_operation(
+        connection,
+        &intent.operation_id.0,
+        &intent.project_id.0,
+        intent.expected_revision,
+        &request,
+    )?
+    else {
+        return Ok(None);
+    };
+    // A checksum authenticates stored bytes, not their agreement with the
+    // requested destination. Keep this check scoped to the historical
+    // postimage; later edits must not change the commitment answer.
+    let track = receipt
+        .document
+        .tracks()
+        .iter()
+        .find(|track| track["id"] == intent.track_id.0);
+    let clip = track
+        .filter(|track| track["kind"] == "recording" && track["locked"] == false)
+        .and_then(|track| track["recording"]["clips"].as_array())
+        .and_then(|clips| clips.iter().find(|clip| clip["id"] == intent.clip.id));
+    let clip: Option<TakeClip> = clip
+        .cloned()
+        .map(serde_json::from_value)
+        .transpose()
+        .map_err(|error| StoreError::Invalid(error.to_string()))?;
+    if receipt.document.schema_version() != NATIVE_SCHEMA_VERSION
+        || clip.as_ref() != Some(&intent.clip)
+    {
+        return Err(StoreError::Invalid(
+            "Stored attachment result differs from its requested track or clip".into(),
+        ));
+    }
+    // An existing recording track retains its prior name; track_name in a
+    // publication is a creation default, not an unconditional rename.
+    Ok(Some(receipt))
 }
 
 #[cfg(test)]

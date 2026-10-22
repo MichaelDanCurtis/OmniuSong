@@ -5,6 +5,7 @@
 //! any catalog acknowledgement. Reconciliation never creates or repairs files,
 //! resumes an incomplete copy, or grants normal-seal authority.
 use super::*;
+mod export;
 
 fn action_paths(parent: &Path, id: &str) -> Result<(RecoveryCopyPaths, PathBuf)> {
     require(

@@ -147,6 +147,18 @@ impl SealedJournal {
         crate::budget::finish(self.budget.as_ref(), result)
     }
 
+    /// Strict schema admission for an owned copy of a recovered performance.
+    /// This is a bounded read-only check, without copy/finalization authority.
+    pub fn validate_recovered_copy_schema(&self) -> Result<()> {
+        let budget = self.budget.as_ref().ok_or_else(|| {
+            RecordingError::Invalid("Recovered schema proof needs a bounded sealed reader".into())
+        })?;
+        budget.finish(crate::journal::copy_finalization::validate_copy_schema(
+            &self.connection,
+            budget,
+        ))
+    }
+
     /// Read only chunks selected by the sealed manifest, never an unknown tail.
     pub fn read_chunk(&self, stream: &str, sequence: u64) -> Result<ChunkRecord> {
         let result = (|| -> Result<ChunkRecord> {

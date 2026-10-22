@@ -21,14 +21,14 @@ const ACTION: &str = "11111111111111111111111111111111";
 const OTHER: &str = "22222222222222222222222222222222";
 
 #[derive(Clone, Copy)]
-enum Mode {
+pub(super) enum Mode {
     Clean,
     Tail,
     Fault,
     Finish,
 }
-struct Fixture {
-    root: PathBuf,
+pub(super) struct Fixture {
+    pub(super) root: PathBuf,
 }
 impl Fixture {
     fn new() -> Self {
@@ -40,13 +40,13 @@ impl Fixture {
             root: fs::canonicalize(root).unwrap(),
         }
     }
-    fn paths(&self) -> Paths {
+    pub(super) fn paths(&self) -> Paths {
         Paths {
             native: self.root.join("native"),
             legacy: self.root.join("legacy"),
         }
     }
-    fn backend(&self) -> NativeBackend {
+    pub(super) fn backend(&self) -> NativeBackend {
         let mut backend = NativeBackend {
             paths: self.paths(),
             store: None,
@@ -57,14 +57,14 @@ impl Fixture {
         backend.handle(&Command::Initialize).unwrap();
         backend
     }
-    fn source_path(&self) -> PathBuf {
+    pub(super) fn source_path(&self) -> PathBuf {
         self.paths()
             .native
             .join("captures")
             .join(STAGE)
             .join("take.sqlite3")
     }
-    fn action_parent(&self) -> PathBuf {
+    pub(super) fn action_parent(&self) -> PathBuf {
         self.paths().native.join("source-actions")
     }
     fn source(&self, mode: Mode) {
@@ -207,10 +207,10 @@ fn push(writer: &mut PerformanceWriter, packets: &[PerformancePacket]) {
 fn checksum(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
-fn token() -> Arc<AtomicBool> {
+pub(super) fn token() -> Arc<AtomicBool> {
     Arc::new(AtomicBool::new(false))
 }
-fn tree(root: &Path) -> BTreeMap<PathBuf, Option<Vec<u8>>> {
+pub(super) fn tree(root: &Path) -> BTreeMap<PathBuf, Option<Vec<u8>>> {
     fn visit(root: &Path, path: &Path, out: &mut BTreeMap<PathBuf, Option<Vec<u8>>>) {
         for entry in fs::read_dir(path).unwrap() {
             let path = entry.unwrap().path();
@@ -229,7 +229,9 @@ fn tree(root: &Path) -> BTreeMap<PathBuf, Option<Vec<u8>>> {
     }
     out
 }
-fn projects(backend: &mut NativeBackend) -> Vec<(omniusong_store::ProjectSummary, Vec<u8>)> {
+pub(super) fn projects(
+    backend: &mut NativeBackend,
+) -> Vec<(omniusong_store::ProjectSummary, Vec<u8>)> {
     backend
         .store()
         .unwrap()
@@ -248,14 +250,14 @@ fn projects(backend: &mut NativeBackend) -> Vec<(omniusong_store::ProjectSummary
         })
         .collect()
 }
-fn history(backend: &mut NativeBackend) -> PerformanceSourceActionHistory {
+pub(super) fn history(backend: &mut NativeBackend) -> PerformanceSourceActionHistory {
     backend
         .store()
         .unwrap()
         .list_performance_source_actions()
         .unwrap()
 }
-fn setup(
+pub(super) fn setup(
     mode: Mode,
 ) -> (
     Fixture,
@@ -301,7 +303,7 @@ fn setup(
     );
     (fixture, backend, *review, raw, *prepared)
 }
-fn execute(
+pub(super) fn execute(
     backend: &mut NativeBackend,
     prepared: &PreparedPerformanceSourceActionReceipt,
 ) -> Result<PerformanceSourceExecutionReceipt, ServiceError> {
@@ -893,4 +895,42 @@ fn shared_parent_creation_race_accepts_only_revalidated_ordinary_directory() {
         }
         assert!(tree(&fixture.action_parent()).is_empty());
     }
+}
+
+#[test]
+fn reserved_recovery_operation_cannot_be_newly_claimed_but_historical_prepared_replay_is_exact() {
+    let (fixture, mut backend, _, raw, _) = setup(Mode::Clean);
+    let old = super::super::PreparedPerformanceSourceAction::prepare(
+        OTHER.into(),
+        &raw,
+        OperationId(format!("os-src-attach:{}", "a".repeat(64))),
+        None,
+    )
+    .unwrap();
+    let before = history(&mut backend);
+    let original = tree(fixture.source_path().parent().unwrap());
+    assert!(
+        backend
+            .save_prepared_source_action(None, &old, &raw)
+            .is_err()
+    );
+    assert_eq!(history(&mut backend), before);
+    // A literal immutable row admitted before this namespace existed. This is
+    // metadata replay compatibility, not a new permission to publish anything.
+    let saved = backend
+        .store()
+        .unwrap()
+        .save_performance_source_action(OTHER, None, &raw, &serde_json::to_vec(&old).unwrap())
+        .unwrap();
+    let all = history(&mut backend);
+    let Reply::PreparedPerformanceSourceAction(replayed) = backend
+        .save_prepared_source_action(None, &old, &raw)
+        .unwrap()
+    else {
+        panic!("historical Prepared replay")
+    };
+    assert_eq!(replayed.action, old);
+    assert_eq!(replayed.payload_sha256, saved.payload_sha256);
+    assert_eq!(history(&mut backend), all);
+    assert_eq!(tree(fixture.source_path().parent().unwrap()), original);
 }

@@ -461,6 +461,9 @@ pub(super) fn read_lineage(
             &[operation.as_bytes(), project_id.as_bytes(), sha.as_bytes()],
         );
         if let Some((dest, dest_project, true)) = destination {
+            if source_is_archive {
+                super::source_attachment::reject_reserved_operation(&operation)?;
+            }
             dest.execute(
                 "INSERT INTO archive_copies VALUES(?1,?2,?3)",
                 params![operation, dest_project, sha],
@@ -692,6 +695,7 @@ impl NativeStore {
                 return Ok(receipt);
             }
         }
+        super::source_attachment::reject_reserved_operation(&intent.operation_id.0)?;
         let stage = archive::private_directory(&self.root, "archive-copy")?;
         let mut published_objects = 0;
         let mut committed = false;

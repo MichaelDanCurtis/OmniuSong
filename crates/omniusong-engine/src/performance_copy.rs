@@ -236,3 +236,57 @@ pub fn reconcile_performance_copy(
     budget.checkpoint()?;
     result
 }
+
+/// Authenticate an authoritative registered recovered original without needing
+/// the action's evidence/working paths. The caller retains this bounded sealed
+/// snapshot and the action lease through publication; the immutable review and
+/// Verified result bind the full original, including the unselected tail.
+pub fn authenticate_owned_performance_copy(
+    sealed: &omniusong_recording::SealedJournal,
+    expected: &PerformanceInspection,
+    action_id: &str,
+    operation_id: &str,
+) -> omniusong_recording::Result<()> {
+    let budget = sealed
+        .inspection_budget()
+        .ok_or_else(|| invalid("Owned proof requires a bounded sealed reader"))?;
+    let result = (|| {
+        if action_id.len() != 32
+            || !action_id
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            || !action_id.bytes().any(|b| b != b'0')
+        {
+            return Err(invalid("Invalid recovered action identity"));
+        }
+        OperationId(operation_id.into())
+            .validate()
+            .map_err(|e| invalid(&e.to_string()))?;
+        sealed.validate_recovered_copy_schema()?;
+        let manifest = sealed.manifest();
+        let working = crate::performance_writer::inspect_sealed_performance_bounded(sealed)?;
+        let selected = expected
+            .selection
+            .as_ref()
+            .ok_or_else(|| invalid("Missing admitted checkpoint"))?;
+        let derived = operation(budget, action_id, operation_id, expected)?;
+        if manifest.body.operation_id != derived
+            || manifest.body.interrupted.is_none()
+            || !working.unknown_tail
+            || working.descriptor_sha256 != expected.descriptor_sha256
+            || working.original_rows_sha256 != expected.original_rows_sha256
+            || working.selection != expected.selection
+            || working.checkpoint != expected.checkpoint
+            || working.checkpoint_sha256 != expected.checkpoint_sha256
+            || manifest.body.chunk_count != selected.chunk_count
+            || manifest.body.chunk_index_sha256 != selected.chunk_index_sha256
+        {
+            return Err(invalid(
+                "Owned recovered original differs from its immutable review/operation/checkpoint",
+            ));
+        }
+        Ok(())
+    })();
+    budget.checkpoint()?;
+    result
+}

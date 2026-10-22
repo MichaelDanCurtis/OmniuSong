@@ -9,6 +9,8 @@ mod performance_attachment_check;
 mod performance_intents;
 mod performance_source_actions;
 mod reader;
+mod recovered_takes;
+mod source_attachment;
 mod takes;
 pub use reader::NativeReader;
 #[cfg(test)]
@@ -32,6 +34,7 @@ pub use performance_source_actions::{
     MAX_PERFORMANCE_SOURCE_ACTIONS, MAX_PERFORMANCE_SOURCE_REVIEW_BYTES,
     PerformanceSourceActionHistory, StoredPerformanceSourceAction, StoredPerformanceSourceReview,
 };
+pub use source_attachment::{SOURCE_ATTACHMENT_OPERATION_PREFIX, SourceAttachmentCommit};
 pub use takes::{TakeObject, TakePublication};
 
 use omniusong_core::native::MAX_NATIVE_PROJECT_BYTES;
@@ -213,6 +216,16 @@ fn save_in_transaction(
     document: &ProjectDocument,
     expected_revision: u64,
 ) -> Result<ProjectDocument> {
+    save_in_transaction_with_budget(connection, root, document, expected_revision, None)
+}
+
+fn save_in_transaction_with_budget(
+    connection: &Connection,
+    root: &Path,
+    document: &ProjectDocument,
+    expected_revision: u64,
+    budget: Option<&omniusong_recording::InspectionBudget>,
+) -> Result<ProjectDocument> {
     if document.revision() != expected_revision {
         return Err(StoreError::Conflict);
     }
@@ -221,7 +234,11 @@ fn save_in_transaction(
         return Err(StoreError::Conflict);
     }
     check_references(connection, document)?;
-    takes::verify_document_files(root, connection, document)?;
+    if let Some(budget) = budget {
+        takes::verify_document_files_with_budget(root, connection, document, budget)?;
+    } else {
+        takes::verify_document_files(root, connection, document)?;
+    }
     let cursor: i64 = connection.query_row(
         "SELECT cursor FROM projects WHERE id=?1",
         [document.id()],

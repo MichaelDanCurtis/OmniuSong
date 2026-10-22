@@ -181,6 +181,23 @@ pub(crate) fn insert_operation(
     request: &str,
     document: &ProjectDocument,
 ) -> Result<()> {
+    super::source_attachment::reject_reserved_operation(operation_id)?;
+    insert_operation_inner(
+        connection,
+        operation_id,
+        expected_revision,
+        request,
+        document,
+    )
+}
+
+pub(crate) fn insert_operation_inner(
+    connection: &rusqlite::Connection,
+    operation_id: &str,
+    expected_revision: u64,
+    request: &str,
+    document: &ProjectDocument,
+) -> Result<()> {
     let previous = i64::try_from(expected_revision)
         .map_err(|_| StoreError::Invalid("Operation revision is out of range".into()))?;
     let committed = i64::try_from(document.revision())

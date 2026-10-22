@@ -1,9 +1,12 @@
 //! Immutable Prepared requests and validated durable execution history.
 mod execution;
 pub use execution::{
-    PerformanceSourceActionState, PerformanceSourceExecutionPhase,
-    PerformanceSourceExecutionReceipt, PerformanceSourceExecutionRevision,
-    RecoveredPerformanceSourceResult,
+    PerformanceSourceActionState, PerformanceSourceAttachmentChoice,
+    PerformanceSourceAttachmentReceipt, PerformanceSourceAttachmentState,
+    PerformanceSourceAttachmentStatus, PerformanceSourceDecision, PerformanceSourceDecisionEvent,
+    PerformanceSourceDecisionRevision, PerformanceSourceDecisionState,
+    PerformanceSourceExecutionPhase, PerformanceSourceExecutionReceipt,
+    PerformanceSourceExecutionRevision, RecoveredPerformanceSourceResult, attachment_operation_id,
 };
 
 use crate::{
@@ -465,6 +468,14 @@ impl NativeBackend {
             .list_performance_source_actions()
             .map_err(|e| store_failure(e, false))?;
         let mut previous = decode(&history, &root)?;
+        require(
+            !action
+                .recovery_operation_id
+                .0
+                .starts_with(omniusong_store::SOURCE_ATTACHMENT_OPERATION_PREFIX)
+                || previous.iter().any(|r| r.action == *action),
+            "Reserved attachment operations cannot be newly claimed by copy recovery choices",
+        )?;
         self.validate_source_origins(&previous, &history)?;
         require(
             !history

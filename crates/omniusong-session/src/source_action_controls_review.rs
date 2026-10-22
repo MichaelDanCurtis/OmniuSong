@@ -59,6 +59,20 @@ fn execute() -> Command {
         payload_sha256: "a".repeat(64),
     }
 }
+fn attach_source() -> Command {
+    Command::AttachPerformanceSource {
+        id: "1".repeat(32),
+        revision: 4,
+        payload_sha256: "a".repeat(64),
+    }
+}
+fn reconcile_attachment() -> Command {
+    Command::ReconcilePerformanceSourceAttachment {
+        id: "1".repeat(32),
+        revision: 4,
+        payload_sha256: "a".repeat(64),
+    }
+}
 fn reconcile() -> Command {
     Command::ReconcilePerformanceSourceAction {
         id: "1".repeat(32),
@@ -125,7 +139,12 @@ fn source_action_controls_retain_credit_and_never_retarget_inspection_or_stale_i
 }
 #[test]
 fn source_action_controls_client_drop_cancels_only_read_only_inspection_token() {
-    for command in [execute(), reconcile()] {
+    for command in [
+        execute(),
+        reconcile(),
+        attach_source(),
+        reconcile_attachment(),
+    ] {
         let (mut client, started, release, retired) = controlled();
         client.try_submit(command).unwrap();
         let (_, inspection, action) = started.recv_timeout(Duration::from_secs(5)).unwrap();
@@ -157,7 +176,7 @@ fn source_action_controls_request_shape_and_mutation_flags_are_exact() {
         },
         Command::ReconcilePerformanceSourceAction {
             id: "1".repeat(32),
-            revision: 4,
+            revision: 17,
             payload_sha256: "a".repeat(64),
         },
         Command::ReconcilePerformanceSourceAction {
@@ -179,6 +198,8 @@ fn source_action_controls_default_backend_does_not_route_mutation_through_inspec
                 command,
                 Command::ExecutePerformanceSourceAction { .. }
                     | Command::ReconcilePerformanceSourceAction { .. }
+                    | Command::AttachPerformanceSource { .. }
+                    | Command::ReconcilePerformanceSourceAttachment { .. }
             ));
             Err(ServiceError::rejected("Synthetic plain backend"))
         }
@@ -192,7 +213,12 @@ fn source_action_controls_default_backend_does_not_route_mutation_through_inspec
     }
     let inspection = Arc::new(AtomicBool::new(true));
     let action = Arc::new(AtomicBool::new(false));
-    for command in [execute(), reconcile()] {
+    for command in [
+        execute(),
+        reconcile(),
+        attach_source(),
+        reconcile_attachment(),
+    ] {
         assert_eq!(
             DefaultControls
                 .handle_with_cancellations(&command, &inspection, &action)
@@ -209,6 +235,8 @@ fn source_action_controls_worker_loss_retains_prior_execution_uncertainty() {
     for command in [
         execute(),
         reconcile(),
+        attach_source(),
+        reconcile_attachment(),
         Command::InspectPerformanceSource {
             stage_id: "2".repeat(32),
         },
@@ -233,6 +261,8 @@ fn source_action_controls_bad_completions_keep_credit_and_recovery_uncertainty()
     for command in [
         execute(),
         reconcile(),
+        attach_source(),
+        reconcile_attachment(),
         Command::InspectPerformanceSource {
             stage_id: "2".repeat(32),
         },
@@ -284,5 +314,29 @@ fn source_action_controls_bad_completions_keep_credit_and_recovery_uncertainty()
             assert!(!completion.result.unwrap_err().outcome_unknown);
             assert!(!client.is_busy());
         }
+    }
+}
+
+#[test]
+fn source_action_controls_attachment_cancellation_stays_correlated_until_completion() {
+    for command in [attach_source(), reconcile_attachment()] {
+        let (mut client, started, release, _retired) = controlled();
+        let id = client.try_submit(command).unwrap();
+        let (_, inspection, action) = started.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert!(!client.cancel_source_inspection(id));
+        assert!(!client.cancel_source_action(RequestId {
+            sequence: id.sequence + 1,
+            ..id
+        }));
+        assert!(client.cancel_source_action(id));
+        assert!(action.load(Ordering::Acquire) && !inspection.load(Ordering::Acquire));
+        assert!(client.is_busy());
+        assert_eq!(
+            client.try_submit(Command::Refresh).unwrap_err().kind,
+            SubmitFailure::Busy
+        );
+        release.send(()).unwrap();
+        assert_eq!(wait(&mut client).id, id);
+        assert!(!client.is_busy());
     }
 }

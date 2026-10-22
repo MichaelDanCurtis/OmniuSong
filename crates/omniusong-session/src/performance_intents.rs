@@ -264,6 +264,19 @@ impl NativeBackend {
             .list_performance_intents()
             .map_err(|e| store_failure(e, false))?;
         let previous = decode_history(&rows, &root, self.store()?)?;
+        if let Some(publication) = &intent.attachment {
+            require(
+                !publication
+                    .operation_id
+                    .0
+                    .starts_with(omniusong_store::SOURCE_ATTACHMENT_OPERATION_PREFIX)
+                    || previous.iter().any(|p| {
+                        p.intent.start.id == intent.start.id
+                            && p.intent.attachment == intent.attachment
+                    }),
+                "Reserved source attachment operations cannot be newly claimed by recording intentions",
+            )?;
+        }
         if let Some(previous) = previous
             .iter()
             .find(|p| p.intent.start.id == intent.start.id)
@@ -1175,5 +1188,68 @@ mod tests {
         );
         assert!(!Reply::PerformanceIntents(vec![]).matches(crate::CommandKind::AttachPerformance));
         assert!(!intent.journal_path.exists());
+    }
+    #[test]
+    fn reserved_publication_new_intent_refuses_but_historical_exact_metadata_remains_readable() {
+        let fixture = Fixture::new();
+        let mut backend = fixture.backend();
+        let mut intent = initial(&mut backend);
+        intent.descriptor_sha256 = Some("b".repeat(64));
+        intent.attachment = Some(TakePublication {
+            operation_id: OperationId(format!("os-src-attach:{}", "a".repeat(64))),
+            project_id: intent.project_id.clone(),
+            expected_revision: 0,
+            track_id: TrackId("legacy-recording".into()),
+            track_name: "Legacy metadata".into(),
+            clip: TakeClip {
+                id: "legacy-clip".into(),
+                source: TakeReference {
+                    take_id: TakeId(intent.start.take_id()),
+                    manifest_sha256: "c".repeat(64),
+                    stream_id: "audio".into(),
+                },
+                range: TakeRange::AudioFrames {
+                    start: 0,
+                    count: 64,
+                },
+                position: TimelinePosition {
+                    frame: 0,
+                    sample_rate: 48000,
+                },
+                fades: None,
+                edit_source: None,
+            },
+        });
+        assert!(backend.save_performance_intention(None, &intent).is_err());
+        assert!(
+            backend
+                .store()
+                .unwrap()
+                .list_performance_intents()
+                .unwrap()
+                .is_empty()
+        );
+        let bytes = encode(&intent).unwrap();
+        let saved = backend
+            .store()
+            .unwrap()
+            .save_performance_intent(&intent.start.directory_name(), None, &bytes)
+            .unwrap();
+        let before = backend.store().unwrap().list_performance_intents().unwrap();
+        assert_eq!(
+            backend.list_performance_intentions().unwrap()[0].intent,
+            intent
+        );
+        let Reply::PerformanceIntent(replayed) =
+            backend.save_performance_intention(None, &intent).unwrap()
+        else {
+            panic!("historical intent replay")
+        };
+        assert_eq!(replayed.payload_sha256, saved.payload_sha256);
+        assert_eq!(replayed.intent, intent);
+        assert_eq!(
+            backend.store().unwrap().list_performance_intents().unwrap(),
+            before
+        );
     }
 }

@@ -25,6 +25,17 @@ use std::{
     sync::{Arc, atomic::AtomicBool},
 };
 
+#[path = "decisions.rs"]
+mod decisions;
+pub use decisions::{
+    PerformanceSourceAttachmentChoice, PerformanceSourceAttachmentState,
+    PerformanceSourceAttachmentStatus, PerformanceSourceDecision, PerformanceSourceDecisionEvent,
+    PerformanceSourceDecisionRevision, PerformanceSourceDecisionState, attachment_operation_id,
+};
+#[path = "attachment.rs"]
+mod attachment;
+pub use attachment::PerformanceSourceAttachmentReceipt;
+
 #[cfg(test)]
 #[path = "execution_tests.rs"]
 mod tests;
@@ -71,6 +82,7 @@ pub struct PerformanceSourceActionState {
     pub revision: u64,
     pub payload_sha256: String,
     pub execution: Option<PerformanceSourceExecutionRevision>,
+    pub decisions: PerformanceSourceDecisionState,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -191,6 +203,7 @@ pub(super) fn validate_history(
                         revision: 0,
                         payload_sha256: String::new(),
                         execution: None,
+                        decisions: PerformanceSourceDecisionState::default(),
                     },
                 )
                 .is_none(),
@@ -198,7 +211,7 @@ pub(super) fn validate_history(
         )?;
         sources.insert(receipt.action.id.clone(), source);
     }
-    for row in &history.revisions {
+    for row in history.revisions.iter().filter(|r| r.revision <= 3) {
         let state = states
             .get_mut(&row.id)
             .ok_or_else(|| ServiceError::rejected("Execution history has an orphan action"))?;
@@ -256,6 +269,7 @@ pub(super) fn validate_history(
         states.values().all(|s| s.revision > 0),
         "Execution history is missing a Prepared row",
     )?;
+    decisions::apply_decisions(history, &mut states, &sources)?;
     let result: Vec<_> = states.into_values().collect();
     encode(&result, 576 * 1024)?;
     Ok(result)
@@ -303,7 +317,7 @@ impl Loaded {
     ) -> Result<PerformanceSourceActionState, ServiceError> {
         validate_id(request.id)?;
         require(
-            (1..=3).contains(&request.revision) && sha(request.payload_sha256),
+            (1..=16).contains(&request.revision) && sha(request.payload_sha256),
             "Invalid historical source execution request",
         )?;
         require(
@@ -457,6 +471,7 @@ impl NativeBackend {
         let prepared = decode(&history, &root)?;
         self.validate_source_origins(&prepared, &history)?;
         let states = validate_history(&history, &prepared)?;
+        self.validate_source_decision_operations(&history)?;
         Ok(Loaded {
             root,
             history,
