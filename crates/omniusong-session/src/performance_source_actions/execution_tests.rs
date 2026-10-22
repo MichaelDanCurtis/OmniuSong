@@ -934,3 +934,72 @@ fn reserved_recovery_operation_cannot_be_newly_claimed_but_historical_prepared_r
     assert_eq!(history(&mut backend), all);
     assert_eq!(tree(fixture.source_path().parent().unwrap()), original);
 }
+
+/// Deliberate local UI fixtures: software-rendered PCM/events only. Never opens
+/// an audio device and never reads the ordinary studio. Kept only on request.
+#[test]
+#[ignore = "explicit isolated native walkthrough fixture, not a device test"]
+fn performance_action_prepare_native_fixture() {
+    assert_eq!(
+        std::env::var("OMNIUSONG_PREPARE_SOURCE_UI").as_deref(),
+        Ok("synthetic-only")
+    );
+    let fresh = Fixture::new();
+    let mut backend = fresh.backend();
+    let Reply::Document { view, .. } = backend
+        .handle(&Command::Create {
+            name: "SYNTHETIC checkpoint recovery · native walkthrough".into(),
+        })
+        .unwrap()
+    else {
+        panic!("synthetic project")
+    };
+    let project = view.document.id().to_owned();
+    fresh.source(Mode::Tail);
+    let original = fs::read(fresh.source_path()).unwrap();
+    assert!(history(&mut backend).revisions.is_empty());
+    let fresh_manifest = serde_json::json!({
+        "fixture": "unprepared synthetic checkpoint with unknown tail",
+        "root": fresh.root, "native": fresh.paths().native, "legacy": fresh.paths().legacy,
+        "project_id": project, "stage_id": STAGE,
+        "original_path": fresh.source_path(), "original_bytes": original.len(),
+        "original_sha256": checksum(&original), "native_device_opened": false,
+    });
+    fs::write(
+        fresh.root.join("native-fixture.json"),
+        serde_json::to_vec_pretty(&fresh_manifest).unwrap(),
+    )
+    .unwrap();
+    drop(backend);
+    std::mem::forget(fresh);
+
+    let (started, mut backend, _, raw, prepared) = setup(Mode::Tail);
+    let error = gap(&mut backend, &prepared, Boundary::Recovered);
+    assert!(error.outcome_unknown);
+    let retained = history(&mut backend);
+    assert_eq!(retained.revisions.len(), 2);
+    let original = fs::read(started.source_path()).unwrap();
+    fs::rename(
+        started.source_path().parent().unwrap(),
+        started.root.join("parked-original"),
+    )
+    .unwrap();
+    let started_manifest = serde_json::json!({
+        "fixture": "injected lost recovered acknowledgement; recorded Started; original parked",
+        "root": started.root, "native": started.paths().native, "legacy": started.paths().legacy,
+        "stage_id": STAGE, "prepared": prepared, "raw_review_sha256": checksum(&raw),
+        "original_sha256": checksum(&original), "native_device_opened": false,
+        "physical_power_loss": false,
+    });
+    fs::write(
+        started.root.join("native-fixture.json"),
+        serde_json::to_vec_pretty(&started_manifest).unwrap(),
+    )
+    .unwrap();
+    drop(backend);
+    std::mem::forget(started);
+    println!(
+        "NATIVE_SOURCE_UI_FIXTURES={}",
+        serde_json::json!({"fresh":fresh_manifest,"started":started_manifest})
+    );
+}

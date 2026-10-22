@@ -201,7 +201,7 @@ fn save(
     else {
         panic!("decision")
     };
-    *state
+    state.state
 }
 fn choose(
     backend: &mut NativeBackend,

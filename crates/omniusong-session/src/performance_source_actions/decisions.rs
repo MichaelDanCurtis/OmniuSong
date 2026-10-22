@@ -1,9 +1,9 @@
 //! Metadata decisions retain the immutable copied recovery and every choice.
 //! Only the store's fenced publication bridge may append a committed event.
 use super::{
-    NativeBackend, PerformanceSourceActionState, PerformanceSourceExecutionPhase,
-    PerformanceSourceReview, Reply, ServiceError, digest, encode, require, sha, store_failure,
-    validate_id,
+    NativeBackend, PerformanceSourceActionReference, PerformanceSourceActionState,
+    PerformanceSourceExecutionPhase, PerformanceSourceReview, Reply, ServiceError, digest, encode,
+    require, sha, store_failure, validate_id,
 };
 use omniusong_core::{contracts::OperationId, native::TakeRange};
 use omniusong_store::{
@@ -614,7 +614,12 @@ impl NativeBackend {
                 matches!(decision, PerformanceSourceDecision::RetireAttachment),
             )?;
             super::committed(&row, &state, state.revision, &payload)?;
-            return Ok(Reply::PerformanceSourceDecision(Box::new(state)));
+            return Ok(Reply::PerformanceSourceDecision(Box::new(
+                crate::PerformanceSourceDecisionReceipt {
+                    requested: PerformanceSourceActionReference::new(id, revision, payload_sha256),
+                    state,
+                },
+            )));
         }
         require(
             revision == state.revision && payload_sha256 == state.payload_sha256,
@@ -653,6 +658,11 @@ impl NativeBackend {
             matches!(decision, PerformanceSourceDecision::RetireAttachment),
         )?;
         super::committed(&row, &state, next_revision, &payload)?;
-        Ok(Reply::PerformanceSourceDecision(Box::new(expected)))
+        Ok(Reply::PerformanceSourceDecision(Box::new(
+            crate::PerformanceSourceDecisionReceipt {
+                requested: PerformanceSourceActionReference::new(id, revision, payload_sha256),
+                state: expected,
+            },
+        )))
     }
 }

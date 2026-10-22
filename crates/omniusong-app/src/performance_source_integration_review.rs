@@ -388,6 +388,11 @@ fn prepared_backend_commands_cannot_enter_raw_ui_routes_or_continue_into_audio()
             payload_sha256: "a".repeat(64),
         },
         Command::ListPerformanceSourceActionStates,
+        Command::ReadPerformanceSourceAction {
+            id: A.into(),
+            revision: 1,
+            payload_sha256: "a".repeat(64),
+        },
         Command::ExecutePerformanceSourceAction {
             id: A.into(),
             revision: 1,

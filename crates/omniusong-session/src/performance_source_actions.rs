@@ -1,5 +1,12 @@
 //! Immutable Prepared requests and validated durable execution history.
+mod detail;
 mod execution;
+pub(super) use detail::reply_matches;
+pub use detail::{
+    MAX_SOURCE_ACTION_DETAIL_BYTES, PerformanceSourceActionDetail,
+    PerformanceSourceActionReference, PerformanceSourceDecisionReceipt,
+    validate_performance_source_reply,
+};
 pub use execution::{
     PerformanceSourceActionState, PerformanceSourceAttachmentChoice,
     PerformanceSourceAttachmentReceipt, PerformanceSourceAttachmentState,

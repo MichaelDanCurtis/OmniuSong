@@ -93,7 +93,7 @@ fn save(
     else {
         panic!("decision receipt")
     };
-    Ok(*state)
+    Ok(state.state)
 }
 fn checked(
     history: &PerformanceSourceActionHistory,

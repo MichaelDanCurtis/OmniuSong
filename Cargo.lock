@@ -2151,6 +2151,7 @@ dependencies = [
  "omniusong-session",
  "omniusong-store",
  "serde_json",
+ "sha2",
  "uuid",
  "wgpu",
 ]

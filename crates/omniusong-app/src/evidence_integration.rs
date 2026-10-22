@@ -60,7 +60,7 @@ pub(super) struct EvidenceContext {
     barriers: [bool; 10],
 }
 impl StudioApp {
-    fn current_evidence_context(&self) -> EvidenceContext {
+    pub(super) fn current_evidence_context(&self) -> EvidenceContext {
         EvidenceContext {
             document: self.context(),
             metadata: self.draft.clone(),
@@ -90,7 +90,7 @@ impl StudioApp {
             self.evidence_context = Some(context);
         }
     }
-    fn evidence_mutation_allowed(&self) -> bool {
+    pub(super) fn evidence_mutation_allowed(&self) -> bool {
         self.ready
             && self.native_origin.is_some()
             && self.service.is_some()
@@ -256,6 +256,8 @@ impl StudioApp {
             self.ready = false;
             self.reconnect_existing = true;
             self.evidence.worker_lost(id.generation, &error.message);
+            self.source_recovery
+                .worker_lost(id.generation, &error.message);
             self.performance_sources
                 .worker_lost(id.generation, &error.message);
             self.status = "Evidence result retained. Storage worker stopped; reconnect explicitly before another action.".into();

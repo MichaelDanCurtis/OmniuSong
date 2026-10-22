@@ -747,6 +747,42 @@ impl PerformanceSourceUi {
             && self.selected.as_deref() == Some(&review.dto.stage_id)
             && !self.epoch_exhausted
     }
+    /// Pure observation for the separate copied-recovery review. No I/O or IDs.
+    pub(super) fn recovery_offer(&self) -> Option<(u64, u64, u64, &PerformanceSourceReview)> {
+        let review = self
+            .review
+            .as_ref()
+            .filter(|review| self.review_current(review))?;
+        Some((
+            review.generation,
+            review.epoch,
+            review.serial,
+            review.dto.as_ref(),
+        ))
+    }
+    pub(super) fn recovery_context_key(
+        &self,
+    ) -> (
+        Option<u64>,
+        Option<u64>,
+        u64,
+        u64,
+        Option<String>,
+        bool,
+        bool,
+    ) {
+        (
+            self.generation,
+            self.lost_generation,
+            self.epoch,
+            self.serial,
+            self.selected.clone(),
+            self.review
+                .as_ref()
+                .is_some_and(|review| self.review_current(review)),
+            self.epoch_exhausted,
+        )
+    }
     pub(super) fn select(&mut self, stage: &str) -> bool {
         if !valid_id(stage) || !self.rows.iter().any(|row| row.stage == stage) {
             return false;
@@ -1201,7 +1237,7 @@ impl PerformanceSourceUi {
                 Some(g) == availability.generation && self.lost_generation != Some(g)
             });
         ui.strong("Saved performances");
-        ui.small("This review checks the saved original. Recovery and adding it to a session are separate later steps.");
+        ui.small("This review checks the saved original. Open Recording recovery for separate recovery and attachment choices.");
         ui.horizontal_wrapped(|ui| {
             if ui
                 .add_enabled(ready, egui::Button::new("Scan saved recordings"))

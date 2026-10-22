@@ -1,6 +1,7 @@
 //! Durable copied recovery. Prepared is immutable; Started is uncertainty,
 //! and only an authenticated existing recovered artifact can become Verified.
 use super::{
+    PerformanceSourceActionDetail, PerformanceSourceActionReference,
     PreparedPerformanceSourceActionReceipt, decode, digest, encode, require, review, sha,
     validate_id,
 };
@@ -88,6 +89,7 @@ pub struct PerformanceSourceActionState {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PerformanceSourceExecutionReceipt {
+    pub requested: PerformanceSourceActionReference,
     pub state: PerformanceSourceActionState,
     pub observed: RecoveredPerformanceSourceResult,
     pub usage: InspectionUsage,
@@ -95,7 +97,7 @@ pub struct PerformanceSourceExecutionReceipt {
     pub original_reopened: bool,
 }
 
-fn validate_usage(usage: InspectionUsage) -> Result<(), ServiceError> {
+pub(super) fn validate_usage(usage: InspectionUsage) -> Result<(), ServiceError> {
     let limits = InspectionLimits::default();
     require(
         usage.file_bytes <= limits.max_file_bytes
@@ -110,7 +112,7 @@ fn validate_usage(usage: InspectionUsage) -> Result<(), ServiceError> {
     )
 }
 
-fn validate_result(
+pub(super) fn validate_result(
     result: &RecoveredPerformanceSourceResult,
     source: &PerformanceSourceReview,
 ) -> Result<(), ServiceError> {
@@ -479,6 +481,32 @@ impl NativeBackend {
         })
     }
 
+    pub(crate) fn read_source_action(
+        &mut self,
+        id: &str,
+        revision: u64,
+        payload_sha256: &str,
+    ) -> Result<Reply, ServiceError> {
+        let loaded = self.load_execution_history()?;
+        let state = loaded.authenticate(&Request {
+            id,
+            revision,
+            payload_sha256,
+        })?;
+        require(
+            state.revision == revision && state.payload_sha256 == payload_sha256,
+            "Source action changed; explicitly list and read its current head",
+        )?;
+        let detail = PerformanceSourceActionDetail {
+            version: 1,
+            origin_root: loaded.root.clone(),
+            state,
+            review: loaded.raw_review(id)?.to_vec(),
+        };
+        detail.validate()?;
+        Ok(Reply::PerformanceSourceActionDetail(Box::new(detail)))
+    }
+
     pub(crate) fn list_source_action_states(&mut self) -> Result<Reply, ServiceError> {
         Ok(Reply::PerformanceSourceActionStates(
             self.load_execution_history()?.states,
@@ -717,6 +745,11 @@ impl NativeBackend {
         }
         view.verify_unchanged().map_err(local)?;
         let receipt = PerformanceSourceExecutionReceipt {
+            requested: PerformanceSourceActionReference::new(
+                request.id,
+                request.revision,
+                request.payload_sha256,
+            ),
             state,
             observed: summary,
             usage: view.budget().usage(),
@@ -728,3 +761,7 @@ impl NativeBackend {
         Ok(receipt)
     }
 }
+
+#[cfg(test)]
+#[path = "detail_tests.rs"]
+mod detail_tests;

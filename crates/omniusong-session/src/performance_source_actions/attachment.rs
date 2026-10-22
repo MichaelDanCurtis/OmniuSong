@@ -11,6 +11,7 @@ use omniusong_store::{SourceAttachmentCommit, TakePublication};
 
 #[derive(Debug)]
 pub struct PerformanceSourceAttachmentReceipt {
+    pub requested: PerformanceSourceActionReference,
     pub state: PerformanceSourceActionState,
     pub publication: TakePublication,
     /// Historical exact receipt, never a claim about current arrangement placement.
@@ -109,6 +110,7 @@ impl NativeBackend {
     }
     fn attachment_receipt(
         &mut self,
+        requested: &Request<'_>,
         state: PerformanceSourceActionState,
         publication: TakePublication,
         committed: bool,
@@ -133,6 +135,11 @@ impl NativeBackend {
             None => (None, None),
         };
         PerformanceSourceAttachmentReceipt {
+            requested: PerformanceSourceActionReference::new(
+                requested.id,
+                requested.revision,
+                requested.payload_sha256,
+            ),
             state,
             publication,
             committed,
@@ -194,10 +201,24 @@ impl NativeBackend {
         let budget =
             InspectionBudget::new(InspectionLimits::default(), cancelled).map_err(local)?;
         if receipt.is_some() {
-            return Ok(self.attachment_receipt(state, choice.publication, true, true, &budget));
+            return Ok(self.attachment_receipt(
+                &request,
+                state,
+                choice.publication,
+                true,
+                true,
+                &budget,
+            ));
         }
         if !execute {
-            return Ok(self.attachment_receipt(state, choice.publication, false, true, &budget));
+            return Ok(self.attachment_receipt(
+                &request,
+                state,
+                choice.publication,
+                false,
+                true,
+                &budget,
+            ));
         }
         require(
             current.is_some_and(|a| a.status == PerformanceSourceAttachmentStatus::Pending)
@@ -259,7 +280,7 @@ impl NativeBackend {
                 Ok(now)
             }
         })().map_err(uncertain)?;
-        Ok(self.attachment_receipt(result, choice.publication, true, false, &budget))
+        Ok(self.attachment_receipt(&request, result, choice.publication, true, false, &budget))
     }
 }
 

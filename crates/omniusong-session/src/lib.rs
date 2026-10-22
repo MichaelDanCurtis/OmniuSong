@@ -28,14 +28,16 @@ pub use performance_intents::{
     PerformanceFinishIntent, PerformanceIntent, PerformanceIntentReceipt,
 };
 pub use performance_source_actions::{
-    PerformanceSourceActionKind, PerformanceSourceActionState, PerformanceSourceAttachmentChoice,
-    PerformanceSourceAttachmentReceipt, PerformanceSourceAttachmentState,
-    PerformanceSourceAttachmentStatus, PerformanceSourceDecision, PerformanceSourceDecisionEvent,
+    MAX_SOURCE_ACTION_DETAIL_BYTES, PerformanceSourceActionDetail, PerformanceSourceActionKind,
+    PerformanceSourceActionReference, PerformanceSourceActionState,
+    PerformanceSourceAttachmentChoice, PerformanceSourceAttachmentReceipt,
+    PerformanceSourceAttachmentState, PerformanceSourceAttachmentStatus, PerformanceSourceDecision,
+    PerformanceSourceDecisionEvent, PerformanceSourceDecisionReceipt,
     PerformanceSourceDecisionRevision, PerformanceSourceDecisionState,
     PerformanceSourceExecutionPhase, PerformanceSourceExecutionReceipt,
     PerformanceSourceExecutionRevision, PerformanceSourceIntentReference,
     PreparedPerformanceSourceAction, PreparedPerformanceSourceActionReceipt,
-    RecoveredPerformanceSourceResult, attachment_operation_id,
+    RecoveredPerformanceSourceResult, attachment_operation_id, validate_performance_source_reply,
 };
 pub use performance_sources::{PerformanceSource, PerformanceSourceReview, PerformanceSourceScan};
 use std::{
@@ -162,6 +164,11 @@ pub enum Command {
     },
     ListPreparedPerformanceSourceActions,
     ListPerformanceSourceActionStates,
+    ReadPerformanceSourceAction {
+        id: String,
+        revision: u64,
+        payload_sha256: String,
+    },
     ExecutePerformanceSourceAction {
         id: String,
         revision: u64,
@@ -235,6 +242,7 @@ pub enum CommandKind {
     SavePreparedPerformanceSourceAction,
     ListPreparedPerformanceSourceActions,
     ListPerformanceSourceActionStates,
+    ReadPerformanceSourceAction,
     ExecutePerformanceSourceAction,
     ReconcilePerformanceSourceAction,
     SavePerformanceSourceDecision,
@@ -276,6 +284,7 @@ impl Command {
             Self::ListPerformanceSourceActionStates => {
                 CommandKind::ListPerformanceSourceActionStates
             }
+            Self::ReadPerformanceSourceAction { .. } => CommandKind::ReadPerformanceSourceAction,
             Self::ExecutePerformanceSourceAction { .. } => {
                 CommandKind::ExecutePerformanceSourceAction
             }
@@ -379,7 +388,12 @@ impl Command {
             | Self::ListPerformanceIntents
             | Self::ListPreparedPerformanceSourceActions
             | Self::ListPerformanceSourceActionStates => Ok(()),
-            Self::ExecutePerformanceSourceAction {
+            Self::ReadPerformanceSourceAction {
+                id,
+                revision,
+                payload_sha256,
+            }
+            | Self::ExecutePerformanceSourceAction {
                 id,
                 revision,
                 payload_sha256,
@@ -593,13 +607,17 @@ pub enum Reply {
     PreparedPerformanceSourceActions(Vec<PreparedPerformanceSourceActionReceipt>),
     PerformanceSourceActionStates(Vec<PerformanceSourceActionState>),
     PerformanceSourceExecution(Box<PerformanceSourceExecutionReceipt>),
-    PerformanceSourceDecision(Box<PerformanceSourceActionState>),
+    PerformanceSourceActionDetail(Box<PerformanceSourceActionDetail>),
+    PerformanceSourceDecision(Box<PerformanceSourceDecisionReceipt>),
     PerformanceSourceAttachment(Box<PerformanceSourceAttachmentReceipt>),
 }
 impl Reply {
     fn matches_command(&self, command: &Command) -> bool {
         if !self.matches(command.kind()) {
             return false;
+        }
+        if let Some(matches) = performance_source_actions::reply_matches(self, command) {
+            return matches;
         }
         match (self, command) {
             (Self::EvidenceJobOutcome(reply), Command::RunEvidenceJob { request }) => {
@@ -718,6 +736,10 @@ impl Reply {
                 | (
                     Self::PerformanceSourceActionStates(_),
                     CommandKind::ListPerformanceSourceActionStates
+                )
+                | (
+                    Self::PerformanceSourceActionDetail(_),
+                    CommandKind::ReadPerformanceSourceAction
                 )
                 | (
                     Self::PerformanceSourceDecision(_),
@@ -1552,6 +1574,11 @@ impl Backend for NativeBackend {
                 .map_err(performance_intents::intent_rejection),
             Command::ListPreparedPerformanceSourceActions => self.list_prepared_source_actions(),
             Command::ListPerformanceSourceActionStates => self.list_source_action_states(),
+            Command::ReadPerformanceSourceAction {
+                id,
+                revision,
+                payload_sha256,
+            } => self.read_source_action(id, *revision, payload_sha256),
             Command::ExecutePerformanceSourceAction {
                 id,
                 revision,

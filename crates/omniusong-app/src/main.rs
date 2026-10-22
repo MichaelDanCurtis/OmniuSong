@@ -22,6 +22,10 @@ mod performance_source_integration_review;
 mod performance_source_ui;
 mod performance_ui;
 mod recovery_ui;
+mod source_recovery_integration;
+#[cfg(test)]
+mod source_recovery_integration_review;
+mod source_recovery_ui;
 mod waveform_ui;
 
 use arrangement_types::PlacementValue;
@@ -42,6 +46,7 @@ use omniusong_session::{
 use performance_source_ui::{PerformanceSourceUi, SourceAction, SourceAvailability, SourceRequest};
 use recovery_ui::{RecoveryAction, RecoveryUi};
 use serde_json::Value;
+use source_recovery_ui::{SourceRecoveryRequest, SourceRecoveryUi};
 use std::{
     error::Error,
     path::{Path, PathBuf},
@@ -156,6 +161,7 @@ enum Action {
     Performance(Box<Command>),
     PerformanceSource(SourceRequest),
     Evidence(EvidenceUiRequest),
+    SourceRecovery(SourceRecoveryRequest),
     Recovery(RecoveryAction),
     Note(NoteAction),
     Clip(ClipAction),
@@ -188,6 +194,8 @@ struct StudioApp {
     evidence_metadata_only: bool,
     evidence: EvidenceUi,
     evidence_context: Option<evidence_integration::EvidenceContext>,
+    source_recovery: SourceRecoveryUi,
+    source_recovery_context: Option<source_recovery_integration::SourceRecoveryContext>,
     reconnect_existing: bool,
     active: Option<Active>,
     retry: Option<Active>,
@@ -235,6 +243,8 @@ impl StudioApp {
             evidence_metadata_only: false,
             evidence: EvidenceUi::default(),
             evidence_context: None,
+            source_recovery: SourceRecoveryUi::default(),
+            source_recovery_context: None,
             reconnect_existing: false,
             active: None,
             retry: None,
@@ -291,7 +301,7 @@ impl StudioApp {
             .map(|doc| (doc.id().into(), doc.revision()))
     }
     fn busy(&self) -> bool {
-        self.service.as_ref().is_some_and(SessionService::is_busy)
+        self.active.is_some() || self.service.as_ref().is_some_and(SessionService::is_busy)
     }
     fn disconnected(&self) -> bool {
         self.service
@@ -423,6 +433,8 @@ impl StudioApp {
                 self.performance_sources
                     .generation_changed(service.generation());
                 self.evidence.generation_changed(service.generation());
+                self.source_recovery
+                    .generation_changed(service.generation());
                 self.service = Some(service);
                 if initialize
                     && let Err(error) = self.submit(Command::Initialize, Action::Refresh, None)
@@ -434,22 +446,20 @@ impl StudioApp {
         }
     }
     fn submit(&mut self, command: Command, action: Action, after: Option<Action>) -> AppResult<()> {
+        if self.active.is_some() {
+            return Err(
+                "The current native action still owns its completion; wait for that exact result"
+                    .into(),
+            );
+        }
         if evidence_integration::evidence_command(&command) || matches!(action, Action::Evidence(_))
         {
             self.validate_evidence_submission(&command, &action, after.as_ref())?;
         }
-        if matches!(
-            command,
-            Command::SavePreparedPerformanceSourceAction { .. }
-                | Command::ListPreparedPerformanceSourceActions
-                | Command::ListPerformanceSourceActionStates
-                | Command::ExecutePerformanceSourceAction { .. }
-                | Command::ReconcilePerformanceSourceAction { .. }
-                | Command::SavePerformanceSourceDecision { .. }
-                | Command::AttachPerformanceSource { .. }
-                | Command::ReconcilePerformanceSourceAttachment { .. }
-        ) {
-            return Err("Prepared source choices and studio-evidence jobs remain backend-only until their explicit review UI is delivered".into());
+        if source_recovery_integration::source_recovery_command(&command)
+            || matches!(action, Action::SourceRecovery(_))
+        {
+            self.validate_source_recovery_submission(&command, &action, after.as_ref())?;
         }
         if matches!(
             command,
@@ -514,6 +524,13 @@ impl StudioApp {
                 {
                     self.evidence.submitted(request, id);
                 }
+                if let Some(Active {
+                    action: Action::SourceRecovery(request),
+                    ..
+                }) = &self.active
+                {
+                    self.source_recovery.submitted(request, id);
+                }
                 self.error = None;
                 self.status = if matches!(self.active.as_ref().map(|active| &active.action), Some(Action::PerformanceSource(_))) {
                     "Read-only saved-recording review is running in the background. The original is kept unchanged."
@@ -528,6 +545,8 @@ impl StudioApp {
                         .worker_lost(service.generation(), &error.message);
                     self.evidence
                         .worker_lost(service.generation(), &error.message);
+                    self.source_recovery
+                        .worker_lost(service.generation(), &error.message);
                 }
                 if let Action::PerformanceSource(request) = &action {
                     self.performance_sources
@@ -535,6 +554,10 @@ impl StudioApp {
                 }
                 if let Action::Evidence(request) = &action {
                     self.evidence.submission_failed(request, &error.message);
+                }
+                if let Action::SourceRecovery(request) = &action {
+                    self.source_recovery
+                        .submission_failed(request, &error.message);
                 }
                 if let Action::Recovery(recovery) = &action {
                     self.recovery.failed(recovery);
@@ -554,7 +577,10 @@ impl StudioApp {
                 if error.command.retry_safe()
                     && !matches!(
                         action,
-                        Action::Performance(_) | Action::PerformanceSource(_) | Action::Evidence(_)
+                        Action::Performance(_)
+                            | Action::PerformanceSource(_)
+                            | Action::Evidence(_)
+                            | Action::SourceRecovery(_)
                     )
                     && !(matches!(error.command, Command::Initialize) && self.retry.is_some())
                 {
@@ -592,6 +618,7 @@ impl StudioApp {
                     self.performance_sources
                         .worker_lost(generation, &error.message);
                     self.evidence.worker_lost(generation, &error.message);
+                    self.source_recovery.worker_lost(generation, &error.message);
                 }
                 if error.kind == FailureKind::Disconnected
                     && let Some(active) = self.active.take()
@@ -630,7 +657,10 @@ impl StudioApp {
                     }
                     if !matches!(
                         active.action,
-                        Action::Performance(_) | Action::PerformanceSource(_) | Action::Evidence(_)
+                        Action::Performance(_)
+                            | Action::PerformanceSource(_)
+                            | Action::Evidence(_)
+                            | Action::SourceRecovery(_)
                     ) {
                         self.retry = Some(active);
                     }
@@ -666,13 +696,24 @@ impl StudioApp {
             }
             _ => true,
         };
+        let recovery_reference_matches = match &active.action {
+            Action::SourceRecovery(request) => {
+                source_recovery_integration::reference_matches(request, &completion.result)
+            }
+            _ => true,
+        };
         if active.id != completion.id
             || active.command.kind() != completion.kind
             || !source_reply_matches
             || !evidence_reply_matches
+            || !recovery_reference_matches
         {
             self.active = Some(active);
             self.error = Some("Ignored a stale session completion".into());
+            return;
+        }
+        if let Action::SourceRecovery(request) = &active.action {
+            self.complete_source_recovery(request, active.id, completion.result);
             return;
         }
         if let Action::Evidence(request) = &active.action {
@@ -691,6 +732,8 @@ impl StudioApp {
                     self.performance_sources
                         .worker_lost(active.id.generation, &error.message);
                     self.evidence
+                        .worker_lost(active.id.generation, &error.message);
+                    self.source_recovery
                         .worker_lost(active.id.generation, &error.message);
                     self.status = "Storage worker stopped. Your draft was kept; reconnect explicitly before another action.".into();
                 } else {
@@ -759,6 +802,8 @@ impl StudioApp {
                     self.performance_sources
                         .worker_lost(active.id.generation, &error.message);
                     self.evidence
+                        .worker_lost(active.id.generation, &error.message);
+                    self.source_recovery
                         .worker_lost(active.id.generation, &error.message);
                     self.reconnect_existing = true;
                     self.status="Storage worker stopped. Your draft was kept; reconnect explicitly before another action.".into();
@@ -872,8 +917,15 @@ impl StudioApp {
                     Reply::CaptureRecovered(receipt)=>{
                         match self.recovery.recovered(receipt) {Ok(())=>self.status="Verified prefix sealed and original rows retained. Choose an audio stream and attach explicitly; recovery did not attach audio to the session.".into(),Err(error)=>{self.status="Recovery finished without a matching displayed receipt; no attachment was started.".into();self.error=Some(error);}}
                     }
-                    Reply::PerformanceIntent(_) | Reply::PerformanceIntents(_) => {
-                        self.status = "Recording intent retained locally. Audio and attachment follow only the explicit confirmed choice.".into();
+                    Reply::PerformanceIntent(_) => {
+                        self.status = "Recording choice saved locally. Audio and attachment follow only the explicit confirmed choice.".into();
+                    }
+                    Reply::PerformanceIntents(receipts) => {
+                        self.status = if receipts.is_empty() {
+                            "No retained recording choices. Recording starts only after an explicit request.".into()
+                        } else {
+                            format!("{} retained recording choice(s) refreshed. Review a choice before continuing.", receipts.len())
+                        };
                     }
                     Reply::PerformanceSources(_) | Reply::PerformanceSourceInspected(_) => {
                         self.status = "Read-only performance source review completed. Recovery and attachment require separate explicit choices.".into();
@@ -881,7 +933,7 @@ impl StudioApp {
                     Reply::PreparedPerformanceSourceAction(_) | Reply::PreparedPerformanceSourceActions(_) => {
                         self.status = "Prepared source choice retained locally. No copy, recovery, audio or attachment was started.".into();
                     }
-                    Reply::PerformanceSourceActionStates(_) | Reply::PerformanceSourceExecution(_)
+                    Reply::PerformanceSourceActionStates(_) | Reply::PerformanceSourceActionDetail(_) | Reply::PerformanceSourceExecution(_)
                     | Reply::PerformanceSourceDecision(_) | Reply::PerformanceSourceAttachment(_) => {
                         self.status = "Source-action evidence returned to its backend route; no project attachment was started.".into();
                     }
@@ -899,7 +951,7 @@ impl StudioApp {
         self.dispatch(Action::Save, None)
     }
     fn request(&mut self, action: Action) {
-        if matches!(action, Action::Evidence(_)) {
+        if matches!(action, Action::Evidence(_) | Action::SourceRecovery(_)) {
             if let Err(error) = self.dispatch(action, None) {
                 self.error = Some(error.to_string());
             }
@@ -1014,6 +1066,9 @@ impl StudioApp {
     }
     fn dispatch(&mut self, action: Action, after: Option<Action>) -> AppResult<()> {
         if let Action::Evidence(request) = &action {
+            return self.submit(request.command(), action.clone(), after);
+        }
+        if let Action::SourceRecovery(request) = &action {
             return self.submit(request.command(), action.clone(), after);
         }
         if let Action::PerformanceSource(request) = &action {
@@ -1446,7 +1501,9 @@ impl StudioApp {
             Action::PerformanceSource(_) => {
                 unreachable!("source review uses the read-only service path")
             }
-            Action::Evidence(_) => unreachable!("evidence uses its exact guarded service path"),
+            Action::Evidence(_) | Action::SourceRecovery(_) => {
+                unreachable!("review actions use their exact guarded service path")
+            }
             Action::Note(choice) => {
                 if self.metadata_dirty() || self.clips.dirty() || self.clips.unresolved() {
                     return Err(
@@ -1564,7 +1621,7 @@ impl StudioApp {
         };
         if matches!(
             active.action,
-            Action::PerformanceSource(_) | Action::Evidence(_)
+            Action::PerformanceSource(_) | Action::Evidence(_) | Action::SourceRecovery(_)
         ) {
             self.error = Some("Choose a fresh explicit read in its review panel. Evidence jobs are never retried automatically.".into());
             return;
@@ -1712,6 +1769,7 @@ impl StudioApp {
         egui::CentralPanel::default().show(root,|ui|{
             ui.add_space(45.0);ui.heading(if self.evidence_metadata_only {"Studio evidence history"} else if self.disconnected(){"Session storage is unavailable"}else{"Opening your local studio"});
             if ui.button("Studio evidence and job history").clicked() { self.evidence.open = true; }
+            if ui.button("Recording recovery and retained choices").clicked() { self.source_recovery.open = true; }
             if self.evidence_metadata_only {
                 ui.label("Evidence history is connected without opening the studio catalog. Use explicit actions in Studio evidence.");
                 if !self.busy() && !self.disconnected() && ui.button("Open studio catalog").clicked() {
@@ -1739,6 +1797,7 @@ impl StudioApp {
         self.poll();
         self.poll_audio();
         self.show_evidence_window(&ctx);
+        self.show_source_recovery_window(&ctx);
         self.waveform
             .poll(self.document.as_ref(), self.clips.selection.as_ref());
         if self.waveform.pending() {
@@ -1788,6 +1847,9 @@ impl StudioApp {
                 ui.label("NATIVE STUDIO · FOUNDATION");
                 if ui.button("Studio evidence").clicked() {
                     self.evidence.open = true;
+                }
+                if ui.button("Recording recovery").clicked() {
+                    self.source_recovery.open = true;
                 }
                 ui.separator();
             });

@@ -1,0 +1,573 @@
+{
+  "atUtc": "2026-10-22T19:39:10.450468+00:00",
+  "scope": "Bounded actual macOS native copied-performance recovery/choice/attachment/history/restart and complete song/evidence archive walkthrough on the corrected signed Rust development bundle. Only isolated software-rendered synthetic checkpoint fixtures; no native input, playback, recording or inference. Full workstation goal and milestone2 remain incomplete.",
+  "passed": true,
+  "binary": {
+    "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+    "sha256": "82ca1c38fa474938cbf21994435b592ca052d6a68d71dfe9e7f749739a9a25ca",
+    "byteLength": 23062544
+  },
+  "sourceGate": {
+    "path": "docs/verification/rust-native-source-recovery-ui-final-tests.json",
+    "sha256": "ee3392df0f047fc934dddebe8e8123024d575bac1d152a77424f8d4fd07a9ec1",
+    "byteLength": 59167
+  },
+  "source217StillExact": true,
+  "packageIdentity": {
+    "path": ".runtime/rust-source-recovery-ui-final/package-identity.json",
+    "sha256": "ef819166412c777d36a8fb35ccbc971500f8a93410e45282152a6a2fe8c9aa6b",
+    "byteLength": 2986
+  },
+  "strictCodesignLog": {
+    "path": ".runtime/rust-source-recovery-ui-final/codesign-verify.log",
+    "sha256": "3420e83e610e0511290568c4fec02a30d662f99e51f6aae2f3c9142db3617be6",
+    "byteLength": 105
+  },
+  "independentArtifactAudit": {
+    "path": ".runtime/rust-source-recovery-ui-final/independent-artifact-audit.json",
+    "sha256": "1621bc73eb480b80576f75c410e711029fa0d8c9a355a6034b2def226cc3234d",
+    "byteLength": 314326
+  },
+  "platform": "macOS Apple Silicon; actual Windows unqualified",
+  "launch": "Documented development CLI of the packaged standalone executable with explicit --data-dir/--legacy-dir for each isolated studio; all GUI actions through native CUA/AX, with retained actual screenshot. This does not qualify Finder installation or signed distribution.",
+  "sequence": [
+    "Fresh startup did not claim a saved Start request; recording history was empty. Opened one synthetic schema1 target, explicitly scanned and inspected its exact source; positive64-frame checkpoint at8000Hz mono with conservative unknown tail.",
+    "Explicit List0 preceded review of one immutable unlinked Prepared choice. Confirm saved revision1 only, no copy/artifact namespace, owned take or project operation. Separate review/confirmation produced Started2/Verified3, distinct evidence/working copy and no automatic attachment.",
+    "Explicit Keep appended4 and updated both known row/detail. Clean exit/restart retained it. Original source directory parked outside studio; explicit List/Read and existing-copy check succeeded without changing any catalog rows or copy files.",
+    "Explicit Return appended5. Entered new track, frame320 and exact schema consent; separate confirmation saved immutable target revision0/choice6 without publishing. Closing panel and saving target name revision1 invalidated detail/consent; explicit Read without another List correctly used head6, fixing the actual c50 failure.",
+    "Confirmed the same saved target0 against current1; actual RevisionConflict retained owned bytes, current project and choice6. Exact Read and attachment reconciliation observed uncommitted; no replacement authority was inferred from absence.",
+    "Atomic retirement appended7; immediate replacement review refused pending fresh Read. Explicit Read permitted a new choice8 with exact supersedes and fresh choice/operation/track/clip identities, target1 and frame640. Separate Attach committed9 and installed only the latest schema2 project view revision2.",
+    "Undo produced schema1 revision3 with no published clip; exact Read and read-only attachment reconciliation still reported historical commitment without reinstalling. Redo restored schema2 revision4. Clean process restart reopened the same saved placement. Original synthetic journal returned exact before complete archive checks.",
+    "Created and inspected complete OSAR, then restored a distinct project retaining the owned original, source/history and copy lineage. Local source-action authority did not duplicate.",
+    "Confirmed full-root OSRE export, inspected its whole-container hash and separately confirmed inert restore.457268bytes,8files,7directories. Catalog plus raw captures/source-actions/takes match numbered objects; all source catalog/files stayed exact across export/inspect/restore. No restored owner or action adopted.",
+    "Separate injected lost-recovered-acknowledgement fixture started with recorded phase2 and original already parked. Explicit List/Read required a fresh artifact check before Record existing result. Check left every row/file exact and phase Started; only a separate review/confirmation appended Verified3 using identical existing copy files. Clean exit."
+  ],
+  "fixtures": {
+    "fresh": {
+      "fixture": "unprepared synthetic checkpoint with unknown tail",
+      "legacy": "/Volumes/Main External/Development/OmniuSong/.runtime/performance-source-execution-session-tests/01baff86-ae63-4c71-ab20-828781d127a4/legacy",
+      "native": "/Volumes/Main External/Development/OmniuSong/.runtime/performance-source-execution-session-tests/01baff86-ae63-4c71-ab20-828781d127a4/native",
+      "native_device_opened": false,
+      "original_bytes": 65536,
+      "original_path": "/Volumes/Main External/Development/OmniuSong/.runtime/performance-source-execution-session-tests/01baff86-ae63-4c71-ab20-828781d127a4/native/captures/02020202020202020202020202020202/take.sqlite3",
+      "original_sha256": "f6e5aef06a0abf7fa020731eb1f1023e2ca7a5847f581651b129cd92c248a111",
+      "project_id": "7beed875-2a97-4b2b-8e80-385e4bd2cb7a",
+      "root": "/Volumes/Main External/Development/OmniuSong/.runtime/performance-source-execution-session-tests/01baff86-ae63-4c71-ab20-828781d127a4",
+      "stage_id": "02020202020202020202020202020202"
+    },
+    "started": {
+      "fixture": "injected lost recovered acknowledgement; recorded Started; original parked",
+      "legacy": "/Volumes/Main External/Development/OmniuSong/.runtime/performance-source-execution-session-tests/4b3ea8d6-9a02-4e77-b6f7-e297b7341b70/legacy",
+      "native": "/Volumes/Main External/Development/OmniuSong/.runtime/performance-source-execution-session-tests/4b3ea8d6-9a02-4e77-b6f7-e297b7341b70/native",
+      "native_device_opened": false,
+      "original_sha256": "d160ccb43e25d8b27ded4c93cd5b96a24b214db57e35313205eea71284169ca5",
+      "physical_power_loss": false,
+      "prepared": {
+        "action": {
+          "admission_sha256": "fb05e43641bfa232508cfa6591dee441f8aa1ad6ffb1af95376fb4bed40783f1",
+          "id": "11111111111111111111111111111111",
+          "kind": "recover_copy",
+          "origin": null,
+          "policy_version": 1,
+          "recovery_operation_id": "execution-test.operation",
+          "review_blob_sha256": "bb5e95936827fa88be7a7c2d9009e48d98b072a02dbee0b063b3b074500b9ac6",
+          "stage_id": "02020202020202020202020202020202",
+          "take_id": "performance-02020202020202020202020202020202",
+          "version": 1
+        },
+        "payload_sha256": "b731f5eef5cbdd5c69bf0ffd54907db543fd4ebaba149850c799893c524959e1",
+        "revision": 1
+      },
+      "raw_review_sha256": "bb5e95936827fa88be7a7c2d9009e48d98b072a02dbee0b063b3b074500b9ac6",
+      "root": "/Volumes/Main External/Development/OmniuSong/.runtime/performance-source-execution-session-tests/4b3ea8d6-9a02-4e77-b6f7-e297b7341b70",
+      "stage_id": "02020202020202020202020202020202"
+    }
+  },
+  "fixtureManifest": {
+    "path": ".runtime/rust-source-recovery-ui-final/native-fixtures.json",
+    "sha256": "96bd12d7e1f43c60ef55f37e0e085cd72066ac5b14334df823f1f3ebfaa2acea",
+    "byteLength": 2618
+  },
+  "nativeFixtureGenerationLog": {
+    "path": ".runtime/rust-source-recovery-ui-final/native-fixtures.log",
+    "sha256": "2e72bd587ac5e2e4c627c2e06caceab3537d2b158e5d5ff71b7f0ed4e25b0334",
+    "byteLength": 2859
+  },
+  "observations": [
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-01-startup.ax.txt",
+      "sha256": "04f06d1fb7bb35afa5d84a17d910d71a096253df083d2359ca5a106ba5f612f9",
+      "byteLength": 3673
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-02-scan.ax.txt",
+      "sha256": "8253b9bf76ebfb674ace39d3415ac50ca3b54ba494345edf948f3ed41bfd963d",
+      "byteLength": 5989
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-03-prepared-review.ax.txt",
+      "sha256": "2ac39f8e287c55c5b598d9404fc7347edf49f6ef3ca3ab642a8f01de501abcc0",
+      "byteLength": 11102
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-04-prepared-only.ax.txt",
+      "sha256": "2828379120e69b8eb970a53676cb465a52e139aeb22f951d504512ece662fe03",
+      "byteLength": 9827
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-05-execution-review.ax.txt",
+      "sha256": "6f15e614caca50f489321498fd236f254e5a02ac10a98f17e987e13539e931d8",
+      "byteLength": 10555
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-06-verified.ax.txt",
+      "sha256": "c137fe272df3696d33878791aa69a163b45748452b0eefe2421f2549d5a8cd8d",
+      "byteLength": 11050
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-07-keep-review.ax.txt",
+      "sha256": "27479f33af8bb63a97398d1972003fb98037f3e7ff7963774436d2f314e3ed13",
+      "byteLength": 11764
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-08-kept.ax.txt",
+      "sha256": "e200ae83847eb160204ec77805ab5f1a2733b621d32645f33a3a8c7ffd06c640",
+      "byteLength": 10216
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-09-restart-no-auto-read.ax.txt",
+      "sha256": "c4d8167363c6d10f1f477f078c57f0b4199edc182d6e83d8600049b3bc571644",
+      "byteLength": 7078
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-10-restart-listed.ax.txt",
+      "sha256": "2686f3021d48f63aaca784a7914c1fc2d43e2ccf366551d463dc5768c4217b5e",
+      "byteLength": 7363
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-11-kept-source-absent-check.ax.txt",
+      "sha256": "2f6adcc467127d782dbb8848f46d0ef23f1ce40292c9014a11c90d49e6ab6608",
+      "byteLength": 8566
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-12-return-review.ax.txt",
+      "sha256": "8c9829784bdea92c77f1c5b2603d364eade32ad9f98a9aa67c1c015b6fded188",
+      "byteLength": 9284
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-13-returned.ax.txt",
+      "sha256": "a310a9f50cefa513e422cbfb8c880e3eee713a4751740b95551b583e71630bf2",
+      "byteLength": 9374
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-14-choice-review.ax.txt",
+      "sha256": "9b5c7c75d5a16488dedd19fa18a22f64cd9027ab7b015bee56666c49934205de",
+      "byteLength": 11580
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-15-choice-saved.ax.txt",
+      "sha256": "e51585c3e8fda90544635a898ce878e528ba74b5b11a1a4098f4792925c00ce6",
+      "byteLength": 9039
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-16-panel-closed-for-target-edit.ax.txt",
+      "sha256": "7da710aa4719651ad70799f78ca396bebeef3e9d037e6a0cdba1f5151028fa31",
+      "byteLength": 5770
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-17-corrected-read-without-relist.ax.txt",
+      "sha256": "b7f7dada40c0038d82670be7b6e2795fcc41931ca49208ed394dd18580a9140f",
+      "byteLength": 9100
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-18-conflicting-choice-review.ax.txt",
+      "sha256": "dcf4b560c1a8d460e27400933adb15c07e85e5d3421687e986610320a034c0ce",
+      "byteLength": 11228
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-19-known-conflict.ax.txt",
+      "sha256": "91c10cb47ddd58075b0700d30ef0af5055fa12f2378e244c5188133384118f10",
+      "byteLength": 9092
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-20-conflict-reconciled.ax.txt",
+      "sha256": "2b6b70c28171cfb5aa06e6c3712e27c20a95ce6d5f530d1dc4b1305fa365a4bb",
+      "byteLength": 9244
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-21-retire-review.ax.txt",
+      "sha256": "c84bf50812e6f6ca8b475f1c5881f9a230a7e3af70dcf19326c99101c534762a",
+      "byteLength": 9961
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-22-retired-replacement-refused.ax.txt",
+      "sha256": "23df98d27d981c295e69d6f8a14e38e2a9f3a279ef0eab6e3e7e6f7f19f67138",
+      "byteLength": 9965
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-23-retired-read.ax.txt",
+      "sha256": "36be88603b1af911c8c9c4b69afbc3c9187babcaeae01770c42be2f2b5382df0",
+      "byteLength": 9841
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-24-replacement-review.ax.txt",
+      "sha256": "9a0f8e527dc86e424b4e72cd3b8766eef5339fb758e3d224432858c310ee4987",
+      "byteLength": 11610
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-25-replacement-saved.ax.txt",
+      "sha256": "3a2a5ca6e1d00a7eef5cf25dfa56bb0db4273ed92e401944a6b48d46b8f1d05a",
+      "byteLength": 9247
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-26-publish-review.ax.txt",
+      "sha256": "061be95026b3001d7a2b4a82bc8ccd7e0879bc0862671a22655b8125c896a6fb",
+      "byteLength": 11246
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-27-published.ax.txt",
+      "sha256": "2ba9b047c4fce58652bc4ef1a5d21b1c68917521cd2149b8e0c5bcf95705d660",
+      "byteLength": 9189
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-28-committed-visual.ax.txt",
+      "sha256": "2ba9b047c4fce58652bc4ef1a5d21b1c68917521cd2149b8e0c5bcf95705d660",
+      "byteLength": 9189
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-29-undone.ax.txt",
+      "sha256": "c54abfbd05d86808ce1f1bc2b70265b7aa1274f224ce51fca278592fadbf0cfb",
+      "byteLength": 5724
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-30-historical-commit-after-undo.ax.txt",
+      "sha256": "ce8dacfe6afe2377e9393649236eb245affc89fae64c94340839bc6780e9ba20",
+      "byteLength": 9101
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-31-redone.ax.txt",
+      "sha256": "f5f756ee28dc5a48b4ada5c79674803393dd45aec6d91e26e2871d925cf32e24",
+      "byteLength": 6202
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-32-published-restart.ax.txt",
+      "sha256": "c925a934fe145565ac3050b6df396b09c72d960f466c70cc278143fc1d9e097e",
+      "byteLength": 3669
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-33-song-backup-controls.ax.txt",
+      "sha256": "b1c586e49361f09262e8d808fb3c2f5b483f6410397962ddcc07f5ce1f6ec2d9",
+      "byteLength": 6619
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-34-song-exported.ax.txt",
+      "sha256": "9d3d5e102d56b6e6e5426aff88e0a9e881924b35a539404ed1b3a3d45ba3e996",
+      "byteLength": 6821
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-35-song-inspected.ax.txt",
+      "sha256": "99b1d6894802ec553bb86847f5831bd0601b10f803c2e4a328cb724d1465bf7d",
+      "byteLength": 7207
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-35b-restore-name-control.ax.txt",
+      "sha256": "99b1d6894802ec553bb86847f5831bd0601b10f803c2e4a328cb724d1465bf7d",
+      "byteLength": 7207
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-36-song-restored-copy.ax.txt",
+      "sha256": "d970b07f0f290d4c49e44b0a7d9fb4b444c2d69994bed77116dc7de81ecbd88a",
+      "byteLength": 7339
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-37-evidence-controls.ax.txt",
+      "sha256": "5ff752206b645c992c9cd5c52fc84e014017f7a7a1aaa8c962c83ecadad79262",
+      "byteLength": 8629
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-38-osre-export-review.ax.txt",
+      "sha256": "74f169dcd04ef663af24c6221af32348caf8b31725241fb1145a9e26b5c27432",
+      "byteLength": 9977
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-39-osre-exported.ax.txt",
+      "sha256": "4da64dc968225e4a061877fa8b7c25cbd28b994dee51041beb4a45f42041c2b2",
+      "byteLength": 8919
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-39b-export-card.ax.txt",
+      "sha256": "4da64dc968225e4a061877fa8b7c25cbd28b994dee51041beb4a45f42041c2b2",
+      "byteLength": 8919
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-40-export-result-detail.ax.txt",
+      "sha256": "c245774f0f2001296ef05856b76ba7190434a2d1d1a252c65843bae5d2b6c56b",
+      "byteLength": 10583
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-41-inert-restore-controls.ax.txt",
+      "sha256": "b1f9935df2a60712a8a49ea601316c94e2f2e2822bcb1631b7feab303b5d1b72",
+      "byteLength": 10608
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-42-osre-inspected.ax.txt",
+      "sha256": "5d1c6ba820897a93e2983bba27db2fb1465a3fd8807cb0b9925de00bdca18977",
+      "byteLength": 10809
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-43-inert-restore-review.ax.txt",
+      "sha256": "2b902465ec144eeb97371646f35207be5bf887c70de76921d360d56a3641bdea",
+      "byteLength": 12173
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-44-inert-restored.ax.txt",
+      "sha256": "da6d67fef1fbd7f3cfd3c39dee10d482b226ec7940e360d50982f9542c0e798a",
+      "byteLength": 10852
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-45-inert-restore-result.ax.txt",
+      "sha256": "709335971b01e53dee0aa4f13eefbdd57fe236195b33cb9f50f9df16245fd0d2",
+      "byteLength": 12814
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-46-close-archive-check.ax.txt",
+      "sha256": "709335971b01e53dee0aa4f13eefbdd57fe236195b33cb9f50f9df16245fd0d2",
+      "byteLength": 12814
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-started-01-startup.ax.txt",
+      "sha256": "5e12f13c69a0e352247841c4e0f1929093d683e4998214ebb72f245a7d695ee8",
+      "byteLength": 3639
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-started-02-listed.ax.txt",
+      "sha256": "5eef790705b6ba3b9029d642e3b69819c807e51a73a682e07055ef54efd38652",
+      "byteLength": 7292
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-started-03-read-before-check.ax.txt",
+      "sha256": "802faa80bae9933b0f23b4cc4107539a350672e82c535771c57e7cabb3ddb646",
+      "byteLength": 8103
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-started-04-checked-still-started.ax.txt",
+      "sha256": "7e6f64fff9850df89129040cd7bfb09b6a7086c718cd46d3e676229529af49c7",
+      "byteLength": 8263
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-started-05-record-existing-review.ax.txt",
+      "sha256": "84d7f606dfd517aa4b8c8c840b2bc1a4e4391b3fa15412f6fdf666ad3554cb7d",
+      "byteLength": 8981
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-started-06-verified.ax.txt",
+      "sha256": "9b13ec251e8644495ef7f40f6f65a706a08a8a5482531c2e68b1aff98200f8b4",
+      "byteLength": 9399
+    }
+  ],
+  "screenshots": [
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/native-publication-committed.png",
+      "sha256": "81b961b7cd12cc69a01fca11b4b47d42f2fe75e8c821b24cfb08d760d807d855",
+      "byteLength": 219393
+    }
+  ],
+  "snapshots": [
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/fresh-00-before-launch.json",
+      "sha256": "aa4e73fc5a1e3ea83d87e9e870d1ec07aa20ac5e9fdb4c2b859946755b58b892",
+      "byteLength": 1572
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/fresh-01-prepared-only.json",
+      "sha256": "5040514a29335d51c48490efbb7373d9fb631d4af650b6132746a96b76395861",
+      "byteLength": 11046
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/fresh-02-kept-before-restart.json",
+      "sha256": "a14a70e1b43b067c7c786ae5f2d07804e0084fd226aa26da08686f22af35a752",
+      "byteLength": 15405
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/fresh-03-source-absent-reconciled.json",
+      "sha256": "027519123dc329c971a96c20cfdaaabd306fab4963f619db072c54b968fded20",
+      "byteLength": 14816
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/fresh-04-choice-only.json",
+      "sha256": "23624347f1fe771b539a54d807937b09e5890756f8194c6910547b16c21de6d4",
+      "byteLength": 17480
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/fresh-05-conflict-owned-retained.json",
+      "sha256": "be82d714958265d004322646eab606e338d617bc49f332d49addff2fb608fbe0",
+      "byteLength": 18029
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/fresh-06-published.json",
+      "sha256": "589dde2b52c59a2b689edd1cf9601b046da1295e6bdb86ae155479363462490f",
+      "byteLength": 21765
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/fresh-07-redone-before-restart.json",
+      "sha256": "0c17770c3589e490282cb2d19b3e3026e9795d2d9fb50df97f8fdda68ab8ebda",
+      "byteLength": 21913
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/fresh-08-osar-restored-before-osre.json",
+      "sha256": "5b139fd9c2491a6706bce88583f0e5729117c9346c500e7fe570ff2a35526a92",
+      "byteLength": 23554
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/fresh-09-after-osre-inert-restore.json",
+      "sha256": "40134d00f9f72212ffec94682173d215123588f0d6a5cad4d71a62a8756d329f",
+      "byteLength": 23554
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/started-00-before-launch.json",
+      "sha256": "2cd5811121f576e25d75c8568605ba35e48c2ebfaffefc57a20e7420782374d8",
+      "byteLength": 12279
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/started-01-check-no-write.json",
+      "sha256": "23a04e8a654031804ab1a20fa70fc494c7ba28710a6feaa84857cd35482fbca6",
+      "byteLength": 12279
+    },
+    {
+      "path": ".runtime/rust-source-recovery-ui-final/started-02-explicit-verified.json",
+      "sha256": "577fcf3036f262af34af43624a2c159bafb0e1e592f7fe1ef2b074aa58170864",
+      "byteLength": 14056
+    }
+  ],
+  "archives": {
+    "song": {
+      "path": ".runtime/rust-source-recovery-ui-final/recovered-song.osar",
+      "sha256": "91c309418c8bbe7e43bbfc6a8ec7020f240f3166d2ecf47bb22736c175f24562",
+      "byteLength": 204800
+    },
+    "fullRoot": {
+      "path": ".runtime/rust-source-recovery-ui-final/recovered-studio.osre",
+      "sha256": "143095a66b0b77c1935247716fc1efc8e5083f0a0156b18c575cdeb5ee6c59a1",
+      "byteLength": 457268
+    },
+    "inertManifest": {
+      "path": ".runtime/rust-source-recovery-ui-final/restored-inert/manifest.json",
+      "sha256": "9e9123e60ac42f646806e3c2558b769a38aed25ab745372b3535a9cfdba30231",
+      "byteLength": 2556
+    },
+    "inertCompletion": {
+      "path": ".runtime/rust-source-recovery-ui-final/restored-inert/complete.json",
+      "sha256": "72a9059b246051785a69687e8b0a78f7fe473ab27cd2142d762a1860989cf026",
+      "byteLength": 443
+    },
+    "numberedObjects": [
+      {
+        "path": ".runtime/rust-source-recovery-ui-final/restored-inert/objects/0002.bin",
+        "sha256": "f6e5aef06a0abf7fa020731eb1f1023e2ca7a5847f581651b129cd92c248a111",
+        "byteLength": 65536
+      },
+      {
+        "path": ".runtime/rust-source-recovery-ui-final/restored-inert/objects/0003.bin",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "byteLength": 0
+      },
+      {
+        "path": ".runtime/rust-source-recovery-ui-final/restored-inert/objects/0004.bin",
+        "sha256": "cf6a2135d4eddf2886addc99f78e5a63ea5264021a782ec0e3c16f5d7516e129",
+        "byteLength": 184320
+      },
+      {
+        "path": ".runtime/rust-source-recovery-ui-final/restored-inert/objects/0007.bin",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "byteLength": 0
+      },
+      {
+        "path": ".runtime/rust-source-recovery-ui-final/restored-inert/objects/0009.bin",
+        "sha256": "f6e5aef06a0abf7fa020731eb1f1023e2ca7a5847f581651b129cd92c248a111",
+        "byteLength": 65536
+      },
+      {
+        "path": ".runtime/rust-source-recovery-ui-final/restored-inert/objects/0011.bin",
+        "sha256": "22cf79f6c5ac8b9e22879d2988649ecd265d4cdca00d80af6781bdba45227557",
+        "byteLength": 69632
+      },
+      {
+        "path": ".runtime/rust-source-recovery-ui-final/restored-inert/objects/0012.bin",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "byteLength": 0
+      },
+      {
+        "path": ".runtime/rust-source-recovery-ui-final/restored-inert/objects/0014.bin",
+        "sha256": "22cf79f6c5ac8b9e22879d2988649ecd265d4cdca00d80af6781bdba45227557",
+        "byteLength": 69632
+      }
+    ],
+    "sourceExactAcrossRootArchive": true
+  },
+  "correctedActualFailure": {
+    "candidateBinarySha256": "c50dac73bb627219370d220c9a0cdfa87753350f346cc410823ce779443124a2",
+    "candidateAudit": {
+      "path": ".runtime/rust-source-recovery-ui/candidate-artifact-audit.json",
+      "sha256": "ed3d404ae7de71191ffed6b5a262285a16b0b0fa4cf56a50031060ad380c627c",
+      "byteLength": 4398
+    },
+    "failure": {
+      "path": ".runtime/rust-source-recovery-ui/native-32-stale-summary-read-refused.ax.txt",
+      "sha256": "e91c899055881947ffd183f583793f262c4296f7a5729a4e0c8770ccfc0089ba",
+      "byteLength": 8742
+    },
+    "correctedSameScenarioWithoutRelist": {
+      "path": ".runtime/rust-source-recovery-ui-final/native-17-corrected-read-without-relist.ax.txt",
+      "sha256": "b7f7dada40c0038d82670be7b6e2795fcc41931ca49208ed394dd18580a9140f",
+      "byteLength": 9100
+    },
+    "materialPreservedDuringRefusal": true,
+    "priorCandidateBundleRetained": [
+      {
+        "path": "dist/OmniuSong Native.previous-20261022T121337.app/Contents/MacOS/OmniuSongNative",
+        "sha256": "c50dac73bb627219370d220c9a0cdfa87753350f346cc410823ce779443124a2",
+        "byteLength": 23045888
+      }
+    ]
+  },
+  "preservation": {
+    "schema": 6,
+    "regularProjects": 22,
+    "priorRows": 403,
+    "protectedFiles": 80,
+    "exact": {
+      "tables": true,
+      "projectIds": true,
+      "files": true,
+      "catalogFile": true
+    },
+    "regularSourceLedgersRemainEmpty": true,
+    "before": {
+      "path": ".runtime/rust-seal-native/source-recovery-ui-final-before-tests.json",
+      "sha256": "2028b32c40313cacb631c424f1df3967ddac5fd4621bbfc9a1dc940e6d3d8cb7",
+      "byteLength": 51310
+    },
+    "after": {
+      "path": ".runtime/rust-seal-native/source-recovery-ui-final-after-native.json",
+      "sha256": "9bc75204d2acea6e6879a55d727a9350722fbce53c8cb134912ca03c9363d963",
+      "byteLength": 51310
+    },
+    "prior7752AndC50BundlesRetained": true
+  },
+  "processesAfterWalkthrough": {
+    "path": ".runtime/rust-source-recovery-ui-final/processes-after-walkthrough.log",
+    "sha256": "b90b0c7f6b109b8e1d2df8c4a2d994c6fc7926a2a002b14722f68f37ca9147a4",
+    "byteLength": 157453
+  },
+  "nativeInputIncludingLoopbackOpened": false,
+  "nativePlaybackOrRecordingStarted": false,
+  "inferencePerformed": false,
+  "regularStudioMutation": false,
+  "fullMilestone2Complete": false,
+  "limits": [
+    "Synthetic64-frame8kHz mono material is not elapsed recording, listening or human-controller acceptance. No physical power loss, native pending-cancel interaction, input/monitoring/device-change, physical latency,30-minute reliability or Windows qualification. Cancellation/EOF/protocol have separate source/isolated-worker evidence.",
+    "Song OSAR excludes unassigned capture/action histories; full-root OSRE retains them as inert evidence. Source parking/adoption, multiple placements and selected-song/combined evidence scopes remain required separate work.",
+    "Schema1 consent and explicit new audio-track full selected-range placement only. No fades, inferred alignment, resampling, editable-note projection or extra tail. Comprehensive keyboard/IME/scaling/visual polish remains H09 work.",
+    "Next: reversible performance note projection and remaining recording controls/capacity. MIDI2/UMP/native transport/MIDI-CI/standard Clip Files/MPE, instruments/AU/VST3/CLAP, eight Rust inference roles, choir, installers and actual Windows remain mandatory."
+  ]
+}
