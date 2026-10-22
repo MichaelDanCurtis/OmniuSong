@@ -2,8 +2,13 @@
 //! mutates a recording and grants no normal-seal or input-device authority.
 use crate::{
     live_types::{LiveClock, LivePatch, LiveScope},
-    performance_inspection::{contextual_records, inspect_sealed_performance_bounded},
-    performance_records::{LocalRecord, PerformanceRecord, descriptor_profile, from_descriptor},
+    performance_inspection::{
+        PerformanceInspection, contextual_records, inspect_sealed_performance_bounded,
+    },
+    performance_records::{
+        LocalRecord, PerformanceConfig, PerformanceProfile, PerformanceRecord, descriptor_profile,
+        from_descriptor,
+    },
     performance_tap::TapClearReason,
 };
 use omniusong_core::{
@@ -18,6 +23,8 @@ use sha2::{Digest, Sha256};
 use std::io::Write;
 
 mod arithmetic;
+mod binding;
+pub use binding::check_retained_binding_encoding_bounded;
 mod lifecycle;
 #[cfg(test)]
 mod tests;
@@ -348,8 +355,255 @@ struct ControlChunk {
     records: Vec<LocalRecord>,
 }
 
-/// Read-only authenticated procedural projection. A bounded reader and all exact
-/// source pins are mandatory. No partial proposal is returned on any refusal.
+/// A borrowed, source-authenticated view under the reader's single cumulative
+/// governor. It cannot be cloned, deserialized or constructed from a claimed
+/// inspection. Each interpretation still rederives its actual control events.
+pub struct AuthenticatedPerformance<'a> {
+    reader: &'a SealedJournal,
+    config: PerformanceConfig,
+    profile: PerformanceProfile,
+    inspected: PerformanceInspection,
+    source: PerformanceProjectionSourcePin,
+}
+impl<'a> AuthenticatedPerformance<'a> {
+    pub fn open(reader: &'a SealedJournal) -> Result<Self> {
+        let budget = reader.inspection_budget().ok_or_else(|| {
+            invalid("Performance authentication requires a held bounded sealed reader")
+        })?;
+        let result = (|| {
+            budget.checkpoint()?;
+            charge(budget, omniusong_recording::MAX_METADATA_BYTES * 8)?;
+            let config = from_descriptor(reader.descriptor()).map_err(invalid)?;
+            let profile = descriptor_profile(reader.descriptor()).map_err(invalid)?;
+            let inspected = inspect_sealed_performance_bounded(reader)?;
+            let selection = inspected
+                .selection
+                .as_ref()
+                .ok_or_else(|| invalid("No authenticated selected performance prefix"))?;
+            let checkpoint_sha256 = inspected.checkpoint_sha256.as_ref().ok_or_else(|| {
+                invalid("No authenticated selected performance checkpoint digest")
+            })?;
+            require(
+                inspected.checkpoint.is_some()
+                    && config.take_id == reader.descriptor().take_id
+                    && inspected.descriptor_sha256 == reader.manifest().body.descriptor_sha256
+                    && selection.chunk_count == reader.manifest().body.chunk_count
+                    && selection.chunk_index_sha256 == reader.manifest().body.chunk_index_sha256,
+                "Authenticated performance checkpoint or prefix differs from the held sealed manifest",
+            )?;
+            require(
+                [
+                    &reader.manifest().sha256,
+                    &inspected.descriptor_sha256,
+                    &inspected.original_rows_sha256,
+                    &inspected.journal_sha256_at_review,
+                    checkpoint_sha256,
+                    &selection.chunk_index_sha256,
+                ]
+                .into_iter()
+                .all(|value| sha(value)),
+                "Authenticated performance source pins are not canonical SHA-256 identities",
+            )?;
+            charge(budget, 4096)?;
+            let source = PerformanceProjectionSourcePin {
+                take_id: config.take_id.0.clone(),
+                manifest_sha256: reader.manifest().sha256.clone(),
+                descriptor_sha256: inspected.descriptor_sha256.clone(),
+                original_rows_sha256: inspected.original_rows_sha256.clone(),
+                journal_sha256_at_review: inspected.journal_sha256_at_review.clone(),
+                checkpoint_sha256: checkpoint_sha256.clone(),
+                selection: selection.clone(),
+            };
+            let held = Self {
+                reader,
+                config,
+                profile,
+                inspected,
+                source,
+            };
+            held.verify_unchanged()?;
+            Ok(held)
+        })();
+        budget.checkpoint()?;
+        result
+    }
+
+    pub fn source_pin(&self) -> &PerformanceProjectionSourcePin {
+        &self.source
+    }
+
+    fn budget(&self) -> &InspectionBudget {
+        self.reader
+            .inspection_budget()
+            .expect("private authenticated context always retains its bounded reader")
+    }
+
+    pub fn verify_unchanged(&self) -> Result<()> {
+        let budget = self.budget();
+        budget.checkpoint()?;
+        let unchanged = self.reader.verify_source_identity();
+        budget.checkpoint()?;
+        unchanged
+    }
+
+    pub fn project(
+        &self,
+        request: &PerformanceProjectionRequest,
+    ) -> Result<PerformanceProjectionReview> {
+        let budget = self.budget();
+        let reader = self.reader;
+        let config = &self.config;
+        let profile = self.profile;
+        let result = (|| {
+            budget.checkpoint()?;
+            charge(budget, 4096)?;
+            request.validate()?;
+            require(
+                request.source == self.source,
+                "Performance projection source pins differ from the held authenticated recording",
+            )?;
+            let checkpoint = self
+                .inspected
+                .checkpoint
+                .as_ref()
+                .expect("private authentication proves a complete checkpoint");
+            require(
+                request.region.end <= checkpoint.audio_end,
+                "Projection region differs from the held sealed prefix",
+            )?;
+            self.verify_unchanged()?;
+            let control = reader
+                .manifest()
+                .body
+                .streams
+                .iter()
+                .find(|p| p.stream_id == "control")
+                .ok_or_else(|| invalid("Performance manifest has no control prefix"))?;
+            charge(budget, 64 * std::mem::size_of::<ControlChunk>())?;
+            let mut pending = Vec::with_capacity(64);
+            let mut group_base = 0u64;
+            let mut group_bytes = 0usize;
+            let mut lifecycle = lifecycle::Lifecycle::new(config, request, budget)?;
+            for sequence in 0..control.next_sequence {
+                budget.checkpoint()?;
+                let chunk = reader.read_chunk("control", sequence)?;
+                let decode_credit = chunk
+                    .payload
+                    .len()
+                    .checked_mul(8)
+                    .ok_or_else(|| invalid("Projection decode credit overflow"))?;
+                charge(budget, decode_credit)?;
+                let decoded = contextual_records(config, profile, 5, &chunk, Some(budget))
+                    .map_err(|e| e.into_recording())?;
+                if decoded.len() == 1
+                    && matches!(&decoded[0].1.record, PerformanceRecord::Checkpoint { .. })
+                {
+                    let PerformanceRecord::Checkpoint { checkpoint: group } = &decoded[0].1.record
+                    else {
+                        unreachable!()
+                    };
+                    budget.visit_groups(1)?;
+                    require(
+                        group.chunks.len() <= 63
+                            && pending.len()
+                                == group
+                                    .chunks
+                                    .iter()
+                                    .filter(|member| member.stream_id == "control")
+                                    .count(),
+                        "Control checkpoint membership differs from its decoded group",
+                    )?;
+                    for retained in pending.drain(..) {
+                        let retained: ControlChunk = retained;
+                        charge(budget, 63 * 128)?;
+                        let index = group
+                            .chunks
+                            .iter()
+                            .position(|member| {
+                                member.stream_id == "control"
+                                    && member.sequence == retained.sequence
+                                    && member.sha256 == retained.sha256
+                            })
+                            .ok_or_else(|| {
+                                invalid("Control chunk is absent from its authenticated checkpoint")
+                            })?;
+                        let ordinal = group_base
+                            .checked_add(index as u64 + 1)
+                            .ok_or_else(|| invalid("Control physical ordinal overflow"))?;
+                        for (index, record) in retained.records.into_iter().enumerate() {
+                            budget.visit_records(1)?;
+                            charge(budget, 512)?;
+                            let location = PerformanceRecordLocation {
+                                stream_id: "control".into(),
+                                stream_event_ordinal: retained
+                                    .event_start
+                                    .checked_add(index as u64)
+                                    .ok_or_else(|| invalid("Control event ordinal overflow"))?,
+                                chunk_ordinal: ordinal,
+                                record_index: u32::try_from(index).map_err(invalid)?,
+                                callback_index: 0,
+                                batch_ordinal: None,
+                                event_index: None,
+                                applied_source_ordinal: None,
+                            };
+                            lifecycle.record(record.record, location, budget)?;
+                        }
+                    }
+                    group_base = group_base
+                        .checked_add(group.chunks.len() as u64 + 1)
+                        .ok_or_else(|| invalid("Checkpoint physical ordinal overflow"))?;
+                    lifecycle.checkpoint(group)?;
+                    group_bytes = 0;
+                } else {
+                    require(
+                        pending.len() < 63,
+                        "Too many control chunks before an authenticated checkpoint",
+                    )?;
+                    group_bytes = group_bytes
+                        .checked_add(chunk.payload.len())
+                        .ok_or_else(|| invalid("Projection group byte count overflow"))?;
+                    require(
+                        group_bytes <= MAX_PROJECTION_REVIEW_BYTES,
+                        "Projection control group exceeds 8 MiB",
+                    )?;
+                    charge(
+                        budget,
+                        decoded
+                            .len()
+                            .checked_mul(std::mem::size_of::<LocalRecord>())
+                            .ok_or_else(|| invalid("Projection record allocation overflow"))?,
+                    )?;
+                    let records = decoded.into_iter().map(|(_, record)| record).collect();
+                    pending.push(ControlChunk {
+                        sequence,
+                        sha256: chunk.sha256,
+                        event_start: chunk.header.range.start(),
+                        records,
+                    });
+                }
+            }
+            require(
+                pending.is_empty() && group_base == request.source.selection.chunk_count,
+                "Projection did not end at the authenticated selected checkpoint",
+            )?;
+            let review = lifecycle.finish(
+                request,
+                profile.version(),
+                &config.gui_clock,
+                checkpoint,
+                reader.manifest().body.interrupted.is_some(),
+                budget,
+            )?;
+            self.verify_unchanged()?;
+            Ok(review)
+        })();
+        budget.checkpoint()?;
+        result
+    }
+}
+
+/// Compatibility entrypoint with early request-shape refusal. Authentication,
+/// interpretation and output share the existing held reader's sticky governor.
 pub fn project_sealed_performance_bounded(
     reader: &SealedJournal,
     request: &PerformanceProjectionRequest,
@@ -361,160 +615,7 @@ pub fn project_sealed_performance_bounded(
         budget.checkpoint()?;
         charge(budget, 4096)?;
         request.validate()?;
-        // Descriptor decoding may allocate its bounded provenance extension.
-        charge(budget, omniusong_recording::MAX_METADATA_BYTES * 8)?;
-        let config = from_descriptor(reader.descriptor()).map_err(invalid)?;
-        let profile = descriptor_profile(reader.descriptor()).map_err(invalid)?;
-        let inspected = inspect_sealed_performance_bounded(reader)?;
-        require(
-            request.source.take_id == config.take_id.0
-                && request.source.take_id == reader.descriptor().take_id.0
-                && request.source.manifest_sha256 == reader.manifest().sha256
-                && request.source.descriptor_sha256 == inspected.descriptor_sha256
-                && request.source.original_rows_sha256 == inspected.original_rows_sha256
-                && request.source.journal_sha256_at_review == inspected.journal_sha256_at_review
-                && inspected.checkpoint_sha256.as_ref() == Some(&request.source.checkpoint_sha256)
-                && inspected.selection.as_ref() == Some(&request.source.selection),
-            "Performance projection source pins differ from the held authenticated recording",
-        )?;
-        let checkpoint = inspected
-            .checkpoint
-            .as_ref()
-            .ok_or_else(|| invalid("No authenticated selected performance checkpoint"))?;
-        require(
-            request.region.end <= checkpoint.audio_end
-                && reader.manifest().body.chunk_count == request.source.selection.chunk_count
-                && reader.manifest().body.chunk_index_sha256
-                    == request.source.selection.chunk_index_sha256,
-            "Projection region or selected checkpoint differs from the held sealed prefix",
-        )?;
-        let control = reader
-            .manifest()
-            .body
-            .streams
-            .iter()
-            .find(|p| p.stream_id == "control")
-            .ok_or_else(|| invalid("Performance manifest has no control prefix"))?;
-        charge(budget, 64 * std::mem::size_of::<ControlChunk>())?;
-        let mut pending = Vec::with_capacity(64);
-        let mut group_base = 0u64;
-        let mut group_bytes = 0usize;
-        let mut lifecycle = lifecycle::Lifecycle::new(&config, request, budget)?;
-        for sequence in 0..control.next_sequence {
-            budget.checkpoint()?;
-            let chunk = reader.read_chunk("control", sequence)?;
-            let decode_credit = chunk
-                .payload
-                .len()
-                .checked_mul(8)
-                .ok_or_else(|| invalid("Projection decode credit overflow"))?;
-            charge(budget, decode_credit)?;
-            let decoded = contextual_records(&config, profile, 5, &chunk, Some(budget))
-                .map_err(|e| e.into_recording())?;
-            if decoded.len() == 1
-                && matches!(&decoded[0].1.record, PerformanceRecord::Checkpoint { .. })
-            {
-                let PerformanceRecord::Checkpoint { checkpoint: group } = &decoded[0].1.record
-                else {
-                    unreachable!()
-                };
-                budget.visit_groups(1)?;
-                require(
-                    group.chunks.len() <= 63
-                        && pending.len()
-                            == group
-                                .chunks
-                                .iter()
-                                .filter(|member| member.stream_id == "control")
-                                .count(),
-                    "Control checkpoint membership differs from its decoded group",
-                )?;
-                for retained in pending.drain(..) {
-                    let retained: ControlChunk = retained;
-                    charge(budget, 63 * 128)?;
-                    let index = group
-                        .chunks
-                        .iter()
-                        .position(|member| {
-                            member.stream_id == "control"
-                                && member.sequence == retained.sequence
-                                && member.sha256 == retained.sha256
-                        })
-                        .ok_or_else(|| {
-                            invalid("Control chunk is absent from its authenticated checkpoint")
-                        })?;
-                    let ordinal = group_base
-                        .checked_add(index as u64 + 1)
-                        .ok_or_else(|| invalid("Control physical ordinal overflow"))?;
-                    for (index, record) in retained.records.into_iter().enumerate() {
-                        budget.visit_records(1)?;
-                        charge(budget, 512)?;
-                        let location = PerformanceRecordLocation {
-                            stream_id: "control".into(),
-                            stream_event_ordinal: retained
-                                .event_start
-                                .checked_add(index as u64)
-                                .ok_or_else(|| invalid("Control event ordinal overflow"))?,
-                            chunk_ordinal: ordinal,
-                            record_index: u32::try_from(index).map_err(invalid)?,
-                            callback_index: 0,
-                            batch_ordinal: None,
-                            event_index: None,
-                            applied_source_ordinal: None,
-                        };
-                        lifecycle.record(record.record, location, budget)?;
-                    }
-                }
-                group_base = group_base
-                    .checked_add(group.chunks.len() as u64 + 1)
-                    .ok_or_else(|| invalid("Checkpoint physical ordinal overflow"))?;
-                lifecycle.checkpoint(group)?;
-                group_bytes = 0;
-            } else {
-                require(
-                    pending.len() < 63,
-                    "Too many control chunks before an authenticated checkpoint",
-                )?;
-                group_bytes = group_bytes
-                    .checked_add(chunk.payload.len())
-                    .ok_or_else(|| invalid("Projection group byte count overflow"))?;
-                require(
-                    group_bytes <= MAX_PROJECTION_REVIEW_BYTES,
-                    "Projection control group exceeds 8 MiB",
-                )?;
-                charge(
-                    budget,
-                    decoded
-                        .len()
-                        .checked_mul(std::mem::size_of::<LocalRecord>())
-                        .ok_or_else(|| invalid("Projection record allocation overflow"))?,
-                )?;
-                let records = decoded.into_iter().map(|(_, record)| record).collect();
-                pending.push(ControlChunk {
-                    sequence,
-                    sha256: chunk.sha256,
-                    event_start: chunk.header.range.start(),
-                    records,
-                });
-            }
-        }
-        require(
-            pending.is_empty() && group_base == request.source.selection.chunk_count,
-            "Projection did not end at the authenticated selected checkpoint",
-        )?;
-        let review = lifecycle.finish(
-            request,
-            profile.version(),
-            &config.gui_clock,
-            checkpoint,
-            reader.manifest().body.interrupted.is_some(),
-            budget,
-        )?;
-        budget.checkpoint()?;
-        let unchanged = reader.verify_source_identity();
-        budget.checkpoint()?;
-        unchanged?;
-        Ok(review)
+        AuthenticatedPerformance::open(reader)?.project(request)
     })();
     budget.checkpoint()?;
     result

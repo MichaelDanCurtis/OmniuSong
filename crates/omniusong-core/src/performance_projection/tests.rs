@@ -489,3 +489,351 @@ fn explicit_schema_promotion_preserves_legacy_values_and_refuses_any_opaque_regi
     null["performanceProjections"] = Value::Null;
     assert!(ProjectDocument::from_value(null).is_err());
 }
+
+fn lane_choices(binding: &PerformanceProjectionBinding) -> Vec<ProjectionLaneChoice> {
+    binding
+        .lanes
+        .iter()
+        .map(|lane| ProjectionLaneChoice {
+            source: lane.source,
+            instrument: lane.instrument,
+            track_id: lane.track_id.clone(),
+            track_name: "Editable interpretation 🎹".into(),
+        })
+        .collect()
+}
+
+// These fixtures intentionally exercise only the complete document constructor.
+// Their thin retained envelope grants no shared-layer or store authority.
+#[test]
+fn complete_candidate_preserves_authored_values_and_creates_muted_ordinary_lanes() {
+    for schema in [1, 2, 3] {
+        let mut original_value = ProjectDocument::new("Authored song")
+            .unwrap()
+            .value()
+            .clone();
+        original_value["schemaVersion"] = schema.into();
+        original_value["revision"] = 42.into();
+        original_value["vendor:exact"] = project_value()["vendor:exact"].clone();
+        if schema == 3 {
+            original_value["performanceProjections"] = json!({"version":1,"entries":[]});
+        }
+        let original = ProjectDocument::from_value(original_value.clone()).unwrap();
+        let binding = binding();
+        let choices = lane_choices(&binding);
+        let result = original
+            .append_performance_projection(
+                &binding,
+                &choices,
+                NoteTimelinePolicy::PreserveLoop,
+                true,
+            )
+            .unwrap();
+        assert_eq!(original.value(), &original_value);
+        assert_eq!(result.id(), original.id());
+        assert_eq!(result.revision(), 42);
+        assert_eq!(result.schema_version(), 3);
+        assert_eq!(result.bars(), original.bars());
+        assert_eq!(
+            &result.tracks()[..original.tracks().len()],
+            original.tracks()
+        );
+        assert_eq!(
+            result.value()["vendor:exact"],
+            original_value["vendor:exact"]
+        );
+        assert_eq!(
+            result.performance_projections().unwrap().unwrap().entries,
+            vec![binding.clone()]
+        );
+        assert_eq!(
+            result.referenced_takes().unwrap(),
+            BTreeSet::from([binding.source])
+        );
+        let track = result.tracks().last().unwrap();
+        assert_eq!(track["kind"], "notes");
+        assert_eq!(track["name"], choices[0].track_name);
+        assert_eq!(track["instrument"], "keys");
+        assert_eq!(track["muted"], true);
+        assert_eq!(track["armed"], false);
+        assert_eq!(track["locked"], false);
+        assert_eq!(
+            track["notes"][0],
+            json!({
+                "id":"original-a","pitch":60,"startTick":120,
+                "durationTicks":960,"velocity16":0,"expression":[]
+            })
+        );
+        let mut expected = original_value;
+        expected["schemaVersion"] = 3.into();
+        expected["performanceProjections"] = result.value()["performanceProjections"].clone();
+        expected["tracks"]
+            .as_array_mut()
+            .unwrap()
+            .push(track.clone());
+        assert_eq!(
+            result.value(),
+            &expected,
+            "Every unrelated value remains exact"
+        );
+    }
+}
+
+#[test]
+fn complete_candidate_requires_explicit_promotion_and_retains_opaque_collisions() {
+    let binding = binding();
+    let choices = lane_choices(&binding);
+    for schema in [1, 2] {
+        let mut value = ProjectDocument::new("No automatic promotion")
+            .unwrap()
+            .value()
+            .clone();
+        value["schemaVersion"] = schema.into();
+        let source = ProjectDocument::from_value(value.clone()).unwrap();
+        assert!(
+            source
+                .append_performance_projection(
+                    &binding,
+                    &choices,
+                    NoteTimelinePolicy::PreserveLoop,
+                    false
+                )
+                .is_err()
+        );
+        assert_eq!(source.value(), &value);
+        for opaque in [
+            Value::Null,
+            json!({"version":1,"entries":[]}),
+            json!("foreign"),
+        ] {
+            let mut collision = value.clone();
+            collision["performanceProjections"] = opaque;
+            let source = ProjectDocument::from_value(collision.clone()).unwrap();
+            assert!(
+                source
+                    .append_performance_projection(
+                        &binding,
+                        &choices,
+                        NoteTimelinePolicy::PreserveLoop,
+                        true
+                    )
+                    .is_err()
+            );
+            assert_eq!(source.value(), &collision);
+        }
+    }
+}
+
+#[test]
+fn complete_candidate_refuses_existing_and_deleted_reserved_identities() {
+    let original = ProjectDocument::new("Existing identities").unwrap();
+    let mut original_value = original.value().clone();
+    original_value["tracks"][0]["notes"] = json!([note("original-a")]);
+    let source = ProjectDocument::from_value(original_value.clone()).unwrap();
+    let mut proposed = binding();
+    assert!(
+        source
+            .append_performance_projection(
+                &proposed,
+                &lane_choices(&proposed),
+                NoteTimelinePolicy::PreserveLoop,
+                true
+            )
+            .is_err()
+    );
+    assert_eq!(source.value(), &original_value);
+    proposed.lanes[0].original_notes[0].note_id = NoteId("new-projected-note".into());
+    proposed.lanes[0].track_id = original.tracks()[0]["id"].as_str().unwrap().into();
+    assert!(
+        source
+            .append_performance_projection(
+                &proposed,
+                &lane_choices(&proposed),
+                NoteTimelinePolicy::PreserveLoop,
+                true
+            )
+            .is_err()
+    );
+
+    let source = project();
+    let mut without_lanes = source.value().clone();
+    without_lanes["tracks"].as_array_mut().unwrap().remove(0);
+    let source = ProjectDocument::from_value(without_lanes.clone()).unwrap();
+    proposed = binding();
+    proposed.id = "second-projection".into();
+    proposed.lanes[0].original_notes[0].note_id = NoteId("new-projected-note".into());
+    assert!(
+        source
+            .append_performance_projection(
+                &proposed,
+                &lane_choices(&proposed),
+                NoteTimelinePolicy::PreserveLoop,
+                false
+            )
+            .is_err()
+    );
+    proposed.lanes[0].track_id = "new-lane".into();
+    proposed.lanes[0].original_notes[0].note_id = NoteId("original-a".into());
+    assert!(
+        source
+            .append_performance_projection(
+                &proposed,
+                &lane_choices(&proposed),
+                NoteTimelinePolicy::PreserveLoop,
+                false
+            )
+            .is_err()
+    );
+    proposed.lanes[0].original_notes[0].note_id = NoteId("new-projected-note".into());
+    proposed.id = "projection-one".into();
+    assert!(
+        source
+            .append_performance_projection(
+                &proposed,
+                &lane_choices(&proposed),
+                NoteTimelinePolicy::PreserveLoop,
+                false
+            )
+            .is_err()
+    );
+    assert_eq!(source.value(), &without_lanes);
+}
+
+#[test]
+fn complete_candidate_requires_exact_ordered_destinations_and_bounded_names() {
+    let source = ProjectDocument::new("All lanes or none").unwrap();
+    let before = source.value().clone();
+    let mut binding = binding();
+    let mut second = binding.lanes[0].clone();
+    second.instrument = ProjectionInstrument::Bass;
+    second.track_id = "projected-lane-b".into();
+    second.original_notes[0].note_id = NoteId("original-b".into());
+    second.original_notes[0].identity_sha256 = "d".repeat(64);
+    binding.lanes.push(second);
+    let choices = lane_choices(&binding);
+    source
+        .append_performance_projection(&binding, &choices, NoteTimelinePolicy::PreserveLoop, true)
+        .unwrap();
+    for bad in [
+        vec![],
+        choices[..1].to_vec(),
+        vec![choices[1].clone(), choices[0].clone()],
+    ] {
+        assert!(
+            source
+                .append_performance_projection(
+                    &binding,
+                    &bad,
+                    NoteTimelinePolicy::PreserveLoop,
+                    true
+                )
+                .is_err()
+        );
+    }
+    for field in ["source", "instrument", "track"] {
+        let mut bad = choices.clone();
+        match field {
+            "source" => bad[0].source = 0,
+            "instrument" => bad[0].instrument = ProjectionInstrument::Drums,
+            _ => bad[0].track_id = "another-destination".into(),
+        }
+        assert!(
+            source
+                .append_performance_projection(
+                    &binding,
+                    &bad,
+                    NoteTimelinePolicy::PreserveLoop,
+                    true
+                )
+                .is_err()
+        );
+    }
+    for name in [" ".into(), "embedded\ncontrol".into(), "🎹".repeat(161)] {
+        let mut bad = choices.clone();
+        bad[0].track_name = name;
+        assert!(
+            source
+                .append_performance_projection(
+                    &binding,
+                    &bad,
+                    NoteTimelinePolicy::PreserveLoop,
+                    true
+                )
+                .is_err()
+        );
+    }
+    let mut exact = choices.clone();
+    exact[0].track_name = "🎹".repeat(160);
+    source
+        .append_performance_projection(&binding, &exact, NoteTimelinePolicy::PreserveLoop, true)
+        .unwrap();
+    assert_eq!(source.value(), &before);
+}
+
+#[test]
+fn complete_candidate_loop_policy_never_trims_and_refuses_excess_native_duration() {
+    let source = ProjectDocument::new("Explicit loop policy").unwrap();
+    let before = source.value().clone();
+    let mut binding = binding();
+    binding.lanes[0].original_notes[0].values.start_tick = crate::PPQ * 4 * (source.bars() + 2) - 1;
+    binding.lanes[0].original_notes[0].values.duration_ticks = 2;
+    let choices = lane_choices(&binding);
+    let preserve = source
+        .append_performance_projection(&binding, &choices, NoteTimelinePolicy::PreserveLoop, true)
+        .unwrap();
+    assert_eq!(preserve.bars(), source.bars());
+    let extend = NoteTimelinePolicy::ExtendLoop {
+        allow_native_schema_upgrade: false,
+    };
+    let longer = source
+        .append_performance_projection(&binding, &choices, extend, true)
+        .unwrap();
+    assert_eq!(longer.bars(), source.bars() + 3);
+    binding.lanes[0].original_notes[0].values = values();
+    assert_eq!(
+        source
+            .append_performance_projection(&binding, &choices, extend, true)
+            .unwrap()
+            .bars(),
+        source.bars()
+    );
+    binding.lanes[0].original_notes[0].values.start_tick =
+        crate::native::MAX_NATIVE_BARS * crate::PPQ * 4;
+    assert!(
+        source
+            .append_performance_projection(&binding, &choices, extend, true)
+            .is_err()
+    );
+    assert_eq!(source.value(), &before);
+}
+
+#[test]
+fn complete_candidate_refuses_track_capacity_before_returning_any_partial_result() {
+    let mut value = ProjectDocument::new("Track capacity")
+        .unwrap()
+        .value()
+        .clone();
+    let template = value["tracks"][0].clone();
+    value["tracks"] = Value::Array(
+        (0..64)
+            .map(|index| {
+                let mut track = template.clone();
+                track["id"] = format!("authored-{index}").into();
+                track
+            })
+            .collect(),
+    );
+    let source = ProjectDocument::from_value(value.clone()).unwrap();
+    let binding = binding();
+    assert!(
+        source
+            .append_performance_projection(
+                &binding,
+                &lane_choices(&binding),
+                NoteTimelinePolicy::PreserveLoop,
+                true
+            )
+            .is_err()
+    );
+    assert_eq!(source.value(), &value);
+}

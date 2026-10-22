@@ -1,5 +1,7 @@
 //! Actual device-free renderer/writer evidence, authenticated recovered sealing,
 //! and public bounded projection. No native normal-seal permit is manufactured.
+#[path = "performance_projection_review/binding_review.rs"]
+mod binding_review;
 use omniusong_core::contracts::{ClockEpochId, EndpointId, TakeId};
 use omniusong_engine::{
     LiveBatch, LiveClock, LiveEvent, LiveEventKind, LiveId, LivePatch, LiveScope,

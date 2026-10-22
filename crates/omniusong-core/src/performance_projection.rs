@@ -17,6 +17,8 @@ pub const MAX_PROJECTION_LANES: usize = 16;
 pub const MAX_ORIGINAL_PROJECTION_NOTES: usize = 20_000;
 pub const MAX_RETAINED_PROJECTION_REVIEW_BYTES: usize = 8 * 1024 * 1024;
 
+mod publication;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ProjectionInstrument {
@@ -34,6 +36,17 @@ impl ProjectionInstrument {
             Self::Pad => "pad",
         }
     }
+}
+
+/// Portable initial lane choices. Source authentication and actual note values
+/// belong to the held performance interpreter, never this caller-authored DTO.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProjectionLaneChoice {
+    pub source: u8,
+    pub instrument: ProjectionInstrument,
+    pub track_id: String,
+    pub track_name: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
