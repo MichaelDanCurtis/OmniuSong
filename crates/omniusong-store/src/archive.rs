@@ -933,6 +933,7 @@ fn insert_meta(connection: &Connection, bundle: &Bundle) -> Result<()> {
 impl NativeStore {
     /// Export a complete retained project closure without overwriting a name.
     pub fn export_archive(&self, project_id: &str, destination: &Path) -> Result<ArchiveReceipt> {
+        let _writer = crate::retained_file_coordination::writer_with_file(&self.root, destination)?;
         let mut staging: Option<PathBuf> = None;
         let mut published = false;
         let outcome = (|| {
@@ -1389,6 +1390,8 @@ impl NativeStore {
     /// Restore exact identities without replacing projects or operation receipts.
     /// Restore-as-copy uses its separate typed and idempotent admission API.
     pub fn restore_archive(&mut self, archive_path: &Path) -> Result<ProjectDocument> {
+        let _writer =
+            crate::retained_file_coordination::writer_with_file(&self.root, archive_path)?;
         let mut staging: Option<PathBuf> = None;
         let mut published_objects = 0;
         let mut committed = false;

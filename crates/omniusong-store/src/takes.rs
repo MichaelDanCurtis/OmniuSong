@@ -454,6 +454,7 @@ impl NativeStore {
     /// Own a durable complete SQLite backup before adding immutable registry metadata.
     /// A later registry failure retains its owned content object as an orphan.
     pub fn ingest_take(&mut self, source: &SealedJournal) -> Result<TakeObject> {
+        let _writer = crate::retained_file_coordination::writer(&self.root)?;
         let take_id = &source.descriptor().take_id;
         if has_take(&self.connection, take_id)? {
             let existing = load_take(&self.connection, take_id)?;

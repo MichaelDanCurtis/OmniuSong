@@ -36,7 +36,7 @@ fn validate_payload(payload: &[u8]) -> Result<()> {
     }
     Ok(())
 }
-fn load_history(connection: &Connection) -> Result<Vec<StoredPerformanceIntent>> {
+pub(crate) fn load_history(connection: &Connection) -> Result<Vec<StoredPerformanceIntent>> {
     let mut statement=connection.prepare("SELECT CASE WHEN typeof(id)='text' AND octet_length(id)=32 THEN id END, revision, CASE WHEN typeof(payload)='blob' AND octet_length(payload) BETWEEN 1 AND 16384 THEN payload END, CASE WHEN typeof(payload_sha256)='text' AND octet_length(payload_sha256)=64 THEN payload_sha256 END FROM recording_intents ORDER BY id,revision LIMIT 513")?;
     let mut rows = statement.query([])?;
     let mut result: Vec<StoredPerformanceIntent> = Vec::new();

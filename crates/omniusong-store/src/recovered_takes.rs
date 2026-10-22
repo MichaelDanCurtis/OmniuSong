@@ -129,6 +129,7 @@ impl NativeStore {
     /// Retains any exclusive partial/orphan on failure. The caller holds the
     /// action lease and recovered view through the later project transaction.
     pub fn ingest_recovered_copy(&mut self, view: &RecoveredCopyView<'_>) -> Result<TakeObject> {
+        let _writer = crate::retained_file_coordination::writer(&self.root)?;
         view.verify_unchanged()?;
         let source = view.working_reader().inspection();
         let take_id = &source.descriptor.take_id;

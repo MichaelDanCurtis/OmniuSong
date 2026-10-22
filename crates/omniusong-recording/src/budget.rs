@@ -180,6 +180,17 @@ impl InspectionBudget {
     pub fn charge_work(&self, bytes: u64) -> Result<()> {
         self.charge(InspectionResource::WorkBytes, bytes)
     }
+    /// Observe a raw evidence object's physical length under the same sticky
+    /// per-file ceiling. This grants no SQLite inspection or recovery authority.
+    pub fn observe_file_bytes(&self, bytes: u64) -> Result<()> {
+        self.file(bytes)
+    }
+    /// Installs this same sticky VM/cancellation governor on a caller-owned
+    /// private connection. The caller must not share or reuse that connection
+    /// for another operation. This grants no recording mutation authority.
+    pub fn install_sqlite_progress(&self, connection: &rusqlite::Connection) -> Result<()> {
+        self.install(connection)
+    }
     pub fn visit_rows(&self, count: u64) -> Result<()> {
         self.charge(InspectionResource::RowVisits, count)
     }

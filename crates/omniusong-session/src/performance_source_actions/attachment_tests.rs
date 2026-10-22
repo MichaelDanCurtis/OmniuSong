@@ -32,6 +32,129 @@ const NEXT: &str = "44444444444444444444444444444444";
 fn checksum(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
+
+#[test]
+fn actual_six_stream_recovery_choices_archive_and_restore_as_inert_exact_evidence() {
+    use omniusong_recording::{InspectionBudget, InspectionLimits};
+    use omniusong_store::{EvidenceEntryKind, inspect_evidence_archive};
+    let budget = || InspectionBudget::new(InspectionLimits::default(), fixture::token()).unwrap();
+    for mode in [fixture::Mode::Tail, fixture::Mode::Finish] {
+        let (f, mut backend, source, raw, verified) = verified(mode);
+        let pending = choose(&mut backend, &verified, &source, CHOICE, None, 240);
+        let receipt = attach(&mut backend, &pending).unwrap();
+        assert!(receipt.committed);
+        let kept = save(
+            &mut backend,
+            &receipt.state,
+            PerformanceSourceDecision::KeepLocally,
+        );
+        let _reviewing = save(
+            &mut backend,
+            &kept,
+            PerformanceSourceDecision::ReturnToReview,
+        );
+        let history = fixture::history(&mut backend);
+        let projects = fixture::projects(&mut backend);
+        let native = f.paths().native;
+        let source_tree = fixture::tree(&native.join("captures"));
+        let action_tree = fixture::tree(&native.join("source-actions"));
+        let owned_tree = fixture::tree(&native.join("takes"));
+        let archive = f.root.join("complete-recovered-source.osre");
+        let exported = backend
+            .store()
+            .unwrap()
+            .export_retained_evidence_full_root(&archive, OTHER, &budget())
+            .unwrap();
+        let inspected = inspect_evidence_archive(&archive, &budget()).unwrap();
+        assert_eq!(inspected.receipt, exported);
+        assert_eq!(exported.sha256, checksum(&fs::read(&archive).unwrap()));
+        let restored = f.root.join("inert-evidence");
+        backend
+            .store()
+            .unwrap()
+            .restore_retained_evidence(&archive, &restored, &budget())
+            .unwrap();
+        for (prefix, tree) in [
+            ("captures", &source_tree),
+            ("source-actions", &action_tree),
+            ("takes", &owned_tree),
+        ] {
+            for (relative, bytes) in tree {
+                let path = format!("{prefix}/{}", relative.to_str().unwrap());
+                let (index, entry) = inspected
+                    .manifest
+                    .entries
+                    .iter()
+                    .enumerate()
+                    .find(|(_, e)| e.path == path)
+                    .expect("every original/partial/sidecar/directory is inventoried");
+                if let Some(bytes) = bytes {
+                    assert_eq!(entry.kind, EvidenceEntryKind::File);
+                    assert_eq!(
+                        fs::read(restored.join("objects").join(format!("{index:04}.bin"))).unwrap(),
+                        *bytes
+                    );
+                } else {
+                    assert_eq!(entry.kind, EvidenceEntryKind::Directory);
+                }
+            }
+        }
+        let catalog_index = inspected
+            .manifest
+            .entries
+            .iter()
+            .position(|e| e.path == "catalog.sqlite3")
+            .unwrap();
+        let catalog = rusqlite::Connection::open_with_flags(
+            restored
+                .join("objects")
+                .join(format!("{catalog_index:04}.bin")),
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )
+        .unwrap();
+        let review: Vec<u8> = catalog
+            .query_row(
+                "SELECT payload FROM performance_source_reviews WHERE id=?1",
+                [ACTION],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(review, raw);
+        let rows = catalog.prepare("SELECT id,revision,review_blob_sha256,payload,payload_sha256 FROM performance_source_actions ORDER BY id,revision").unwrap().query_map([], |r| Ok((r.get::<_,String>(0)?,r.get::<_,i64>(1)?,r.get::<_,String>(2)?,r.get::<_,Vec<u8>>(3)?,r.get::<_,String>(4)?))).unwrap().collect::<rusqlite::Result<Vec<_>>>().unwrap();
+        assert_eq!(
+            rows,
+            history
+                .revisions
+                .iter()
+                .map(|r| (
+                    r.id.clone(),
+                    r.revision as i64,
+                    r.review_blob_sha256.clone(),
+                    r.payload.clone(),
+                    r.payload_sha256.clone()
+                ))
+                .collect::<Vec<_>>()
+        );
+        let operation = publication(&pending).operation_id.0.clone();
+        let archived_operation: String = catalog
+            .query_row(
+                "SELECT operation_id FROM operations WHERE operation_id=?1",
+                [&operation],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(archived_operation, operation);
+        drop(catalog);
+        assert!(!restored.join("studio.sqlite3").exists());
+        assert!(!restored.join("captures").exists());
+        assert!(!restored.join("source-actions").exists());
+        assert_eq!(fixture::history(&mut backend), history);
+        assert_eq!(fixture::projects(&mut backend), projects);
+        assert_eq!(fixture::tree(&native.join("captures")), source_tree);
+        assert_eq!(fixture::tree(&native.join("source-actions")), action_tree);
+        assert_eq!(fixture::tree(&native.join("takes")), owned_tree);
+    }
+}
 fn verified(
     mode: fixture::Mode,
 ) -> (

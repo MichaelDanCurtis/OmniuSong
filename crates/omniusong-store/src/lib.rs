@@ -4,12 +4,14 @@
 mod archive;
 mod archive_copy;
 mod captures;
+mod evidence_archive;
 mod operations;
 mod performance_attachment_check;
 mod performance_intents;
 mod performance_source_actions;
 mod reader;
 mod recovered_takes;
+mod retained_file_coordination;
 mod source_attachment;
 mod takes;
 pub use reader::NativeReader;
@@ -26,6 +28,11 @@ pub use archive_copy::{
 pub use captures::{
     CaptureAudio, CaptureInspection, CaptureRecoveryReceipt, CaptureStage, CaptureStageScan,
     CaptureStageState, MAX_CAPTURE_STAGES,
+};
+pub use evidence_archive::{
+    EVIDENCE_SCOPE, EvidenceAbsence, EvidenceArchiveInspection, EvidenceArchiveReceipt,
+    EvidenceEntry, EvidenceEntryKind, EvidenceManifest, EvidenceRestoreReceipt, EvidenceRoot,
+    MAX_EVIDENCE_ENTRIES, MAX_EVIDENCE_MANIFEST_BYTES, inspect_evidence_archive,
 };
 pub use operations::EditReceipt;
 pub use performance_intents::StoredPerformanceIntent;
@@ -372,6 +379,9 @@ impl NativeStore {
         if create {
             fs::create_dir_all(root)?;
         }
+        let canonical_root = fs::canonicalize(root)?;
+        let _writer = crate::retained_file_coordination::writer(&canonical_root)?;
+        let root = canonical_root.as_path();
         let mut connection = if create {
             Connection::open(root.join("studio.sqlite3"))?
         } else {

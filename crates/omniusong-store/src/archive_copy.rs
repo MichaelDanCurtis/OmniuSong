@@ -647,6 +647,7 @@ impl NativeStore {
     /// A fingerprint and bounded header summary. This is not complete restore
     /// validation. It uses a private disk snapshot, then removes it on success.
     pub fn inspect_archive(&self, path: &Path) -> Result<ArchiveInspection> {
+        let _writer = crate::retained_file_coordination::writer_with_file(&self.root, path)?;
         let stage = archive::private_directory(&self.root, "archive-inspect")?;
         let result = (|| {
             let (input, byte_length, sha256) = acquire(path, &stage, None)?;
@@ -696,6 +697,7 @@ impl NativeStore {
             }
         }
         super::source_attachment::reject_reserved_operation(&intent.operation_id.0)?;
+        let _writer = crate::retained_file_coordination::writer_with_file(&self.root, path)?;
         let stage = archive::private_directory(&self.root, "archive-copy")?;
         let mut published_objects = 0;
         let mut committed = false;
