@@ -1,9 +1,17 @@
 //! Bounded session storage service. UI callers only submit/poll nonblocking channels.
+mod evidence_jobs;
 mod performance_intents;
 mod performance_source_actions;
 mod performance_sources;
 #[cfg(test)]
 mod source_action_controls_review;
+pub use evidence_jobs::{
+    EvidenceBudgetStop, EvidenceJobList, EvidenceJobPhase, EvidenceJobReply, EvidenceJobRequest,
+    EvidenceJobSummary, EvidenceJobView, EvidenceMessage, EvidenceMetadataProblem,
+    EvidenceObservation, EvidenceObservationStatus, EvidenceOperation, EvidenceOutcome,
+    EvidenceProblem, EvidenceProblemKind, EvidenceResourceOrigin, MAX_EVIDENCE_JOB_OBSERVATIONS,
+    MAX_EVIDENCE_JOBS,
+};
 use omniusong_core::{
     MAX_PROJECT_BYTES, ProjectDocument,
     contracts::{OperationId, ProjectEditIntent, ProjectId, Validate, WORKER_MAX_BYTES},
@@ -105,6 +113,21 @@ impl DocumentView {
 
 #[derive(Debug, Clone)]
 pub enum Command {
+    RunEvidenceJob {
+        request: Box<EvidenceJobRequest>,
+    },
+    InspectRetainedEvidence {
+        path: PathBuf,
+    },
+    ListEvidenceJobs,
+    ReadEvidenceJob {
+        job_id: String,
+    },
+    ReconcileEvidenceJob {
+        job_id: String,
+        expected_request_sha256: String,
+        expected_history_sha256: String,
+    },
     Initialize,
     Refresh,
     Create {
@@ -191,6 +214,11 @@ pub enum Command {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommandKind {
+    RunEvidenceJob,
+    InspectRetainedEvidence,
+    ListEvidenceJobs,
+    ReadEvidenceJob,
+    ReconcileEvidenceJob,
     Initialize,
     Refresh,
     Create,
@@ -221,6 +249,11 @@ pub enum CommandKind {
 impl Command {
     pub fn kind(&self) -> CommandKind {
         match self {
+            Self::RunEvidenceJob { .. } => CommandKind::RunEvidenceJob,
+            Self::InspectRetainedEvidence { .. } => CommandKind::InspectRetainedEvidence,
+            Self::ListEvidenceJobs => CommandKind::ListEvidenceJobs,
+            Self::ReadEvidenceJob { .. } => CommandKind::ReadEvidenceJob,
+            Self::ReconcileEvidenceJob { .. } => CommandKind::ReconcileEvidenceJob,
             Self::Initialize => CommandKind::Initialize,
             Self::Refresh => CommandKind::Refresh,
             Self::Create { .. } => CommandKind::Create,
@@ -266,13 +299,18 @@ impl Command {
     pub fn retry_safe(&self) -> bool {
         !matches!(
             self,
-            Self::Create { .. } | Self::ImportLegacy { .. } | Self::ExportArchive { .. }
+            Self::Create { .. }
+                | Self::ImportLegacy { .. }
+                | Self::ExportArchive { .. }
+                | Self::RunEvidenceJob { .. }
+                | Self::ReconcileEvidenceJob { .. }
         )
     }
     pub fn mutates(&self) -> bool {
         matches!(
             self,
-            Self::Create { .. }
+            Self::RunEvidenceJob { .. }
+                | Self::Create { .. }
                 | Self::ImportLegacy { .. }
                 | Self::Edit { .. }
                 | Self::AttachCapture { .. }
@@ -295,6 +333,7 @@ impl Command {
                 self,
                 Self::ReconcilePerformanceSourceAction { .. }
                     | Self::ReconcilePerformanceSourceAttachment { .. }
+                    | Self::ReconcileEvidenceJob { .. }
             )
     }
     pub fn validate(&self) -> Result<(), ServiceError> {
@@ -312,6 +351,23 @@ impl Command {
                 .map_err(|e| ServiceError::rejected(e.to_string()))
         };
         match self {
+            Self::RunEvidenceJob { request } => request.validate(),
+            Self::InspectRetainedEvidence { path } => evidence_jobs::path_text(path).map(|_| ()),
+            Self::ListEvidenceJobs => Ok(()),
+            Self::ReadEvidenceJob { job_id } => evidence_jobs::require(
+                evidence_jobs::valid_id(job_id),
+                "Choose an exact evidence job identity",
+            ),
+            Self::ReconcileEvidenceJob {
+                job_id,
+                expected_request_sha256,
+                expected_history_sha256,
+            } => evidence_jobs::require(
+                evidence_jobs::valid_id(job_id)
+                    && evidence_jobs::valid_sha(expected_request_sha256)
+                    && evidence_jobs::valid_sha(expected_history_sha256),
+                "Choose the exact evidence job/request/history fingerprints",
+            ),
             Self::Initialize
             | Self::Refresh
             | Self::ScanCaptures
@@ -510,6 +566,10 @@ pub struct Request {
 }
 #[derive(Debug)]
 pub enum Reply {
+    EvidenceJobOutcome(Box<EvidenceJobReply>),
+    RetainedEvidenceInspected(Box<omniusong_store::EvidenceArchiveInspection>),
+    EvidenceJobs(EvidenceJobList),
+    EvidenceJob(Box<EvidenceJobView>),
     Library(Library),
     Document {
         view: DocumentView,
@@ -533,22 +593,96 @@ pub enum Reply {
     PerformanceSourceAttachment(Box<PerformanceSourceAttachmentReceipt>),
 }
 impl Reply {
+    fn matches_command(&self, command: &Command) -> bool {
+        if !self.matches(command.kind()) {
+            return false;
+        }
+        match (self, command) {
+            (Self::EvidenceJobOutcome(reply), Command::RunEvidenceJob { request }) => {
+                reply.job_id == request.job_id
+                    && request
+                        .fingerprint()
+                        .is_ok_and(|sha| sha == reply.request_sha256)
+                    && reply
+                        .history_sha256
+                        .as_ref()
+                        .is_none_or(|sha| evidence_jobs::valid_sha(sha))
+                    && reply
+                        .outcome
+                        .as_ref()
+                        .is_none_or(|outcome| outcome.validate_for(request).is_ok())
+                    && reply
+                        .metadata_problem
+                        .as_ref()
+                        .is_none_or(|problem| problem.validate().is_ok())
+                    && reply
+                        .catalog_retirement
+                        .as_ref()
+                        .is_none_or(|error| error.kind == FailureKind::StorageUnavailable)
+            }
+            (
+                Self::EvidenceJobOutcome(reply),
+                Command::ReconcileEvidenceJob {
+                    job_id,
+                    expected_request_sha256,
+                    ..
+                },
+            ) => {
+                reply.job_id == *job_id
+                    && reply.request_sha256 == *expected_request_sha256
+                    && reply.outcome.as_ref().is_none_or(|outcome| {
+                        evidence_jobs::check_bounded(
+                            outcome,
+                            evidence_jobs::MAX_EVIDENCE_OUTCOME_REPLY_BYTES,
+                        )
+                        .is_ok()
+                    })
+                    && reply
+                        .history_sha256
+                        .as_ref()
+                        .is_none_or(|sha| evidence_jobs::valid_sha(sha))
+                    && reply
+                        .metadata_problem
+                        .as_ref()
+                        .is_none_or(|problem| problem.validate().is_ok())
+                    && reply.catalog_retirement.is_none()
+            }
+            (Self::EvidenceJob(view), Command::ReadEvidenceJob { job_id }) => {
+                view.job_id == *job_id
+            }
+            (
+                Self::RetainedEvidenceInspected(inspection),
+                Command::InspectRetainedEvidence { path },
+            ) => inspection.receipt.path.as_os_str() == path.as_os_str(),
+            _ => true,
+        }
+    }
     fn matches(&self, kind: CommandKind) -> bool {
         matches!(
             (self, kind),
             (
-                Self::Library(_),
-                CommandKind::Initialize | CommandKind::Refresh
+                Self::EvidenceJobOutcome(_),
+                CommandKind::RunEvidenceJob | CommandKind::ReconcileEvidenceJob
             ) | (
-                Self::Document { .. },
-                CommandKind::Create
-                    | CommandKind::Open
-                    | CommandKind::ImportLegacy
-                    | CommandKind::Edit
-                    | CommandKind::AttachCapture
-                    | CommandKind::AttachPerformance
-                    | CommandKind::RestoreCopy
-            ) | (Self::Exported(_), CommandKind::ExportArchive)
+                Self::RetainedEvidenceInspected(_),
+                CommandKind::InspectRetainedEvidence
+            ) | (Self::EvidenceJobs(_), CommandKind::ListEvidenceJobs)
+                | (Self::EvidenceJob(_), CommandKind::ReadEvidenceJob)
+                | (
+                    Self::Library(_),
+                    CommandKind::Initialize | CommandKind::Refresh
+                )
+                | (
+                    Self::Document { .. },
+                    CommandKind::Create
+                        | CommandKind::Open
+                        | CommandKind::ImportLegacy
+                        | CommandKind::Edit
+                        | CommandKind::AttachCapture
+                        | CommandKind::AttachPerformance
+                        | CommandKind::RestoreCopy
+                )
+                | (Self::Exported(_), CommandKind::ExportArchive)
                 | (Self::Inspected(_), CommandKind::InspectArchive)
                 | (Self::CaptureStages(_), CommandKind::ScanCaptures)
                 | (Self::CaptureInspected(_), CommandKind::InspectCapture)
@@ -602,6 +736,7 @@ fn terminal_storage_failure(result: &Result<Reply, ServiceError>) -> Option<Serv
     let error = match result {
         Err(error) => Some(error),
         Ok(Reply::PerformanceSourceAttachment(receipt)) => receipt.current_document_error.as_ref(),
+        Ok(Reply::EvidenceJobOutcome(receipt)) => receipt.catalog_retirement.as_ref(),
         _ => None,
     };
     error
@@ -722,6 +857,17 @@ pub struct SubmitError {
 
 /// A backend exists only on its owning worker. Test injection is opt-in.
 pub trait Backend: Send + 'static {
+    /// Compatible entry point for the evidence token; older injected backends
+    /// retain their established inspection/source-action handling.
+    fn handle_with_evidence_cancellation(
+        &mut self,
+        command: &Command,
+        inspection_cancelled: &Arc<AtomicBool>,
+        source_action_cancelled: &Arc<AtomicBool>,
+        _evidence_cancelled: &Arc<AtomicBool>,
+    ) -> Result<Reply, ServiceError> {
+        self.handle_with_cancellations(command, inspection_cancelled, source_action_cancelled)
+    }
     fn handle(&mut self, command: &Command) -> Result<Reply, ServiceError>;
     fn handle_with_cancel(
         &mut self,
@@ -762,6 +908,7 @@ pub struct SessionService {
     terminal_failure: Option<ServiceError>,
     inspection_cancelled: Arc<AtomicBool>,
     source_action_cancelled: Arc<AtomicBool>,
+    evidence_cancelled: Arc<AtomicBool>,
 }
 static GENERATION: AtomicU64 = AtomicU64::new(1);
 impl SessionService {
@@ -780,6 +927,7 @@ impl SessionService {
                 terminal_failure: None,
                 inspection_cancelled: Arc::new(AtomicBool::new(false)),
                 source_action_cancelled: Arc::new(AtomicBool::new(false)),
+                evidence_cancelled: Arc::new(AtomicBool::new(false)),
             },
             requests,
             responses,
@@ -808,15 +956,17 @@ impl SessionService {
         let (client, requests, responses) = Self::channels();
         let inspection_cancelled = Arc::clone(&client.inspection_cancelled);
         let source_action_cancelled = Arc::clone(&client.source_action_cancelled);
+        let evidence_cancelled = Arc::clone(&client.evidence_cancelled);
         std::thread::Builder::new()
             .name("omniusong-sessions".into())
             .spawn(move || {
                 while let Ok(request) = requests.recv() {
                     let kind = request.command.kind();
-                    let result = backend.handle_with_cancellations(
+                    let result = backend.handle_with_evidence_cancellation(
                         &request.command,
                         &inspection_cancelled,
                         &source_action_cancelled,
+                        &evidence_cancelled,
                     );
                     let terminal = terminal_storage_failure(&result).is_some();
                     if responses
@@ -887,6 +1037,24 @@ impl SessionService {
             false
         }
     }
+    /// Exact evidence cancellation requests cessation, never rollback. Credit is
+    /// retained until this request completes or the worker actually disconnects.
+    pub fn cancel_evidence_job(&self, id: RequestId) -> bool {
+        if self.pending.as_ref().is_some_and(|request| {
+            request.id == id
+                && matches!(
+                    request.command,
+                    Command::RunEvidenceJob { .. }
+                        | Command::InspectRetainedEvidence { .. }
+                        | Command::ReconcileEvidenceJob { .. }
+                )
+        }) {
+            self.evidence_cancelled.store(true, Ordering::Release);
+            true
+        } else {
+            false
+        }
+    }
     pub fn try_submit(&mut self, command: Command) -> Result<RequestId, Box<SubmitError>> {
         let fail = |kind, message: &str, command| {
             Box::new(SubmitError {
@@ -932,6 +1100,7 @@ impl SessionService {
         // the next accepted command; a fast consumer sees the new token state.
         self.inspection_cancelled.store(false, Ordering::Release);
         self.source_action_cancelled.store(false, Ordering::Release);
+        self.evidence_cancelled.store(false, Ordering::Release);
         match self.requests.try_send(request.clone()) {
             Ok(()) => {
                 self.next_sequence = next;
@@ -974,7 +1143,7 @@ impl SessionService {
                     request.id == completion.id
                         && request.command.kind() == completion.kind
                         && match &completion.result {
-                            Ok(reply) => reply.matches(completion.kind),
+                            Ok(reply) => reply.matches_command(&request.command),
                             Err(_) => true,
                         }
                 });
@@ -1033,6 +1202,11 @@ impl SessionService {
 impl Drop for SessionService {
     fn drop(&mut self) {
         self.inspection_cancelled.store(true, Ordering::Release);
+        if self.pending.as_ref().is_some_and(|request| {
+            matches!(request.command, Command::InspectRetainedEvidence { .. })
+        }) {
+            self.evidence_cancelled.store(true, Ordering::Release);
+        }
     }
 }
 // No JoinHandle: closing a caller never blocks on storage. Drop cancels only
@@ -1150,6 +1324,42 @@ impl NativeBackend {
     }
 }
 impl Backend for NativeBackend {
+    fn handle_with_evidence_cancellation(
+        &mut self,
+        command: &Command,
+        inspection_cancelled: &Arc<AtomicBool>,
+        source_action_cancelled: &Arc<AtomicBool>,
+        evidence_cancelled: &Arc<AtomicBool>,
+    ) -> Result<Reply, ServiceError> {
+        command.validate()?;
+        match command {
+            Command::RunEvidenceJob { request } => {
+                self.run_evidence_job(request, Arc::clone(evidence_cancelled))
+            }
+            Command::InspectRetainedEvidence { path } => {
+                self.inspect_retained_evidence(path, Arc::clone(evidence_cancelled))
+            }
+            Command::ListEvidenceJobs => self.list_evidence_jobs(Arc::clone(evidence_cancelled)),
+            Command::ReadEvidenceJob { job_id } => {
+                self.read_evidence_job(job_id, Arc::clone(evidence_cancelled))
+            }
+            Command::ReconcileEvidenceJob {
+                job_id,
+                expected_request_sha256,
+                expected_history_sha256,
+            } => self.reconcile_evidence_job(
+                job_id,
+                expected_request_sha256,
+                expected_history_sha256,
+                Arc::clone(evidence_cancelled),
+            ),
+            _ => self.handle_with_cancellations(
+                command,
+                inspection_cancelled,
+                source_action_cancelled,
+            ),
+        }
+    }
     fn handle_with_cancellations(
         &mut self,
         command: &Command,
@@ -1217,6 +1427,26 @@ impl Backend for NativeBackend {
         command.validate()?;
         let work = |error: omniusong_store::StoreError| store_failure(error, command.mutates());
         let result = (|| match command {
+            Command::RunEvidenceJob { request } => {
+                self.run_evidence_job(request, Arc::new(AtomicBool::new(false)))
+            }
+            Command::InspectRetainedEvidence { path } => {
+                self.inspect_retained_evidence(path, Arc::new(AtomicBool::new(false)))
+            }
+            Command::ListEvidenceJobs => self.list_evidence_jobs(Arc::new(AtomicBool::new(false))),
+            Command::ReadEvidenceJob { job_id } => {
+                self.read_evidence_job(job_id, Arc::new(AtomicBool::new(false)))
+            }
+            Command::ReconcileEvidenceJob {
+                job_id,
+                expected_request_sha256,
+                expected_history_sha256,
+            } => self.reconcile_evidence_job(
+                job_id,
+                expected_request_sha256,
+                expected_history_sha256,
+                Arc::new(AtomicBool::new(false)),
+            ),
             Command::Initialize => {
                 if self.store.is_none() {
                     if self.require_existing {
@@ -1245,7 +1475,9 @@ impl Backend for NativeBackend {
                     } else {
                         NativeStore::open(&self.paths.native)
                     };
-                    self.store = Some(opened.map_err(work)?);
+                    let store = opened.map_err(work)?;
+                    self.paths.native = store.root().to_owned();
+                    self.store = Some(store);
                 }
                 self.scan();
                 Ok(Reply::Library(self.library()?))
@@ -1412,6 +1644,7 @@ impl Backend for NativeBackend {
                     Command::ExecutePerformanceSourceAction { .. }
                         | Command::SavePerformanceSourceDecision { .. }
                         | Command::AttachPerformanceSource { .. }
+                        | Command::RunEvidenceJob { .. }
                 )
                 && !matches!(
                     error.kind,

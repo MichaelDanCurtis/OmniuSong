@@ -1,6 +1,6 @@
 # Native studio evidence jobs
 
-October 22, 2026. This is the agreed integration contract for the **next session/job/UI work**, not a claim that these controls are implemented. The OSRE storage API, reviewed-restore pin and typed export failures are prerequisites. Per-song OSAR restore-as-copy, OSRE inert extraction and manual operator rollback remain separate workflows.
+October 22, 2026. This is the Rust journal/session integration contract. The [source/backend verification packet](../verification/rust-native-evidence-jobs-tests.json) defines current qualification; **native controls remain undelivered**. The OSRE storage API, reviewed-restore pin and typed export failures are prerequisites. Per-song OSAR restore-as-copy, OSRE inert extraction and manual operator rollback remain separate workflows.
 
 ## Worker and outcomes
 
@@ -12,11 +12,17 @@ An evidence-job reply carries a typed primary outcome and optional `catalog_reti
 
 ## Durable request and uncertainty
 
+Compiled bounds: 128 jobs including partial slots; 4-KiB namespace header; 16-KiB request envelope; 1-KiB started record; 16-KiB terminal and eight 16-KiB observations; 4096-byte exact UTF-8 paths; 2048-byte explanatory messages with explicit truncation flag; 64-KiB compact list and 256-KiB selected view. A separate 32-KiB operation-result bound preserves a genuine receipt that does not fit its durable envelope, alongside a metadata problem; it must not turn into a mismatched completion holding service credit.
+
 Introduce a bounded EvidenceJobs journal owned by the session worker, with exact versioned request bytes, canonical origin root, nonzero32hex job identity, operation, input/output paths, export ID or reviewed SHA and a canonical request fingerprint. Sync the immutable request and started marker **before** invoking a mutating storage path. Retain a bounded terminal record and bounded appended reconciliation observations. Define compiled serialization/history/job-count ceilings before implementation; refuse new admission when full without evicting unresolved jobs.
 
-Keep this application job history in a dedicated versioned evidence-job namespace outside captures/source-actions/takes, with its location and fixed limits qualified by the journal implementation. It is separate from OSRE's explicit catalog/three-tree scope and must never be restored as execution authority. Do not silently alter the schema-6 archive contract. Job metadata uses its own bounded ownership/write/sync protocol and must not hold a conflicting store-writer lease across OSRE export. Exact paths and identities cannot be edited into a different operation after starting.
+Keep this application job history in a dedicated versioned evidence-job namespace outside captures/source-actions/takes, in a deterministic sibling `.omniusong-evidence-jobs-v1-<SHA256 exact canonical origin UTF-8>` directory. Its strict header binds that exact configured origin. Listing/replay require only its canonical ordinary parent, without opening/recreating the missing origin; new execution requires the actual NativeStore root. It is separate from OSRE's explicit catalog/three-tree scope and must never be restored as execution authority. Do not silently alter the schema-6 archive contract. Job metadata uses its own bounded ownership/write/sync protocol and must not hold a conflicting store-writer lease across OSRE export. Exact paths and identities cannot be edited into a different operation after starting.
 
-If terminal persistence fails after artifacts complete, the synced request remains discoverable and uncertain. Startup may load bounded metadata; it must not inspect archives, resume jobs, create destinations or reconcile artifacts automatically. A completion marker's presence alone is insufficient proof: errors/cancellation can occur after it is written. Preserve all partial/complete evidence, without cleanup or blind replay.
+Created files remain held and are checked against their exact post-write pathname identity through file/directory sync. Expected old-plus-new membership and prior slot stamps must pass before refreshing directory stamps or acknowledging a new history SHA. Fixed-order raw history includes malformed bounded known slots; partial observation slots and gaps consume capacity without repair. Only newly written record bytes extend preloaded incremental SHA state.
+
+Before artifact work, reserve **608,128 work bytes** under the unchanged governor for one private metadata finalization. The derived allowance covers sixteen maximum record-byte passes, sixty-four bounded path/stamp observations and a maximum job-membership scan. A non-Clone guard-bound token permits only that one bounded terminal/observation append after sticky cancellation; no full history/view reread or serialization, governor reset or artifact access follows. The actual artifact method's returned result wins cancellation arriving after it completed. A failure of this final metadata step never hides the current live-catalog retirement fact.
+
+If terminal persistence fails after artifacts complete, the synced request remains discoverable and uncertain. Startup creates or executes no jobs. Explicit List/Read load bounded metadata only. Startup must not inspect archives, resume jobs, create destinations or reconcile artifacts automatically. A completion marker's presence alone is insufficient proof: errors/cancellation can occur after it is written. Preserve all partial/complete evidence, without cleanup or blind replay.
 
 ## Existing-artifact reconciliation
 

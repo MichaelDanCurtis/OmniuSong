@@ -348,6 +348,28 @@ fn prepared_backend_commands_cannot_enter_raw_ui_routes_or_continue_into_audio()
         origin: None,
     };
     for command in [
+        Command::ListEvidenceJobs,
+        Command::ReadEvidenceJob { job_id: A.into() },
+        Command::InspectRetainedEvidence {
+            path: "/synthetic/review.osre".into(),
+        },
+        Command::ReconcileEvidenceJob {
+            job_id: A.into(),
+            expected_request_sha256: "a".repeat(64),
+            expected_history_sha256: "b".repeat(64),
+        },
+        Command::RunEvidenceJob {
+            request: Box::new(omniusong_session::EvidenceJobRequest {
+                version: 1,
+                job_id: A.into(),
+                origin_root: "/synthetic/native".into(),
+                operation: omniusong_session::EvidenceOperation::Export {
+                    scope: omniusong_store::EVIDENCE_SCOPE.into(),
+                    export_id: B.into(),
+                    destination: "/synthetic/complete.osre".into(),
+                },
+            }),
+        },
         Command::ListPreparedPerformanceSourceActions,
         Command::SavePerformanceSourceDecision {
             id: "1".repeat(32),

@@ -395,7 +395,12 @@ impl StudioApp {
     fn submit(&mut self, command: Command, action: Action, after: Option<Action>) -> AppResult<()> {
         if matches!(
             command,
-            Command::SavePreparedPerformanceSourceAction { .. }
+            Command::RunEvidenceJob { .. }
+                | Command::InspectRetainedEvidence { .. }
+                | Command::ListEvidenceJobs
+                | Command::ReadEvidenceJob { .. }
+                | Command::ReconcileEvidenceJob { .. }
+                | Command::SavePreparedPerformanceSourceAction { .. }
                 | Command::ListPreparedPerformanceSourceActions
                 | Command::ListPerformanceSourceActionStates
                 | Command::ExecutePerformanceSourceAction { .. }
@@ -404,7 +409,7 @@ impl StudioApp {
                 | Command::AttachPerformanceSource { .. }
                 | Command::ReconcilePerformanceSourceAttachment { .. }
         ) {
-            return Err("Prepared source choices remain backend-only until their explicit review UI is delivered".into());
+            return Err("Prepared source choices and studio-evidence jobs remain backend-only until their explicit review UI is delivered".into());
         }
         if matches!(
             command,
@@ -719,6 +724,10 @@ impl StudioApp {
             Ok(reply) => {
                 let mut after = None;
                 match reply {
+                    Reply::EvidenceJobOutcome(_) | Reply::RetainedEvidenceInspected(_)
+                    | Reply::EvidenceJobs(_) | Reply::EvidenceJob(_) => {
+                        self.status = "Studio-evidence result retained; review its exact job history explicitly.".into();
+                    }
                     Reply::Library(library) => {
                         self.performance_sources.generation_changed(active.id.generation);
                         self.library(library);
