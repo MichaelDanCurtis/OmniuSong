@@ -1,5 +1,6 @@
 //! Bounded session storage service. UI callers only submit/poll nonblocking channels.
 mod performance_intents;
+mod performance_source_actions;
 mod performance_sources;
 use omniusong_core::{
     MAX_PROJECT_BYTES, ProjectDocument,
@@ -13,6 +14,10 @@ pub use omniusong_store::{
 };
 pub use performance_intents::{
     PerformanceFinishIntent, PerformanceIntent, PerformanceIntentReceipt,
+};
+pub use performance_source_actions::{
+    PerformanceSourceActionKind, PerformanceSourceIntentReference, PreparedPerformanceSourceAction,
+    PreparedPerformanceSourceActionReceipt,
 };
 pub use performance_sources::{PerformanceSource, PerformanceSourceReview, PerformanceSourceScan};
 use std::{
@@ -115,6 +120,12 @@ pub enum Command {
         intent: Box<PerformanceIntent>,
     },
     ListPerformanceIntents,
+    SavePreparedPerformanceSourceAction {
+        expected_revision: Option<u64>,
+        action: Box<PreparedPerformanceSourceAction>,
+        review: Vec<u8>,
+    },
+    ListPreparedPerformanceSourceActions,
     AttachPerformance {
         id: omniusong_engine::LiveId,
         revision: u64,
@@ -154,6 +165,8 @@ pub enum CommandKind {
     AttachCapture,
     SavePerformanceIntent,
     ListPerformanceIntents,
+    SavePreparedPerformanceSourceAction,
+    ListPreparedPerformanceSourceActions,
     AttachPerformance,
     ScanPerformanceSources,
     InspectPerformanceSource,
@@ -176,6 +189,12 @@ impl Command {
             Self::AttachCapture { .. } => CommandKind::AttachCapture,
             Self::SavePerformanceIntent { .. } => CommandKind::SavePerformanceIntent,
             Self::ListPerformanceIntents => CommandKind::ListPerformanceIntents,
+            Self::SavePreparedPerformanceSourceAction { .. } => {
+                CommandKind::SavePreparedPerformanceSourceAction
+            }
+            Self::ListPreparedPerformanceSourceActions => {
+                CommandKind::ListPreparedPerformanceSourceActions
+            }
             Self::AttachPerformance { .. } => CommandKind::AttachPerformance,
             Self::ScanPerformanceSources => CommandKind::ScanPerformanceSources,
             Self::InspectPerformanceSource { .. } => CommandKind::InspectPerformanceSource,
@@ -201,6 +220,7 @@ impl Command {
                 | Self::Edit { .. }
                 | Self::AttachCapture { .. }
                 | Self::SavePerformanceIntent { .. }
+                | Self::SavePreparedPerformanceSourceAction { .. }
                 | Self::AttachPerformance { .. }
                 | Self::RecoverCapture { .. }
                 | Self::ExportArchive { .. }
@@ -226,7 +246,20 @@ impl Command {
             | Self::Refresh
             | Self::ScanCaptures
             | Self::ScanPerformanceSources
-            | Self::ListPerformanceIntents => Ok(()),
+            | Self::ListPerformanceIntents
+            | Self::ListPreparedPerformanceSourceActions => Ok(()),
+            Self::SavePreparedPerformanceSourceAction { action, review, .. } => {
+                action.validate()?;
+                if review.is_empty()
+                    || review.len() > omniusong_store::MAX_PERFORMANCE_SOURCE_REVIEW_BYTES
+                {
+                    Err(ServiceError::rejected(
+                        "Retain an exact source review of at most64KiB",
+                    ))
+                } else {
+                    Ok(())
+                }
+            }
             Self::InspectPerformanceSource { stage_id } => {
                 performance_sources::validate_stage_id(stage_id)
             }
@@ -377,6 +410,8 @@ pub enum Reply {
     PerformanceIntents(Vec<PerformanceIntentReceipt>),
     PerformanceSources(PerformanceSourceScan),
     PerformanceSourceInspected(Box<PerformanceSourceReview>),
+    PreparedPerformanceSourceAction(Box<PreparedPerformanceSourceActionReceipt>),
+    PreparedPerformanceSourceActions(Vec<PreparedPerformanceSourceActionReceipt>),
 }
 impl Reply {
     fn matches(&self, kind: CommandKind) -> bool {
@@ -414,6 +449,14 @@ impl Reply {
                 | (
                     Self::PerformanceIntents(_),
                     CommandKind::ListPerformanceIntents
+                )
+                | (
+                    Self::PreparedPerformanceSourceAction(_),
+                    CommandKind::SavePreparedPerformanceSourceAction
+                )
+                | (
+                    Self::PreparedPerformanceSourceActions(_),
+                    CommandKind::ListPreparedPerformanceSourceActions
                 )
         )
     }
@@ -1021,6 +1064,14 @@ impl Backend for NativeBackend {
             Command::ListPerformanceIntents => Ok(Reply::PerformanceIntents(
                 self.list_performance_intentions()?,
             )),
+            Command::SavePreparedPerformanceSourceAction {
+                expected_revision,
+                action,
+                review,
+            } => self
+                .save_prepared_source_action(*expected_revision, action, review)
+                .map_err(performance_intents::intent_rejection),
+            Command::ListPreparedPerformanceSourceActions => self.list_prepared_source_actions(),
             Command::AttachPerformance { id, revision } => {
                 self.attach_performance_intention(*id, *revision)
             }

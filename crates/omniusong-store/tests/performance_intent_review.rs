@@ -67,7 +67,9 @@ fn version_four_upgrade_keeps_every_prior_table_and_reopens_read_only() {
     drop(store);
     let before = snapshot(&path);
     let db = Connection::open(path.join("studio.sqlite3")).unwrap();
-    db.execute_batch("DROP TRIGGER immutable_recording_intent_update; DROP TRIGGER immutable_recording_intent_delete; DROP TABLE recording_intents; PRAGMA user_version=4;").unwrap();
+    // This synthetic downgrade must remove every newer local ledger, otherwise
+    // the fixture falsely collides with the schema-6 migration it is testing.
+    db.execute_batch("DROP TABLE performance_source_actions; DROP TABLE performance_source_reviews; DROP TRIGGER immutable_recording_intent_update; DROP TRIGGER immutable_recording_intent_delete; DROP TABLE recording_intents; PRAGMA user_version=4;").unwrap();
     drop(db);
     assert!(
         NativeReader::open(&path).is_err(),

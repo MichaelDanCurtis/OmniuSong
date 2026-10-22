@@ -7,6 +7,7 @@ mod captures;
 mod operations;
 mod performance_attachment_check;
 mod performance_intents;
+mod performance_source_actions;
 mod reader;
 mod takes;
 pub use reader::NativeReader;
@@ -26,6 +27,11 @@ pub use captures::{
 };
 pub use operations::EditReceipt;
 pub use performance_intents::StoredPerformanceIntent;
+pub use performance_source_actions::{
+    MAX_PERFORMANCE_SOURCE_ACTION_BYTES, MAX_PERFORMANCE_SOURCE_ACTION_REVISIONS,
+    MAX_PERFORMANCE_SOURCE_ACTIONS, MAX_PERFORMANCE_SOURCE_REVIEW_BYTES,
+    PerformanceSourceActionHistory, StoredPerformanceSourceAction, StoredPerformanceSourceReview,
+};
 pub use takes::{TakeObject, TakePublication};
 
 use omniusong_core::native::MAX_NATIVE_PROJECT_BYTES;
@@ -42,7 +48,7 @@ use std::{
 
 const MAX_ASSET_BYTES: usize = 30 * 1024 * 1024;
 const MAX_TOTAL_ASSET_BYTES: usize = 48 * 1024 * 1024;
-pub const STORE_SCHEMA_VERSION: u32 = 5;
+pub const STORE_SCHEMA_VERSION: u32 = 6;
 
 #[derive(Debug)]
 pub enum StoreError {
@@ -456,6 +462,31 @@ impl NativeStore {
                 CREATE TRIGGER immutable_recording_intent_delete BEFORE DELETE ON recording_intents BEGIN SELECT RAISE(ABORT,'Recording intentions are retained'); END;
                 PRAGMA user_version=5;")?;
                 locked_version = 5;
+            }
+            if locked_version == 5 {
+                // Local source choices retain exact review bytes separately from
+                // compact revisions. No original or portable song table changes.
+                tx.execute_batch("CREATE TABLE performance_source_reviews(
+                    id TEXT PRIMARY KEY NOT NULL,
+                    payload BLOB NOT NULL CHECK(length(payload) BETWEEN 1 AND 65536),
+                    payload_sha256 TEXT NOT NULL,
+                    UNIQUE(id,payload_sha256)
+                );
+                CREATE TABLE performance_source_actions(
+                    id TEXT NOT NULL,
+                    revision INTEGER NOT NULL CHECK(revision BETWEEN 1 AND 16),
+                    review_blob_sha256 TEXT NOT NULL,
+                    payload BLOB NOT NULL CHECK(length(payload) BETWEEN 1 AND 16384),
+                    payload_sha256 TEXT NOT NULL,
+                    PRIMARY KEY(id,revision),
+                    FOREIGN KEY(id,review_blob_sha256) REFERENCES performance_source_reviews(id,payload_sha256)
+                );
+                CREATE TRIGGER immutable_performance_source_review_update BEFORE UPDATE ON performance_source_reviews BEGIN SELECT RAISE(ABORT,'Performance source reviews are immutable'); END;
+                CREATE TRIGGER immutable_performance_source_review_delete BEFORE DELETE ON performance_source_reviews BEGIN SELECT RAISE(ABORT,'Performance source reviews are retained'); END;
+                CREATE TRIGGER immutable_performance_source_action_update BEFORE UPDATE ON performance_source_actions BEGIN SELECT RAISE(ABORT,'Performance source actions are immutable'); END;
+                CREATE TRIGGER immutable_performance_source_action_delete BEFORE DELETE ON performance_source_actions BEGIN SELECT RAISE(ABORT,'Performance source actions are retained'); END;
+                PRAGMA user_version=6;")?;
+                locked_version = 6;
             }
             if locked_version != STORE_SCHEMA_VERSION {
                 return Err(StoreError::Invalid(

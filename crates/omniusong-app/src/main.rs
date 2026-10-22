@@ -395,6 +395,13 @@ impl StudioApp {
     fn submit(&mut self, command: Command, action: Action, after: Option<Action>) -> AppResult<()> {
         if matches!(
             command,
+            Command::SavePreparedPerformanceSourceAction { .. }
+                | Command::ListPreparedPerformanceSourceActions
+        ) {
+            return Err("Prepared source choices remain backend-only until their explicit review UI is delivered".into());
+        }
+        if matches!(
+            command,
             Command::ScanPerformanceSources | Command::InspectPerformanceSource { .. }
         ) && !matches!(action, Action::PerformanceSource(_))
         {
@@ -783,6 +790,9 @@ impl StudioApp {
                     }
                     Reply::PerformanceSources(_) | Reply::PerformanceSourceInspected(_) => {
                         self.status = "Read-only performance source review completed. Recovery and attachment require separate explicit choices.".into();
+                    }
+                    Reply::PreparedPerformanceSourceAction(_) | Reply::PreparedPerformanceSourceActions(_) => {
+                        self.status = "Prepared source choice retained locally. No copy, recovery, audio or attachment was started.".into();
                     }
                 }
                 if !matches!(active.action, Action::Refresh | Action::Performance(_)) {

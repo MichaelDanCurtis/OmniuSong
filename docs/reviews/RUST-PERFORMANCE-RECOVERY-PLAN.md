@@ -2,6 +2,8 @@
 
 October 22, 2026. **Architecture proposal only. No production recovery implementation or acceptance is asserted.** This packet is independent of the optimized app's current native qualification. It edits no Rust, catalog, source journal or installed bundle, and requires no device, model, download or input stream. The coordinator owns schema/dependency/API decisions, integration, Cargo and native/UI qualification.
 
+Follow-up: the [Prepared source ledger](../verification/rust-native-performance-source-actions-tests.json) now implements exact review storage, compact typed Prepared requests, additive schema 6 and transaction history fencing under its [frozen contract](../contracts/NATIVE-PERFORMANCE-SOURCE-ACTIONS.md). Its 886-test source/software gate leaves the main schema 5/catalog/bundle unchanged; there is no copy/recovery executor or UI route. The read-only Scan/Inspect UI also has its separate source/package gate, with native acceptance pending. The remaining copy, bounded mutation, execution/outcome, attachment and evidence-export sections below remain proposals and required work.
+
 Read with [the active implementation plan](../IMPLEMENTATION-PLAN.md), [the earlier recovery service plan](RUST-PERFORMANCE-RECOVERY-SERVICE-PLAN.md), [the recording UI plan](RUST-PERFORMANCE-UI-INTEGRATION-PLAN.md), [bounded inspection](../contracts/BOUNDED-PERFORMANCE-INSPECTION.md), [performance UI](../contracts/NATIVE-PERFORMANCE-UI.md) and [the checkpoint contract](../contracts/NATIVE-PERFORMANCE-WRITER.md). Older plans describe some APIs as missing which are now implemented; the source inventory below governs this proposal. The broader recording/editing, long-session and product goals remain unfinished.
 
 ## Current reusable boundaries and actual gaps

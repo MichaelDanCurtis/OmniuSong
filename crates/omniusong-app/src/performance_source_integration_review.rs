@@ -328,6 +328,52 @@ fn no_continuation(peer: &TestPeer, engine: &audio_ui::test_support::Peer) {
 }
 
 #[test]
+fn prepared_backend_commands_cannot_enter_raw_ui_routes_or_continue_into_audio() {
+    let (mut app, peer, engine) = manual();
+    retained_metadata_retry(&mut app, &peer);
+    held_drafts(&mut app);
+    let before = preserved(&app);
+    let choice = omniusong_session::PreparedPerformanceSourceAction {
+        version: 1,
+        id: A.into(),
+        kind: omniusong_session::PerformanceSourceActionKind::RecoverCopy,
+        stage_id: B.into(),
+        take_id: format!("performance-{B}"),
+        review_blob_sha256: "a".repeat(64),
+        admission_sha256: "b".repeat(64),
+        recovery_operation_id: omniusong_core::contracts::OperationId(
+            "synthetic-prepared-ui-refusal".into(),
+        ),
+        policy_version: 1,
+        origin: None,
+    };
+    for command in [
+        Command::ListPreparedPerformanceSourceActions,
+        Command::SavePreparedPerformanceSourceAction {
+            expected_revision: None,
+            action: Box::new(choice),
+            review: b"{}".to_vec(),
+        },
+    ] {
+        for action in [
+            Action::Refresh,
+            Action::Performance(Box::new(command.clone())),
+            Action::PerformanceSource(SourceRequest::Scan),
+        ] {
+            for after in [None, Some(Action::Refresh)] {
+                let error = app
+                    .submit(command.clone(), action.clone(), after)
+                    .unwrap_err();
+                assert!(error.to_string().contains("backend-only"));
+                assert_eq!(preserved(&app), before);
+                assert!(app.active.is_none() && app.pending.is_none());
+                no_continuation(&peer, &engine);
+            }
+        }
+    }
+}
+
+#[test]
 fn explicit_scan_refresh_and_inspect_preserve_dirty_drafts_failed_choices_and_exact_mutation_retry()
 {
     let (mut app, peer, engine) = manual();
