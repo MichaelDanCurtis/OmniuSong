@@ -111,17 +111,26 @@ impl NativeStore {
         budget: &InspectionBudget,
     ) -> Result<omniusong_core::ProjectDocument> {
         budget.checkpoint()?;
-        let tx = self.connection.unchecked_transaction()?;
-        if crate::projection_metadata::project(&tx, id, budget)? {
-            let document = crate::read_document_metadata_with_budget(&tx, id, budget)?;
-            return crate::active_projection_edits::load(tx, &self.root, document, budget);
-        }
-        let document = crate::load_document(&tx, id)?;
-        tx.rollback()?;
-        crate::check_references(&self.connection, &document)?;
-        takes::verify_document_files_with_budget(&self.root, &self.connection, &document, budget)?;
-        budget.checkpoint()?;
-        Ok(document)
+        crate::catalog_transaction::CatalogTransaction::deferred(&self.connection, budget)?.run(
+            |tx| {
+                if crate::projection_metadata::project(tx, id, budget)? {
+                    let document = crate::read_document_metadata_with_budget(tx, id, budget)?;
+                    return crate::active_projection_edits::load(tx, &self.root, document, budget);
+                }
+                tx.release_governor_for_legacy()?;
+                let document = crate::load_document(tx, id)?;
+                tx.rollback()?;
+                crate::check_references(&self.connection, &document)?;
+                takes::verify_document_files_with_budget(
+                    &self.root,
+                    &self.connection,
+                    &document,
+                    budget,
+                )?;
+                budget.checkpoint()?;
+                Ok(document)
+            },
+        )
     }
     pub fn open_take_with_budget(
         &self,

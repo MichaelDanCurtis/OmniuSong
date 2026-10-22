@@ -28,7 +28,8 @@ enum AttachmentBoundary {
 }
 fn source_store(error: omniusong_store::StoreError) -> ServiceError {
     match error {
-        error @ omniusong_store::StoreError::Database(_) => store_failure(error, false),
+        error @ (omniusong_store::StoreError::Database(_)
+        | omniusong_store::StoreError::Catalog(_)) => store_failure(error, false),
         omniusong_store::StoreError::Recording(error) => local(error),
         error => unavailable(error.to_string()),
     }
@@ -257,7 +258,7 @@ impl NativeBackend {
                 let (edit,row)=this.store()?.publish_source_attachment(SourceAttachmentCommit {
                     publication:&choice.publication,id:request.id,expected_revision:state.revision,
                     review:loaded.raw_review(request.id)?,committed_payload:&payload,expected_history:&loaded.history,budget:&budget,
-                }).map_err(|e| match e { error @ (omniusong_store::StoreError::Conflict | omniusong_store::StoreError::Database(_))=>store_failure(error,true), error=>source_store(error) })?;
+                }).map_err(|e| match e { error @ (omniusong_store::StoreError::Conflict | omniusong_store::StoreError::Database(_) | omniusong_store::StoreError::Catalog(_))=>store_failure(error,true), error=>source_store(error) })?;
                 require(row.id==request.id && row.revision==state.revision+1 && row.payload==payload
                     && row.payload_sha256==digest(b"",&payload) && row.review_blob_sha256==state.prepared.action.review_blob_sha256
                     && edit.document.revision()==choice.publication.expected_revision+1,"Committed source attachment acknowledgement differs from its exact request")?;

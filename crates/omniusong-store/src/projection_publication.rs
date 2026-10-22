@@ -1,5 +1,6 @@
 //! Typed atomic publication; recorded commitment is separate from current
 //! source-authenticated usability. This module does not grant archive authority.
+use crate::catalog_transaction::CatalogTransaction;
 use crate::{
     NativeStore, ProjectionCommitReceipt, ProjectionPublication, Result, StoreError, checksum,
     operations::{insert_operation_metadata, read_operation_metadata},
@@ -13,7 +14,7 @@ use omniusong_performance::projection::{
     PerformanceProjectionReview, check_retained_binding_encoding_bounded,
 };
 use omniusong_recording::{InspectionBudget, InspectionLimits};
-use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
+use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::json;
 use std::sync::{Arc, atomic::AtomicBool};
 
@@ -93,13 +94,6 @@ fn initial_tracks_match(
 
 /// Bounded catalog consistency only. A coherent catalog may describe false
 /// music; this compact result cannot activate or authenticate a project.
-pub(crate) fn recorded_commit(
-    connection: &Connection,
-    intent: &ProjectionPublication,
-    request: &str,
-) -> Result<Option<ProjectionCommitReceipt>> {
-    recorded_commit_with_budget(connection, intent, request, &default_budget())
-}
 fn recorded_commit_with_budget(
     connection: &Connection,
     intent: &ProjectionPublication,
@@ -188,88 +182,92 @@ impl NativeStore {
         intent: &ProjectionPublication,
     ) -> Result<Option<ProjectionCommitReceipt>> {
         let request = intent.canonical_json()?;
-        let tx = self.connection.unchecked_transaction()?;
-        let receipt = recorded_commit(&tx, intent, &request)?;
-        tx.rollback()?;
-        Ok(receipt)
+        let metadata_budget = default_budget();
+        CatalogTransaction::deferred(&self.connection, &metadata_budget)?.run(|tx| {
+            let receipt = recorded_commit_with_budget(tx, intent, &request, &metadata_budget)?;
+            tx.rollback()?;
+            Ok(receipt)
+        })
     }
-
     pub fn publish_performance_projection(
         &mut self,
         intent: &ProjectionPublication,
         budget: &InspectionBudget,
     ) -> Result<ProjectionCommitReceipt> {
         let request = intent.canonical_json()?;
-        let tx = self
-            .connection
-            .transaction_with_behavior(TransactionBehavior::Immediate)?;
-        // Replay precedes source checks and caller cancellation. A prior commit
-        // is a recorded fact, never an instruction to install an old snapshot.
-        if let Some(receipt) = recorded_commit(&tx, intent, &request)? {
-            tx.commit()?;
-            return Ok(receipt);
-        }
-        let _files = crate::retained_file_coordination::writer(&self.root)?;
-        budget.checkpoint()?;
-        let current = read_document_metadata_with_budget(&tx, &intent.project_id.0, budget)?;
-        if current.revision() != intent.expected_revision {
-            return Err(StoreError::Conflict);
-        }
-        if current.tempo().to_bits() != intent.request.tempo_bits {
-            return Err(invalid("Projection tempo differs from the current project"));
-        }
-        let source = TakeReference {
-            take_id: omniusong_core::contracts::TakeId(intent.request.source.take_id.clone()),
-            manifest_sha256: intent.request.source.manifest_sha256.clone(),
-            stream_id: "audio".into(),
-        };
-        let sources = RegisteredProjectionSources::open(
-            &self.root,
-            &tx,
-            &[&current],
-            std::slice::from_ref(&source),
-            budget,
-        )?;
-        let proofs = sources.authenticate(budget)?;
-        proofs.validate_document(&current)?;
-        let binding = proofs.performance(&source)?.build_binding(
-            &intent.projection_id,
-            &intent.request,
-            &intent.expected_review_sha256,
-            &intent.lanes,
-        )?;
-        let candidate = current
-            .append_performance_projection(
-                &binding,
+        let metadata_budget = default_budget();
+        CatalogTransaction::immediate(&mut self.connection, &metadata_budget)?.run(|tx| {
+            // Replay precedes source checks and caller cancellation. A prior commit
+            // is a recorded fact, never an instruction to install an old snapshot.
+            if let Some(receipt) =
+                recorded_commit_with_budget(tx, intent, &request, &metadata_budget)?
+            {
+                tx.commit()?;
+                return Ok(receipt);
+            }
+            tx.switch_governor(budget)?;
+            let _files = crate::retained_file_coordination::writer(&self.root)?;
+            budget.checkpoint()?;
+            let current = read_document_metadata_with_budget(tx, &intent.project_id.0, budget)?;
+            if current.revision() != intent.expected_revision {
+                return Err(StoreError::Conflict);
+            }
+            if current.tempo().to_bits() != intent.request.tempo_bits {
+                return Err(invalid("Projection tempo differs from the current project"));
+            }
+            let source = TakeReference {
+                take_id: omniusong_core::contracts::TakeId(intent.request.source.take_id.clone()),
+                manifest_sha256: intent.request.source.manifest_sha256.clone(),
+                stream_id: "audio".into(),
+            };
+            let sources = RegisteredProjectionSources::open(
+                &self.root,
+                tx,
+                &[&current],
+                std::slice::from_ref(&source),
+                budget,
+            )?;
+            let proofs = sources.authenticate(budget)?;
+            proofs.validate_document(&current)?;
+            let binding = proofs.performance(&source)?.build_binding(
+                &intent.projection_id,
+                &intent.request,
+                &intent.expected_review_sha256,
                 &intent.lanes,
-                intent.timeline,
-                intent.allow_projection_schema_upgrade,
-            )
-            .map_err(StoreError::EditRejected)?;
-        let saved = write_save_metadata(&tx, &current, &candidate, intent.expected_revision)?;
-        insert_operation_metadata(
-            &tx,
-            &intent.operation_id.0,
-            intent.expected_revision,
-            &request,
-            &saved.document,
-        )?;
-        verify_saved_metadata(&tx, &saved, budget)?;
-        // Read the exact recorded postimage while rollback is still possible.
-        let mut receipt = recorded_commit_with_budget(&tx, intent, &request, budget)?
-            .ok_or_else(|| invalid("Projection receipt disappeared inside transaction"))?;
-        if receipt.result_sha256 != checksum(&saved.document.to_json()?) {
-            return Err(invalid("Projection result changed inside transaction"));
-        }
-        receipt.replayed = false;
-        receipt.validate()?;
-        check_assets(&tx, &[&current], budget)?;
-        proofs.verify_registrations(&tx)?;
-        proofs.verify_unchanged()?;
-        budget.checkpoint()?;
-        tx.commit()?;
-        // No fallible work or cancellation check may erase successful commit.
-        Ok(receipt)
+            )?;
+            let candidate = current
+                .append_performance_projection(
+                    &binding,
+                    &intent.lanes,
+                    intent.timeline,
+                    intent.allow_projection_schema_upgrade,
+                )
+                .map_err(StoreError::EditRejected)?;
+            let saved = write_save_metadata(tx, &current, &candidate, intent.expected_revision)?;
+            insert_operation_metadata(
+                tx,
+                &intent.operation_id.0,
+                intent.expected_revision,
+                &request,
+                &saved.document,
+            )?;
+            verify_saved_metadata(tx, &saved, budget)?;
+            // Read the exact recorded postimage while rollback is still possible.
+            let mut receipt = recorded_commit_with_budget(tx, intent, &request, budget)?
+                .ok_or_else(|| invalid("Projection receipt disappeared inside transaction"))?;
+            if receipt.result_sha256 != checksum(&saved.document.to_json()?) {
+                return Err(invalid("Projection result changed inside transaction"));
+            }
+            receipt.replayed = false;
+            receipt.validate()?;
+            check_assets(tx, &[&current], budget)?;
+            proofs.verify_registrations(tx)?;
+            proofs.verify_unchanged()?;
+            budget.checkpoint()?;
+            tx.commit()?;
+            // No fallible work or cancellation check may erase successful commit.
+            Ok(receipt)
+        })
     }
 }
 

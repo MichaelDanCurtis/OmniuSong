@@ -52,10 +52,7 @@ impl EvidenceFailure {
         if self.origin == EvidenceFailureOrigin::Evidence {
             return None;
         }
-        match self.error.as_ref() {
-            StoreError::Database(error) => error.sqlite_error().map(|e| e.extended_code),
-            _ => None,
-        }
+        self.error.catalog_sqlite_error_code()
     }
     /// Compatibility for the older low-level API. New job callers must retain
     /// the typed failure so a displayed cancellation cannot hide a catalog fault.

@@ -40,6 +40,13 @@ fn recording_kind(error: &RecordingError) -> EvidenceProblemKind {
         _ => EvidenceProblemKind::Unavailable,
     }
 }
+fn store_stop(error: &StoreError) -> Option<EvidenceBudgetStop> {
+    match error {
+        StoreError::Recording(error) => stopped(error),
+        StoreError::Catalog(failure) => store_stop(failure.operation_error()),
+        _ => None,
+    }
+}
 pub(super) fn problem_from_store(
     error: &StoreError,
     origin: EvidenceResourceOrigin,
@@ -50,6 +57,11 @@ pub(super) fn problem_from_store(
             EvidenceProblemKind::Sqlite,
             sqlite.sqlite_error().map(|e| e.extended_code),
             None,
+        ),
+        StoreError::Catalog(_) => (
+            EvidenceProblemKind::Sqlite,
+            error.catalog_sqlite_error_code(),
+            store_stop(error),
         ),
         StoreError::Io(_) => (EvidenceProblemKind::Io, None, None),
         StoreError::Recording(recording) => (

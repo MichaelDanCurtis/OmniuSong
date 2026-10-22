@@ -69,6 +69,10 @@ use std::{
     time::Duration,
 };
 
+mod catalog_transaction;
+pub use catalog_transaction::CatalogFailure;
+use catalog_transaction::CatalogTransaction;
+
 const MAX_ASSET_BYTES: usize = 30 * 1024 * 1024;
 const MAX_TOTAL_ASSET_BYTES: usize = 48 * 1024 * 1024;
 pub const STORE_SCHEMA_VERSION: u32 = 6;
@@ -83,6 +87,7 @@ pub enum StoreError {
     Database(rusqlite::Error),
     Io(io::Error),
     Recording(omniusong_recording::RecordingError),
+    Catalog(Box<CatalogFailure>),
     Conflict,
     Invalid(String),
 }
@@ -94,12 +99,29 @@ impl fmt::Display for StoreError {
             Self::Database(e) => e.fmt(f),
             Self::Io(e) => e.fmt(f),
             Self::Recording(e) => e.fmt(f),
+            Self::Catalog(e) => e.fmt(f),
             Self::Conflict => f.write_str("Project changed. Reopen it before saving."),
             Self::Invalid(message) => f.write_str(message),
         }
     }
 }
 impl Error for StoreError {}
+impl StoreError {
+    /// Actual live-catalog codes only; source-journal SQLite is deliberately
+    /// excluded. Cleanup may contain a second genuine catalog failure.
+    pub fn catalog_sqlite_error_code(&self) -> Option<i32> {
+        match self {
+            Self::Database(error) => error.sqlite_error().map(|e| e.extended_code),
+            Self::Catalog(error) => error.catalog_sqlite_error_code(),
+            _ => None,
+        }
+    }
+    pub fn catalog_connection_unusable(&self) -> bool {
+        self.catalog_sqlite_error_code()
+            .is_some_and(|code| matches!(code & 0xff, 10 | 11 | 26))
+            || matches!(self,Self::Catalog(error) if error.connection_unusable())
+    }
+}
 impl From<DocumentError> for StoreError {
     fn from(e: DocumentError) -> Self {
         Self::Document(e)
@@ -722,18 +744,19 @@ impl NativeStore {
 
     pub fn load(&self, id: &str) -> Result<ProjectDocument> {
         let budget = projection_publication::default_budget();
-        let tx = self.connection.unchecked_transaction()?;
-        if projection_metadata::project(&tx, id, &budget)? {
-            let document = read_document_metadata_with_budget(&tx, id, &budget)?;
-            return active_projection_edits::load(tx, &self.root, document, &budget);
-        }
-        let document = load_document(&tx, id)?;
-        tx.rollback()?;
-        check_references(&self.connection, &document)?;
-        takes::verify_document_files(&self.root, &self.connection, &document)?;
-        Ok(document)
+        CatalogTransaction::deferred(&self.connection, &budget)?.run(|tx| {
+            if projection_metadata::project(tx, id, &budget)? {
+                let document = read_document_metadata_with_budget(tx, id, &budget)?;
+                return active_projection_edits::load(tx, &self.root, document, &budget);
+            }
+            tx.release_governor_for_legacy()?;
+            let document = load_document(tx, id)?;
+            tx.rollback()?;
+            check_references(&self.connection, &document)?;
+            takes::verify_document_files(&self.root, &self.connection, &document)?;
+            Ok(document)
+        })
     }
-
     pub fn asset(&self, id: &str) -> Result<Vec<u8>> {
         if !valid_asset_id(id) {
             return Err(StoreError::Invalid("Invalid asset identity".into()));
@@ -818,29 +841,28 @@ impl NativeStore {
         document: &ProjectDocument,
         expected_revision: u64,
     ) -> Result<ProjectDocument> {
-        let tx = self
-            .connection
-            .transaction_with_behavior(TransactionBehavior::Immediate)?;
         let budget = projection_publication::default_budget();
-        if projection_metadata::project(&tx, document.id(), &budget)?
-            || projection_publication::has_projection(document)?
-        {
-            let current = read_document_metadata_with_budget(&tx, document.id(), &budget)?;
-            return active_projection_edits::save(
-                tx,
-                &self.root,
-                current,
-                document,
-                expected_revision,
-                active_projection_edits::SaveExtras::default(),
-                &budget,
-            );
-        }
-        let next = save_in_transaction(&tx, &self.root, document, expected_revision)?;
-        tx.commit()?;
-        Ok(next)
+        CatalogTransaction::immediate(&mut self.connection, &budget)?.run(|tx| {
+            if projection_metadata::project(tx, document.id(), &budget)?
+                || projection_publication::has_projection(document)?
+            {
+                let current = read_document_metadata_with_budget(tx, document.id(), &budget)?;
+                return active_projection_edits::save(
+                    tx,
+                    &self.root,
+                    current,
+                    document,
+                    expected_revision,
+                    active_projection_edits::SaveExtras::default(),
+                    &budget,
+                );
+            }
+            tx.release_governor_for_legacy()?;
+            let next = save_in_transaction(tx, &self.root, document, expected_revision)?;
+            tx.commit()?;
+            Ok(next)
+        })
     }
-
     pub fn undo(&mut self, id: &str, expected_revision: u64) -> Result<ProjectDocument> {
         self.navigate_history(id, expected_revision, false)
     }
@@ -854,20 +876,20 @@ impl NativeStore {
         expected_revision: u64,
         redo: bool,
     ) -> Result<ProjectDocument> {
-        let tx = self
-            .connection
-            .transaction_with_behavior(TransactionBehavior::Immediate)?;
         let budget = projection_publication::default_budget();
-        if projection_metadata::project(&tx, id, &budget)?
-            || projection_metadata::history(&tx, id, redo, &budget)?
-        {
-            let plan =
-                active_projection_edits::navigation(&tx, id, expected_revision, redo, &budget)?;
-            return active_projection_edits::navigate(tx, &self.root, plan, None, &budget);
-        }
-        let next = navigate_in_transaction(&tx, &self.root, id, expected_revision, redo)?;
-        tx.commit()?;
-        Ok(next)
+        CatalogTransaction::immediate(&mut self.connection, &budget)?.run(|tx| {
+            if projection_metadata::project(tx, id, &budget)?
+                || projection_metadata::history(tx, id, redo, &budget)?
+            {
+                let plan =
+                    active_projection_edits::navigation(tx, id, expected_revision, redo, &budget)?;
+                return active_projection_edits::navigate(tx, &self.root, plan, None, &budget);
+            }
+            tx.release_governor_for_legacy()?;
+            let next = navigate_in_transaction(tx, &self.root, id, expected_revision, redo)?;
+            tx.commit()?;
+            Ok(next)
+        })
     }
 }
 

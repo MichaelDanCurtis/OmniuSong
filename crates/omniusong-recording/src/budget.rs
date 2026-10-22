@@ -191,6 +191,19 @@ impl InspectionBudget {
     pub fn observe_file_bytes(&self, bytes: u64) -> Result<()> {
         self.file(bytes)
     }
+    /// Returns an owned callback for this same cumulative, sticky governor.
+    /// Each invocation charges one VM step and returns true to interrupt SQLite
+    /// when that charge encounters cancellation or a limit. Creating another
+    /// callback cannot reset usage or a prior stop.
+    ///
+    /// The caller must install it at a one-instruction progress interval and own
+    /// its handler lifecycle. On a reusable connection, detach the handler before
+    /// cleanup or COMMIT. This grants no connection, source proof, or recording
+    /// mutation authority.
+    pub fn sqlite_vm_governor(&self) -> impl FnMut() -> bool + Send + 'static + use<> {
+        let budget = self.share();
+        move || budget.charge(InspectionResource::VmSteps, 1).is_err()
+    }
     /// Installs this same sticky VM/cancellation governor on a caller-owned
     /// private connection. The caller must not share or reuse that connection
     /// for another operation. This grants no recording mutation authority.
@@ -337,6 +350,120 @@ mod tests {
             budget.charge_work(u64::MAX),
             Err(RecordingError::InspectionCancelled)
         ));
+    }
+    #[test]
+    fn sqlite_vm_callbacks_share_exact_cumulative_steps_without_reset() {
+        let (budget, _) = budget(InspectionLimits {
+            max_vm_steps: 3,
+            ..InspectionLimits::default()
+        });
+        let mut first = budget.sqlite_vm_governor();
+        let mut second = budget.sqlite_vm_governor();
+        assert_eq!(budget.usage(), InspectionUsage::default());
+        assert!(!first());
+        assert_eq!(budget.usage().vm_steps, 1);
+        assert!(!second());
+        budget.charge(InspectionResource::VmSteps, 1).unwrap();
+        assert_eq!(budget.usage().vm_steps, 3);
+        let mut replacement = budget.sqlite_vm_governor();
+        assert!(replacement());
+        assert!(first());
+        assert!(second());
+        assert_eq!(budget.usage().vm_steps, 3);
+        assert!(matches!(
+            budget.checkpoint(),
+            Err(RecordingError::InspectionLimit {
+                resource: InspectionResource::VmSteps,
+                limit: 3,
+                attempted: 4
+            })
+        ));
+        assert!(matches!(
+            budget.charge_work(1),
+            Err(RecordingError::InspectionLimit {
+                resource: InspectionResource::VmSteps,
+                limit: 3,
+                attempted: 4
+            })
+        ));
+        assert_eq!(budget.usage().work_bytes, 0);
+    }
+    #[test]
+    fn sqlite_vm_callback_keeps_the_existing_work_stop_and_usage() {
+        let (budget, cancelled) = budget(InspectionLimits {
+            max_work_bytes: 3,
+            ..InspectionLimits::default()
+        });
+        let mut callback = budget.sqlite_vm_governor();
+        budget.charge_work(3).unwrap();
+        assert!(!callback());
+        assert!(matches!(
+            budget.charge_work(1),
+            Err(RecordingError::InspectionLimit {
+                resource: InspectionResource::WorkBytes,
+                limit: 3,
+                attempted: 4
+            })
+        ));
+        let stopped_usage = budget.usage();
+        cancelled.store(true, Ordering::Release);
+        assert!(callback());
+        assert!(budget.sqlite_vm_governor()());
+        assert_eq!(budget.usage(), stopped_usage);
+        assert!(matches!(
+            budget.checkpoint(),
+            Err(RecordingError::InspectionLimit {
+                resource: InspectionResource::WorkBytes,
+                limit: 3,
+                attempted: 4
+            })
+        ));
+    }
+    #[test]
+    fn sqlite_vm_callback_cancellation_stays_stopped_after_flag_clears() {
+        let (budget, cancelled) = budget(InspectionLimits::default());
+        let mut callback = budget.sqlite_vm_governor();
+        assert!(!callback());
+        cancelled.store(true, Ordering::Release);
+        assert!(callback());
+        cancelled.store(false, Ordering::Release);
+        assert!(callback());
+        assert!(budget.sqlite_vm_governor()());
+        assert_eq!(budget.usage().vm_steps, 1);
+        assert!(matches!(
+            budget.charge_work(1),
+            Err(RecordingError::InspectionCancelled)
+        ));
+        assert_eq!(budget.usage().work_bytes, 0);
+    }
+    #[test]
+    fn sqlite_vm_callback_owns_send_static_share_and_separate_budgets_stay_independent() {
+        fn owned_callback<T: FnMut() -> bool + Send + 'static>(callback: T) -> T {
+            callback
+        }
+        let mut retained_callback = {
+            let (temporary, _) = budget(InspectionLimits {
+                max_vm_steps: 1,
+                ..InspectionLimits::default()
+            });
+            owned_callback(temporary.sqlite_vm_governor())
+        };
+        assert!(!retained_callback());
+        assert!(retained_callback());
+
+        let (independent, _) = budget(InspectionLimits {
+            max_vm_steps: 1,
+            ..InspectionLimits::default()
+        });
+        independent.charge_work(2).unwrap();
+        assert_eq!(independent.usage().vm_steps, 0);
+        let mut independent_callback = independent.sqlite_vm_governor();
+        assert!(!independent_callback());
+        independent.checkpoint().unwrap();
+        assert!(retained_callback());
+        assert_eq!(independent.usage().work_bytes, 2);
+        assert_eq!(independent.usage().vm_steps, 1);
+        assert!(independent_callback());
     }
     #[test]
     fn separate_short_sql_statements_exhaust_one_cumulative_vm_allowance() {

@@ -1,5 +1,7 @@
 //! Actual synthetic renderer/writer originals through the public typed store
 //! publisher. Compact recorded commitment is distinct from active source proof.
+#[path = "catalog_review.rs"]
+mod catalog_review;
 use super::*;
 use omniusong_core::{
     DocumentNoteAddress, NoteTimelinePolicy, ProjectDocument,

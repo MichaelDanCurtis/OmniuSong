@@ -1,5 +1,6 @@
 //! Explicit source-aware active paths. Legacy guarded helpers remain available
 //! to unmigrated archive, metadata-reader and attachment consumers.
+use crate::catalog_transaction::CatalogTransaction;
 use crate::{
     EditReceipt, Result, StoreError,
     operations::{insert_operation_metadata, read_operation_metadata},
@@ -13,7 +14,7 @@ use omniusong_core::{
     native::MAX_NATIVE_PROJECT_BYTES,
 };
 use omniusong_recording::InspectionBudget;
-use rusqlite::{Connection, OptionalExtension, Transaction, params};
+use rusqlite::{Connection, OptionalExtension, params};
 use std::path::Path;
 fn invalid(s: &str) -> StoreError {
     StoreError::Invalid(s.into())
@@ -32,35 +33,35 @@ pub(crate) fn unchanged_registry(before: &ProjectDocument, after: &ProjectDocume
     Ok(())
 }
 pub(crate) fn load(
-    tx: Transaction<'_>,
+    tx: &mut CatalogTransaction<'_, '_>,
     root: &Path,
     document: ProjectDocument,
     budget: &InspectionBudget,
 ) -> Result<ProjectDocument> {
     let _files = crate::retained_file_coordination::writer(root)?;
     budget.checkpoint()?;
-    check_assets(&tx, &[&document], budget)?;
-    let sources = RegisteredProjectionSources::open(root, &tx, &[&document], &[], budget)?;
+    check_assets(tx, &[&document], budget)?;
+    let sources = RegisteredProjectionSources::open(root, tx, &[&document], &[], budget)?;
     let proofs = sources.authenticate(budget)?;
     proofs.validate_document(&document)?;
-    proofs.verify_registrations(&tx)?;
+    proofs.verify_registrations(tx)?;
     proofs.verify_unchanged()?;
     tx.rollback()?;
     Ok(document)
 }
 
 pub(crate) fn replay(
-    tx: Transaction<'_>,
+    tx: &mut CatalogTransaction<'_, '_>,
     root: &Path,
     receipt: EditReceipt,
     budget: &InspectionBudget,
 ) -> Result<EditReceipt> {
     let _files = crate::retained_file_coordination::writer(root)?;
-    check_assets(&tx, &[&receipt.document], budget)?;
-    let sources = RegisteredProjectionSources::open(root, &tx, &[&receipt.document], &[], budget)?;
+    check_assets(tx, &[&receipt.document], budget)?;
+    let sources = RegisteredProjectionSources::open(root, tx, &[&receipt.document], &[], budget)?;
     let proofs = sources.authenticate(budget)?;
     proofs.validate_document(&receipt.document)?;
-    proofs.verify_registrations(&tx)?;
+    proofs.verify_registrations(tx)?;
     proofs.verify_unchanged()?;
     tx.commit()?;
     Ok(receipt)
@@ -72,7 +73,7 @@ pub(crate) struct SaveExtras<'a> {
     clip: Option<(&'a DocumentClipAddress, &'a ClipPatch)>,
 }
 pub(crate) fn save(
-    tx: Transaction<'_>,
+    tx: &mut CatalogTransaction<'_, '_>,
     root: &Path,
     current: ProjectDocument,
     candidate: &ProjectDocument,
@@ -87,29 +88,28 @@ pub(crate) fn save(
     if current.revision() != expected || candidate.revision() != expected {
         return Err(StoreError::Conflict);
     }
-    let sources =
-        RegisteredProjectionSources::open(root, &tx, &[&current, candidate], &[], budget)?;
+    let sources = RegisteredProjectionSources::open(root, tx, &[&current, candidate], &[], budget)?;
     let proofs = sources.authenticate(budget)?;
     proofs.validate_document(&current)?;
     if let Some((address, patch)) = clip {
-        crate::operations::check_requested_audio_window(&tx, &current, candidate, address, patch)?;
+        crate::operations::check_requested_audio_window(tx, &current, candidate, address, patch)?;
     }
     // Registry equality was established before opening sources. Only current
     // geometry changed; do not rederive identical retained bindings a second time.
     proofs.validate_document_geometry(candidate)?;
-    let saved = write_save_metadata(&tx, &current, candidate, expected)?;
+    let saved = write_save_metadata(tx, &current, candidate, expected)?;
     if let Some((id, request)) = operation {
-        insert_operation_metadata(&tx, id, expected, request, &saved.document)?;
-        crate::projection_metadata::prepay_operation(&tx, id, budget)?;
-        let receipt = read_operation_metadata(&tx, id, saved.document.id(), expected, request)?
+        insert_operation_metadata(tx, id, expected, request, &saved.document)?;
+        crate::projection_metadata::prepay_operation(tx, id, budget)?;
+        let receipt = read_operation_metadata(tx, id, saved.document.id(), expected, request)?
             .ok_or_else(|| invalid("Edit receipt disappeared inside transaction"))?;
         if receipt.document != saved.document {
             return Err(invalid("Edit receipt postimage changed inside transaction"));
         }
     }
-    verify_saved_metadata(&tx, &saved, budget)?;
-    check_assets(&tx, &[&current, candidate], budget)?;
-    proofs.verify_registrations(&tx)?;
+    verify_saved_metadata(tx, &saved, budget)?;
+    check_assets(tx, &[&current, candidate], budget)?;
+    proofs.verify_registrations(tx)?;
     proofs.verify_unchanged()?;
     budget.checkpoint()?;
     tx.commit()?;
@@ -204,7 +204,7 @@ pub(crate) fn navigation(
     })
 }
 pub(crate) fn navigate(
-    tx: Transaction<'_>,
+    tx: &mut CatalogTransaction<'_, '_>,
     root: &Path,
     plan: Navigation,
     operation: Option<(&str, &str)>,
@@ -214,11 +214,11 @@ pub(crate) fn navigate(
     // navigation() proved current/next are exact content copies of these sides
     // (ignoring monotonic revision). Do not charge four duplicate interpretations.
     let docs = [&plan.before, &plan.after];
-    let sources = RegisteredProjectionSources::open(root, &tx, &docs, &[], budget)?;
+    let sources = RegisteredProjectionSources::open(root, tx, &docs, &[], budget)?;
     let proofs = sources.authenticate(budget)?;
     proofs.validate_document(&plan.after)?;
     proofs.validate_document_geometry(&plan.before)?;
-    validate_forward_transition(&tx, &plan.before, &plan.after, budget)?;
+    validate_forward_transition(tx, &plan.before, &plan.after, budget)?;
     tx.execute(
         "UPDATE projects SET payload=?1,revision=?2,cursor=?3 WHERE id=?4",
         params![
@@ -229,10 +229,10 @@ pub(crate) fn navigate(
         ],
     )?;
     if let Some((id, request)) = operation {
-        insert_operation_metadata(&tx, id, plan.current.revision(), request, &plan.next)?;
-        crate::projection_metadata::prepay_operation(&tx, id, budget)?;
+        insert_operation_metadata(tx, id, plan.current.revision(), request, &plan.next)?;
+        crate::projection_metadata::prepay_operation(tx, id, budget)?;
         let receipt =
-            read_operation_metadata(&tx, id, plan.next.id(), plan.current.revision(), request)?
+            read_operation_metadata(tx, id, plan.next.id(), plan.current.revision(), request)?
                 .ok_or_else(|| invalid("History receipt disappeared"))?;
         if receipt.document != plan.next {
             return Err(invalid("History receipt changed inside transaction"));
@@ -244,12 +244,12 @@ pub(crate) fn navigate(
         |r| r.get(0),
     )?;
     if cursor != plan.next_cursor
-        || read_document_metadata_with_budget(&tx, plan.next.id(), budget)? != plan.next
+        || read_document_metadata_with_budget(tx, plan.next.id(), budget)? != plan.next
     {
         return Err(invalid("History postimage changed inside transaction"));
     }
-    check_assets(&tx, &docs, budget)?;
-    proofs.verify_registrations(&tx)?;
+    check_assets(tx, &docs, budget)?;
+    proofs.verify_registrations(tx)?;
     proofs.verify_unchanged()?;
     budget.checkpoint()?;
     tx.commit()?;
@@ -257,7 +257,7 @@ pub(crate) fn navigate(
 }
 
 pub(crate) fn apply(
-    tx: Transaction<'_>,
+    tx: &mut CatalogTransaction<'_, '_>,
     root: &Path,
     intent: &ProjectEditIntent,
     request: &str,
@@ -320,7 +320,7 @@ pub(crate) fn apply(
             .map_err(StoreError::EditRejected)?,
         EditOperation::Undo | EditOperation::Redo => {
             let plan = navigation(
-                &tx,
+                tx,
                 current.id(),
                 intent.expected_revision,
                 matches!(intent.edit, EditOperation::Redo),

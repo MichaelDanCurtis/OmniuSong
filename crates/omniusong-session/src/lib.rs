@@ -848,8 +848,10 @@ fn store_failure(error: omniusong_store::StoreError, outcome_unknown: bool) -> S
             outcome_unknown: false,
         };
     }
-    let fatal = matches!(&error,omniusong_store::StoreError::Database(error)
-        if error.sqlite_error().is_some_and(|code|fatal_sqlite_primary(code.extended_code)));
+    let fatal = error.catalog_connection_unusable()
+        || error
+            .catalog_sqlite_error_code()
+            .is_some_and(fatal_sqlite_primary);
     if fatal {
         ServiceError::storage_unavailable(
             format!(

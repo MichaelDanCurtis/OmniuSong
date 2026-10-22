@@ -13,7 +13,7 @@ use omniusong_core::{
     native::{MAX_NATIVE_PROJECT_BYTES, TakeRange},
 };
 use omniusong_recording::{SourcePosition, StreamKind};
-use rusqlite::{OptionalExtension, TransactionBehavior, params};
+use rusqlite::{OptionalExtension, params};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct EditReceipt {
@@ -268,13 +268,11 @@ impl NativeStore {
                 "Project edit exceeds wire limit".into(),
             ));
         }
-        let tx = self
-            .connection
-            .transaction_with_behavior(TransactionBehavior::Immediate)?;
         let budget = super::projection_publication::default_budget();
-        super::projection_metadata::prepay_operation(&tx, &intent.operation_id.0, &budget)?;
+        super::catalog_transaction::CatalogTransaction::immediate(&mut self.connection,&budget)?.run(|tx| {
+        super::projection_metadata::prepay_operation(tx, &intent.operation_id.0, &budget)?;
         if let Some(receipt) = read_operation_metadata(
-            &tx,
+            tx,
             &intent.operation_id.0,
             &intent.project_id.0,
             intent.expected_revision,
@@ -283,8 +281,9 @@ impl NativeStore {
             if super::projection_publication::has_projection(&receipt.document)? {
                 return super::active_projection_edits::replay(tx, &self.root, receipt, &budget);
             }
-            check_references(&tx, &receipt.document)?;
-            super::takes::verify_document_files(&self.root, &tx, &receipt.document)?;
+            tx.release_governor_for_legacy()?;
+            check_references(tx, &receipt.document)?;
+            super::takes::verify_document_files(&self.root, tx, &receipt.document)?;
             tx.commit()?;
             return Ok(receipt);
         }
@@ -293,7 +292,7 @@ impl NativeStore {
         let history_projection = if matches!(intent.edit, EditOperation::Undo | EditOperation::Redo)
         {
             super::projection_metadata::history(
-                &tx,
+                tx,
                 &intent.project_id.0,
                 matches!(intent.edit, EditOperation::Redo),
                 &budget,
@@ -301,11 +300,11 @@ impl NativeStore {
         } else {
             false
         };
-        if super::projection_metadata::project(&tx, &intent.project_id.0, &budget)?
+        if super::projection_metadata::project(tx, &intent.project_id.0, &budget)?
             || history_projection
         {
             let current =
-                super::read_document_metadata_with_budget(&tx, &intent.project_id.0, &budget)?;
+                super::read_document_metadata_with_budget(tx, &intent.project_id.0, &budget)?;
             if current.revision() != intent.expected_revision {
                 return Err(StoreError::Conflict);
             }
@@ -313,7 +312,8 @@ impl NativeStore {
                 tx, &self.root, intent, &request, current, &budget,
             );
         }
-        let current = super::load_document(&tx, &intent.project_id.0)?;
+        tx.release_governor_for_legacy()?;
+        let current = super::load_document(tx, &intent.project_id.0)?;
         if current.revision() != intent.expected_revision {
             return Err(StoreError::Conflict);
         }
@@ -321,44 +321,44 @@ impl NativeStore {
             intent.edit,
             EditOperation::UpdateClip { .. } | EditOperation::RestoreClip { .. }
         ) {
-            check_references(&tx, &current)?;
-            super::takes::verify_document_files(&self.root, &tx, &current)?;
+            check_references(tx, &current)?;
+            super::takes::verify_document_files(&self.root, tx, &current)?;
         }
         let document=match &intent.edit {
-            EditOperation::Rename{name}=>{let mut next=current;next.rename(name)?;save_in_transaction(&tx,&self.root,&next,intent.expected_revision)?},
-            EditOperation::SetTempo{bpm}=>{let mut next=current;next.set_tempo(*bpm)?;save_in_transaction(&tx,&self.root,&next,intent.expected_revision)?},
+            EditOperation::Rename{name}=>{let mut next=current;next.rename(name)?;save_in_transaction(tx,&self.root,&next,intent.expected_revision)?},
+            EditOperation::SetTempo{bpm}=>{let mut next=current;next.set_tempo(*bpm)?;save_in_transaction(tx,&self.root,&next,intent.expected_revision)?},
             EditOperation::UpdateSession { name, tempo } => {
                 let mut next = current;
                 next.rename(name)?;
                 next.set_tempo(*tempo)?;
-                save_in_transaction(&tx, &self.root, &next, intent.expected_revision)?
+                save_in_transaction(tx, &self.root, &next, intent.expected_revision)?
             }
             EditOperation::AddNote {values,timeline}|EditOperation::UpdateNote {values,timeline}=>{
                 let EditScope::DocumentNote{address}=&intent.scope else{return Err(StoreError::Invalid("Note edit requires document-note scope".into()));};
                 let next=if matches!(intent.edit,EditOperation::AddNote{..}){current.add_note(address,*values,*timeline)}else{current.update_note(address,*values,*timeline)}.map_err(StoreError::EditRejected)?;
-                save_in_transaction(&tx,&self.root,&next,intent.expected_revision)?
+                save_in_transaction(tx,&self.root,&next,intent.expected_revision)?
             },
             EditOperation::DeleteNote|EditOperation::RestoreNote{..}=>{
                 let EditScope::DocumentNote{address}=&intent.scope else{return Err(StoreError::Invalid("Note edit requires document-note scope".into()));};
                 let next=match &intent.edit {EditOperation::RestoreNote{timeline}=>current.restore_note(address,*timeline),_=>current.delete_note(address)}.map_err(StoreError::EditRejected)?;
-                save_in_transaction(&tx,&self.root,&next,intent.expected_revision)?
+                save_in_transaction(tx,&self.root,&next,intent.expected_revision)?
             },
             EditOperation::UpdateClip{patch,timeline}=>{
                 let EditScope::DocumentClip{address}=&intent.scope else{return Err(StoreError::Invalid("Clip edit requires document-clip scope".into()));};
                 let next=current.update_clip(address,patch,*timeline).map_err(StoreError::EditRejected)?;
-                check_requested_audio_window(&tx, &current, &next, address, patch)?;
-                save_in_transaction(&tx,&self.root,&next,intent.expected_revision)?
+                check_requested_audio_window(tx, &current, &next, address, patch)?;
+                save_in_transaction(tx,&self.root,&next,intent.expected_revision)?
             },
             EditOperation::RestoreClip{timeline}=>{
                 let EditScope::DocumentClip{address}=&intent.scope else{return Err(StoreError::Invalid("Clip edit requires document-clip scope".into()));};
                 let next=current.restore_clip(address,*timeline).map_err(StoreError::EditRejected)?;
-                save_in_transaction(&tx,&self.root,&next,intent.expected_revision)?
+                save_in_transaction(tx,&self.root,&next,intent.expected_revision)?
             },
-            EditOperation::Undo|EditOperation::Redo=>navigate_in_transaction(&tx,&self.root,&intent.project_id.0,intent.expected_revision,matches!(intent.edit,EditOperation::Redo))?,
+            EditOperation::Undo|EditOperation::Redo=>navigate_in_transaction(tx,&self.root,&intent.project_id.0,intent.expected_revision,matches!(intent.edit,EditOperation::Redo))?,
             EditOperation::ApplyPreparedEdit{..}|EditOperation::AcceptCandidate{..}=>return Err(StoreError::Invalid("Prepared edits and candidate acceptance are not implemented in the native store".into())),
         };
         insert_operation(
-            &tx,
+            tx,
             &intent.operation_id.0,
             intent.expected_revision,
             &request,
@@ -370,6 +370,7 @@ impl NativeStore {
             previous_revision: intent.expected_revision,
             document,
             replayed: false,
+        })
         })
     }
 }
