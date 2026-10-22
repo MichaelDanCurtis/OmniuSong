@@ -9,8 +9,10 @@ pub use evidence_jobs::{
     EvidenceBudgetStop, EvidenceJobList, EvidenceJobPhase, EvidenceJobReply, EvidenceJobRequest,
     EvidenceJobSummary, EvidenceJobView, EvidenceMessage, EvidenceMetadataProblem,
     EvidenceObservation, EvidenceObservationStatus, EvidenceOperation, EvidenceOutcome,
-    EvidenceProblem, EvidenceProblemKind, EvidenceResourceOrigin, MAX_EVIDENCE_JOB_OBSERVATIONS,
-    MAX_EVIDENCE_JOBS,
+    EvidenceProblem, EvidenceProblemKind, EvidenceResourceOrigin, MAX_EVIDENCE_JOB_HEADER_BYTES,
+    MAX_EVIDENCE_JOB_LIST_BYTES, MAX_EVIDENCE_JOB_MESSAGE_BYTES, MAX_EVIDENCE_JOB_OBSERVATIONS,
+    MAX_EVIDENCE_JOB_RECORD_BYTES, MAX_EVIDENCE_JOB_REQUEST_BYTES, MAX_EVIDENCE_JOB_STARTED_BYTES,
+    MAX_EVIDENCE_JOB_VIEW_BYTES, MAX_EVIDENCE_JOBS, MAX_EVIDENCE_OUTCOME_REPLY_BYTES,
 };
 use omniusong_core::{
     MAX_PROJECT_BYTES, ProjectDocument,
@@ -66,6 +68,8 @@ pub struct LegacyScan {
 }
 #[derive(Debug, Clone, Default)]
 pub struct Library {
+    /// Established by the storage worker after an actual open, never inferred by paint.
+    pub native_root: Option<PathBuf>,
     pub sessions: Vec<ProjectSummary>,
     pub legacy: LegacyScan,
     pub legacy_notice: Option<String>,
@@ -1306,6 +1310,7 @@ impl NativeBackend {
         let mut sessions = self.store()?.list().map_err(|e| store_failure(e, false))?;
         sessions.truncate(512);
         Ok(Library {
+            native_root: Some(self.store()?.root().to_owned()),
             sessions,
             legacy: self.legacy.clone(),
             legacy_notice: self.legacy_notice.clone(),

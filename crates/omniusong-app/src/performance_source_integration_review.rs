@@ -40,7 +40,7 @@ fn document() -> ProjectDocument {
     ProjectDocument::from_value(value).unwrap()
 }
 
-fn manual() -> (StudioApp, TestPeer, audio_ui::test_support::Peer) {
+pub(super) fn manual() -> (StudioApp, TestPeer, audio_ui::test_support::Peer) {
     let (service, peer) = SessionService::test_pair();
     let generation = service.generation();
     let mut app = StudioApp::new(Paths {
@@ -183,7 +183,7 @@ fn inspect(app: &StudioApp) -> SourceRequest {
     app.performance_sources.inspection_request().unwrap()
 }
 
-fn retained_metadata_retry(app: &mut StudioApp, peer: &TestPeer) {
+pub(super) fn retained_metadata_retry(app: &mut StudioApp, peer: &TestPeer) {
     app.draft.name = "Exact unsaved metadata choice".into();
     app.draft.tempo = "123.5".into();
     app.save().unwrap();
@@ -201,7 +201,7 @@ fn retained_metadata_retry(app: &mut StudioApp, peer: &TestPeer) {
     app.retry.as_mut().unwrap().after = Some(Action::Open("retained-navigation-target".into()));
 }
 
-fn held_drafts(app: &mut StudioApp) {
+pub(super) fn held_drafts(app: &mut StudioApp) {
     let document = app.document.as_ref().unwrap();
     app.notes
         .select(
@@ -265,7 +265,7 @@ struct RetryState {
     after: Option<String>,
 }
 #[derive(Debug, PartialEq, Eq)]
-struct Preserved {
+pub(super) struct Preserved {
     document: Vec<u8>,
     draft: Draft,
     notes: NoteContext,
@@ -277,7 +277,7 @@ struct Preserved {
     pending: bool,
     recovery_guard: bool,
 }
-fn preserved(app: &StudioApp) -> Preserved {
+pub(super) fn preserved(app: &StudioApp) -> Preserved {
     Preserved {
         document: app.document.as_ref().unwrap().to_json().unwrap(),
         draft: app.draft.clone(),
@@ -315,7 +315,7 @@ fn preserved(app: &StudioApp) -> Preserved {
     }
 }
 
-fn no_continuation(peer: &TestPeer, engine: &audio_ui::test_support::Peer) {
+pub(super) fn no_continuation(peer: &TestPeer, engine: &audio_ui::test_support::Peer) {
     assert!(
         peer.requests.try_recv().is_err(),
         "no storage continuation or generic recovery"
@@ -837,7 +837,11 @@ fn disconnect_during_cancel_and_fatal_storage_failure_preserve_the_exact_mutatio
     }
 }
 
-fn frame(ctx: &egui::Context, app: &mut StudioApp, events: Vec<egui::Event>) -> egui::FullOutput {
+pub(super) fn frame(
+    ctx: &egui::Context,
+    app: &mut StudioApp,
+    events: Vec<egui::Event>,
+) -> egui::FullOutput {
     let mut output = ctx.run_ui(
         egui::RawInput {
             screen_rect: Some(egui::Rect::from_min_size(
@@ -852,7 +856,7 @@ fn frame(ctx: &egui::Context, app: &mut StudioApp, events: Vec<egui::Event>) -> 
     output.textures_delta.clear();
     output
 }
-fn click(ctx: &egui::Context, app: &mut StudioApp, label: &str) {
+pub(super) fn click(ctx: &egui::Context, app: &mut StudioApp, label: &str) {
     let _ = frame(ctx, app, vec![]);
     let tree = frame(ctx, app, vec![])
         .platform_output

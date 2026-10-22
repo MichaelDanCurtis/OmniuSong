@@ -1008,6 +1008,10 @@ pub(crate) mod test_support {
             self.0.borrow_mut().urgent.pop_front()
         }
     }
+    pub(crate) fn hold_output(ui: &mut AudioUi) {
+        // Synthetic UI-owner state only; this never starts a device or stream.
+        ui.phase = Phase::Playing;
+    }
     pub(crate) fn pair() -> (AudioUi, Peer) {
         let shared = Rc::new(RefCell::new(Shared::default()));
         let mut ui = AudioUi::new();

@@ -9,6 +9,10 @@ mod audio_ui;
 #[cfg(test)]
 mod clip_editor_integration_review;
 mod clip_ui;
+mod evidence_integration;
+#[cfg(test)]
+mod evidence_integration_review;
+mod evidence_ui;
 mod live_ui;
 #[cfg(test)]
 mod note_editor_review;
@@ -24,6 +28,7 @@ use arrangement_types::PlacementValue;
 use audio_ui::AudioUi;
 use clip_ui::{ClipAction, ClipContext, ClipEditor};
 use eframe::egui;
+use evidence_ui::{EvidenceUi, EvidenceUiRequest};
 use note_ui::{NoteAction, NoteContext, NoteEditor, NoteSelection};
 use omniusong_core::ProjectDocument;
 use omniusong_core::contracts::{
@@ -73,7 +78,7 @@ impl Paths {
                 }
                 "--help" | "-h" => {
                     println!(
-                        "OmniuSong native studio\n  --data-dir PATH    Native session store\n  --legacy-dir PATH  Read-only legacy data directory\nNo server is required. Audio playback and explicit solo capture use a separate native process."
+                        "OmniuSong native studio\n  --data-dir PATH    Native session store\n  --legacy-dir PATH  Read-only legacy data directory\n  --evidence-history Start with metadata history only; do not open/create the catalog\nNo server is required. Audio playback and explicit solo capture use a separate native process."
                     );
                     return Ok(None);
                 }
@@ -150,6 +155,7 @@ enum Action {
     },
     Performance(Box<Command>),
     PerformanceSource(SourceRequest),
+    Evidence(EvidenceUiRequest),
     Recovery(RecoveryAction),
     Note(NoteAction),
     Clip(ClipAction),
@@ -178,6 +184,10 @@ struct StudioApp {
     paths: Paths,
     service: Option<SessionService>,
     ready: bool,
+    native_origin: Option<PathBuf>,
+    evidence_metadata_only: bool,
+    evidence: EvidenceUi,
+    evidence_context: Option<evidence_integration::EvidenceContext>,
     reconnect_existing: bool,
     active: Option<Active>,
     retry: Option<Active>,
@@ -221,6 +231,10 @@ impl StudioApp {
             paths,
             service: None,
             ready: false,
+            native_origin: None,
+            evidence_metadata_only: false,
+            evidence: EvidenceUi::default(),
+            evidence_context: None,
             reconnect_existing: false,
             active: None,
             retry: None,
@@ -255,6 +269,17 @@ impl StudioApp {
             note_close_requested: false,
             clip_close_requested: false,
         }
+    }
+    fn with_evidence_history(mut self, enabled: bool) -> Self {
+        if enabled {
+            self.evidence_metadata_only = true;
+            self.evidence.open = true;
+            self.reconnect_existing = true;
+            self.status =
+                "Evidence history mode. Choose explicit reads; the studio catalog is not opened."
+                    .into();
+        }
+        self
     }
     fn with_audio_executable(mut self, executable: PathBuf) -> Self {
         self.audio_executable = Some(executable);
@@ -362,15 +387,28 @@ impl StudioApp {
         self.roll_needs_center = true;
     }
     fn library(&mut self, library: Library) {
+        if let Some(origin) = &library.native_root {
+            self.native_origin = Some(origin.clone());
+            self.paths.native = origin.clone();
+            self.audio.set_store_root(origin.clone());
+        }
         self.sessions = library.sessions;
         self.legacy = library.legacy.projects;
         self.legacy_notice = library.legacy_notice;
     }
     fn start(&mut self) {
-        self.start_service(false);
+        if self.evidence_metadata_only {
+            self.start_service_mode(true, false);
+        } else {
+            self.start_service(false);
+        }
     }
     fn start_service(&mut self, require_existing: bool) {
+        self.start_service_mode(require_existing, true);
+    }
+    fn start_service_mode(&mut self, require_existing: bool, initialize: bool) {
         self.ready = false;
+        self.evidence_metadata_only = !initialize;
         let paths = omniusong_session::Paths {
             native: self.paths.native.clone(),
             legacy: self.paths.legacy.clone(),
@@ -384,8 +422,11 @@ impl StudioApp {
             Ok(service) => {
                 self.performance_sources
                     .generation_changed(service.generation());
+                self.evidence.generation_changed(service.generation());
                 self.service = Some(service);
-                if let Err(error) = self.submit(Command::Initialize, Action::Refresh, None) {
+                if initialize
+                    && let Err(error) = self.submit(Command::Initialize, Action::Refresh, None)
+                {
                     self.error = Some(error.to_string());
                 }
             }
@@ -393,14 +434,13 @@ impl StudioApp {
         }
     }
     fn submit(&mut self, command: Command, action: Action, after: Option<Action>) -> AppResult<()> {
+        if evidence_integration::evidence_command(&command) || matches!(action, Action::Evidence(_))
+        {
+            self.validate_evidence_submission(&command, &action, after.as_ref())?;
+        }
         if matches!(
             command,
-            Command::RunEvidenceJob { .. }
-                | Command::InspectRetainedEvidence { .. }
-                | Command::ListEvidenceJobs
-                | Command::ReadEvidenceJob { .. }
-                | Command::ReconcileEvidenceJob { .. }
-                | Command::SavePreparedPerformanceSourceAction { .. }
+            Command::SavePreparedPerformanceSourceAction { .. }
                 | Command::ListPreparedPerformanceSourceActions
                 | Command::ListPerformanceSourceActionStates
                 | Command::ExecutePerformanceSourceAction { .. }
@@ -467,6 +507,13 @@ impl StudioApp {
                 {
                     self.performance_sources.submitted(request, id);
                 }
+                if let Some(Active {
+                    action: Action::Evidence(request),
+                    ..
+                }) = &self.active
+                {
+                    self.evidence.submitted(request, id);
+                }
                 self.error = None;
                 self.status = if matches!(self.active.as_ref().map(|active| &active.action), Some(Action::PerformanceSource(_))) {
                     "Read-only saved-recording review is running in the background. The original is kept unchanged."
@@ -479,10 +526,15 @@ impl StudioApp {
                 if error.kind == omniusong_session::SubmitFailure::Disconnected {
                     self.performance_sources
                         .worker_lost(service.generation(), &error.message);
+                    self.evidence
+                        .worker_lost(service.generation(), &error.message);
                 }
                 if let Action::PerformanceSource(request) = &action {
                     self.performance_sources
                         .submission_failed(request, &error.message);
+                }
+                if let Action::Evidence(request) = &action {
+                    self.evidence.submission_failed(request, &error.message);
                 }
                 if let Action::Recovery(recovery) = &action {
                     self.recovery.failed(recovery);
@@ -502,7 +554,7 @@ impl StudioApp {
                 if error.command.retry_safe()
                     && !matches!(
                         action,
-                        Action::Performance(_) | Action::PerformanceSource(_)
+                        Action::Performance(_) | Action::PerformanceSource(_) | Action::Evidence(_)
                     )
                     && !(matches!(error.command, Command::Initialize) && self.retry.is_some())
                 {
@@ -539,6 +591,7 @@ impl StudioApp {
                 if error.kind == FailureKind::Disconnected {
                     self.performance_sources
                         .worker_lost(generation, &error.message);
+                    self.evidence.worker_lost(generation, &error.message);
                 }
                 if error.kind == FailureKind::Disconnected
                     && let Some(active) = self.active.take()
@@ -577,7 +630,7 @@ impl StudioApp {
                     }
                     if !matches!(
                         active.action,
-                        Action::Performance(_) | Action::PerformanceSource(_)
+                        Action::Performance(_) | Action::PerformanceSource(_) | Action::Evidence(_)
                     ) {
                         self.retry = Some(active);
                     }
@@ -607,12 +660,23 @@ impl StudioApp {
             (Action::PerformanceSource(_), Ok(_)) => false,
             _ => true,
         };
+        let evidence_reply_matches = match &active.action {
+            Action::Evidence(request) => {
+                evidence_integration::completion_matches(request, &completion.result)
+            }
+            _ => true,
+        };
         if active.id != completion.id
             || active.command.kind() != completion.kind
             || !source_reply_matches
+            || !evidence_reply_matches
         {
             self.active = Some(active);
             self.error = Some("Ignored a stale session completion".into());
+            return;
+        }
+        if let Action::Evidence(request) = &active.action {
+            self.complete_evidence(request, active.id, completion.result.as_ref());
             return;
         }
         // Read-only source review owns no document or mutation continuation.
@@ -625,6 +689,8 @@ impl StudioApp {
                 if error.kind == FailureKind::StorageUnavailable {
                     self.reconnect_existing = true;
                     self.performance_sources
+                        .worker_lost(active.id.generation, &error.message);
+                    self.evidence
                         .worker_lost(active.id.generation, &error.message);
                     self.status = "Storage worker stopped. Your draft was kept; reconnect explicitly before another action.".into();
                 } else {
@@ -692,6 +758,8 @@ impl StudioApp {
                 if error.kind == FailureKind::StorageUnavailable {
                     self.performance_sources
                         .worker_lost(active.id.generation, &error.message);
+                    self.evidence
+                        .worker_lost(active.id.generation, &error.message);
                     self.reconnect_existing = true;
                     self.status="Storage worker stopped. Your draft was kept; reconnect explicitly before another action.".into();
                 } else {
@@ -729,6 +797,10 @@ impl StudioApp {
                         self.status = "Studio-evidence result retained; review its exact job history explicitly.".into();
                     }
                     Reply::Library(library) => {
+                        if matches!(active.command, Command::Initialize)
+                            && self.retry.as_ref().is_some_and(|retry| matches!(retry.command, Command::Initialize)) {
+                            self.retry = None;
+                        }
                         self.performance_sources.generation_changed(active.id.generation);
                         self.library(library);
                         self.ready = true;
@@ -827,6 +899,12 @@ impl StudioApp {
         self.dispatch(Action::Save, None)
     }
     fn request(&mut self, action: Action) {
+        if matches!(action, Action::Evidence(_)) {
+            if let Err(error) = self.dispatch(action, None) {
+                self.error = Some(error.to_string());
+            }
+            return;
+        }
         if self.audio.blocks_session() {
             if matches!(action, Action::Close) {
                 self.audio.cleanup_live_input();
@@ -935,6 +1013,9 @@ impl StudioApp {
         }
     }
     fn dispatch(&mut self, action: Action, after: Option<Action>) -> AppResult<()> {
+        if let Action::Evidence(request) = &action {
+            return self.submit(request.command(), action.clone(), after);
+        }
         if let Action::PerformanceSource(request) = &action {
             // Unlike musical actions, these reads can retain every local
             // draft/failed choice. They still share the sole worker and obey
@@ -1365,6 +1446,7 @@ impl StudioApp {
             Action::PerformanceSource(_) => {
                 unreachable!("source review uses the read-only service path")
             }
+            Action::Evidence(_) => unreachable!("evidence uses its exact guarded service path"),
             Action::Note(choice) => {
                 if self.metadata_dirty() || self.clips.dirty() || self.clips.unresolved() {
                     return Err(
@@ -1480,8 +1562,11 @@ impl StudioApp {
         let Some(active) = self.retry.clone() else {
             return;
         };
-        if matches!(active.action, Action::PerformanceSource(_)) {
-            self.error = Some("Choose a fresh explicit read in Saved performances.".into());
+        if matches!(
+            active.action,
+            Action::PerformanceSource(_) | Action::Evidence(_)
+        ) {
+            self.error = Some("Choose a fresh explicit read in its review panel. Evidence jobs are never retried automatically.".into());
             return;
         }
         if note_command(&active.command) {
@@ -1625,18 +1710,26 @@ impl StudioApp {
     }
     fn loading_ui(&mut self, root: &mut egui::Ui) {
         egui::CentralPanel::default().show(root,|ui|{
-            ui.add_space(45.0);ui.heading(if self.disconnected(){"Session storage is unavailable"}else{"Opening your local studio"});
-            ui.label("Session storage and source summaries are handled in the background.");
+            ui.add_space(45.0);ui.heading(if self.evidence_metadata_only {"Studio evidence history"} else if self.disconnected(){"Session storage is unavailable"}else{"Opening your local studio"});
+            if ui.button("Studio evidence and job history").clicked() { self.evidence.open = true; }
+            if self.evidence_metadata_only {
+                ui.label("Evidence history is connected without opening the studio catalog. Use explicit actions in Studio evidence.");
+                if !self.busy() && !self.disconnected() && ui.button("Open studio catalog").clicked() {
+                    self.evidence_metadata_only = false;
+                    self.execute_initialize();
+                }
+            } else { ui.label("Session storage and source summaries are handled in the background."); }
             ui.label("macOS may ask OmniuSong Native for access to the external drive. A system prompt, if shown, controls access.");
             if let Some(error)=&self.error{ui.colored_label(egui::Color32::LIGHT_RED,error);}
             if !self.busy()&&self.error.is_some()&&ui.button("Try opening storage again").clicked(){
                 if self.disconnected()||self.service.is_none(){self.service=None;self.start_service(self.reconnect_existing);}else{self.execute_initialize();}
             }
-            ui.label("Work is running in the background. If the app closes, it may already have saved; reopening lets you inspect the result.");
+            if self.busy() { ui.label("Work is running in the background. If the app closes, it may already have saved; reopening lets you inspect the result."); }
             if ui.button("Close").clicked(){self.request(Action::Close);}
         });
     }
     fn execute_initialize(&mut self) {
+        self.evidence_metadata_only = false;
         if let Err(error) = self.submit(Command::Initialize, Action::Refresh, None) {
             self.error = Some(error.to_string());
         }
@@ -1645,6 +1738,7 @@ impl StudioApp {
         let ctx = root.ctx().clone();
         self.poll();
         self.poll_audio();
+        self.show_evidence_window(&ctx);
         self.waveform
             .poll(self.document.as_ref(), self.clips.selection.as_ref());
         if self.waveform.pending() {
@@ -1692,6 +1786,9 @@ impl StudioApp {
                     egui::RichText::new("omniuSong").color(egui::Color32::from_rgb(100, 225, 187)),
                 );
                 ui.label("NATIVE STUDIO · FOUNDATION");
+                if ui.button("Studio evidence").clicked() {
+                    self.evidence.open = true;
+                }
                 ui.separator();
             });
             retry_attach = self
@@ -2343,6 +2440,22 @@ impl eframe::App for StudioApp {
     }
 }
 
+fn launch_arguments(args: Vec<String>) -> AppResult<(Vec<String>, bool)> {
+    let count = args
+        .iter()
+        .filter(|arg| arg.as_str() == "--evidence-history")
+        .count();
+    if count > 1 {
+        return Err("--evidence-history may be specified only once".into());
+    }
+    Ok((
+        args.into_iter()
+            .filter(|arg| arg != "--evidence-history")
+            .collect(),
+        count == 1,
+    ))
+}
+
 fn main() -> AppResult<()> {
     let mut args = std::env::args();
     let executable = PathBuf::from(args.next().ok_or("Missing executable path")?);
@@ -2350,6 +2463,7 @@ fn main() -> AppResult<()> {
     if args.first().is_some_and(|arg| arg == "--audio-worker") {
         return omniusong_engine::run_worker().map_err(Into::into);
     }
+    let (args, history_only) = launch_arguments(args)?;
     let Some(paths) = Paths::parse(args)? else {
         return Ok(());
     };
@@ -2366,7 +2480,9 @@ fn main() -> AppResult<()> {
         Box::new(move |cc| {
             cc.egui_ctx.set_visuals(egui::Visuals::dark());
             Ok(Box::new(
-                StudioApp::new(paths).with_audio_executable(executable),
+                StudioApp::new(paths)
+                    .with_audio_executable(executable)
+                    .with_evidence_history(history_only),
             ))
         }),
     )

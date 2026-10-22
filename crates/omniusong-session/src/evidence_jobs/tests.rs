@@ -560,13 +560,19 @@ fn actual_session_worker_runs_jobs_and_keeps_archived_sqlite_corruption_local() 
     }
     let mut f = Fixture::new();
     let document = f.document();
-    let paths = f.backend.paths.clone();
+    let mut paths = f.backend.paths.clone();
+    let canonical_origin = paths.native.clone();
+    paths.native = canonical_origin.join("..").join("native");
     f.backend.store.take();
     let mut service = SessionService::reconnect(paths).unwrap();
-    assert!(matches!(
-        completed(&mut service, Command::Initialize).result,
-        Ok(Reply::Library(_))
-    ));
+    let Reply::Library(library) = completed(&mut service, Command::Initialize).result.unwrap()
+    else {
+        panic!("initialized library")
+    };
+    assert_eq!(
+        library.native_root.as_deref(),
+        Some(canonical_origin.as_path())
+    );
     let request = f.request(JOB, "actual-worker.osre");
     let result = reply(
         completed(
