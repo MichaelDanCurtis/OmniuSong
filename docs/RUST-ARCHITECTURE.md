@@ -8,6 +8,8 @@ Use **egui/eframe 0.37.0**, a Rust-rendered interface on native winit windows, w
 
 The [UI investigation](research/RUST-UI.md) checks exact tagged APIs, alternatives, versions and license terms. Its independent headless spike demonstrates real egui rendering/input/accessible-tree behavior, not OS assistive-technology or physical device acceptance. Mac launch, keyboard/focus/scale and actual VoiceOver must be tested separately; Windows remains its own gate.
 
+The [October 22 NSH evaluation](research/RUST-UI.md#nsh-evaluation) shortlists a Rust-only AppKit/Win32 alternative for an isolated prototype. Source inspection found key-release/focus, accessibility-action and guarded-close integration gaps. No framework migration is selected; keep storage/audio/MIDI boundaries independent and require native workflow evidence before replacement.
+
 ## Decision 2: lossless migration and transaction-capable storage
 
 Initially retain schema-1 musical documents through a validated `ProjectDocument` boundary. Domain projections expose distinct musical ticks, signed timeline sample frames, unsigned source-frame offsets, velocity and expression types. Unknown metadata and all source note/clip/capture fields remain in their original JSON values; a projection is never used to serialize away unfamiliar fields. JSON numbers in opaque metadata retain arbitrary precision. A future schema introduces tempo maps/sample scheduling through an explicit migration, not silent reinterpretation of ticks.
