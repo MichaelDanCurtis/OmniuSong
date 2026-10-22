@@ -1,0 +1,29 @@
+# Durable copied-recovery execution review
+
+October 22, 2026. Scope: [execution contract](../contracts/NATIVE-SOURCE-ACTION-EXECUTION.md), retained-copy proof, engine semantic replay and the session executor. Qualification evidence is recorded separately in [the source packet](../verification/rust-native-source-action-execution-tests.json). This review does not qualify native recovery controls or project publication.
+
+The coordinator owns the shared commands, history integration, cancellation control, engine bridge and verification. Separate agents implemented the artifact proof and phase executor; a third agent tested the artifact proof and independently reviewed the coordinator's service/engine/UI integration. The artifact author separately reviewed the executor and its tests. All changes were inspected and integrated locally; agents ran no Cargo concurrently with the coordinator.
+
+## Accepted ordering and identity
+
+The immutable Prepared choice binds exact retained review bytes and a separate stable admission projection. Only a newly confirmed whole-history-fenced Prepared→Started append permits fresh filesystem work. The source remains owned from fresh review into copying. Missing files after Started cannot establish that work never happened. Subsequent requests, including the original Prepared request, inspect the existing action or refuse; they cannot copy again, replace evidence, invent another operation or grant normal sealing.
+
+An action lease outside the action directory protects cooperative service execution. Existing leases open without CREATE. Reconciliation requires exact full evidence bytes, canonical schema, all original-row identity, the complete semantic review and the original derived recovery operation. The existing working manifest must already be recovered-only with its selected checkpoint and unknown tail. Reconciliation does not open the original path or create an image owner file. Source ownership on fresh copy is distinct from working-copy ownership: the copy API releases its working owner on return, then the service reacquires and fully authenticates a RecoveredCopyView under the same governor while retaining the action lease. The view and lease remain held through Verified publication and the final check.
+
+History requires exact canonical Prepared1→Started2→Verified3 shape, immutable review references, bounded diagnostics and compact result equality against the review. Historical requests require exact ID/revision/raw-payload SHA. Listing recorded Verified does not imply its artifacts are currently available. A read-only observation of Started does not append Verified; explicit execution may append Verified after proving the same retained result. No project attachment follows.
+
+## Findings corrected before acceptance
+
+- **Shared-parent creation race:** independently Started actions could both observe the shared parent missing; the losing create returned AlreadyExists and stranded an otherwise eligible fresh action. The parent now accepts that result only after ordinary/canonical directory revalidation. Per-action lease/artifact creation remains exclusive. A deterministic injected race covers ordinary and symlink winners.
+- **Reconciliation worker failure:** client-generated EOF/protocol errors previously used only mutates(), incorrectly implying certainty for read-only reconciliation of earlier execution. A separate predicate covers mutation or reconciliation in all three worker-failure paths. Direct channel tests cover repeated EOF, retained retry, bad IDs/kinds/reply variants, retained credit and exact known refusal. Independent re-review accepts the correction.
+- **Cancellation documentation and platform refusal:** cancellation kinds no longer claim that every affected catalog/copy is unchanged. The unsupported-platform guard preserves uncertainty for an already Started action. Unix evidence does not qualify a Windows implementation.
+
+Separate explicit cancellation affects only the exact pending execution/reconciliation token. Inspection cancellation, stale request IDs and caller Drop cannot cancel accepted recovery. Credit remains occupied until exact completion. Source/artifact failures remain local; actual catalog failures retain fatal handling. Every error after Started, including a known no-commit Verified CAS conflict after file recovery, preserves prior recovery uncertainty and all artifacts.
+
+## Evidence and limits
+
+The source packet records the final coordinator-run workspace, formatting, warnings-denied Clippy, default-feature build and optimized focused checks. Synthetic actual six-stream writers exercise partial tails, capture faults and retained Finish evidence. Recording-level tests use a real second process for owner contention and compare complete artifact trees. Service failure boundaries use private injected errors and independent SQL handles; they are not hard process-death or hardware power-loss proof at every fsync/SQLite boundary.
+
+The supported ownership model is ordinary trusted directories and cooperative owners on Unix. It does not provide a hostile-directory sandbox or protection against an uncooperative privileged writer. Fixed file/work ceilings remain unchanged; database reservation excludes journals, sidecars and filesystem overhead. Additional proof passes can refuse before reaching the file-size ceiling. These small fixtures establish no long-recording capacity, physical input, audible quality, native UI, Windows, model, plugin or installer acceptance.
+
+No live store migration, new package, native recording or recovery UI action belongs to this packet. Preserve the installed source-review bundle and schema-5 catalog. Native startup/source-review acceptance, complete operator rollback before a schema-6 migration, keep-local/attachment/conflict behavior and complete unassigned-source evidence export/restore remain required before exposing a recovery workflow.

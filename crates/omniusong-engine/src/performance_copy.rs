@@ -1,7 +1,7 @@
-//! Explicit six-stream recovery into a distinct evidence/working copy. This
-//! library call grants no native Finish, normal seal, publication, or replay.
-//! A caller must separately authenticate the durable Prepared request. This
-//! primitive neither accepts nor proves one; no service/UI route is provided.
+//! Explicit six-stream recovery into a distinct evidence/working copy, and
+//! authentication of an existing recovered result. Neither grants native
+//! Finish, normal seal or project publication. The session service separately
+//! authenticates the durable Prepared/history request; these primitives do not.
 use crate::performance_writer::{PerformanceInspection, inspect_performance_bounded};
 use omniusong_core::contracts::{OperationId, Validate};
 use omniusong_recording::{
@@ -165,4 +165,74 @@ pub fn recover_performance_copy(
             .expect("checked positive selection"),
         &derived,
     )
+}
+
+/// Authenticates an existing result without consulting the original capture
+/// path or executing any recovery. Keep the borrowed view and action lease held
+/// through any later durable outcome publication. The full original review is
+/// established from the immutable image; the sealed view contains only the
+/// selected checkpoint and may exclude a retained valid or damaged tail.
+pub fn reconcile_performance_copy(
+    view: &omniusong_recording::RecoveredCopyView<'_>,
+    expected: &PerformanceInspection,
+    action_id: &str,
+    operation_id: &str,
+) -> omniusong_recording::Result<CopyRecoveryReceipt> {
+    let budget = view.budget();
+    let result = (|| {
+        budget.checkpoint()?;
+        if action_id.len() != 32
+            || !action_id
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            || !action_id.bytes().any(|b| b != b'0')
+            || operation_id.len() > 96
+        {
+            return Err(invalid("Invalid recovered action or operation identity"));
+        }
+        OperationId(operation_id.into())
+            .validate()
+            .map_err(|e| RecordingError::Invalid(e.to_string()))?;
+        view.verify_unchanged()?;
+        let image = crate::performance_writer::inspect_snapshot_with_budget(
+            view.evidence_inspection(),
+            budget,
+            |ordinal| view.read_evidence_ordinal(ordinal),
+        )?;
+        if image != *expected {
+            return Err(invalid(
+                "Retained evidence differs from the exact original semantic review",
+            ));
+        }
+        let selected = expected
+            .selection
+            .as_ref()
+            .ok_or_else(|| invalid("No admitted complete checkpoint exists"))?;
+        let derived = operation(budget, action_id, operation_id, expected)?;
+        let working = inspect_performance_bounded(view.working_reader())?;
+        let manifest = view
+            .working_reader()
+            .inspection()
+            .manifest
+            .as_ref()
+            .ok_or_else(|| invalid("Recovered working manifest is missing"))?;
+        if manifest.body.operation_id != derived
+            || manifest.body.interrupted.is_none()
+            || !working.unknown_tail
+            || working.descriptor_sha256 != expected.descriptor_sha256
+            || working.original_rows_sha256 != expected.original_rows_sha256
+            || working.selection != expected.selection
+            || working.checkpoint != expected.checkpoint
+            || working.checkpoint_sha256 != expected.checkpoint_sha256
+            || manifest.body.chunk_count != selected.chunk_count
+            || manifest.body.chunk_index_sha256 != selected.chunk_index_sha256
+        {
+            return Err(invalid(
+                "Recovered result differs from the exact action, operation or admitted checkpoint",
+            ));
+        }
+        view.receipt()
+    })();
+    budget.checkpoint()?;
+    result
 }

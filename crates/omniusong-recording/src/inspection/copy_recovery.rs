@@ -1,4 +1,7 @@
 //! Explicit whole-file evidence preservation and recovered-only copy authority.
+mod reconciliation;
+pub use reconciliation::{CopyActionOwner, RecoveredCopyView};
+
 use super::*;
 use crate::InspectionUsage;
 use std::io::Write;

@@ -349,6 +349,17 @@ fn prepared_backend_commands_cannot_enter_raw_ui_routes_or_continue_into_audio()
     };
     for command in [
         Command::ListPreparedPerformanceSourceActions,
+        Command::ListPerformanceSourceActionStates,
+        Command::ExecutePerformanceSourceAction {
+            id: A.into(),
+            revision: 1,
+            payload_sha256: "a".repeat(64),
+        },
+        Command::ReconcilePerformanceSourceAction {
+            id: A.into(),
+            revision: 2,
+            payload_sha256: "b".repeat(64),
+        },
         Command::SavePreparedPerformanceSourceAction {
             expected_revision: None,
             action: Box::new(choice),

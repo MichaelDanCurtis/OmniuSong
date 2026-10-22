@@ -651,3 +651,144 @@ fn an_already_normal_generic_journal_refuses_without_manufacturing_performance_s
         SourcePosition::AudioFrames(64)
     );
 }
+
+#[test]
+fn existing_six_stream_results_reconcile_the_same_manifest_without_the_original_path() {
+    use omniusong_engine::performance_copy::reconcile_performance_copy;
+    use omniusong_recording::{CopyActionOwner, RecoveredCopyView};
+    for (v2, mode) in [
+        (false, Mode::Partial),
+        (true, Mode::Partial),
+        (false, Mode::Fault),
+        (true, Mode::Fault),
+        (true, Mode::Finish),
+    ] {
+        let fixture = Fixture::new(v2, mode);
+        let source = fs::read(&fixture.source).unwrap();
+        let raw_rows = originals(&fixture.source);
+        let (budget, _) = governor(InspectionLimits::default());
+        let reader = fixture.bounded(&budget);
+        let expected = inspect_performance_bounded(&reader).unwrap();
+        let owner = CopyActionOwner::create(&fixture.parent, ACTION).unwrap();
+        let created =
+            recover_performance_copy(reader, &expected, &fixture.parent, ACTION, OPERATION)
+                .unwrap();
+        let created_usage = budget.usage();
+        {
+            let view = RecoveredCopyView::open(
+                &owner,
+                &expected.journal_sha256_at_review,
+                source.len() as u64,
+                &budget,
+            )
+            .unwrap();
+            let checked = reconcile_performance_copy(&view, &expected, ACTION, OPERATION).unwrap();
+            assert_eq!(checked.manifest, created.manifest);
+            assert_eq!(checked.inspection, created.inspection);
+            assert!(checked.usage.work_bytes > created_usage.work_bytes);
+            assert!(checked.usage.groups > created_usage.groups);
+        }
+        drop(owner);
+        // Removing only this synthetic fixture's original proves that this is
+        // an artifact replay, rather than convenient source-based recreation.
+        fs::remove_dir_all(fixture.source.parent().unwrap()).unwrap();
+        let before = tree(&fixture.root);
+        let (budget, _) = governor(InspectionLimits::default());
+        let owner = CopyActionOwner::open_existing(&fixture.parent, ACTION).unwrap();
+        let view = RecoveredCopyView::open(
+            &owner,
+            &expected.journal_sha256_at_review,
+            source.len() as u64,
+            &budget,
+        )
+        .unwrap();
+        let checked = reconcile_performance_copy(&view, &expected, ACTION, OPERATION).unwrap();
+        assert_eq!(checked.manifest, created.manifest);
+        assert_eq!(checked.inspection, created.inspection);
+        assert_eq!(checked.usage, budget.usage());
+        assert_eq!(originals(&checked.paths.working), raw_rows);
+        assert_eq!(fs::read(&checked.paths.evidence).unwrap(), source);
+        assert_eq!(tree(&fixture.root), before);
+        assert!(
+            !checked
+                .paths
+                .evidence
+                .with_file_name("take.sqlite3.owner.lock")
+                .exists()
+        );
+    }
+}
+
+#[test]
+fn reconciliation_requires_original_semantics_exact_operation_and_one_sticky_governor() {
+    use omniusong_engine::performance_copy::reconcile_performance_copy;
+    use omniusong_recording::{CopyActionOwner, RecoveredCopyView};
+    let fixture = Fixture::new(true, Mode::Partial);
+    let (budget, _) = governor(InspectionLimits::default());
+    let reader = fixture.bounded(&budget);
+    let expected = inspect_performance_bounded(&reader).unwrap();
+    let owner = CopyActionOwner::create(&fixture.parent, ACTION).unwrap();
+    let receipt =
+        recover_performance_copy(reader, &expected, &fixture.parent, ACTION, OPERATION).unwrap();
+    drop(owner);
+    let before = tree(&fixture.root);
+    let (budget, cancelled) = governor(InspectionLimits::default());
+    let owner = CopyActionOwner::open_existing(&fixture.parent, ACTION).unwrap();
+    let view = RecoveredCopyView::open(
+        &owner,
+        &expected.journal_sha256_at_review,
+        fs::metadata(&receipt.paths.evidence).unwrap().len(),
+        &budget,
+    )
+    .unwrap();
+    for change in 0..4 {
+        let mut expected = expected.clone();
+        let mut action = ACTION.to_owned();
+        let mut operation = OPERATION.to_owned();
+        match change {
+            0 => expected.capture_fault_pending = !expected.capture_fault_pending,
+            1 => expected.checkpoint_sha256 = Some("f".repeat(64)),
+            2 => action = "2".repeat(32),
+            3 => operation = "different-synthetic-request".into(),
+            _ => unreachable!(),
+        }
+        assert!(matches!(
+            reconcile_performance_copy(&view, &expected, &action, &operation),
+            Err(RecordingError::Invalid(_))
+        ));
+        assert_eq!(tree(&fixture.root), before);
+    }
+    cancelled.store(true, Ordering::Release);
+    assert!(matches!(
+        reconcile_performance_copy(&view, &expected, ACTION, OPERATION),
+        Err(RecordingError::InspectionCancelled)
+    ));
+    cancelled.store(false, Ordering::Release);
+    assert!(matches!(
+        view.receipt(),
+        Err(RecordingError::InspectionCancelled)
+    ));
+    assert_eq!(tree(&fixture.root), before);
+    drop(view);
+    drop(owner);
+    let (budget, _) = governor(InspectionLimits {
+        max_groups: 0,
+        ..Default::default()
+    });
+    let owner = CopyActionOwner::open_existing(&fixture.parent, ACTION).unwrap();
+    let view = RecoveredCopyView::open(
+        &owner,
+        &expected.journal_sha256_at_review,
+        fs::metadata(&receipt.paths.evidence).unwrap().len(),
+        &budget,
+    )
+    .unwrap();
+    assert!(matches!(
+        reconcile_performance_copy(&view, &expected, ACTION, OPERATION),
+        Err(RecordingError::InspectionLimit {
+            resource: InspectionResource::Groups,
+            ..
+        })
+    ));
+    assert_eq!(tree(&fixture.root), before);
+}

@@ -158,7 +158,7 @@ fn capture_root(root: &Path) -> Result<Option<PathBuf>, ServiceError> {
         }
     }
 }
-fn source_path(root: &Path, id: &str) -> Result<PathBuf, ServiceError> {
+pub(super) fn source_path(root: &Path, id: &str) -> Result<PathBuf, ServiceError> {
     validate_stage_id(id)?;
     let root = capture_root(root)?
         .ok_or_else(|| unavailable("No retained performance directory exists"))?;
@@ -219,6 +219,18 @@ fn inspect(
     budget.checkpoint().map_err(source_error)?;
     let path = source_path(root, stage_id)?;
     let reader = CaptureReader::open_bounded(&path, &budget).map_err(source_error)?;
+    review_reader(stage_id, &reader)
+}
+
+pub(super) fn review_reader(
+    stage_id: &str,
+    reader: &CaptureReader,
+) -> Result<PerformanceSourceReview, ServiceError> {
+    validate_stage_id(stage_id)?;
+    let budget = reader
+        .inspection_budget()
+        .ok_or_else(|| unavailable("Fresh source review requires the same bounded reader"))?;
+    let path = reader.inspection().path.clone();
     let source = reader.inspection();
     let config = from_descriptor(&source.descriptor).map_err(unavailable)?;
     require(
@@ -226,7 +238,7 @@ fn inspect(
         "Performance take identity differs from its owned stage",
     )?;
     let profile = descriptor_profile(&source.descriptor).map_err(unavailable)?;
-    let performance = inspect_performance_bounded(&reader).map_err(source_error)?;
+    let performance = inspect_performance_bounded(reader).map_err(source_error)?;
     budget.checkpoint().map_err(source_error)?;
     let mut review = PerformanceSourceReview {
         version: 1,

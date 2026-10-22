@@ -1,4 +1,11 @@
-//! Durable Prepared requests only. No source opens, artifacts, recovery or audio.
+//! Immutable Prepared requests and validated durable execution history.
+mod execution;
+pub use execution::{
+    PerformanceSourceActionState, PerformanceSourceExecutionPhase,
+    PerformanceSourceExecutionReceipt, PerformanceSourceExecutionRevision,
+    RecoveredPerformanceSourceResult,
+};
+
 use crate::{
     NativeBackend, PerformanceIntent, PerformanceSourceReview, Reply, ServiceError, store_failure,
 };
@@ -328,6 +335,23 @@ fn decode(
     history: &PerformanceSourceActionHistory,
     root: &Path,
 ) -> Result<Vec<PreparedPerformanceSourceActionReceipt>, ServiceError> {
+    let first = PerformanceSourceActionHistory {
+        reviews: history.reviews.clone(),
+        revisions: history
+            .revisions
+            .iter()
+            .filter(|r| r.revision == 1)
+            .cloned()
+            .collect(),
+    };
+    let prepared = decode_prepared_only(&first, root)?;
+    execution::validate_history(history, &prepared)?;
+    Ok(prepared)
+}
+fn decode_prepared_only(
+    history: &PerformanceSourceActionHistory,
+    root: &Path,
+) -> Result<Vec<PreparedPerformanceSourceActionReceipt>, ServiceError> {
     let reviews: BTreeMap<_, _> = history.reviews.iter().map(|r| (r.id.as_str(), r)).collect();
     let mut result = Vec::new();
     let mut operations = BTreeSet::new();
@@ -442,6 +466,13 @@ impl NativeBackend {
             .map_err(|e| store_failure(e, false))?;
         let mut previous = decode(&history, &root)?;
         self.validate_source_origins(&previous, &history)?;
+        require(
+            !history
+                .revisions
+                .iter()
+                .any(|r| r.id == action.id && r.revision > 1),
+            "This immutable choice has already started; reconcile the same action instead of preparing it again",
+        )?;
         if let Some(old) = previous.iter().find(|r| r.action.id == action.id) {
             require(
                 old.action == *action,

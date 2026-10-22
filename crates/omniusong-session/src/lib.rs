@@ -2,6 +2,8 @@
 mod performance_intents;
 mod performance_source_actions;
 mod performance_sources;
+#[cfg(test)]
+mod source_action_controls_review;
 use omniusong_core::{
     MAX_PROJECT_BYTES, ProjectDocument,
     contracts::{OperationId, ProjectEditIntent, ProjectId, Validate, WORKER_MAX_BYTES},
@@ -16,8 +18,10 @@ pub use performance_intents::{
     PerformanceFinishIntent, PerformanceIntent, PerformanceIntentReceipt,
 };
 pub use performance_source_actions::{
-    PerformanceSourceActionKind, PerformanceSourceIntentReference, PreparedPerformanceSourceAction,
-    PreparedPerformanceSourceActionReceipt,
+    PerformanceSourceActionKind, PerformanceSourceActionState, PerformanceSourceExecutionPhase,
+    PerformanceSourceExecutionReceipt, PerformanceSourceExecutionRevision,
+    PerformanceSourceIntentReference, PreparedPerformanceSourceAction,
+    PreparedPerformanceSourceActionReceipt, RecoveredPerformanceSourceResult,
 };
 pub use performance_sources::{PerformanceSource, PerformanceSourceReview, PerformanceSourceScan};
 use std::{
@@ -126,6 +130,17 @@ pub enum Command {
         review: Vec<u8>,
     },
     ListPreparedPerformanceSourceActions,
+    ListPerformanceSourceActionStates,
+    ExecutePerformanceSourceAction {
+        id: String,
+        revision: u64,
+        payload_sha256: String,
+    },
+    ReconcilePerformanceSourceAction {
+        id: String,
+        revision: u64,
+        payload_sha256: String,
+    },
     AttachPerformance {
         id: omniusong_engine::LiveId,
         revision: u64,
@@ -167,6 +182,9 @@ pub enum CommandKind {
     ListPerformanceIntents,
     SavePreparedPerformanceSourceAction,
     ListPreparedPerformanceSourceActions,
+    ListPerformanceSourceActionStates,
+    ExecutePerformanceSourceAction,
+    ReconcilePerformanceSourceAction,
     AttachPerformance,
     ScanPerformanceSources,
     InspectPerformanceSource,
@@ -195,6 +213,15 @@ impl Command {
             Self::ListPreparedPerformanceSourceActions => {
                 CommandKind::ListPreparedPerformanceSourceActions
             }
+            Self::ListPerformanceSourceActionStates => {
+                CommandKind::ListPerformanceSourceActionStates
+            }
+            Self::ExecutePerformanceSourceAction { .. } => {
+                CommandKind::ExecutePerformanceSourceAction
+            }
+            Self::ReconcilePerformanceSourceAction { .. } => {
+                CommandKind::ReconcilePerformanceSourceAction
+            }
             Self::AttachPerformance { .. } => CommandKind::AttachPerformance,
             Self::ScanPerformanceSources => CommandKind::ScanPerformanceSources,
             Self::InspectPerformanceSource { .. } => CommandKind::InspectPerformanceSource,
@@ -221,11 +248,17 @@ impl Command {
                 | Self::AttachCapture { .. }
                 | Self::SavePerformanceIntent { .. }
                 | Self::SavePreparedPerformanceSourceAction { .. }
+                | Self::ExecutePerformanceSourceAction { .. }
                 | Self::AttachPerformance { .. }
                 | Self::RecoverCapture { .. }
                 | Self::ExportArchive { .. }
                 | Self::RestoreCopy { .. }
         )
+    }
+    // Read-only reconciliation observes a prior durable execution. Losing its
+    // worker/reply cannot establish that execution's outcome or roll it back.
+    fn outcome_unknown_on_worker_failure(&self) -> bool {
+        self.mutates() || matches!(self, Self::ReconcilePerformanceSourceAction { .. })
     }
     pub fn validate(&self) -> Result<(), ServiceError> {
         let path = |path: &Path| {
@@ -247,7 +280,33 @@ impl Command {
             | Self::ScanCaptures
             | Self::ScanPerformanceSources
             | Self::ListPerformanceIntents
-            | Self::ListPreparedPerformanceSourceActions => Ok(()),
+            | Self::ListPreparedPerformanceSourceActions
+            | Self::ListPerformanceSourceActionStates => Ok(()),
+            Self::ExecutePerformanceSourceAction {
+                id,
+                revision,
+                payload_sha256,
+            }
+            | Self::ReconcilePerformanceSourceAction {
+                id,
+                revision,
+                payload_sha256,
+            } => {
+                performance_sources::validate_stage_id(id)
+                    .map_err(|e| ServiceError::rejected(e.message))?;
+                if (1..=3).contains(revision)
+                    && payload_sha256.len() == 64
+                    && payload_sha256
+                        .bytes()
+                        .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+                {
+                    Ok(())
+                } else {
+                    Err(ServiceError::rejected(
+                        "Choose an exact retained source-action revision and SHA-256",
+                    ))
+                }
+            }
             Self::SavePreparedPerformanceSourceAction { action, review, .. } => {
                 action.validate()?;
                 if review.is_empty()
@@ -412,6 +471,8 @@ pub enum Reply {
     PerformanceSourceInspected(Box<PerformanceSourceReview>),
     PreparedPerformanceSourceAction(Box<PreparedPerformanceSourceActionReceipt>),
     PreparedPerformanceSourceActions(Vec<PreparedPerformanceSourceActionReceipt>),
+    PerformanceSourceActionStates(Vec<PerformanceSourceActionState>),
+    PerformanceSourceExecution(Box<PerformanceSourceExecutionReceipt>),
 }
 impl Reply {
     fn matches(&self, kind: CommandKind) -> bool {
@@ -458,6 +519,15 @@ impl Reply {
                     Self::PreparedPerformanceSourceActions(_),
                     CommandKind::ListPreparedPerformanceSourceActions
                 )
+                | (
+                    Self::PerformanceSourceActionStates(_),
+                    CommandKind::ListPerformanceSourceActionStates
+                )
+                | (
+                    Self::PerformanceSourceExecution(_),
+                    CommandKind::ExecutePerformanceSourceAction
+                        | CommandKind::ReconcilePerformanceSourceAction
+                )
         )
     }
 }
@@ -474,7 +544,8 @@ pub enum FailureKind {
     EditRejected,
     /// A new performance-intent semantic check rejected before any publication.
     IntentRejected,
-    /// Read-only source work stopped; originals and catalog remain unchanged.
+    /// Bounded source work stopped. Interpret mutation/recovery state using the
+    /// command and outcome_unknown; accepted execution may already be durable.
     InspectionCancelled,
     InspectionLimit,
     SourceBusy,
@@ -581,6 +652,22 @@ pub trait Backend: Send + 'static {
     ) -> Result<Reply, ServiceError> {
         self.handle(command)
     }
+    fn handle_with_cancellations(
+        &mut self,
+        command: &Command,
+        inspection_cancelled: &Arc<AtomicBool>,
+        _source_action_cancelled: &Arc<AtomicBool>,
+    ) -> Result<Reply, ServiceError> {
+        if matches!(
+            command,
+            Command::ExecutePerformanceSourceAction { .. }
+                | Command::ReconcilePerformanceSourceAction { .. }
+        ) {
+            self.handle(command)
+        } else {
+            self.handle_with_cancel(command, inspection_cancelled)
+        }
+    }
 }
 
 pub struct SessionService {
@@ -593,6 +680,7 @@ pub struct SessionService {
     disconnected: bool,
     terminal_failure: Option<ServiceError>,
     inspection_cancelled: Arc<AtomicBool>,
+    source_action_cancelled: Arc<AtomicBool>,
 }
 static GENERATION: AtomicU64 = AtomicU64::new(1);
 impl SessionService {
@@ -610,6 +698,7 @@ impl SessionService {
                 disconnected: false,
                 terminal_failure: None,
                 inspection_cancelled: Arc::new(AtomicBool::new(false)),
+                source_action_cancelled: Arc::new(AtomicBool::new(false)),
             },
             requests,
             responses,
@@ -637,13 +726,17 @@ impl SessionService {
     fn spawn_internal(mut backend: impl Backend) -> Result<Self, ServiceError> {
         let (client, requests, responses) = Self::channels();
         let inspection_cancelled = Arc::clone(&client.inspection_cancelled);
+        let source_action_cancelled = Arc::clone(&client.source_action_cancelled);
         std::thread::Builder::new()
             .name("omniusong-sessions".into())
             .spawn(move || {
                 while let Ok(request) = requests.recv() {
                     let kind = request.command.kind();
-                    let result =
-                        backend.handle_with_cancel(&request.command, &inspection_cancelled);
+                    let result = backend.handle_with_cancellations(
+                        &request.command,
+                        &inspection_cancelled,
+                        &source_action_cancelled,
+                    );
                     let terminal = result
                         .as_ref()
                         .is_err_and(|error| error.kind == FailureKind::StorageUnavailable);
@@ -696,6 +789,23 @@ impl SessionService {
             false
         }
     }
+    /// A distinct token for copy execution/reconciliation. Cancellation retains
+    /// credit until the exact result arrives and cannot promise rollback.
+    pub fn cancel_source_action(&self, id: RequestId) -> bool {
+        if self.pending.as_ref().is_some_and(|request| {
+            request.id == id
+                && matches!(
+                    request.command,
+                    Command::ExecutePerformanceSourceAction { .. }
+                        | Command::ReconcilePerformanceSourceAction { .. }
+                )
+        }) {
+            self.source_action_cancelled.store(true, Ordering::Release);
+            true
+        } else {
+            false
+        }
+    }
     pub fn try_submit(&mut self, command: Command) -> Result<RequestId, Box<SubmitError>> {
         let fail = |kind, message: &str, command| {
             Box::new(SubmitError {
@@ -740,6 +850,7 @@ impl SessionService {
         // No worker is active while credit is free. Reset before publishing
         // the next accepted command; a fast consumer sees the new token state.
         self.inspection_cancelled.store(false, Ordering::Release);
+        self.source_action_cancelled.store(false, Ordering::Release);
         match self.requests.try_send(request.clone()) {
             Ok(()) => {
                 self.next_sequence = next;
@@ -770,7 +881,10 @@ impl SessionService {
                 kind: FailureKind::Disconnected,
                 message: "Session worker is disconnected; reconnect explicitly before retrying."
                     .into(),
-                outcome_unknown: self.retry.as_ref().is_some_and(Command::mutates),
+                outcome_unknown: self
+                    .retry
+                    .as_ref()
+                    .is_some_and(Command::outcome_unknown_on_worker_failure),
             });
         }
         match self.responses.try_recv() {
@@ -787,10 +901,9 @@ impl SessionService {
                     return Err(ServiceError {
                         kind: FailureKind::Protocol,
                         message: "Ignored a stale or mismatched session completion".into(),
-                        outcome_unknown: self
-                            .pending
-                            .as_ref()
-                            .is_some_and(|request| request.command.mutates()),
+                        outcome_unknown: self.pending.as_ref().is_some_and(|request| {
+                            request.command.outcome_unknown_on_worker_failure()
+                        }),
                     });
                 }
                 let request = self.pending.take().expect("validated pending request");
@@ -815,7 +928,7 @@ impl SessionService {
                 let request = self.pending.take();
                 let unknown = request
                     .as_ref()
-                    .is_some_and(|request| request.command.mutates());
+                    .is_some_and(|request| request.command.outcome_unknown_on_worker_failure());
                 self.retry = request
                     .filter(|request| request.command.retry_safe())
                     .map(|request| request.command);
@@ -845,7 +958,8 @@ impl Drop for SessionService {
         self.inspection_cancelled.store(true, Ordering::Release);
     }
 }
-// No Drop implementation and no JoinHandle: close drops channel endpoints only.
+// No JoinHandle: closing a caller never blocks on storage. Drop cancels only
+// read-only inspection; an accepted execution retains its distinct token.
 #[cfg(any(test, feature = "test-hooks"))]
 pub struct TestPeer {
     pub requests: Receiver<Request>,
@@ -959,6 +1073,37 @@ impl NativeBackend {
     }
 }
 impl Backend for NativeBackend {
+    fn handle_with_cancellations(
+        &mut self,
+        command: &Command,
+        inspection_cancelled: &Arc<AtomicBool>,
+        source_action_cancelled: &Arc<AtomicBool>,
+    ) -> Result<Reply, ServiceError> {
+        command.validate()?;
+        match command {
+            Command::ExecutePerformanceSourceAction {
+                id,
+                revision,
+                payload_sha256,
+            } => self.execute_source_action(
+                id,
+                *revision,
+                payload_sha256,
+                Arc::clone(source_action_cancelled),
+            ),
+            Command::ReconcilePerformanceSourceAction {
+                id,
+                revision,
+                payload_sha256,
+            } => self.reconcile_source_action(
+                id,
+                *revision,
+                payload_sha256,
+                Arc::clone(source_action_cancelled),
+            ),
+            _ => self.handle_with_cancel(command, inspection_cancelled),
+        }
+    }
     fn handle_with_cancel(
         &mut self,
         command: &Command,
@@ -1072,6 +1217,27 @@ impl Backend for NativeBackend {
                 .save_prepared_source_action(*expected_revision, action, review)
                 .map_err(performance_intents::intent_rejection),
             Command::ListPreparedPerformanceSourceActions => self.list_prepared_source_actions(),
+            Command::ListPerformanceSourceActionStates => self.list_source_action_states(),
+            Command::ExecutePerformanceSourceAction {
+                id,
+                revision,
+                payload_sha256,
+            } => self.execute_source_action(
+                id,
+                *revision,
+                payload_sha256,
+                Arc::new(AtomicBool::new(false)),
+            ),
+            Command::ReconcilePerformanceSourceAction {
+                id,
+                revision,
+                payload_sha256,
+            } => self.reconcile_source_action(
+                id,
+                *revision,
+                payload_sha256,
+                Arc::new(AtomicBool::new(false)),
+            ),
             Command::AttachPerformance { id, revision } => {
                 self.attach_performance_intention(*id, *revision)
             }
@@ -1118,6 +1284,7 @@ impl Backend for NativeBackend {
         })();
         result.map_err(|mut error: ServiceError| {
             if command.mutates()
+                && !matches!(command, Command::ExecutePerformanceSourceAction { .. })
                 && !matches!(
                     error.kind,
                     FailureKind::RevisionConflict

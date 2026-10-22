@@ -9,8 +9,9 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 mod copy_recovery;
 pub use copy_recovery::{
-    COPY_RECOVERY_MAX_ARTIFACT_BYTES, COPY_RECOVERY_MAX_WORKING_BYTES, CopyRecoveryBoundary,
-    CopyRecoveryError, CopyRecoveryReceipt, RecoveryCopy, RecoveryCopyPaths,
+    COPY_RECOVERY_MAX_ARTIFACT_BYTES, COPY_RECOVERY_MAX_WORKING_BYTES, CopyActionOwner,
+    CopyRecoveryBoundary, CopyRecoveryError, CopyRecoveryReceipt, RecoveredCopyView, RecoveryCopy,
+    RecoveryCopyPaths,
 };
 
 use std::{

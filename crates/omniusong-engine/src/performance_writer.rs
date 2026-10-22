@@ -1482,6 +1482,20 @@ pub fn inspect_sealed_performance_bounded(
     budget.checkpoint()?;
     result.map_err(InspectionFailure::into_recording)
 }
+/// Shared semantic validator for a held action-owned immutable image. Callers
+/// must retain the exact reader/governor and its owner for the entire pass.
+pub(crate) fn inspect_snapshot_with_budget(
+    inspection: &omniusong_recording::JournalInspection,
+    budget: &InspectionBudget,
+    mut read_ordinal: impl FnMut(u64) -> omniusong_recording::Result<ChunkRecord>,
+) -> omniusong_recording::Result<PerformanceInspection> {
+    budget.checkpoint()?;
+    let result = inspect_performance_snapshot_bounded(inspection, Some(budget), |ordinal| {
+        read_ordinal(ordinal).map_err(InspectionFailure::from)
+    });
+    budget.checkpoint()?;
+    result.map_err(InspectionFailure::into_recording)
+}
 fn inspect_performance_snapshot(
     inspection: &omniusong_recording::JournalInspection,
     mut read_ordinal: impl FnMut(u64) -> Result<ChunkRecord>,
