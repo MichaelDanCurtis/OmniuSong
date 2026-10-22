@@ -5,6 +5,10 @@
 
 #[path = "export_origin_tests.rs"]
 mod export_origin_tests;
+#[path = "export_reconciliation_tests.rs"]
+mod export_reconciliation_tests;
+#[path = "inert_reconciliation_oracle_tests.rs"]
+mod inert_reconciliation_oracle_tests;
 
 use super::*;
 use crate::STORE_SCHEMA_VERSION;
@@ -426,7 +430,7 @@ impl Drop for Fixture {
     }
 }
 
-fn ownerless_sqlite_probe(path: &Path, expect_busy: bool) {
+pub(super) fn ownerless_sqlite_probe(path: &Path, expect_busy: bool) {
     let output = std::process::Command::new(std::env::current_exe().unwrap())
         .args([
             "--exact",

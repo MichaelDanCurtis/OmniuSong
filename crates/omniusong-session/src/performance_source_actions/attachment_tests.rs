@@ -36,7 +36,10 @@ fn checksum(bytes: &[u8]) -> String {
 #[test]
 fn actual_six_stream_recovery_choices_archive_and_restore_as_inert_exact_evidence() {
     use omniusong_recording::{InspectionBudget, InspectionLimits};
-    use omniusong_store::{EvidenceEntryKind, inspect_evidence_archive};
+    use omniusong_store::{
+        EvidenceEntryKind, inspect_evidence_archive, inspect_restored_evidence,
+        reconcile_evidence_export,
+    };
     let budget = || InspectionBudget::new(InspectionLimits::default(), fixture::token()).unwrap();
     for mode in [fixture::Mode::Tail, fixture::Mode::Finish] {
         let (f, mut backend, source, raw, verified) = verified(mode);
@@ -68,11 +71,16 @@ fn actual_six_stream_recovery_choices_archive_and_restore_as_inert_exact_evidenc
         let inspected = inspect_evidence_archive(&archive, &budget()).unwrap();
         assert_eq!(inspected.receipt, exported);
         assert_eq!(exported.sha256, checksum(&fs::read(&archive).unwrap()));
+        assert_eq!(
+            reconcile_evidence_export(&archive, OTHER, native.to_str().unwrap(), &budget())
+                .unwrap(),
+            inspected
+        );
         let restored = f.root.join("inert-evidence");
-        backend
+        let restored_receipt = backend
             .store()
             .unwrap()
-            .restore_retained_evidence(&archive, &restored, &budget())
+            .restore_retained_evidence_reviewed(&archive, &restored, &exported.sha256, &budget())
             .unwrap();
         for (prefix, tree) in [
             ("captures", &source_tree),
@@ -148,6 +156,15 @@ fn actual_six_stream_recovery_choices_archive_and_restore_as_inert_exact_evidenc
         assert!(!restored.join("studio.sqlite3").exists());
         assert!(!restored.join("captures").exists());
         assert!(!restored.join("source-actions").exists());
+        let inert_before = fixture::tree(&restored);
+        fs::rename(&archive, f.root.join("original-archive-retained-away.osre")).unwrap();
+        assert!(!archive.exists());
+        assert_eq!(
+            inspect_restored_evidence(&restored, &archive, &exported.sha256, &budget()).unwrap(),
+            restored_receipt
+        );
+        assert_eq!(fixture::tree(&restored), inert_before);
+        assert!(!archive.exists());
         assert_eq!(fixture::history(&mut backend), history);
         assert_eq!(fixture::projects(&mut backend), projects);
         assert_eq!(fixture::tree(&native.join("captures")), source_tree);

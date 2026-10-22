@@ -34,6 +34,7 @@ pub use evidence_archive::{
     EVIDENCE_SCOPE, EvidenceAbsence, EvidenceArchiveInspection, EvidenceArchiveReceipt,
     EvidenceEntry, EvidenceEntryKind, EvidenceManifest, EvidenceRestoreReceipt, EvidenceRoot,
     MAX_EVIDENCE_ENTRIES, MAX_EVIDENCE_MANIFEST_BYTES, inspect_evidence_archive,
+    inspect_restored_evidence, reconcile_evidence_export,
 };
 pub use evidence_failure::{EvidenceFailure, EvidenceFailureOrigin};
 pub use operations::EditReceipt;

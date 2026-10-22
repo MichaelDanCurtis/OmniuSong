@@ -15,7 +15,13 @@ use std::{
     time::Duration,
 };
 
+mod export_reconciliation;
+mod inert_reconciliation;
 mod raw;
+pub use export_reconciliation::reconcile_evidence_export;
+pub use inert_reconciliation::inspect_restored_evidence;
+#[cfg(test)]
+mod inert_reconciliation_tests;
 #[cfg(test)]
 mod reviewed_restore_tests;
 #[cfg(test)]
