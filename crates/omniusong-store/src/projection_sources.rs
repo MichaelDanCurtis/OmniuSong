@@ -134,6 +134,44 @@ fn group_document(
     Ok(())
 }
 
+/// Streamed reference/role collection only; it retains no document or source
+/// proof. Every addition and the eventual open use this original governor.
+pub(crate) struct RegisteredSourceSet<'b> {
+    budget: &'b InspectionBudget,
+    grouped: BTreeMap<TakeId, Group>,
+    failed: bool,
+}
+impl<'b> RegisteredSourceSet<'b> {
+    pub(crate) fn new(budget: &'b InspectionBudget) -> Self {
+        Self {
+            budget,
+            grouped: BTreeMap::new(),
+            failed: false,
+        }
+    }
+    pub(crate) fn add_document(&mut self, document: &ProjectDocument) -> Result<()> {
+        let result = (|| {
+            require(!self.failed, "Registered source collection already failed")?;
+            group_document(&mut self.grouped, document, self.budget)
+        })();
+        let result = finish(self.budget, result);
+        self.failed |= result.is_err();
+        result
+    }
+    pub(crate) fn add_performance_reference(&mut self, reference: &TakeReference) -> Result<()> {
+        let result = (|| {
+            self.budget.checkpoint()?;
+            require(!self.failed, "Registered source collection already failed")?;
+            charge(self.budget, 1024)?;
+            reference.validate()?;
+            add_reference(&mut self.grouped, reference.clone(), true, self.budget)
+        })();
+        let result = finish(self.budget, result);
+        self.failed |= result.is_err();
+        result
+    }
+}
+
 fn load_registered(
     connection: &Connection,
     take_id: &TakeId,
@@ -243,38 +281,55 @@ struct RegisteredSource {
 
 /// Owns immutable registered objects/readers; it borrows no catalog connection.
 /// This holder alone grants no performance-derivation authority.
-pub(crate) struct RegisteredProjectionSources {
+pub(crate) struct RegisteredProjectionSources<'b> {
+    budget: &'b InspectionBudget,
     root: PathBuf,
     sources: BTreeMap<TakeId, RegisteredSource>,
 }
 /// The proofs borrow their stable reader owner instead of forming a self-
 /// referential owner. All operations retain the opening readers' same governor.
 pub(crate) struct ProjectionProofs<'a> {
-    sources: &'a RegisteredProjectionSources,
+    sources: &'a RegisteredProjectionSources<'a>,
     budget: &'a InspectionBudget,
     performance: BTreeMap<TakeId, AuthenticatedPerformance<'a>>,
 }
 
-impl RegisteredProjectionSources {
+impl<'b> RegisteredProjectionSources<'b> {
     pub(crate) fn open(
         root: &Path,
         connection: &Connection,
         documents: &[&ProjectDocument],
         extra: &[TakeReference],
-        budget: &InspectionBudget,
+        budget: &'b InspectionBudget,
     ) -> Result<Self> {
         let result = (|| {
             budget.checkpoint()?;
-            path_credit(root, budget)?;
-            let mut grouped = BTreeMap::new();
+            let mut collected = RegisteredSourceSet::new(budget);
             for document in documents {
-                group_document(&mut grouped, document, budget)?;
+                collected.add_document(document)?;
             }
             for reference in extra {
-                charge(budget, 1024)?;
-                reference.validate()?;
-                add_reference(&mut grouped, reference.clone(), true, budget)?;
+                collected.add_performance_reference(reference)?;
             }
+            Self::open_collected(root, connection, collected)
+        })();
+        finish(budget, result)
+    }
+
+    pub(crate) fn open_collected(
+        root: &Path,
+        connection: &Connection,
+        collected: RegisteredSourceSet<'b>,
+    ) -> Result<Self> {
+        let RegisteredSourceSet {
+            budget,
+            grouped,
+            failed,
+        } = collected;
+        let result = (|| {
+            budget.checkpoint()?;
+            require(!failed, "Registered source collection already failed")?;
+            path_credit(root, budget)?;
             let mut sources = BTreeMap::new();
             for (take_id, group) in grouped {
                 budget.checkpoint()?;
@@ -331,6 +386,7 @@ impl RegisteredProjectionSources {
             }
             charge(budget, root.as_os_str().len())?;
             let sources = Self {
+                budget,
                 root: root.to_owned(),
                 sources,
             };
@@ -343,6 +399,10 @@ impl RegisteredProjectionSources {
     fn verify_with_budget(&self, budget: &InspectionBudget) -> Result<()> {
         let result = (|| {
             budget.checkpoint()?;
+            require(
+                self.budget.shares_governor(budget),
+                "Projection source verification cannot change the cumulative inspection governor",
+            )?;
             for source in self.sources.values() {
                 let opening_budget = source
                     .reader
@@ -521,6 +581,300 @@ impl<'a> ProjectionProofs<'a> {
     }
     pub(crate) fn verify_unchanged(&self) -> Result<()> {
         self.sources.verify_with_budget(self.budget)
+    }
+}
+
+#[cfg(test)]
+mod collector_tests {
+    use super::*;
+    use omniusong_core::native::{TakeClip, TakeRange, TimelinePosition};
+    use omniusong_recording::{InspectionLimits, RecordingError};
+    use serde_json::json;
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    };
+
+    fn budget(limits: InspectionLimits) -> (InspectionBudget, Arc<AtomicBool>) {
+        let cancelled = Arc::new(AtomicBool::new(false));
+        (
+            InspectionBudget::new(limits, Arc::clone(&cancelled)).unwrap(),
+            cancelled,
+        )
+    }
+    fn reference(take: &str, stream: &str, digest: char) -> TakeReference {
+        TakeReference {
+            take_id: TakeId(take.into()),
+            manifest_sha256: digest.to_string().repeat(64),
+            stream_id: stream.into(),
+        }
+    }
+    fn document(clips: &[TakeReference], performance: &[TakeReference]) -> ProjectDocument {
+        let mut document = ProjectDocument::new("Streamed registered sources")
+            .unwrap()
+            .upgrade_native()
+            .unwrap();
+        for (index, source) in clips.iter().enumerate() {
+            document
+                .append_take_clip(
+                    "original-recordings",
+                    "Original recordings",
+                    TakeClip {
+                        id: format!("clip-{index}"),
+                        source: source.clone(),
+                        range: TakeRange::AudioFrames { start: 0, count: 1 },
+                        position: TimelinePosition {
+                            frame: 0,
+                            sample_rate: 48_000,
+                        },
+                        fades: None,
+                        edit_source: None,
+                    },
+                )
+                .unwrap();
+        }
+        if performance.is_empty() {
+            return document;
+        }
+        let mut value = document
+            .upgrade_performance_projection_schema()
+            .unwrap()
+            .value()
+            .clone();
+        value["performanceProjections"]["entries"] = performance.iter().enumerate().map(|(index, source)| {
+            let digest = "d".repeat(64);
+            let review = json!({"version":1,"review_sha256":digest,"request":{"source":{
+                "take_id":source.take_id.0,"manifest_sha256":source.manifest_sha256
+            }}}).to_string();
+            json!({"id":format!("projection-{index}"),"version":1,"source":source,
+                "review":{"version":1,"canonicalJson":review,"reviewSha256":digest},
+                "lanes":[{"source":1,"trackId":format!("reserved-lane-{index}"),"instrument":"keys",
+                    "originalNotes":[{"noteId":format!("reserved-note-{index}"),"identitySha256":"e".repeat(64),
+                        "values":{"pitch":60,"start_tick":0,"duration_ticks":1,"velocity16":1}}]}]})
+        }).collect::<Vec<_>>().into();
+        ProjectDocument::from_value(value).unwrap()
+    }
+    #[test]
+    fn streamed_documents_union_roles_and_deduplicate_exact_references() {
+        let (budget, _) = budget(InspectionLimits::default());
+        let audio = reference("take-one", "audio", 'a');
+        let control = reference("take-one", "control", 'a');
+        let other = reference("take-two", "audio", 'b');
+        let ordinary = document(&[audio.clone(), audio.clone(), other.clone()], &[]);
+        let projected = document(std::slice::from_ref(&control), std::slice::from_ref(&audio));
+        let mut collected = RegisteredSourceSet::new(&budget);
+        collected.add_document(&ordinary).unwrap();
+        collected.add_document(&ordinary).unwrap();
+        assert!(!collected.grouped[&audio.take_id].performance);
+        collected.add_document(&projected).unwrap();
+        assert_eq!(collected.grouped.len(), 2);
+        let group = &collected.grouped[&audio.take_id];
+        assert!(group.performance);
+        assert_eq!(group.references, BTreeSet::from([audio, control]));
+        assert!(!collected.grouped[&other.take_id].performance);
+        assert_eq!(
+            collected.grouped[&other.take_id].references,
+            BTreeSet::from([other])
+        );
+        // Deduplication saves retained state, never traversal work.
+        assert_eq!(budget.usage().record_visits, 8);
+    }
+    #[test]
+    fn empty_collected_sources_cannot_rebind_prepaid_work_to_a_fresh_governor() {
+        let connection = Connection::open_in_memory().unwrap();
+        let (opening, _) = budget(InspectionLimits::default());
+        let (other, _) = budget(InspectionLimits::default());
+        let mut collected = RegisteredSourceSet::new(&opening);
+        collected.add_document(&document(&[], &[])).unwrap();
+        let sources = RegisteredProjectionSources::open_collected(
+            Path::new("unused-empty-source-root"),
+            &connection,
+            collected,
+        )
+        .unwrap();
+        assert!(opening.usage().work_bytes > 0);
+        assert!(
+            matches!(sources.authenticate(&other), Err(StoreError::Invalid(message))
+            if message == "Projection source verification cannot change the cumulative inspection governor")
+        );
+        assert_eq!(other.usage(), Default::default());
+        sources
+            .authenticate(&opening)
+            .unwrap()
+            .verify_unchanged()
+            .unwrap();
+        assert_eq!(opening.usage().file_bytes, 0);
+    }
+
+    #[test]
+    fn schema_one_opaque_lookalikes_do_not_claim_sources_or_performance_roles() {
+        let (budget, _) = budget(InspectionLimits::default());
+        let source = reference("take-opaque", "audio", 'a');
+        let mut value = ProjectDocument::new("Opaque legacy metadata")
+            .unwrap()
+            .value()
+            .clone();
+        value["performanceProjections"] = json!({"version":999,"entries":[{"source":source}]});
+        value["tracks"][0]["recording"] = json!({"version":1,"clips":[{"source":source}]});
+        let document = ProjectDocument::from_value(value).unwrap();
+        let mut collected = RegisteredSourceSet::new(&budget);
+        collected.add_document(&document).unwrap();
+        assert!(collected.grouped.is_empty());
+        assert_eq!(budget.usage().record_visits, 0);
+        assert!(budget.usage().work_bytes > 0);
+        collected.add_performance_reference(&source).unwrap();
+        assert!(collected.grouped[&source.take_id].performance);
+        assert_eq!(
+            collected.grouped[&source.take_id].references,
+            BTreeSet::from([source])
+        );
+    }
+    #[test]
+    fn repeated_streamed_additions_share_record_limits_and_cancellation() {
+        let (budget, _) = budget(InspectionLimits {
+            max_record_visits: 2,
+            ..Default::default()
+        });
+        let source = reference("take-one", "audio", 'a');
+        let mut collected = RegisteredSourceSet::new(&budget);
+        collected.add_performance_reference(&source).unwrap();
+        collected.add_performance_reference(&source).unwrap();
+        assert!(matches!(
+            collected.add_performance_reference(&source),
+            Err(StoreError::Recording(RecordingError::InspectionLimit {
+                resource: omniusong_recording::InspectionResource::RecordVisits,
+                limit: 2,
+                attempted: 3
+            }))
+        ));
+        assert_eq!(collected.grouped.len(), 1);
+        assert_eq!(budget.usage().record_visits, 2);
+        assert!(collected.failed);
+        assert!(collected.add_document(&document(&[], &[])).is_err());
+
+        let (budget, cancelled) = self::budget(InspectionLimits::default());
+        let mut collected = RegisteredSourceSet::new(&budget);
+        collected.add_performance_reference(&source).unwrap();
+        cancelled.store(true, Ordering::Release);
+        assert!(matches!(
+            collected.add_document(&document(&[], &[])),
+            Err(StoreError::Recording(RecordingError::InspectionCancelled))
+        ));
+        cancelled.store(false, Ordering::Release);
+        assert!(matches!(
+            collected.add_performance_reference(&source),
+            Err(StoreError::Recording(RecordingError::InspectionCancelled))
+        ));
+        assert_eq!(budget.usage().record_visits, 1);
+    }
+    #[test]
+    fn streamed_documents_charge_cumulative_work_and_refused_addition_cannot_be_reused() {
+        let document = document(&[reference("take-one", "audio", 'a')], &[]);
+        let (measurement, _) = budget(InspectionLimits::default());
+        RegisteredSourceSet::new(&measurement)
+            .add_document(&document)
+            .unwrap();
+        let first_work = measurement.usage().work_bytes;
+        assert!(first_work > 0);
+        let (limited, _) = budget(InspectionLimits {
+            max_work_bytes: first_work,
+            ..Default::default()
+        });
+        let mut collected = RegisteredSourceSet::new(&limited);
+        collected.add_document(&document).unwrap();
+        assert!(matches!(
+            collected.add_document(&document),
+            Err(StoreError::Recording(RecordingError::InspectionLimit {
+                resource: omniusong_recording::InspectionResource::WorkBytes,
+                ..
+            }))
+        ));
+        assert!(collected.failed);
+
+        let (healthy, _) = budget(InspectionLimits::default());
+        let mut collected = RegisteredSourceSet::new(&healthy);
+        let mut invalid = reference("take-invalid", "audio", 'a');
+        invalid.manifest_sha256 = "INVALID".into();
+        assert!(collected.add_performance_reference(&invalid).is_err());
+        assert!(
+            collected
+                .add_performance_reference(&reference("take-valid", "audio", 'a'))
+                .is_err()
+        );
+        assert!(collected.grouped.is_empty());
+        healthy.checkpoint().unwrap();
+    }
+    #[test]
+    fn conflicting_same_take_manifests_survive_collection_and_refuse_registration_before_paths() {
+        use sha2::{Digest, Sha256};
+        let descriptor: omniusong_recording::TakeDescriptor = serde_json::from_value(json!({
+            "version":1,"take_id":"take-registered","streams":[{
+                "stream_id":"audio","segment_id":"segment","source_id":"source","source_name":"Synthetic",
+                "source_connection_generation":1,"host_clock":{"domain":"host","epoch":"epoch",
+                    "ticks_per_second_numerator":1000,"ticks_per_second_denominator":1},
+                "kind":{"kind":"raw_events","format":"length_prefixed_capture_v1"},"initial_source_position":0
+            }],"provenance":{}
+        })).unwrap();
+        let body = omniusong_recording::ManifestBody {
+            version: 1,
+            manifest_id: "synthetic-manifest".into(),
+            operation_id: "synthetic-operation".into(),
+            descriptor_sha256: descriptor.sha256().unwrap(),
+            descriptor,
+            streams: vec![],
+            chunk_count: 0,
+            payload_bytes: 0,
+            chunk_index_sha256: "a".repeat(64),
+            interrupted: None,
+        };
+        let mut hash = Sha256::new();
+        hash.update(b"OmniuSong.sealed-take.v1\0");
+        hash.update(serde_json::to_vec(&body).unwrap());
+        let manifest = omniusong_recording::SealedManifest {
+            body,
+            sha256: format!("{:x}", hash.finalize()),
+        };
+        manifest.verify_hash().unwrap();
+        let connection = Connection::open_in_memory().unwrap();
+        connection.execute_batch("CREATE TABLE native_takes(take_id TEXT, manifest_sha256 TEXT, object_sha256 TEXT, byte_length INTEGER, manifest_json TEXT)").unwrap();
+        connection
+            .execute(
+                "INSERT INTO native_takes VALUES(?1,?2,?3,?4,?5)",
+                rusqlite::params![
+                    "take-registered",
+                    manifest.sha256,
+                    "c".repeat(64),
+                    1,
+                    String::from_utf8(manifest.canonical_bytes().unwrap()).unwrap()
+                ],
+            )
+            .unwrap();
+        let valid = TakeReference {
+            take_id: TakeId("take-registered".into()),
+            manifest_sha256: manifest.sha256.clone(),
+            stream_id: "audio".into(),
+        };
+        let mut conflicting = valid.clone();
+        conflicting.manifest_sha256 = if valid.manifest_sha256 == "b".repeat(64) {
+            "a".repeat(64)
+        } else {
+            "b".repeat(64)
+        };
+        let (budget, _) = budget(InspectionLimits::default());
+        let mut collected = RegisteredSourceSet::new(&budget);
+        collected
+            .add_document(&document(std::slice::from_ref(&valid), &[]))
+            .unwrap();
+        collected.add_performance_reference(&conflicting).unwrap();
+        assert_eq!(collected.grouped[&valid.take_id].references.len(), 2);
+        let result = RegisteredProjectionSources::open_collected(
+            Path::new("never-opened-synthetic-root"),
+            &connection,
+            collected,
+        );
+        assert!(matches!(result, Err(StoreError::Invalid(message))
+            if message == "Take reference does not match its registered sealed identity"));
+        assert_eq!(budget.usage().file_bytes, 0);
     }
 }
 

@@ -2,14 +2,12 @@
 
 use crate::{
     NativeStore, Result, StoreError, checksum, load_document, read_asset,
-    takes::{
-        TakeObject, TakePublication, load_take, object_path, publication_request, verify_owned_take,
-    },
+    takes::{TakeObject, load_take, object_path, verify_owned_take},
 };
 use omniusong_core::{
     ClipPatch, ClipTimelinePolicy, DocumentClipAddress, FieldChange, MAX_NATIVE_PROJECT_BYTES,
     MAX_PROJECT_BYTES, NoteTimelinePolicy, NoteValues, PPQ, ProjectDocument, ValueChange,
-    contracts::{EditOperation, EditScope, ProjectEditIntent, TakeId, Validate, WORKER_MAX_BYTES},
+    contracts::{EditOperation, EditScope, ProjectEditIntent, TakeId, WORKER_MAX_BYTES},
     native::TakeReference,
 };
 use rusqlite::{Connection, OpenFlags, OptionalExtension, TransactionBehavior, params};
@@ -483,66 +481,44 @@ pub(super) fn validate_request(
     previous: u64,
     result: &ProjectDocument,
 ) -> Result<()> {
-    let value: serde_json::Value =
-        serde_json::from_str(request).map_err(|e| invalid(e.to_string()))?;
-    if value.get("operation_id").is_none() {
-        let object = value
-            .as_object()
-            .ok_or_else(|| invalid("Invalid operation wrapper"))?;
-        ensure(
-            object.len() == 3 && value["kind"] == "take_publication" && value["version"] == 1,
-            "Unknown archived operation wrapper",
-        )?;
-        let intent: TakePublication =
-            serde_json::from_value(value["intent"].clone()).map_err(|e| invalid(e.to_string()))?;
-        intent.validate()?;
-        ensure(
-            publication_request(&intent)? == request,
-            "Noncanonical archived take operation",
-        )?;
-        ensure(
-            intent.operation_id.0 == operation_id
-                && intent.project_id.0 == project_id
-                && intent.expected_revision == previous,
-            "Archived take operation identity/revision mismatch",
-        )?;
-        ensure(
-            result.take_clips()?.contains(&intent.clip),
-            "Take operation result lost its published clip",
-        )?;
-    } else {
-        let intent: ProjectEditIntent =
-            serde_json::from_str(request).map_err(|e| invalid(e.to_string()))?;
-        intent.validate().map_err(|e| invalid(e.to_string()))?;
-        ensure(
-            serde_json::to_string(&intent).map_err(|e| invalid(e.to_string()))? == request,
-            "Noncanonical archived edit operation",
-        )?;
-        ensure(
-            intent.operation_id.0 == operation_id
-                && intent.project_id.0 == project_id
-                && intent.expected_revision == previous,
-            "Archived edit operation identity/revision mismatch",
-        )?;
-        ensure(
-            matches!(
-                intent.edit,
-                EditOperation::Rename { .. }
-                    | EditOperation::SetTempo { .. }
-                    | EditOperation::UpdateSession { .. }
-                    | EditOperation::AddNote { .. }
-                    | EditOperation::UpdateNote { .. }
-                    | EditOperation::DeleteNote
-                    | EditOperation::RestoreNote { .. }
-                    | EditOperation::UpdateClip { .. }
-                    | EditOperation::RestoreClip { .. }
-                    | EditOperation::Undo
-                    | EditOperation::Redo
-            ),
-            "Unsupported operation in archive",
-        )?;
-        validate_note_postimage(&intent, result)?;
-        validate_clip_postimage(&intent, result)?;
+    let operation = crate::archive_operation::ArchiveOperation::parse(request)?;
+    operation.validate_identity(operation_id, project_id, previous)?;
+    match operation {
+        crate::archive_operation::ArchiveOperation::Projection(_) => {
+            // Typed syntax and deterministic remapping are prerequisites, not
+            // complete original/history/lineage authentication. Keep every
+            // public archive route gated until their shared closure is wired.
+            return Err(invalid(
+                "Projection archives require authenticated complete source closure",
+            ));
+        }
+        crate::archive_operation::ArchiveOperation::Take(intent) => {
+            ensure(
+                result.take_clips()?.contains(&intent.clip),
+                "Take operation result lost its published clip",
+            )?;
+        }
+        crate::archive_operation::ArchiveOperation::Edit(intent) => {
+            ensure(
+                matches!(
+                    intent.edit,
+                    EditOperation::Rename { .. }
+                        | EditOperation::SetTempo { .. }
+                        | EditOperation::UpdateSession { .. }
+                        | EditOperation::AddNote { .. }
+                        | EditOperation::UpdateNote { .. }
+                        | EditOperation::DeleteNote
+                        | EditOperation::RestoreNote { .. }
+                        | EditOperation::UpdateClip { .. }
+                        | EditOperation::RestoreClip { .. }
+                        | EditOperation::Undo
+                        | EditOperation::Redo
+                ),
+                "Unsupported operation in archive",
+            )?;
+            validate_note_postimage(&intent, result)?;
+            validate_clip_postimage(&intent, result)?;
+        }
     }
     Ok(())
 }

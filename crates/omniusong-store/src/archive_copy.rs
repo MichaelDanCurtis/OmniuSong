@@ -5,12 +5,12 @@ use crate::{
     NativeStore, Result, StoreError,
     archive::{self, Bundle},
     checksum, load_document,
-    takes::{TakePublication, publication_request, verify_owned_take},
+    takes::verify_owned_take,
 };
 use archive::{ensure, invalid};
 use omniusong_core::{
     MAX_NATIVE_PROJECT_BYTES, ProjectDocument,
-    contracts::{OperationId, ProjectEditIntent, ProjectId, Validate, WORKER_MAX_BYTES},
+    contracts::{OperationId, ProjectId, Validate, WORKER_MAX_BYTES},
 };
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 use serde::{Deserialize, Serialize};
@@ -575,29 +575,43 @@ fn remap_document(json: &str, project_id: &str) -> Result<ProjectDocument> {
     value["id"] = project_id.into();
     Ok(ProjectDocument::from_value(value)?)
 }
-fn remap_request(json: &str, project: &str, operation: &str) -> Result<String> {
-    let value: Value = serde_json::from_str(json).map_err(|e| invalid(e.to_string()))?;
-    if value.get("operation_id").is_some() {
-        let mut intent: ProjectEditIntent =
-            serde_json::from_str(json).map_err(|e| invalid(e.to_string()))?;
-        intent.project_id = ProjectId(project.into());
-        intent.operation_id = OperationId(operation.into());
-        intent.validate().map_err(|e| invalid(e.to_string()))?;
-        serde_json::to_string(&intent).map_err(|e| invalid(e.to_string()))
+/// Allocate/remap only typed identities. The caller owns pending_copy_map and
+/// still must authenticate the entire archive and final expected postimages.
+pub(super) fn mapped_copy_request(
+    connection: &Connection,
+    source: &Connection,
+    request: &str,
+    project: &str,
+    reserved: &str,
+) -> Result<(String, String)> {
+    let parsed = crate::archive_operation::ArchiveOperation::parse(request)?;
+    let ordinary = if matches!(
+        parsed,
+        crate::archive_operation::ArchiveOperation::Projection(_)
+    ) {
+        String::new()
     } else {
-        ensure(
-            value.as_object().is_some_and(|o| o.len() == 3)
-                && value["kind"] == "take_publication"
-                && value["version"] == 1,
-            "Unknown copied operation request",
-        )?;
-        let mut intent: TakePublication =
-            serde_json::from_value(value["intent"].clone()).map_err(|e| invalid(e.to_string()))?;
-        intent.project_id = ProjectId(project.into());
-        intent.operation_id = OperationId(operation.into());
-        publication_request(&intent)
-    }
+        fresh_operation(connection, source, reserved)?
+    };
+    let (operation, request) = parsed.remap(project, &ordinary)?;
+    let exists: bool = connection.query_row(
+        "SELECT EXISTS(SELECT 1 FROM operations WHERE operation_id=?1 UNION ALL SELECT 1 FROM archive_copies WHERE operation_id=?1 UNION ALL SELECT 1 FROM pending_copy_map WHERE destination_operation_id=?1)",
+        [&operation], |row| row.get(0),
+    )?;
+    let source_sql = if has_lineage(source)? {
+        "SELECT EXISTS(SELECT 1 FROM operations WHERE operation_id=?1 UNION ALL SELECT 1 FROM archive_copies WHERE operation_id=?1)"
+    } else {
+        // Strict version-1 archives have no lineage/copy tables.
+        "SELECT EXISTS(SELECT 1 FROM operations WHERE operation_id=?1)"
+    };
+    let source_exists: bool = source.query_row(source_sql, [&operation], |row| row.get(0))?;
+    ensure(
+        !exists && !source_exists && operation != reserved,
+        "Copied operation identity collides with retained or pending authority",
+    )?;
+    Ok((operation, request))
 }
+
 fn document_json(document: &ProjectDocument) -> Result<String> {
     String::from_utf8(document.to_json()?).map_err(|e| invalid(e.to_string()))
 }
@@ -804,8 +818,13 @@ impl NativeStore {
                 let revision: i64 = row.get(4)?;
                 let result: String = row.get(5)?;
                 let source_result: String = row.get(6)?;
-                let operation = fresh_operation(&tx, &archive, &intent.operation_id.0)?;
-                let request = remap_request(&request, &project_id, &operation)?;
+                let (operation, request) = mapped_copy_request(
+                    &tx,
+                    &archive,
+                    &request,
+                    &project_id,
+                    &intent.operation_id.0,
+                )?;
                 let result_doc = remap_document(&result, &project_id)?;
                 let result = document_json(&result_doc)?;
                 archive::validate_request(
@@ -919,7 +938,7 @@ impl NativeStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use omniusong_core::contracts::{EditOperation, EditScope, Extensions};
+    use omniusong_core::contracts::{EditOperation, EditScope, Extensions, ProjectEditIntent};
     use serde_json::json;
     struct Fixture(PathBuf);
     impl Fixture {
@@ -979,11 +998,89 @@ mod tests {
             "intent".into(),
             json!({"project_id":doc.id(),"operation_id":"edit-source"}),
         );
+        request
+            .extensions
+            .insert("projection_id".into(), json!("opaque-projection"));
+        request.extensions.insert(
+            "request".into(),
+            json!({"source":{"take_id":"opaque-original"}}),
+        );
+        request.extensions.insert(
+            "lanes".into(),
+            json!([{"trackId":"opaque-lane","noteId":"opaque-note"}]),
+        );
         let doc = store.apply_edit(&request).unwrap().document;
         let path = f.0.join("source.omniusong");
         let receipt = store.export_archive(doc.id(), &path).unwrap();
         (store, doc, path, receipt.sha256)
     }
+    #[test]
+    fn opaque_projection_named_edit_fields_survive_public_export_identity_restore_and_copy() {
+        let f = Fixture::new();
+        let (source, project, path, sha) = fixture_archive(&f);
+        let original: String = source
+            .connection
+            .query_row(
+                "SELECT request_json FROM operations WHERE operation_id='edit-source'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let original_intent: ProjectEditIntent = serde_json::from_str(&original).unwrap();
+        assert_eq!(
+            original_intent.extensions["projection_id"],
+            "opaque-projection"
+        );
+        let mut identity = f.store("identity");
+        assert_eq!(identity.restore_archive(&path).unwrap(), project);
+        let restored: String = identity
+            .connection
+            .query_row(
+                "SELECT request_json FROM operations WHERE operation_id='edit-source'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(restored, original);
+        let mut copied = f.store("copy");
+        let receipt = copied
+            .restore_archive_as_copy(&path, &intent(&sha, "copy-opaque"))
+            .unwrap();
+        let raw: String = copied
+            .connection
+            .query_row(
+                "SELECT request_json FROM operations WHERE project_id=?1",
+                [receipt.document.id()],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let mapped: ProjectEditIntent = serde_json::from_str(&raw).unwrap();
+        assert_eq!(mapped.extensions, original_intent.extensions);
+        assert_ne!(mapped.operation_id, original_intent.operation_id);
+        assert_eq!(mapped.project_id.0, receipt.document.id());
+        assert!(matches!(
+            crate::archive_operation::ArchiveOperation::parse(&raw).unwrap(),
+            crate::archive_operation::ArchiveOperation::Edit(_)
+        ));
+        assert!(copied.apply_edit(&mapped).unwrap().replayed);
+        let second = f.0.join("second.osar");
+        copied
+            .export_archive(receipt.document.id(), &second)
+            .unwrap();
+        let mut reopened = f.store("reopened");
+        assert_eq!(reopened.restore_archive(&second).unwrap(), receipt.document);
+        assert_eq!(source.load(project.id()).unwrap(), project);
+        let untouched: String = source
+            .connection
+            .query_row(
+                "SELECT request_json FROM operations WHERE operation_id='edit-source'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(untouched, original);
+    }
+
     #[test]
     fn copy_remaps_owned_ids_only_and_replays_without_source_after_later_edit() {
         let f = Fixture::new();
