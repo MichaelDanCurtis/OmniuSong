@@ -347,7 +347,7 @@ pub(crate) fn check_reference(object: &TakeObject, reference: &TakeReference) ->
     )
 }
 
-fn check_clip(object: &TakeObject, clip: &TakeClip) -> Result<()> {
+pub(crate) fn check_clip(object: &TakeObject, clip: &TakeClip) -> Result<()> {
     check_clip_window(object, clip)?;
     if let Some(original) = clip.original_view()? {
         check_clip_window(object, &original)?;
@@ -572,6 +572,7 @@ impl NativeStore {
             }
             // Refuse unsupported ownership before ingestion can retain a new
             // object. Recheck revision in publish_take after the copy.
+            super::projection_publication_types::reject_reserved_operation(&intent.operation_id.0)?;
             load_document(&tx, &intent.project_id.0)?;
             // Release the project transaction before reading/copying a capture.
             tx.commit()?;
@@ -615,6 +616,7 @@ impl NativeStore {
             tx.commit()?;
             return Ok(receipt);
         }
+        super::projection_publication_types::reject_reserved_operation(&intent.operation_id.0)?;
         let current = load_document(&tx, &intent.project_id.0)?;
         if current.revision() != intent.expected_revision {
             return Err(StoreError::Conflict);

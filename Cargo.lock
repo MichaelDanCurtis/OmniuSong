@@ -2237,6 +2237,7 @@ name = "omniusong-store"
 version = "0.2.0"
 dependencies = [
  "omniusong-core",
+ "omniusong-performance",
  "omniusong-recording",
  "rusqlite",
  "serde",

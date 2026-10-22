@@ -97,6 +97,12 @@ pub struct InspectionBudget {
     shared: Arc<Shared>,
 }
 impl InspectionBudget {
+    /// Identity only: this grants no source proof and cannot reset usage or a
+    /// sticky stop. Integrators can reject accidentally mixed reader budgets.
+    pub fn shares_governor(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.shared, &other.shared)
+    }
+
     pub fn new(limits: InspectionLimits, cancelled: Arc<AtomicBool>) -> Result<Self> {
         let ceiling = InspectionLimits::default();
         crate::types::require(

@@ -1,6 +1,7 @@
 //! Independent native project storage. The prototype's files are read-only input.
 //! Project publication, original import receipt and content assets commit together.
 
+mod active_projection_edits;
 mod archive;
 mod archive_copy;
 mod captures;
@@ -11,6 +12,14 @@ mod performance_attachment_check;
 mod performance_intents;
 mod performance_source_actions;
 mod projection_boundary;
+mod projection_metadata;
+mod projection_publication;
+mod projection_publication_types;
+mod projection_sources;
+pub use projection_publication_types::{
+    PROJECTION_OPERATION_PREFIX, ProjectionCommitReceipt, ProjectionPublication,
+    projection_operation_id,
+};
 mod reader;
 mod recovered_takes;
 mod retained_file_coordination;
@@ -159,7 +168,7 @@ fn check_asset(id: &str, bytes: &[u8]) -> Result<()> {
     Ok(())
 }
 
-fn load_document(connection: &Connection, id: &str) -> Result<ProjectDocument> {
+fn read_document_metadata(connection: &Connection, id: &str) -> Result<ProjectDocument> {
     let (payload, revision): (Option<String>, i64) = connection.query_row(
         "SELECT CASE WHEN octet_length(payload)<=?2 THEN payload END,revision FROM projects WHERE id=?1",
         params![id, MAX_NATIVE_PROJECT_BYTES as i64],
@@ -174,6 +183,35 @@ fn load_document(connection: &Connection, id: &str) -> Result<ProjectDocument> {
             "Stored project identity/revision is inconsistent".into(),
         ));
     }
+    Ok(document)
+}
+
+fn read_document_metadata_with_budget(
+    connection: &Connection,
+    id: &str,
+    budget: &omniusong_recording::InspectionBudget,
+) -> Result<ProjectDocument> {
+    budget.checkpoint()?;
+    let bytes: i64 = connection.query_row(
+        "SELECT octet_length(payload) FROM projects WHERE id=?1",
+        [id],
+        |r| r.get(0),
+    )?;
+    if !(0..=MAX_NATIVE_PROJECT_BYTES as i64).contains(&bytes) {
+        return Err(StoreError::Invalid(
+            "Stored project exceeds its document size limit".into(),
+        ));
+    }
+    // Prepay raw materialization, complete Value decoding, validation and copies
+    // before the bounded decoder receives any catalog bytes.
+    budget.charge_work((bytes as u64).saturating_mul(64) + 4096)?;
+    read_document_metadata(connection, id)
+}
+
+// Unmigrated read-only/archive/attachment consumers retain their admission
+// fence. Active source-aware paths explicitly use read_document_metadata.
+fn load_document(connection: &Connection, id: &str) -> Result<ProjectDocument> {
+    let document = read_document_metadata(connection, id)?;
     projection_boundary::reject_unverified_projection(&document)?;
     Ok(document)
 }
@@ -253,6 +291,30 @@ fn save_in_transaction_with_budget(
     } else {
         takes::verify_document_files(root, connection, document)?;
     }
+    Ok(write_save_metadata(connection, &current, document, expected_revision)?.document)
+}
+
+struct SavedMetadata {
+    document: ProjectDocument,
+    cursor: i64,
+    before: String,
+    after: String,
+}
+
+/// Transaction-local metadata mutation only. Source-aware callers must retain
+/// their originals, check their complete postimage, and then commit themselves.
+fn write_save_metadata(
+    connection: &Connection,
+    current: &ProjectDocument,
+    document: &ProjectDocument,
+    expected_revision: u64,
+) -> Result<SavedMetadata> {
+    if current.id() != document.id()
+        || current.revision() != expected_revision
+        || document.revision() != expected_revision
+    {
+        return Err(StoreError::Conflict);
+    }
     let cursor: i64 = connection.query_row(
         "SELECT cursor FROM projects WHERE id=?1",
         [document.id()],
@@ -280,7 +342,50 @@ fn save_in_transaction_with_budget(
         "UPDATE projects SET payload=?1,revision=?2,cursor=?3 WHERE id=?4",
         params![after, next.revision() as i64, next_cursor, document.id()],
     )?;
-    Ok(next)
+    Ok(SavedMetadata {
+        document: next,
+        cursor: next_cursor,
+        before,
+        after,
+    })
+}
+
+fn verify_saved_metadata(
+    connection: &Connection,
+    saved: &SavedMetadata,
+    budget: &omniusong_recording::InspectionBudget,
+) -> Result<()> {
+    projection_metadata::prepay_history(connection, saved.document.id(), saved.cursor, budget)?;
+    if read_document_metadata_with_budget(connection, saved.document.id(), budget)?
+        != saved.document
+    {
+        return Err(StoreError::Invalid(
+            "Saved project postimage changed inside transaction".into(),
+        ));
+    }
+    let cursor: i64 = connection.query_row(
+        "SELECT cursor FROM projects WHERE id=?1",
+        [saved.document.id()],
+        |r| r.get(0),
+    )?;
+    let (before,after): (Option<String>,Option<String>)=connection.query_row(
+        "SELECT CASE WHEN octet_length(before_json)<=?3 THEN before_json END,CASE WHEN octet_length(after_json)<=?3 THEN after_json END FROM edits WHERE project_id=?1 AND sequence=?2",
+        params![saved.document.id(),saved.cursor,MAX_NATIVE_PROJECT_BYTES as i64],|r|Ok((r.get(0)?,r.get(1)?)))?;
+    let future: bool = connection.query_row(
+        "SELECT EXISTS(SELECT 1 FROM edits WHERE project_id=?1 AND sequence>?2)",
+        params![saved.document.id(), saved.cursor],
+        |r| r.get(0),
+    )?;
+    if cursor != saved.cursor
+        || before.as_deref() != Some(&saved.before)
+        || after.as_deref() != Some(&saved.after)
+        || future
+    {
+        return Err(StoreError::Invalid(
+            "Saved edit postimage changed inside transaction".into(),
+        ));
+    }
+    Ok(())
 }
 
 fn navigate_in_transaction(
@@ -616,7 +721,14 @@ impl NativeStore {
     }
 
     pub fn load(&self, id: &str) -> Result<ProjectDocument> {
-        let document = load_document(&self.connection, id)?;
+        let budget = projection_publication::default_budget();
+        let tx = self.connection.unchecked_transaction()?;
+        if projection_metadata::project(&tx, id, &budget)? {
+            let document = read_document_metadata_with_budget(&tx, id, &budget)?;
+            return active_projection_edits::load(tx, &self.root, document, &budget);
+        }
+        let document = load_document(&tx, id)?;
+        tx.rollback()?;
         check_references(&self.connection, &document)?;
         takes::verify_document_files(&self.root, &self.connection, &document)?;
         Ok(document)
@@ -709,6 +821,21 @@ impl NativeStore {
         let tx = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let budget = projection_publication::default_budget();
+        if projection_metadata::project(&tx, document.id(), &budget)?
+            || projection_publication::has_projection(document)?
+        {
+            let current = read_document_metadata_with_budget(&tx, document.id(), &budget)?;
+            return active_projection_edits::save(
+                tx,
+                &self.root,
+                current,
+                document,
+                expected_revision,
+                active_projection_edits::SaveExtras::default(),
+                &budget,
+            );
+        }
         let next = save_in_transaction(&tx, &self.root, document, expected_revision)?;
         tx.commit()?;
         Ok(next)
@@ -730,6 +857,14 @@ impl NativeStore {
         let tx = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let budget = projection_publication::default_budget();
+        if projection_metadata::project(&tx, id, &budget)?
+            || projection_metadata::history(&tx, id, redo, &budget)?
+        {
+            let plan =
+                active_projection_edits::navigation(&tx, id, expected_revision, redo, &budget)?;
+            return active_projection_edits::navigate(tx, &self.root, plan, None, &budget);
+        }
         let next = navigate_in_transaction(&tx, &self.root, id, expected_revision, redo)?;
         tx.commit()?;
         Ok(next)

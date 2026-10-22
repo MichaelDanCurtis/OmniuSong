@@ -699,6 +699,7 @@ impl NativeStore {
             }
         }
         super::source_attachment::reject_reserved_operation(&intent.operation_id.0)?;
+        crate::projection_publication_types::reject_reserved_operation(&intent.operation_id.0)?;
         let _writer = crate::retained_file_coordination::writer_with_file(&self.root, path)?;
         let stage = archive::private_directory(&self.root, "archive-copy")?;
         let mut published_objects = 0;

@@ -2,6 +2,8 @@
 //! and public bounded projection. No native normal-seal permit is manufactured.
 #[path = "performance_projection_review/binding_review.rs"]
 mod binding_review;
+#[path = "performance_projection_review/publication_review.rs"]
+mod publication_review;
 use omniusong_core::contracts::{ClockEpochId, EndpointId, TakeId};
 use omniusong_engine::{
     LiveBatch, LiveClock, LiveEvent, LiveEventKind, LiveId, LivePatch, LiveScope,

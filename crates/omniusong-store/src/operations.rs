@@ -4,8 +4,8 @@
 //! edits exist. It never overwrites those edits or silently rebases the retry.
 
 use super::{
-    NativeStore, Result, StoreError, check_references, checksum, load_document,
-    navigate_in_transaction, save_in_transaction,
+    NativeStore, Result, StoreError, check_references, checksum, navigate_in_transaction,
+    save_in_transaction,
 };
 use omniusong_core::{
     ClipPatch, DocumentClipAddress, DocumentError, ProjectDocument, ValueChange,
@@ -37,7 +37,7 @@ struct StoredOperation {
 /// Called only after current references and owned bytes have been authenticated.
 /// A new requested window outside that same proven audio prefix is a known user
 /// rejection. Every identity, source-integrity and storage error stays conservative.
-fn check_requested_audio_window(
+pub(crate) fn check_requested_audio_window(
     connection: &rusqlite::Connection,
     current: &ProjectDocument,
     candidate: &ProjectDocument,
@@ -114,7 +114,7 @@ fn check_requested_audio_window(
     Ok(())
 }
 
-pub(crate) fn replay_operation(
+pub(crate) fn read_operation_metadata(
     connection: &rusqlite::Connection,
     operation_id: &str,
     project_id: &str,
@@ -165,13 +165,32 @@ pub(crate) fn replay_operation(
             "Stored operation identity/revision is inconsistent".into(),
         ));
     }
-    check_references(connection, &document)?;
     Ok(Some(EditReceipt {
         operation_id: operation_id.into(),
         previous_revision: expected_revision,
         document,
         replayed: true,
     }))
+}
+
+pub(crate) fn replay_operation(
+    connection: &rusqlite::Connection,
+    operation_id: &str,
+    project_id: &str,
+    expected_revision: u64,
+    request: &str,
+) -> Result<Option<EditReceipt>> {
+    let receipt = read_operation_metadata(
+        connection,
+        operation_id,
+        project_id,
+        expected_revision,
+        request,
+    )?;
+    if let Some(receipt) = &receipt {
+        check_references(connection, &receipt.document)?;
+    }
+    Ok(receipt)
 }
 
 pub(crate) fn insert_operation(
@@ -198,7 +217,26 @@ pub(crate) fn insert_operation_inner(
     request: &str,
     document: &ProjectDocument,
 ) -> Result<()> {
+    super::projection_publication_types::reject_reserved_operation(operation_id)?;
     super::projection_boundary::reject_unverified_projection(document)?;
+    insert_operation_metadata(
+        connection,
+        operation_id,
+        expected_revision,
+        request,
+        document,
+    )
+}
+
+/// Source-aware callers hold their readers and verify the complete postimage
+/// before committing. The guarded legacy wrapper above remains separate.
+pub(crate) fn insert_operation_metadata(
+    connection: &rusqlite::Connection,
+    operation_id: &str,
+    expected_revision: u64,
+    request: &str,
+    document: &ProjectDocument,
+) -> Result<()> {
     let previous = i64::try_from(expected_revision)
         .map_err(|_| StoreError::Invalid("Operation revision is out of range".into()))?;
     let committed = i64::try_from(document.revision())
@@ -233,18 +271,49 @@ impl NativeStore {
         let tx = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
-        if let Some(receipt) = replay_operation(
+        let budget = super::projection_publication::default_budget();
+        super::projection_metadata::prepay_operation(&tx, &intent.operation_id.0, &budget)?;
+        if let Some(receipt) = read_operation_metadata(
             &tx,
             &intent.operation_id.0,
             &intent.project_id.0,
             intent.expected_revision,
             &request,
         )? {
+            if super::projection_publication::has_projection(&receipt.document)? {
+                return super::active_projection_edits::replay(tx, &self.root, receipt, &budget);
+            }
+            check_references(&tx, &receipt.document)?;
             super::takes::verify_document_files(&self.root, &tx, &receipt.document)?;
             tx.commit()?;
             return Ok(receipt);
         }
-        let current = load_document(&tx, &intent.project_id.0)?;
+        super::projection_publication_types::reject_reserved_operation(&intent.operation_id.0)?;
+        super::source_attachment::reject_reserved_operation(&intent.operation_id.0)?;
+        let history_projection = if matches!(intent.edit, EditOperation::Undo | EditOperation::Redo)
+        {
+            super::projection_metadata::history(
+                &tx,
+                &intent.project_id.0,
+                matches!(intent.edit, EditOperation::Redo),
+                &budget,
+            )?
+        } else {
+            false
+        };
+        if super::projection_metadata::project(&tx, &intent.project_id.0, &budget)?
+            || history_projection
+        {
+            let current =
+                super::read_document_metadata_with_budget(&tx, &intent.project_id.0, &budget)?;
+            if current.revision() != intent.expected_revision {
+                return Err(StoreError::Conflict);
+            }
+            return super::active_projection_edits::apply(
+                tx, &self.root, intent, &request, current, &budget,
+            );
+        }
+        let current = super::load_document(&tx, &intent.project_id.0)?;
         if current.revision() != intent.expected_revision {
             return Err(StoreError::Conflict);
         }

@@ -247,6 +247,30 @@ fn refused<T: std::fmt::Debug>(result: std::result::Result<T, omniusong_store::S
         "Wrong refusal layer: {error}"
     );
 }
+fn refuses_nonperformance_original<T: std::fmt::Debug>(
+    result: std::result::Result<T, omniusong_store::StoreError>,
+) {
+    // This fixture is an owned ordinary audio take with no performance marker.
+    // Source-aware active admission must inspect that original instead of
+    // treating the structurally plausible registry as derivation authority.
+    assert!(
+        matches!(
+            &result,
+            Err(omniusong_store::StoreError::Recording(RecordingError::Invalid(message)))
+                if message == "No owned performance namespace"
+        ),
+        "Expected the precise owned-source authentication refusal: {result:?}"
+    );
+}
+fn refuses_store_invariant<T: std::fmt::Debug>(
+    result: std::result::Result<T, omniusong_store::StoreError>,
+    expected: &str,
+) {
+    assert!(
+        matches!(&result, Err(omniusong_store::StoreError::Invalid(message)) if message == expected),
+        "Expected the exact store invariant {expected:?}: {result:?}"
+    );
+}
 fn remove_table_triggers(db: &Connection, table: &str) {
     let names: Vec<String> = db
         .prepare("SELECT name FROM sqlite_schema WHERE type='trigger' AND tbl_name=?1")
@@ -444,7 +468,7 @@ fn retained_nonempty_current_cannot_load_downgrade_save_edit_or_navigate() {
     .unwrap();
     let before = catalog(&db);
     let sources = files(&f.root("store").join("takes"));
-    refused(store.load(current.id()));
+    refuses_nonperformance_original(store.load(current.id()));
     let mut downgrade = current.value().clone();
     downgrade["schemaVersion"] = 2.into();
     downgrade
@@ -452,20 +476,29 @@ fn retained_nonempty_current_cannot_load_downgrade_save_edit_or_navigate() {
         .unwrap()
         .remove("performanceProjections");
     let downgrade = ProjectDocument::from_value(downgrade).unwrap();
-    refused(store.save(&downgrade, current.revision()));
-    refused(store.apply_edit(&edit(
+    refuses_store_invariant(
+        store.save(&downgrade, current.revision()),
+        "Generic edits cannot insert, remove or rewrite original projection ownership",
+    );
+    refuses_nonperformance_original(store.apply_edit(&edit(
         &current,
         "no-rename",
         EditOperation::Rename {
             name: "Do not erase the retained claim".into(),
         },
     )));
-    refused(store.undo(current.id(), current.revision()));
-    refused(store.redo(current.id(), current.revision()));
+    refuses_store_invariant(
+        store.undo(current.id(), current.revision()),
+        "Current project does not match the selected history edge",
+    );
+    refuses_store_invariant(
+        store.redo(current.id(), current.revision()),
+        "Nothing to redo",
+    );
     assert_eq!(catalog(&db), before);
     assert_eq!(files(&f.root("store").join("takes")), sources);
     drop(store);
-    refused(
+    refuses_nonperformance_original(
         NativeStore::open_existing(f.root("store"))
             .unwrap()
             .load(current.id()),
@@ -509,7 +542,11 @@ fn poisoned_undo_and_redo_targets_refuse_before_any_history_or_operation_changes
         } else {
             EditOperation::Undo
         };
-        refused(store.apply_edit(&edit(&current, "refuse-poisoned-navigation", action)));
+        refuses_nonperformance_original(store.apply_edit(&edit(
+            &current,
+            "refuse-poisoned-navigation",
+            action,
+        )));
         assert_eq!(store.load(current.id()).unwrap(), current);
         assert_eq!(catalog(&db), before);
         assert_eq!(files(&f.root("store").join("takes")), owned);
@@ -583,7 +620,7 @@ fn coherently_rehashed_operation_result_cannot_replay_a_nonempty_claim() {
     )
     .unwrap();
     let before = catalog(&db);
-    refused(store.apply_edit(&intent));
+    refuses_nonperformance_original(store.apply_edit(&intent));
     assert_eq!(store.load(completed.id()).unwrap(), completed);
     assert_eq!(catalog(&db), before);
 }
