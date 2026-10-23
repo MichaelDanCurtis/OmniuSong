@@ -1998,6 +1998,9 @@ impl StudioApp {
                                 "{} tracks · {} notes · r{}",
                                 session.track_count, session.note_count, session.revision
                             ));
+                            if session.source_authentication_required {
+                                ui.small("Original performances are checked when opened.");
+                            }
                             if let Some(problem) = &session.problem {
                                 ui.colored_label(
                                     egui::Color32::GOLD,

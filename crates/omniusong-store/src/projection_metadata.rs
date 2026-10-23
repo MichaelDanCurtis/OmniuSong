@@ -107,8 +107,12 @@ pub(crate) fn prepay_operation(
     id: &str,
     budget: &InspectionBudget,
 ) -> Result<()> {
-    let row:Option<(i64,i64)>=connection.query_row("SELECT octet_length(request_json),octet_length(result_json) FROM operations WHERE operation_id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?))).optional()?;
-    if let Some((request, result)) = row {
+    let row:Option<(i64,i64,i64)>=connection.query_row("SELECT octet_length(request_json),octet_length(result_json),octet_length(project_id) FROM operations WHERE operation_id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional()?;
+    if let Some((request, result, project)) = row {
+        if !(1..=96).contains(&project) {
+            return Err(invalid("Stored operation project identity exceeds bounds"));
+        }
+        budget.charge_work(project as u64 + 4096)?;
         if !(0..=omniusong_core::contracts::WORKER_MAX_BYTES as i64).contains(&request) {
             return Err(invalid("Stored edit request exceeds wire bounds"));
         }
@@ -159,5 +163,23 @@ mod tests {
                 omniusong_recording::RecordingError::InspectionLimit { .. }
             ))
         ));
+    }
+    #[test]
+    fn operation_replay_bounds_a_stored_foreign_project_identity_before_materializing_it() {
+        let db = Connection::open_in_memory().unwrap();
+        db.execute_batch("CREATE TABLE operations(operation_id TEXT,request_json TEXT,result_json TEXT,project_id TEXT);").unwrap();
+        db.execute(
+            "INSERT INTO operations VALUES('o','{}','{}',?1)",
+            ["p".repeat(2 * 1024 * 1024)],
+        )
+        .unwrap();
+        let budget = InspectionBudget::new(
+            Default::default(),
+            std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        )
+        .unwrap();
+        assert!(
+            matches!(prepay_operation(&db,"o",&budget),Err(StoreError::Invalid(message)) if message=="Stored operation project identity exceeds bounds")
+        );
     }
 }

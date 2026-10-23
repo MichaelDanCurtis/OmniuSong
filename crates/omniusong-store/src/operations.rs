@@ -173,26 +173,6 @@ pub(crate) fn read_operation_metadata(
     }))
 }
 
-pub(crate) fn replay_operation(
-    connection: &rusqlite::Connection,
-    operation_id: &str,
-    project_id: &str,
-    expected_revision: u64,
-    request: &str,
-) -> Result<Option<EditReceipt>> {
-    let receipt = read_operation_metadata(
-        connection,
-        operation_id,
-        project_id,
-        expected_revision,
-        request,
-    )?;
-    if let Some(receipt) = &receipt {
-        check_references(connection, &receipt.document)?;
-    }
-    Ok(receipt)
-}
-
 pub(crate) fn insert_operation(
     connection: &rusqlite::Connection,
     operation_id: &str,

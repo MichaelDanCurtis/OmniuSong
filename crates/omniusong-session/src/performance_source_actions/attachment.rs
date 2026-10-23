@@ -233,7 +233,7 @@ impl NativeBackend {
         // be ingested. This is only metadata preflight; commit revalidates the
         // exact revision, complete source history and original identities.
         self.store()?
-            .check_project_metadata_admission(&choice.publication.project_id.0)
+            .check_project_metadata_admission_with_budget(&choice.publication.project_id.0, &budget)
             .map_err(source_store)?;
         budget.checkpoint().map_err(local)?;
         let source = review(loaded.raw_review(request.id)?)?.0;

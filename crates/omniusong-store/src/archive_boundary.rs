@@ -152,12 +152,19 @@ pub enum ArchiveSqlOrigin {
 pub struct ArchiveSqlFailure {
     origin: ArchiveSqlOrigin,
     operation: Box<StoreError>,
+    cleanup: Option<SqlReadCleanup>,
+}
+#[derive(Debug)]
+enum SqlReadCleanup {
+    OperationIsClose,
+    Secondary(rusqlite::Error),
 }
 impl ArchiveSqlFailure {
     pub fn new(origin: ArchiveSqlOrigin, error: rusqlite::Error) -> Self {
         Self {
             origin,
             operation: Box::new(StoreError::Database(error)),
+            cleanup: None,
         }
     }
     pub fn origin(&self) -> ArchiveSqlOrigin {
@@ -166,18 +173,50 @@ impl ArchiveSqlFailure {
     pub fn operation_error(&self) -> &StoreError {
         &self.operation
     }
+    /// A close failure on the same explicitly tagged read handle. This never
+    /// replaces the operation's error or gives a private handle live authority.
+    pub fn cleanup_error(&self) -> Option<&rusqlite::Error> {
+        match (&self.cleanup, self.operation.as_ref()) {
+            (Some(SqlReadCleanup::Secondary(error)), _) => Some(error),
+            (Some(SqlReadCleanup::OperationIsClose), StoreError::Database(error)) => Some(error),
+            _ => None,
+        }
+    }
     pub fn catalog_sqlite_error_code(&self) -> Option<i32> {
-        (self.origin == ArchiveSqlOrigin::LiveCatalog)
-            .then(|| self.operation.catalog_sqlite_error_code())
-            .flatten()
+        if self.origin != ArchiveSqlOrigin::LiveCatalog {
+            return None;
+        }
+        let primary = self.operation.catalog_sqlite_error_code();
+        let cleanup = self
+            .cleanup_error()
+            .and_then(|error| error.sqlite_error())
+            .map(|error| error.extended_code);
+        let fatal = |code: i32| matches!(code & 0xff, 10 | 11 | 26);
+        primary
+            .filter(|code| fatal(*code))
+            .or_else(|| cleanup.filter(|code| fatal(*code)))
+            .or(primary)
+            .or(cleanup)
     }
     pub fn catalog_connection_unusable(&self) -> bool {
-        self.origin == ArchiveSqlOrigin::LiveCatalog && self.operation.catalog_connection_unusable()
+        self.origin == ArchiveSqlOrigin::LiveCatalog
+            && (self.cleanup.is_some() || self.operation.catalog_connection_unusable())
     }
 }
 impl fmt::Display for ArchiveSqlFailure {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Archive {:?} SQLite: {}", self.origin, self.operation)
+        if matches!(self.cleanup, Some(SqlReadCleanup::OperationIsClose)) {
+            return write!(
+                f,
+                "Archive {:?} SQLite read handle close: {}",
+                self.origin, self.operation
+            );
+        }
+        write!(f, "Archive {:?} SQLite: {}", self.origin, self.operation)?;
+        if let Some(SqlReadCleanup::Secondary(error)) = &self.cleanup {
+            write!(f, "; read handle close failed: {error}")?;
+        }
+        Ok(())
     }
 }
 impl std::error::Error for ArchiveSqlFailure {
@@ -187,6 +226,26 @@ impl std::error::Error for ArchiveSqlFailure {
 }
 pub(crate) fn sql_error(origin: ArchiveSqlOrigin, error: rusqlite::Error) -> StoreError {
     StoreError::ArchiveSql(Box::new(ArchiveSqlFailure::new(origin, error)))
+}
+/// The operation and close must both concern the same handle and origin.
+/// This is not a wrapper for arbitrary nested catalog transaction failures.
+pub(crate) fn sql_read_cleanup_error(
+    origin: ArchiveSqlOrigin,
+    operation: StoreError,
+    cleanup: rusqlite::Error,
+) -> StoreError {
+    StoreError::ArchiveSql(Box::new(ArchiveSqlFailure {
+        origin,
+        operation: Box::new(operation),
+        cleanup: Some(SqlReadCleanup::Secondary(cleanup)),
+    }))
+}
+pub(crate) fn sql_read_close_error(origin: ArchiveSqlOrigin, error: rusqlite::Error) -> StoreError {
+    StoreError::ArchiveSql(Box::new(ArchiveSqlFailure {
+        origin,
+        operation: Box::new(StoreError::Database(error)),
+        cleanup: Some(SqlReadCleanup::OperationIsClose),
+    }))
 }
 fn tag<T>(result: Result<T>, origin: ArchiveSqlOrigin) -> Result<T> {
     result.map_err(|error| match error {

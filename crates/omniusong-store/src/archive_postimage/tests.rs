@@ -115,7 +115,7 @@ fn late_stop_cannot_erase_actual_private_sqlite_full_or_semantic_failure() {
 }
 
 #[test]
-fn repeated_substring_queries_prepay_full_cell_work_each_time() {
+fn multichunk_postimage_refuses_a_lower_cumulative_work_budget() {
     use omniusong_recording::{InspectionLimits, InspectionResource, RecordingError};
     let source = empty(Layout::Catalog);
     put_asset(&source, "bounded", &Value::Blob(vec![7; CHUNK * 3]));
@@ -592,5 +592,603 @@ fn strict_v1_v2_layouts_keep_archive_payload_rows_in_the_expected_set() {
         frozen
             .verify(&connection, ArchiveSqlOrigin::PrivateOutput)
             .unwrap();
+    }
+}
+
+#[test]
+fn exact_baseline_replacement_and_remove_then_insert_preserve_every_other_row() {
+    let fixture = Fixture::new();
+    let db = empty(Layout::Catalog);
+    let old = Value::Blob(vec![1, 2, 3]);
+    let next = Value::Blob(vec![4, 5]);
+    put_asset(&db, "change", &old);
+    put_asset(&db, "keep", &old);
+    let ledger = fixture.ledger(Layout::Catalog);
+    ledger
+        .capture_baseline(&db, ArchiveSqlOrigin::LiveCatalog)
+        .unwrap();
+    ledger
+        .expect_replace(
+            "assets",
+            &refs(&asset("change", old.clone())),
+            &refs(&asset("change", next.clone())),
+        )
+        .unwrap();
+    ledger
+        .expect_remove("assets", &refs(&asset("keep", old.clone())))
+        .unwrap();
+    ledger
+        .expect_insert("assets", &refs(&asset("keep", next.clone())), false)
+        .unwrap();
+    let expected = ledger.freeze().unwrap();
+    db.execute("UPDATE assets SET payload=?1", [next]).unwrap();
+    expected.verify(&db, ArchiveSqlOrigin::LiveCatalog).unwrap();
+}
+
+#[test]
+fn baseline_cas_rejects_wrong_preimage_key_changes_and_duplicate_changes_and_poison_freeze() {
+    for mode in 0..4 {
+        let fixture = Fixture::new();
+        let db = empty(Layout::Catalog);
+        let old = Value::Blob(vec![1]);
+        let next = Value::Blob(vec![2]);
+        put_asset(&db, "a", &old);
+        let ledger = fixture.ledger(Layout::Catalog);
+        ledger
+            .capture_baseline(&db, ArchiveSqlOrigin::LiveCatalog)
+            .unwrap();
+        let result = match mode {
+            0 => ledger.expect_replace(
+                "assets",
+                &refs(&asset("a", next.clone())),
+                &refs(&asset("a", old.clone())),
+            ),
+            1 => ledger.expect_replace(
+                "assets",
+                &refs(&asset("a", old.clone())),
+                &refs(&asset("b", next.clone())),
+            ),
+            2 => {
+                ledger
+                    .expect_replace(
+                        "assets",
+                        &refs(&asset("a", old.clone())),
+                        &refs(&asset("a", next.clone())),
+                    )
+                    .unwrap();
+                ledger.expect_remove("assets", &refs(&asset("a", old.clone())))
+            }
+            _ => ledger.expect_remove("assets", &refs(&asset("a", next.clone()))),
+        };
+        invalid_result(result);
+        invalid_result(ledger.freeze());
+        let payload: Vec<u8> = db
+            .query_row("SELECT payload FROM assets", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(payload, vec![1]);
+    }
+}
+
+#[test]
+fn frozen_local_overlay_rejects_same_count_replacement_of_an_unrelated_baseline_row() {
+    let fixture = Fixture::new();
+    let db = empty(Layout::Catalog);
+    let old = Value::Blob(vec![1]);
+    let next = Value::Blob(vec![2]);
+    put_asset(&db, "change", &old);
+    put_asset(&db, "unrelated", &old);
+    let ledger = fixture.ledger(Layout::Catalog);
+    ledger
+        .capture_baseline(&db, ArchiveSqlOrigin::LiveCatalog)
+        .unwrap();
+    ledger
+        .expect_replace(
+            "assets",
+            &refs(&asset("change", old.clone())),
+            &refs(&asset("change", next.clone())),
+        )
+        .unwrap();
+    let expected = ledger.freeze().unwrap();
+    db.execute("UPDATE assets SET payload=?1", [next]).unwrap();
+    invalid_result(expected.verify(&db, ArchiveSqlOrigin::LiveCatalog));
+}
+
+#[test]
+fn private_sql_scope_maps_only_its_observed_interrupt_and_detaches_before_reuse() {
+    use crate::archive_governed::PrivateSql;
+    use omniusong_recording::{InspectionLimits, InspectionResource, RecordingError};
+    let db = Connection::open_in_memory().unwrap();
+    let (budget, _) = governor(InspectionLimits {
+        max_vm_steps: 128,
+        ..Default::default()
+    });
+    let mut scope = PrivateSql::new(&db, &budget, ArchiveSqlOrigin::PrivateOutput).unwrap();
+    let error=db.query_row::<i64,_,_>("WITH RECURSIVE n(x) AS(VALUES(0) UNION ALL SELECT x+1 FROM n WHERE x<100000) SELECT sum(x) FROM n",[],|r|r.get(0)).unwrap_err();
+    assert_eq!(
+        error.sqlite_error().unwrap().extended_code & 0xff,
+        rusqlite::ffi::SQLITE_INTERRUPT
+    );
+    let mapped: Result<()> = scope.finish(
+        &budget,
+        Err(boundary::sql_error(ArchiveSqlOrigin::PrivateOutput, error)),
+    );
+    assert!(matches!(
+        mapped,
+        Err(StoreError::Recording(RecordingError::InspectionLimit {
+            resource: InspectionResource::VmSteps,
+            ..
+        }))
+    ));
+    let other = boundary::sql_error(
+        ArchiveSqlOrigin::PrivateOutput,
+        rusqlite::Error::SqliteFailure(rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_FULL), None),
+    );
+    let kept: Result<()> = scope.finish(&budget, Err(other));
+    assert!(
+        matches!(kept,Err(StoreError::ArchiveSql(value)) if value.origin()==ArchiveSqlOrigin::PrivateOutput && matches!(value.operation_error(),StoreError::Database(error) if error.sqlite_error().unwrap().extended_code==rusqlite::ffi::SQLITE_FULL))
+    );
+    scope.detach().unwrap();
+    drop(scope);
+    assert_eq!(
+        db.query_row("SELECT 1", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        1
+    );
+}
+
+// Independent incremental-byte controls. All databases below are in memory;
+// constructed close failures do not claim physical I/O fault injection.
+mod incremental_byte_review {
+    use super::*;
+    use omniusong_recording::{InspectionLimits, InspectionResource, RecordingError};
+
+    #[test]
+    fn incremental_text_and_blob_bytes_match_sqlite_cast_in_all_three_database_encodings() {
+        type Image = (i64, String, Vec<u8>);
+        for encoding in ["UTF-8", "UTF-16le", "UTF-16be"] {
+            let db = Connection::open_in_memory().unwrap();
+            db.execute_batch(&format!(
+                "PRAGMA encoding='{encoding}';CREATE TABLE cells(payload);"
+            ))
+            .unwrap();
+            let actual_encoding: String = db
+                .pragma_query_value(None, "encoding", |row| row.get(0))
+                .unwrap();
+            assert!(actual_encoding.eq_ignore_ascii_case(encoding));
+            let text = "é𝄞\0z".repeat(100_000);
+            let blob: Vec<u8> = (0..1_048_593).map(|index| (index % 251) as u8).collect();
+            for value in [
+                Value::Text(String::new()),
+                Value::Blob(Vec::new()),
+                Value::Text("a\0é𝄞after".into()),
+                Value::Blob(vec![0, 255, 0, 1]),
+                Value::Text(text),
+                Value::Blob(blob),
+            ] {
+                db.execute("INSERT INTO cells VALUES(?1)", [value]).unwrap();
+            }
+            let before: Vec<Image> = db
+                .prepare(
+                    "SELECT rowid,typeof(payload),CAST(payload AS BLOB) FROM cells ORDER BY rowid",
+                )
+                .unwrap()
+                .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+                .unwrap()
+                .collect::<rusqlite::Result<_>>()
+                .unwrap();
+            for (rowid, kind, expected) in &before {
+                let (budget, _) = governor(InspectionLimits::default());
+                let mut actual = Vec::new();
+                let mut chunks = 0;
+                read_cell_chunks(
+                    &db,
+                    CellRead {
+                        table: "cells",
+                        column: "payload",
+                        rowid: *rowid,
+                        length: expected.len(),
+                        row_bytes: expected.len() as u64,
+                    },
+                    ArchiveSqlOrigin::Input,
+                    Some(&budget),
+                    |bytes| {
+                        assert!(!bytes.is_empty() && bytes.len() <= 65_536);
+                        chunks += 1;
+                        actual.extend_from_slice(bytes);
+                    },
+                )
+                .unwrap();
+                assert_eq!(&actual, expected, "{encoding} {kind} row {rowid}");
+                assert_eq!(chunks == 0, expected.is_empty());
+                // A generous linear bound rejects repeated full-cell work
+                // per chunk on these approximately 1 MiB values.
+                assert!(budget.usage().work_bytes <= 6 * (expected.len() as u64) + 131_072);
+                assert_eq!(budget.usage().file_bytes, 0);
+            }
+            let after: Vec<Image> = db
+                .prepare(
+                    "SELECT rowid,typeof(payload),CAST(payload AS BLOB) FROM cells ORDER BY rowid",
+                )
+                .unwrap()
+                .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+                .unwrap()
+                .collect::<rusqlite::Result<_>>()
+                .unwrap();
+            assert_eq!(after, before);
+        }
+    }
+
+    #[test]
+    fn first_chunk_work_and_cancel_stops_close_the_handle_and_allow_fresh_budget_reuse() {
+        for cancel in [false, true] {
+            let db = Connection::open_in_memory().unwrap();
+            db.execute_batch("CREATE TABLE cells(payload BLOB)")
+                .unwrap();
+            let expected: Vec<u8> = (0..196_625).map(|index| (index % 253) as u8).collect();
+            db.execute("INSERT INTO cells VALUES(?1)", [&expected])
+                .unwrap();
+            let limit = 8 * 1024 * 1024;
+            let (budget, token) = governor(InspectionLimits {
+                max_work_bytes: limit,
+                ..Default::default()
+            });
+            let mut first = Vec::new();
+            let mut calls = 0;
+            let result = read_cell_chunks(
+                &db,
+                CellRead {
+                    table: "cells",
+                    column: "payload",
+                    rowid: 1,
+                    length: expected.len(),
+                    row_bytes: expected.len() as u64,
+                },
+                ArchiveSqlOrigin::PrivateOutput,
+                Some(&budget),
+                |bytes| {
+                    calls += 1;
+                    first.extend_from_slice(bytes);
+                    if cancel {
+                        token.store(true, Ordering::Release);
+                    } else {
+                        // Consume remaining public work credit at the observation
+                        // boundary, without duplicating the reader's cost formula.
+                        budget
+                            .charge_work(limit - budget.usage().work_bytes)
+                            .unwrap();
+                    }
+                },
+            );
+            if cancel {
+                assert!(matches!(
+                    result,
+                    Err(StoreError::Recording(RecordingError::InspectionCancelled))
+                ));
+            } else {
+                assert!(matches!(
+                    result,
+                    Err(StoreError::Recording(RecordingError::InspectionLimit {
+                        resource: InspectionResource::WorkBytes,
+                        ..
+                    }))
+                ));
+            }
+            assert_eq!(calls, 1);
+            assert!(!first.is_empty() && first.len() <= 65_536);
+            assert_eq!(first, expected[..first.len()]);
+            assert!(budget.checkpoint().is_err());
+            // VACUUM rejects a connection retaining an unfinished incremental
+            // handle. It changes no logical row in this isolated fixture.
+            db.execute_batch("VACUUM").unwrap();
+            let (fresh, _) = governor(InspectionLimits::default());
+            let mut actual = Vec::new();
+            read_cell_chunks(
+                &db,
+                CellRead {
+                    table: "cells",
+                    column: "payload",
+                    rowid: 1,
+                    length: expected.len(),
+                    row_bytes: expected.len() as u64,
+                },
+                ArchiveSqlOrigin::Input,
+                Some(&fresh),
+                |bytes| actual.extend_from_slice(bytes),
+            )
+            .unwrap();
+            assert_eq!(actual, expected);
+            let stored: Vec<u8> = db
+                .query_row("SELECT payload FROM cells", [], |row| row.get(0))
+                .unwrap();
+            assert_eq!(stored, expected);
+            assert!(db.is_autocommit());
+        }
+    }
+
+    #[test]
+    fn incremental_sql_origins_and_constructed_close_errors_survive_both_own_interrupt_finalizers()
+    {
+        use crate::archive_governed::PrivateSql;
+        fn code(value: i32) -> rusqlite::Error {
+            rusqlite::Error::SqliteFailure(rusqlite::ffi::Error::new(value), None)
+        }
+        fn dual(origin: ArchiveSqlOrigin, primary: i32, cleanup: i32) -> StoreError {
+            boundary::sql_read_cleanup_error(
+                origin,
+                StoreError::Database(code(primary)),
+                code(cleanup),
+            )
+        }
+        fn assert_dual(
+            error: &StoreError,
+            origin: ArchiveSqlOrigin,
+            primary: i32,
+            cleanup: i32,
+            reported: i32,
+        ) {
+            let StoreError::ArchiveSql(sql) = error else {
+                panic!("explicit SQL origin lost")
+            };
+            assert_eq!(sql.origin(), origin);
+            assert!(
+                matches!(sql.operation_error(),StoreError::Database(error) if error.sqlite_error().unwrap().extended_code==primary)
+            );
+            assert_eq!(
+                sql.cleanup_error()
+                    .unwrap()
+                    .sqlite_error()
+                    .unwrap()
+                    .extended_code,
+                cleanup
+            );
+            assert_eq!(
+                error.catalog_sqlite_error_code(),
+                (origin == ArchiveSqlOrigin::LiveCatalog).then_some(reported)
+            );
+            assert_eq!(
+                error.catalog_connection_unusable(),
+                origin == ArchiveSqlOrigin::LiveCatalog
+            );
+        }
+        let db = Connection::open_in_memory().unwrap();
+        db.execute_batch("CREATE TABLE cells(payload BLOB);INSERT INTO cells VALUES(x'0001ff00')")
+            .unwrap();
+        for origin in [
+            ArchiveSqlOrigin::Input,
+            ArchiveSqlOrigin::PrivateOutput,
+            ArchiveSqlOrigin::LiveCatalog,
+        ] {
+            let mut visited = false;
+            let error = read_cell_chunks(
+                &db,
+                CellRead {
+                    table: "cells",
+                    column: "missing",
+                    rowid: 1,
+                    length: 4,
+                    row_bytes: 4,
+                },
+                origin,
+                None,
+                |_| visited = true,
+            )
+            .unwrap_err();
+            assert!(!visited);
+            assert!(
+                matches!(&error,StoreError::ArchiveSql(sql) if sql.origin()==origin && sql.cleanup_error().is_none() && matches!(sql.operation_error(),StoreError::Database(_)))
+            );
+            assert_eq!(
+                error.catalog_sqlite_error_code().is_some(),
+                origin == ArchiveSqlOrigin::LiveCatalog
+            );
+            for (primary, cleanup, reported) in [(9, 10, 10), (26, 10, 26), (8, 11, 11), (9, 5, 9)]
+            {
+                let (budget, token) = governor(InspectionLimits::default());
+                token.store(true, Ordering::Release);
+                let own = AtomicBool::new(true);
+                let kept: Result<()> =
+                    finish_spool(Some(&budget), &own, Err(dual(origin, primary, cleanup)));
+                assert_dual(&kept.unwrap_err(), origin, primary, cleanup, reported);
+            }
+            let (budget, token) = governor(InspectionLimits::default());
+            token.store(true, Ordering::Release);
+            let own = AtomicBool::new(true);
+            // CONSTRUCTED close-only INTERRUPT has one SQL error with an
+            // explicit close marker, rather than two independent failures.
+            let close = boundary::sql_read_close_error(origin, code(9));
+            let kept: Result<()> = finish_spool(Some(&budget), &own, Err(close));
+            assert_dual(&kept.unwrap_err(), origin, 9, 9, 9);
+        }
+        for private_scope in [false, true] {
+            let database = Connection::open_in_memory().unwrap();
+            let (budget, _) = governor(InspectionLimits {
+                max_vm_steps: 128,
+                ..Default::default()
+            });
+            let observed = Arc::new(AtomicBool::new(false));
+            let mut scope = if private_scope {
+                Some(PrivateSql::new(&database, &budget, ArchiveSqlOrigin::PrivateOutput).unwrap())
+            } else {
+                let mark = Arc::clone(&observed);
+                let mut hook = budget.sqlite_vm_governor();
+                database
+                    .progress_handler(
+                        1,
+                        Some(move || {
+                            let stopped = hook();
+                            if stopped {
+                                mark.store(true, Ordering::Release);
+                            }
+                            stopped
+                        }),
+                    )
+                    .unwrap();
+                None
+            };
+            let actual=database.query_row::<i64,_,_>("WITH RECURSIVE n(x) AS(VALUES(0) UNION ALL SELECT x+1 FROM n WHERE x<100000) SELECT sum(x) FROM n",[],|row|row.get(0)).unwrap_err();
+            assert_eq!(actual.sqlite_error().unwrap().extended_code & 0xff, 9);
+            assert!(
+                scope
+                    .as_ref()
+                    .map_or_else(|| observed.load(Ordering::Acquire), PrivateSql::interrupted)
+            );
+            // Actual own INTERRUPT plus a CONSTRUCTED close CORRUPT must retain
+            // both facts instead of becoming the hook's ordinary VM stop.
+            let mixed = boundary::sql_read_cleanup_error(
+                ArchiveSqlOrigin::PrivateOutput,
+                StoreError::Database(actual),
+                code(11),
+            );
+            let kept: Result<()> = if let Some(scope) = &scope {
+                scope.finish(&budget, Err(mixed))
+            } else {
+                finish_spool(Some(&budget), &observed, Err(mixed))
+            };
+            assert_dual(
+                &kept.unwrap_err(),
+                ArchiveSqlOrigin::PrivateOutput,
+                9,
+                11,
+                9,
+            );
+            let close = boundary::sql_read_close_error(ArchiveSqlOrigin::PrivateOutput, code(9));
+            let kept: Result<()> = if let Some(scope) = &scope {
+                scope.finish(&budget, Err(close))
+            } else {
+                finish_spool(Some(&budget), &observed, Err(close))
+            };
+            assert_dual(&kept.unwrap_err(), ArchiveSqlOrigin::PrivateOutput, 9, 9, 9);
+            let plain = Err(boundary::sql_error(
+                ArchiveSqlOrigin::PrivateOutput,
+                code(9),
+            ));
+            let mapped: Result<()> = if let Some(scope) = &scope {
+                scope.finish(&budget, plain)
+            } else {
+                finish_spool(Some(&budget), &observed, plain)
+            };
+            assert!(matches!(
+                mapped,
+                Err(StoreError::Recording(RecordingError::InspectionLimit {
+                    resource: InspectionResource::VmSteps,
+                    ..
+                }))
+            ));
+            if let Some(scope) = &mut scope {
+                scope.detach().unwrap();
+            } else {
+                database.progress_handler(0, None::<fn() -> bool>).unwrap();
+            }
+            drop(scope);
+            assert_eq!(
+                database
+                    .query_row("SELECT 7", [], |row| row.get::<_, i64>(0))
+                    .unwrap(),
+                7
+            );
+        }
+        assert_eq!(
+            db.query_row("SELECT payload FROM cells", [], |row| row
+                .get::<_, Vec<u8>>(0))
+                .unwrap(),
+            vec![0, 1, 255, 0]
+        );
+    }
+
+    #[test]
+    fn wide_row_tiny_trailing_values_match_independent_typed_hash_and_require_prepaid_row_work() {
+        use rusqlite::hooks::{AuthAction, AuthContext, Authorization};
+        use std::sync::atomic::AtomicUsize;
+        const WIDE: Table = Table {
+            name: "wide",
+            columns: &[
+                blob("leading", 2 * 1024 * 1024),
+                integer("late_number"),
+                text("tail", 96),
+            ],
+            pk: &[2],
+        };
+        let db = Connection::open_in_memory().unwrap();
+        db.execute_batch("CREATE TABLE wide(leading BLOB,late_number INTEGER,tail TEXT)")
+            .unwrap();
+        let leading: Vec<u8> = (0..524_305).map(|index| (index % 241) as u8).collect();
+        let number = i64::MIN + 31;
+        let tail = "tiny\0é";
+        db.execute(
+            "INSERT INTO wide VALUES(?1,?2,?3)",
+            params![leading, number, tail],
+        )
+        .unwrap();
+        let (key, actual, raw) = proof_row(&db, WIDE, 1, ArchiveSqlOrigin::Input, None).unwrap();
+        let mut oracle = Sha256::new();
+        oracle.update(b"OmniuSong.archive-postimage-row.v1\0");
+        oracle.update(4_u64.to_le_bytes());
+        oracle.update(b"wide");
+        oracle.update(3_u64.to_le_bytes());
+        let number_bytes = number.to_le_bytes();
+        for (tag, bytes) in [
+            (b'b', leading.as_slice()),
+            (b'i', number_bytes.as_slice()),
+            (b't', tail.as_bytes()),
+        ] {
+            oracle.update([tag]);
+            oracle.update((bytes.len() as u64).to_le_bytes());
+            oracle.update(bytes);
+        }
+        assert_eq!(actual, <[u8; 32]>::from(oracle.finalize()));
+        assert_eq!(raw, (leading.len() + 8 + tail.len()) as u64);
+        assert_eq!(
+            key,
+            vec![0x20, b't', b'i', b'n', b'y', 0, 255, 0xc3, 0xa9, 0, 0]
+        );
+        let reads = Arc::new(AtomicUsize::new(0));
+        let observed = Arc::clone(&reads);
+        db.authorizer(Some(move |context: AuthContext<'_>| {
+            if matches!(
+                context.action,
+                AuthAction::Read {
+                    table_name: "wide",
+                    column_name: "late_number",
+                    ..
+                }
+            ) && observed.fetch_add(1, Ordering::SeqCst) >= 3
+            {
+                return Authorization::Deny;
+            }
+            Authorization::Allow
+        }))
+        .unwrap();
+        // Enough work for metadata plus the first large value, fewer than two
+        // complete row-value passes. The late scalar SELECT must not prepare.
+        let (budget, _) = governor(InspectionLimits {
+            max_work_bytes: 5 * raw + 65_536,
+            ..Default::default()
+        });
+        let stopped = proof_row(&db, WIDE, 1, ArchiveSqlOrigin::Input, Some(&budget));
+        assert!(matches!(
+            stopped,
+            Err(StoreError::Recording(RecordingError::InspectionLimit {
+                resource: InspectionResource::WorkBytes,
+                ..
+            }))
+        ));
+        assert_eq!(
+            reads.load(Ordering::SeqCst),
+            3,
+            "late scalar value was requested before whole-row credit"
+        );
+        db.authorizer(None::<fn(AuthContext<'_>) -> Authorization>)
+            .unwrap();
+        let stored: (Vec<u8>, i64, String) = db
+            .query_row("SELECT leading,late_number,tail FROM wide", [], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })
+            .unwrap();
+        assert_eq!(stored, (leading, number, tail.into()));
+        let (fresh, _) = governor(InspectionLimits::default());
+        assert_eq!(
+            proof_row(&db, WIDE, 1, ArchiveSqlOrigin::Input, Some(&fresh)).unwrap(),
+            (key, actual, raw)
+        );
     }
 }

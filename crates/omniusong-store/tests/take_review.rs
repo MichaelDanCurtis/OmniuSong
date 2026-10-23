@@ -464,21 +464,91 @@ fn symlinked_or_hardlinked_owned_objects_and_redirected_take_directory_fail_clos
 }
 
 #[test]
-fn corrupt_owned_snapshot_is_not_accepted_by_load_or_historical_receipt_replay() {
+fn corrupt_owned_snapshot_blocks_current_load_but_exact_receipt_preserves_later_state() {
+    fn catalog_cells(
+        connection: &Connection,
+    ) -> BTreeMap<String, Vec<Vec<rusqlite::types::Value>>> {
+        let mut names = connection
+            .prepare("SELECT name FROM sqlite_schema WHERE type='table' ORDER BY name")
+            .unwrap()
+            .query_map([], |row| row.get::<_, String>(0))
+            .unwrap()
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .unwrap();
+        assert_eq!(names.len(), 13);
+        names.push("sqlite_schema".into());
+        names
+            .into_iter()
+            .map(|name| {
+                let mut statement = connection
+                    .prepare(&format!(
+                        "SELECT * FROM \"{}\" ORDER BY rowid",
+                        name.replace('"', "\"\"")
+                    ))
+                    .unwrap();
+                let columns = statement.column_count();
+                let rows = statement
+                    .query_map([], |row| {
+                        (0..columns)
+                            .map(|i| row.get(i))
+                            .collect::<rusqlite::Result<Vec<_>>>()
+                    })
+                    .unwrap()
+                    .collect::<rusqlite::Result<Vec<_>>>()
+                    .unwrap();
+                (name, rows)
+            })
+            .collect()
+    }
     let fixture = Fixture::new();
     let source = sealed(&fixture);
+    let source_before = fs::read(fixture.source()).unwrap();
     let mut store = fixture.store();
     let original = store.create(&project()).unwrap();
     store.ingest_take(&source).unwrap();
     let intent = request(&original, &source, "original");
-    store.publish_take(&intent).unwrap();
+    let first = store.publish_take(&intent).unwrap().document;
+    let later = store
+        .apply_edit(&edit(&first, "later-human-edit"))
+        .unwrap()
+        .document;
+    assert_eq!(later.revision(), 2);
+    assert_ne!(later.name(), first.name());
     let object = fixture.object();
     let db = Connection::open(&object).unwrap();
     db.execute_batch("DROP TRIGGER immutable_chunk_update; UPDATE chunks SET payload=x'00000000000000000000000000000000';").unwrap();
     drop(db);
+    let damaged_bytes = fs::read(&object).unwrap();
+    let catalog = fixture.db();
+    let before = catalog_cells(&catalog);
     assert!(store.load(original.id()).is_err());
-    assert!(store.publish_take(&intent).is_err());
-    assert_eq!(counts(&fixture, original.id()), (1, 1, 1, 1, 1));
+    let receipt = store.publish_take(&intent).unwrap();
+    assert!(receipt.replayed);
+    assert_eq!(receipt.document, first);
+    assert_eq!(catalog_cells(&catalog), before);
+    assert_eq!(counts(&fixture, original.id()), (2, 2, 2, 2, 1));
+    assert_eq!(fs::read(&object).unwrap(), damaged_bytes);
+    assert_eq!(fs::read(fixture.source()).unwrap(), source_before);
+    let current: String = catalog
+        .query_row(
+            "SELECT payload FROM projects WHERE id=?1",
+            [original.id()],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        ProjectDocument::from_json(current.as_bytes()).unwrap(),
+        later
+    );
+    // Losing an owned file cannot erase a recorded fact or install its older
+    // arrangement. Current playback/loading still refuses independently.
+    fs::remove_file(&object).unwrap();
+    assert!(store.load(original.id()).is_err());
+    let receipt = store.publish_take(&intent).unwrap();
+    assert!(receipt.replayed);
+    assert_eq!(receipt.document, first);
+    assert_eq!(catalog_cells(&catalog), before);
+    assert_eq!(fs::read(fixture.source()).unwrap(), source_before);
 }
 
 #[test]

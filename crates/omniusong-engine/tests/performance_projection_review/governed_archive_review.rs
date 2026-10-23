@@ -1,5 +1,7 @@
 //! Real device-free writer originals through the three bounded OSAR routes.
 //! No native input/output, inference, one-auth counter or Windows claim.
+#[path = "governed_archive_review/consumer_review.rs"]
+mod consumer_review;
 #[path = "governed_archive_review/evidence_archive_review.rs"]
 mod evidence_archive_review;
 use super::*;

@@ -1,10 +1,6 @@
 //! Owned immutable take objects and atomic publication into native projects.
 //! Files become durable before registration; project/history/receipt share SQL.
-use super::{
-    EditReceipt, NativeStore, Result, StoreError, load_document,
-    operations::{insert_operation, replay_operation},
-    save_in_transaction,
-};
+use super::{EditReceipt, NativeStore, Result, StoreError};
 use omniusong_core::{
     ProjectDocument,
     contracts::{OperationId, ProjectId, TakeId, TrackId, Validate, WORKER_MAX_BYTES},
@@ -554,28 +550,32 @@ impl NativeStore {
         intent: &TakePublication,
     ) -> Result<EditReceipt> {
         super::source_attachment::reject_reserved_operation(&intent.operation_id.0)?;
-        let request = publication_request(intent)?;
+        publication_request(intent)?;
         {
-            let tx = self
-                .connection
-                .transaction_with_behavior(TransactionBehavior::Immediate)?;
-            if let Some(receipt) = replay_operation(
-                &tx,
-                &intent.operation_id.0,
-                &intent.project_id.0,
-                intent.expected_revision,
-                &request,
-            )? {
-                verify_document_files(&self.root, &tx, &receipt.document)?;
-                tx.commit()?;
+            let budget = crate::projection_publication::default_budget();
+            let existing = crate::catalog_transaction::CatalogTransaction::immediate(
+                &mut self.connection,
+                &budget,
+            )?
+            .run(|tx| {
+                if let Some(receipt) =
+                    crate::performance_attachment_check::checked_publication_receipt_with_budget(
+                        tx, intent, &budget,
+                    )?
+                {
+                    tx.commit()?;
+                    return Ok(Some(receipt));
+                }
+                super::projection_publication_types::reject_reserved_operation(
+                    &intent.operation_id.0,
+                )?;
+                crate::project_metadata_view::load(tx, &intent.project_id.0, &budget)?;
+                tx.rollback()?;
+                Ok(None)
+            })?;
+            if let Some(receipt) = existing {
                 return Ok(receipt);
             }
-            // Refuse unsupported ownership before ingestion can retain a new
-            // object. Recheck revision in publish_take after the copy.
-            super::projection_publication_types::reject_reserved_operation(&intent.operation_id.0)?;
-            load_document(&tx, &intent.project_id.0)?;
-            // Release the project transaction before reading/copying a capture.
-            tx.commit()?;
         }
         let registered: bool = self.connection.query_row(
             "SELECT EXISTS(SELECT 1 FROM native_takes WHERE take_id=?1)",
@@ -600,50 +600,7 @@ impl NativeStore {
     }
 
     pub fn publish_take(&mut self, intent: &TakePublication) -> Result<EditReceipt> {
-        super::source_attachment::reject_reserved_operation(&intent.operation_id.0)?;
-        let request = publication_request(intent)?;
-        let tx = self
-            .connection
-            .transaction_with_behavior(TransactionBehavior::Immediate)?;
-        if let Some(receipt) = replay_operation(
-            &tx,
-            &intent.operation_id.0,
-            &intent.project_id.0,
-            intent.expected_revision,
-            &request,
-        )? {
-            verify_document_files(&self.root, &tx, &receipt.document)?;
-            tx.commit()?;
-            return Ok(receipt);
-        }
-        super::projection_publication_types::reject_reserved_operation(&intent.operation_id.0)?;
-        let current = load_document(&tx, &intent.project_id.0)?;
-        if current.revision() != intent.expected_revision {
-            return Err(StoreError::Conflict);
-        }
-        // The shared save helper authenticates every resulting distinct take
-        // exactly once before any project/history SQL mutation.
-        let mut next = if current.schema_version() == 1 {
-            current.upgrade_native()?
-        } else {
-            current
-        };
-        next.append_take_clip(&intent.track_id.0, &intent.track_name, intent.clip.clone())?;
-        let document = save_in_transaction(&tx, &self.root, &next, intent.expected_revision)?;
-        insert_operation(
-            &tx,
-            &intent.operation_id.0,
-            intent.expected_revision,
-            &request,
-            &document,
-        )?;
-        tx.commit()?;
-        Ok(EditReceipt {
-            operation_id: intent.operation_id.0.clone(),
-            previous_revision: intent.expected_revision,
-            document,
-            replayed: false,
-        })
+        self.publish_take_with_budget(intent, &crate::projection_publication::default_budget())
     }
 }
 

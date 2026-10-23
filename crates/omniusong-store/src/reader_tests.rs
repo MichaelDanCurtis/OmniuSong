@@ -632,3 +632,116 @@ fn reader_authenticates_physical_file_even_when_sealed_rows_still_validate() {
     drop(reader);
     assert_eq!(fixture.files.snapshot(), before);
 }
+
+#[cfg(unix)]
+fn assert_reader_sqlite_writer_probe(path: &Path, busy: bool) {
+    let output = std::process::Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--ignored",
+            "--exact",
+            "evidence_archive::raw::tests::sqlite_writer_probe_subprocess",
+            "--nocapture",
+        ])
+        .env("OMNIUSONG_RAW_SQLITE_PROBE_PATH", path)
+        .env(
+            "OMNIUSONG_RAW_SQLITE_PROBE_BUSY",
+            if busy { "yes" } else { "no" },
+        )
+        .env("OMNIUSONG_RAW_SQLITE_PROBE_OWNER", "no")
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "isolated writer probe: {} {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(String::from_utf8_lossy(&output.stdout).contains("RAW_SQLITE_PROBE_COMPLETED"));
+}
+
+#[cfg(unix)]
+#[test]
+fn opening_and_dropping_a_reader_preserves_another_catalog_writers_external_lock() {
+    let fixture = Fixture::new();
+    let store = fixture.create_store();
+    let writer = fixture.database();
+    let path = fixture.store_root().join("studio.sqlite3");
+    writer.execute_batch("BEGIN IMMEDIATE").unwrap();
+    assert_reader_sqlite_writer_probe(&path, true);
+    let reader = NativeReader::open(fixture.store_root()).unwrap();
+    assert_reader_sqlite_writer_probe(&path, true);
+    drop(reader);
+    assert_reader_sqlite_writer_probe(&path, true);
+    writer.execute_batch("ROLLBACK").unwrap();
+    assert_reader_sqlite_writer_probe(&path, false);
+    drop(store);
+}
+
+#[cfg(unix)]
+#[test]
+fn refusing_a_reader_preserves_another_catalog_writers_external_lock() {
+    for version in [0, crate::STORE_SCHEMA_VERSION + 1] {
+        let fixture = Fixture::new();
+        drop(fixture.create_store());
+        let writer = fixture.database();
+        writer.pragma_update(None, "user_version", version).unwrap();
+        let before = fixture.snapshot(); // No transaction is active here.
+        let path = fixture.store_root().join("studio.sqlite3");
+        writer.execute_batch("BEGIN IMMEDIATE").unwrap();
+        assert_reader_sqlite_writer_probe(&path, true);
+        let error = NativeReader::open(fixture.store_root()).err().unwrap();
+        assert_invalid(error, "current native store schema");
+        assert_reader_sqlite_writer_probe(&path, true);
+        writer.execute_batch("ROLLBACK").unwrap();
+        assert_reader_sqlite_writer_probe(&path, false);
+        drop(writer);
+        assert_eq!(fixture.snapshot(), before);
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn reader_rejects_a_catalog_replaced_after_sqlite_acquisition() {
+    let fixture = Fixture::new();
+    drop(fixture.create_store());
+    let path = fixture.store_root().join("studio.sqlite3");
+    let replacement = fixture.0.join("replacement.sqlite3");
+    let displaced = fixture.0.join("displaced.sqlite3");
+    fs::copy(&path, &replacement).unwrap(); // No database handles are open.
+    let mut expected = fixture.snapshot();
+    let catalog_entry = expected.remove(Path::new("store/studio.sqlite3")).unwrap();
+    let replacement_entry = expected.remove(Path::new("replacement.sqlite3")).unwrap();
+    expected.insert(PathBuf::from("displaced.sqlite3"), catalog_entry);
+    expected.insert(PathBuf::from("store/studio.sqlite3"), replacement_entry);
+    let error = NativeReader::open_checked(fixture.store_root(), || {
+        fs::rename(&path, &displaced)?;
+        fs::rename(&replacement, &path)?;
+        Ok(())
+    })
+    .err()
+    .unwrap();
+    assert_invalid(error, "Catalog path changed");
+    assert_eq!(fixture.snapshot(), expected);
+    drop(NativeReader::open(fixture.store_root()).unwrap());
+    assert_eq!(fixture.snapshot(), expected);
+}
+
+#[test]
+fn reader_malformed_headers_refuse_without_writes_or_sidecars() {
+    for case in ["short", "magic", "journal-version"] {
+        let fixture = Fixture::new();
+        drop(fixture.create_store());
+        let path = fixture.store_root().join("studio.sqlite3");
+        let mut bytes = fs::read(&path).unwrap();
+        match case {
+            "short" => bytes.truncate(19),
+            "magic" => bytes[0] = b'!',
+            "journal-version" => bytes[18] = 0,
+            _ => unreachable!(),
+        }
+        fs::write(&path, &bytes).unwrap();
+        let before = fixture.snapshot();
+        assert!(NativeReader::open(fixture.store_root()).is_err(), "{case}");
+        assert_eq!(fixture.snapshot(), before, "{case}");
+    }
+}

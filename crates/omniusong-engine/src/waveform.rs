@@ -120,8 +120,14 @@ fn native_settings(clip: &TakeClip) -> Result<WaveformSettings, String> {
         fades: clip.fades.clone(),
     })
 }
-fn metadata(reader: &NativeReader, request: &WaveformRequest) -> Result<Input, StoreError> {
-    let document = reader.load_document(&request.project_id)?;
+fn metadata(
+    reader: &NativeReader,
+    request: &WaveformRequest,
+    budget: &omniusong_recording::InspectionBudget,
+) -> Result<Input, StoreError> {
+    // Registry metadata is never source authority. Peak generation below still
+    // authenticates only the exact selected media, independently of note claims.
+    let document = reader.load_document_metadata_with_budget(&request.project_id, budget)?;
     if document.id() != request.project_id || document.revision() != request.expected_revision {
         return Err(invalid("Saved waveform project/revision changed"));
     }
@@ -354,8 +360,15 @@ pub fn prepare_waveform(
     check(&cancelled)?;
     let mut reader = NativeReader::open(root).map_err(|error| error.to_string())?;
     check(&cancelled)?;
+    let metadata_budget = omniusong_recording::InspectionBudget::new(
+        Default::default(),
+        Arc::new(AtomicBool::new(cancelled())),
+    )
+    .map_err(|error| error.to_string())?;
+    // The callback's existing cancellation fences bracket this short metadata
+    // snapshot; no new whole-operation cancellation/deadline promise is made.
     let input = reader
-        .read_snapshot(|reader| metadata(reader, request))
+        .read_snapshot(|reader| metadata(reader, request, &metadata_budget))
         .map_err(|error| error.to_string())?;
     check(&cancelled)?;
     let data = match input {

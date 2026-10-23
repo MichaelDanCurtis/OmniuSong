@@ -23,6 +23,8 @@ mod operations;
 mod performance_attachment_check;
 mod performance_intents;
 mod performance_source_actions;
+mod project_metadata_view;
+mod projection_attachment;
 mod projection_boundary;
 mod projection_metadata;
 mod projection_publication;
@@ -185,6 +187,8 @@ pub struct ProjectSummary {
     pub track_count: usize,
     pub note_count: usize,
     pub problem: Option<String>,
+    /// Metadata-only notice. Neither value authenticates any original source.
+    pub source_authentication_required: bool,
 }
 
 pub struct NativeStore {
@@ -712,67 +716,38 @@ impl NativeStore {
         })
     }
 
+    /// Metadata only. Each current/original source is checked on actual load.
     pub fn list(&self) -> Result<Vec<ProjectSummary>> {
-        let mut statement = self
-            .connection
-            .prepare("SELECT id,CASE WHEN octet_length(payload)<=?1 THEN payload END,revision FROM projects ORDER BY rowid DESC")?;
-        let rows = statement.query_map([MAX_NATIVE_PROJECT_BYTES as i64], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, Option<String>>(1)?,
-                row.get::<_, i64>(2)?,
-            ))
-        })?;
-        rows.map(|row| {
-            let (id, payload, revision) = row?;
-            let parsed = payload
-                .ok_or_else(|| {
-                    DocumentError("Stored project exceeds its document size limit".into())
-                })
-                .and_then(|payload| ProjectDocument::from_json(payload.as_bytes()))
-                .and_then(|p| {
-                    if p.id() == id && Some(p.revision()) == u64::try_from(revision).ok() {
-                        projection_boundary::reject_unverified_projection(&p)
-                            .map_err(|error| DocumentError(error.to_string()))?;
-                        Ok(p)
-                    } else {
-                        Err(DocumentError(
-                            "Stored project identity/revision is inconsistent".into(),
-                        ))
-                    }
-                });
-            Ok(match parsed {
-                Ok(project) => ProjectSummary {
-                    id,
-                    name: project.name().into(),
-                    revision: project.revision(),
-                    track_count: project.tracks().len(),
-                    note_count: project
-                        .tracks()
-                        .iter()
-                        .filter(|track| track["kind"] != "recording")
-                        .map(|t| t["notes"].as_array().map_or(0, Vec::len))
-                        .sum(),
-                    problem: None,
-                },
-                Err(error) => ProjectSummary {
-                    id,
-                    name: "Damaged session · recovery needed".into(),
-                    revision: u64::try_from(revision).unwrap_or(0),
-                    track_count: 0,
-                    note_count: 0,
-                    problem: Some(error.to_string()),
-                },
-            })
+        self.list_with_budget(&projection_publication::default_budget())
+    }
+    pub fn list_with_budget(
+        &self,
+        budget: &omniusong_recording::InspectionBudget,
+    ) -> Result<Vec<ProjectSummary>> {
+        CatalogTransaction::deferred(&self.connection, budget)?.run(|tx| {
+            let summaries = project_metadata_view::list(tx, budget)?;
+            tx.rollback()?;
+            Ok(summaries)
         })
-        .collect()
     }
 
-    /// Metadata capability admission only. This opens no take file and grants
-    /// no source-authentication, revision, replay or publication authority.
-    /// Mutation paths must repeat their complete checks at commit.
+    /// Structural metadata capability only: no file/source/replay authority.
     pub fn check_project_metadata_admission(&self, id: &str) -> Result<()> {
-        load_document(&self.connection, id).map(|_| ())
+        self.check_project_metadata_admission_with_budget(
+            id,
+            &projection_publication::default_budget(),
+        )
+    }
+    pub fn check_project_metadata_admission_with_budget(
+        &self,
+        id: &str,
+        budget: &omniusong_recording::InspectionBudget,
+    ) -> Result<()> {
+        CatalogTransaction::deferred(&self.connection, budget)?.run(|tx| {
+            project_metadata_view::load(tx, id, budget)?;
+            tx.rollback()?;
+            Ok(())
+        })
     }
 
     pub fn load(&self, id: &str) -> Result<ProjectDocument> {

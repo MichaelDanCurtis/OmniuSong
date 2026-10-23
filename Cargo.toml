@@ -36,7 +36,7 @@ serde = { version = "=1.0.229", features = ["derive"] }
 uuid = { version = "=1.28.0", features = ["v4"] }
 getrandom = "=0.4.3"
 sha2 = "=0.10.9"
-rusqlite = { version = "=0.40.2", features = ["bundled", "backup", "hooks", "serialize"] }
+rusqlite = { version = "=0.40.2", features = ["bundled", "backup", "blob", "hooks", "serialize"] }
 eframe = { version = "=0.37.0", default-features = false, features = ["accesskit", "default_fonts", "system_fonts", "clipboard", "wgpu_no_default_features"] }
 wgpu = { version = "=30.0.1", default-features = false, features = ["std", "metal", "dx12"] }
 

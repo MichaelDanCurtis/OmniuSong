@@ -58,6 +58,7 @@ pub(crate) struct PrivateSql<'a> {
     connection: &'a Connection,
     origin: ArchiveSqlOrigin,
     enabled: Arc<AtomicBool>,
+    interrupted: Arc<AtomicBool>,
     detached: bool,
 }
 impl<'a> PrivateSql<'a> {
@@ -75,6 +76,7 @@ impl<'a> PrivateSql<'a> {
             connection,
             origin,
             enabled: Arc::new(AtomicBool::new(true)),
+            interrupted: Arc::new(AtomicBool::new(false)),
             detached: false,
         };
         let enabled = Arc::clone(&scope.enabled);
@@ -83,18 +85,52 @@ impl<'a> PrivateSql<'a> {
             connection.rollback_hook(Some(move || enabled.store(false, Ordering::Release))),
         )?;
         let enabled = Arc::clone(&scope.enabled);
+        let interrupted = Arc::clone(&scope.interrupted);
         let mut governor = budget.sqlite_vm_governor();
         if let Err(error) = sql(
             origin,
             connection.progress_handler(
                 1,
-                Some(move || enabled.load(Ordering::Acquire) && governor()),
+                Some(move || {
+                    if !enabled.load(Ordering::Acquire) {
+                        return false;
+                    }
+                    let stopped = governor();
+                    if stopped {
+                        interrupted.store(true, Ordering::Release);
+                    }
+                    stopped
+                }),
             ),
         ) {
             let _ = scope.detach();
             return Err(error);
         }
         Ok(scope)
+    }
+    pub(crate) fn interrupted(&self) -> bool {
+        self.interrupted.load(Ordering::Acquire)
+    }
+    /// Only this scope's observed INTERRUPT becomes its sticky governor stop.
+    /// Physical and semantic failures retain their original SQL domain.
+    pub(crate) fn finish<T>(&self, budget: &InspectionBudget, result: Result<T>) -> Result<T> {
+        match result {
+            Err(error) => {
+                if self.interrupted()
+                    && matches!(&error,StoreError::ArchiveSql(value)
+                    if value.origin()==self.origin && value.cleanup_error().is_none() && matches!(value.operation_error(),StoreError::Database(sql)
+                    if sql.sqlite_error().is_some_and(|code|code.extended_code & 0xff==9)))
+                    && let Err(stop) = budget.checkpoint()
+                {
+                    return Err(StoreError::Recording(stop));
+                }
+                Err(error)
+            }
+            Ok(value) => {
+                budget.checkpoint()?;
+                Ok(value)
+            }
+        }
     }
     pub(crate) fn detach(&mut self) -> Result<()> {
         if self.detached {

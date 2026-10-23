@@ -377,7 +377,7 @@ fn undo_of_a_valid_empty_registry_downgrade_uses_the_stored_forward_pair() {
 }
 
 #[test]
-fn unsupported_current_registry_refuses_normal_capture_before_any_ingestion() {
+fn unverified_current_registry_refuses_publication_and_retains_normal_capture_original() {
     let f = Fixture::new();
     let (path, source) = sealed(&f);
     let source_bytes = fs::read(&path).unwrap();
@@ -395,16 +395,64 @@ fn unsupported_current_registry_refuses_normal_capture_before_any_ingestion() {
     )
     .unwrap();
     let before = catalog(&db);
-    let original_files = files(&f.root("unsupported-target"));
-    refused(store.attach_capture(&path, &request));
-    assert_eq!(catalog(&db), before);
-    assert_eq!(files(&f.root("unsupported-target")), original_files);
-    assert_eq!(fs::read(path).unwrap(), source_bytes);
+    assert_eq!(before.tables.len(), 13);
     assert!(
-        !store
-            .has_registered_take(&request.clip.source.take_id)
-            .unwrap()
+        before
+            .tables
+            .iter()
+            .all(|(name, rows)| name != "native_takes" || rows.is_empty())
     );
+    let original_files = files(&f.root("unsupported-target").join("takes"));
+    store
+        .check_project_metadata_admission(document.id())
+        .unwrap();
+    // Structural metadata can admit capture ingestion. The genuine ordinary
+    // original still cannot authenticate a claimed performance derivation.
+    refuses_nonperformance_original(store.attach_capture(&path, &request));
+    let retained = store.registered_take(&request.clip.source.take_id).unwrap();
+    assert_eq!(retained.manifest, *source.manifest());
+    let owned_name = PathBuf::from(format!("{}.sqlite3", retained.object_sha256));
+    let owned_bytes =
+        fs::read(f.root("unsupported-target").join("takes").join(&owned_name)).unwrap();
+    assert_eq!(owned_bytes.len() as u64, retained.byte_length);
+    assert_eq!(hash(&owned_bytes), retained.object_sha256);
+    let owned = store.open_take(&request.clip.source).unwrap();
+    assert_eq!(owned.descriptor(), source.descriptor());
+    assert_eq!(owned.manifest(), source.manifest());
+    assert_eq!(
+        owned.read_chunk("audio", 0).unwrap().payload,
+        source.read_chunk("audio", 0).unwrap().payload
+    );
+    drop(owned);
+    let mut expected_files = original_files;
+    assert!(expected_files.insert(owned_name, owned_bytes).is_none());
+    assert_eq!(
+        files(&f.root("unsupported-target").join("takes")),
+        expected_files
+    );
+    assert_eq!(fs::read(path).unwrap(), source_bytes);
+    let mut after = catalog(&db);
+    let registration = after
+        .tables
+        .iter_mut()
+        .find(|(name, _)| name == "native_takes")
+        .unwrap();
+    assert_eq!(
+        registration.1,
+        vec![vec![
+            Cell::Text(retained.take_id.0.as_bytes().to_vec()),
+            Cell::Text(retained.manifest_sha256.as_bytes().to_vec()),
+            Cell::Text(retained.object_sha256.as_bytes().to_vec()),
+            Cell::Integer(retained.byte_length as i64),
+            Cell::Text(source.manifest().canonical_bytes().unwrap()),
+        ]]
+    );
+    registration.1.clear();
+    assert_eq!(
+        after, before,
+        "all thirteen catalog tables and schema differ only by one retained original registration"
+    );
+    assert!(store.take_publication_receipt(&request).unwrap().is_none());
 }
 
 #[test]

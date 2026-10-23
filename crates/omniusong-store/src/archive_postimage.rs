@@ -335,7 +335,7 @@ fn finish_spool<T>(
     // A private physical error, source error or unrelated interrupt survives.
     if interrupted.load(Ordering::Acquire)
         && result.as_ref().err().is_some_and(|error| matches!(error, StoreError::ArchiveSql(value)
-            if value.origin()==ArchiveSqlOrigin::PrivateOutput && matches!(value.operation_error(), StoreError::Database(sql)
+            if value.origin()==ArchiveSqlOrigin::PrivateOutput && value.cleanup_error().is_none() && matches!(value.operation_error(), StoreError::Database(sql)
                 if sql.sqlite_error().is_some_and(|code| code.extended_code & 0xff == 9))))
         && let Some(stop) = budget.and_then(|value| value.checkpoint().err())
     {
@@ -570,6 +570,86 @@ fn schema(
     Ok(Schema(digest.finalize().into()))
 }
 
+struct CellRead {
+    table: &'static str,
+    column: &'static str,
+    rowid: i64,
+    length: usize,
+    row_bytes: u64,
+}
+
+fn value_credit(budget: Option<&InspectionBudget>, row_bytes: u64) -> Result<()> {
+    // A late field can traverse earlier overflow pages; SQLite also allocates
+    // an overflow-page cache for the row. Sequential reads reuse that cache.
+    // This is logical work, not an OS-I/O, pager-RAM or latency guarantee.
+    credit(
+        budget,
+        row_bytes
+            .checked_mul(2)
+            .and_then(|bytes| bytes.checked_add(8192))
+            .ok_or_else(|| invalid("Postimage row work overflow"))?,
+    )
+}
+
+fn read_cell_chunks(
+    connection: &Connection,
+    cell: CellRead,
+    origin: ArchiveSqlOrigin,
+    budget: Option<&InspectionBudget>,
+    mut visit: impl FnMut(&[u8]),
+) -> Result<()> {
+    require(
+        cell.length <= i32::MAX as usize && cell.row_bytes >= cell.length as u64,
+        "Postimage incremental read exceeds its bounded row",
+    )?;
+    value_credit(budget, cell.row_bytes)?;
+    let capacity = cell.length.min(CHUNK);
+    credit(budget, capacity as u64)?;
+    let mut buffer = Vec::new();
+    buffer
+        .try_reserve_exact(capacity)
+        .map_err(|_| invalid("Cannot reserve bounded postimage buffer"))?;
+    buffer.resize(capacity, 0_u8);
+    // SQLite owns this read-only handle; no raw descriptor, write or reopen.
+    // TEXT bytes retain the database encoding, as with CAST(column AS BLOB).
+    let handle = sql(
+        origin,
+        connection.blob_open(rusqlite::MAIN_DB, cell.table, cell.column, cell.rowid, true),
+    )?;
+    let result = (|| {
+        require(
+            handle.len() == cell.length,
+            "Postimage field changed during its bounded read",
+        )?;
+        let mut offset = 0;
+        while offset < cell.length {
+            let size = (cell.length - offset).min(capacity);
+            row_credit(budget)?;
+            credit(budget, size as u64 * 2)?;
+            // Direct Btree reads do not run the SQL progress hook. The checks
+            // above bound each chunk; a single blocked pager read is not timed.
+            sql(origin, handle.read_at_exact(&mut buffer[..size], offset))?;
+            visit(&buffer[..size]);
+            offset += size;
+        }
+        Ok(())
+    })();
+    // Always consume close, even after a stop, length mismatch or read failure.
+    // A close error neither erases the primary nor gains another SQL origin.
+    let result = match (result, handle.close()) {
+        (Ok(()), Ok(())) => Ok(()),
+        (Err(error), Ok(())) => Err(error),
+        (Ok(()), Err(error)) => Err(boundary::sql_read_close_error(origin, error)),
+        (Err(error), Err(cleanup)) => Err(boundary::sql_read_cleanup_error(origin, error, cleanup)),
+    };
+    finish(budget, result)
+}
+
+struct ColumnHeader {
+    kind: String,
+    length: u64,
+}
+
 fn proof_row(
     connection: &Connection,
     table: Table,
@@ -580,22 +660,30 @@ fn proof_row(
     let mut hash = row_hash(table);
     let mut key_parts = Vec::new();
     let mut raw = 0u64;
-    for (index, column) in table.columns.iter().enumerate() {
+    credit(budget, table.columns.len() as u64 * 4096)?;
+    let mut headers = Vec::new();
+    headers
+        .try_reserve_exact(table.columns.len())
+        .map_err(|_| invalid("Cannot reserve bounded postimage headers"))?;
+    // Header-only queries precede every actual value read. Even a tiny scalar
+    // after a large field can require traversing that row's overflow pages.
+    for column in table.columns {
         row_credit(budget)?;
         let query = format!(
-            "SELECT typeof(\"{0}\"),CASE WHEN typeof(\"{0}\") IN ('text','blob') THEN octet_length(\"{0}\") ELSE 0 END,CASE WHEN typeof(\"{0}\") IN ('integer','real') THEN \"{0}\" END FROM main.\"{1}\" WHERE rowid=?1",
+            "SELECT typeof(\"{0}\"),CASE WHEN typeof(\"{0}\") IN ('text','blob') THEN octet_length(\"{0}\") ELSE 0 END FROM main.\"{1}\" WHERE rowid=?1",
             column.name, table.name
         );
-        let (kind, length, scalar): (String, i64, rusqlite::types::Value) = sql(
+        let (kind, length): (String, i64) = sql(
             origin,
-            connection.query_row(&query, [rowid], |row| {
-                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
-            }),
+            connection.query_row(&query, [rowid], |row| Ok((row.get(0)?, row.get(1)?))),
         )?;
-        let raw_length = if kind == "integer" || kind == "real" {
-            8
-        } else {
-            u64::try_from(length).map_err(|_| invalid("Postimage field length is negative"))?
+        let raw_length = match kind.as_str() {
+            "integer" | "real" => 8,
+            "null" => 0,
+            "text" | "blob" => {
+                u64::try_from(length).map_err(|_| invalid("Postimage field length is negative"))?
+            }
+            _ => return Err(invalid("Unsupported postimage SQLite storage class")),
         };
         require(
             raw_length <= column.maximum as u64,
@@ -604,27 +692,46 @@ fn proof_row(
         raw = raw
             .checked_add(raw_length)
             .ok_or_else(|| invalid("Postimage raw counter overflow"))?;
+        headers.push(ColumnHeader {
+            kind,
+            length: raw_length,
+        });
+    }
+    let row_bytes = raw
+        .checked_add(32 + table.columns.len() as u64 * 16)
+        .ok_or_else(|| invalid("Postimage row work overflow"))?;
+    for (index, (column, header)) in table.columns.iter().zip(headers).enumerate() {
+        let kind = header.kind;
         let mut primary = None;
         match kind.as_str() {
             "null" => cell_header(&mut hash, b'n', 0),
-            "integer" => {
-                let rusqlite::types::Value::Integer(value) = scalar else {
-                    return Err(invalid("Postimage integer metadata changed"));
-                };
-                cell_header(&mut hash, b'i', 8);
-                hash.update(value.to_le_bytes());
-                primary = Some(rusqlite::types::Value::Integer(value));
-            }
-            "real" => {
-                let rusqlite::types::Value::Real(value) = scalar else {
-                    return Err(invalid("Postimage real metadata changed"));
-                };
-                cell_header(&mut hash, b'r', 8);
-                hash.update(value.to_bits().to_le_bytes());
-                primary = Some(rusqlite::types::Value::Real(value));
+            "integer" | "real" => {
+                value_credit(budget, row_bytes)?;
+                row_credit(budget)?;
+                let query = format!(
+                    "SELECT CASE WHEN typeof(\"{0}\")=?2 THEN \"{0}\" END FROM main.\"{1}\" WHERE rowid=?1",
+                    column.name, table.name
+                );
+                let scalar: rusqlite::types::Value = sql(
+                    origin,
+                    connection.query_row(&query, params![rowid, kind], |row| row.get(0)),
+                )?;
+                match scalar {
+                    rusqlite::types::Value::Integer(value) if kind == "integer" => {
+                        cell_header(&mut hash, b'i', 8);
+                        hash.update(value.to_le_bytes());
+                        primary = Some(rusqlite::types::Value::Integer(value));
+                    }
+                    rusqlite::types::Value::Real(value) if kind == "real" => {
+                        cell_header(&mut hash, b'r', 8);
+                        hash.update(value.to_bits().to_le_bytes());
+                        primary = Some(rusqlite::types::Value::Real(value));
+                    }
+                    _ => return Err(invalid("Postimage numeric metadata changed")),
+                }
             }
             "text" | "blob" => {
-                let length = usize::try_from(length)
+                let length = usize::try_from(header.length)
                     .map_err(|_| invalid("Postimage field length is negative"))?;
                 require(
                     length <= column.maximum,
@@ -640,42 +747,24 @@ fn proof_row(
                     )?;
                     credit(budget, length as u64)?;
                 }
-                let query = format!(
-                    "SELECT substr(CAST(\"{}\" AS BLOB),?2,?3) FROM main.\"{}\" WHERE rowid=?1",
-                    column.name, table.name
-                );
-                let mut offset = 0;
-                while offset < length {
-                    let size = (length - offset).min(CHUNK);
-                    row_credit(budget)?;
-                    // A separate SQLite substr/CAST query may interpret the
-                    // complete cell again. Prepay that full-cell work for
-                    // every query, in addition to its bounded Rust result.
-                    credit(
-                        budget,
-                        (length as u64)
-                            .checked_mul(2)
-                            .ok_or_else(|| invalid("Postimage work overflow"))?,
-                    )?;
-                    credit(budget, (size as u64) * 2)?;
-                    let bytes: Vec<u8> = sql(
-                        origin,
-                        connection.query_row(
-                            &query,
-                            params![rowid, (offset + 1) as i64, size as i64],
-                            |row| row.get(0),
-                        ),
-                    )?;
-                    require(
-                        bytes.len() == size,
-                        "Postimage field changed during its bounded read",
-                    )?;
-                    hash.update(&bytes);
-                    if is_key {
-                        key_bytes.extend_from_slice(&bytes);
-                    }
-                    offset += size;
-                }
+                read_cell_chunks(
+                    connection,
+                    CellRead {
+                        table: table.name,
+                        column: column.name,
+                        rowid,
+                        length,
+                        row_bytes,
+                    },
+                    origin,
+                    budget,
+                    |bytes| {
+                        hash.update(bytes);
+                        if is_key {
+                            key_bytes.extend_from_slice(bytes);
+                        }
+                    },
+                )?;
                 if is_key {
                     require(
                         kind == "text",
@@ -1017,6 +1106,67 @@ impl<'b> PostimageLedger<'b> {
                     reusable_tables.contains(&self.layout.tables()[index].name),
                 )
             })?;
+            self.planned.set(true);
+            Ok(())
+        })())
+    }
+    /// Plan a local mutation from exact preimage values, before touching the
+    /// live catalog. Archive insert/reuse semantics remain unchanged.
+    pub(crate) fn expect_replace(
+        &self,
+        table: &str,
+        before: &[ValueRef<'_>],
+        after: &[ValueRef<'_>],
+    ) -> Result<()> {
+        self.checked((|| {
+            self.mutable()?;
+            require(
+                self.baseline.get(),
+                "Replacement requires a captured baseline",
+            )?;
+            let (index, table) = self.table(table)?;
+            let (key, hash) = proof_values(table, before, self.budget)?;
+            let (next_key, next_hash) = proof_values(table, after, self.budget)?;
+            require(key == next_key, "Replacement cannot change its primary key")?;
+            self.observe()?;
+            credit(self.budget, (key.len() + 4096) as u64)?;
+            self.spool_identity()?;
+            let changed = sql(
+                ArchiveSqlOrigin::PrivateOutput,
+                self.connection.execute(
+                    "UPDATE expected SET h=?1,planned=1 WHERE t=?2 AND k=?3 AND h=?4 AND planned=0",
+                    params![next_hash.as_slice(), index as i64, key, hash.as_slice()],
+                ),
+            )?;
+            require(
+                changed == 1,
+                "Replacement differs from its untouched baseline row",
+            )?;
+            self.planned.set(true);
+            Ok(())
+        })())
+    }
+    /// Deletion is exact-preimage CAS too, never a broad applied-row predicate.
+    pub(crate) fn expect_remove(&self, table: &str, before: &[ValueRef<'_>]) -> Result<()> {
+        self.checked((|| {
+            self.mutable()?;
+            require(self.baseline.get(), "Removal requires a captured baseline")?;
+            let (index, table) = self.table(table)?;
+            let (key, hash) = proof_values(table, before, self.budget)?;
+            self.observe()?;
+            credit(self.budget, (key.len() + 4096) as u64)?;
+            self.spool_identity()?;
+            let changed = sql(
+                ArchiveSqlOrigin::PrivateOutput,
+                self.connection.execute(
+                    "DELETE FROM expected WHERE t=?1 AND k=?2 AND h=?3 AND planned=0",
+                    params![index as i64, key, hash.as_slice()],
+                ),
+            )?;
+            require(
+                changed == 1,
+                "Removal differs from its untouched baseline row",
+            )?;
             self.planned.set(true);
             Ok(())
         })())

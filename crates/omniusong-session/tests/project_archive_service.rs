@@ -277,9 +277,8 @@ impl Fixture {
     fn service(&self, paths: Paths) -> SessionService {
         let expected_root = fs::canonicalize(&paths.native).unwrap();
         let mut service = SessionService::reconnect(paths).unwrap();
-        // Explicit normal lifecycle: Initialize opens the store. A guarded
-        // projection summary grants no source authority and is not a healthy
-        // Library prerequisite for the next independent archive command.
+        // Initialize opens the store and reports structural metadata. The
+        // required-authentication notice grants no source/archive authority.
         let Reply::Library(library) = call(&mut service, Command::Initialize).unwrap() else {
             panic!("Initialize returned another reply");
         };
@@ -290,7 +289,8 @@ impl Fixture {
                 .iter()
                 .find(|summary| summary.id == self.project.id())
                 .unwrap();
-            assert_eq!(summary.problem.as_deref(), Some(GUARDED_SUMMARY));
+            assert!(summary.problem.is_none());
+            assert!(summary.source_authentication_required);
         } else {
             assert!(library.sessions.is_empty());
         }
@@ -592,10 +592,9 @@ fn actual_v1_v2_published_projection_uses_all_three_compact_archive_commands_on_
         let restored = NativeStore::open_existing(&identity_paths.native).unwrap();
         assert_eq!(restored.load(f.project.id()).unwrap(), f.project);
         assert_eq!(originals(&identity_paths.native), owned);
-        assert_eq!(
-            restored.list().unwrap()[0].problem.as_deref(),
-            Some(GUARDED_SUMMARY)
-        );
+        let summary = restored.list().unwrap().remove(0);
+        assert!(summary.problem.is_none());
+        assert!(summary.source_authentication_required);
         drop(restored);
         let copy_paths = destination_paths(&f, "copy");
         let mut copy = f.service(copy_paths.clone());

@@ -1,7 +1,8 @@
 //! Read-only reconciliation of an already committed performance attachment.
 use crate::{NativeStore, Result, StoreError, TakePublication};
-use crate::{operations::replay_operation, takes::publication_request};
+use crate::{operations::read_operation_metadata, takes::publication_request};
 use omniusong_core::native::TakeClip;
+use omniusong_recording::InspectionBudget;
 
 impl NativeStore {
     /// Exact historical publication proof, without opening any take file.
@@ -25,8 +26,21 @@ pub(crate) fn checked_publication_receipt(
     connection: &rusqlite::Connection,
     intent: &TakePublication,
 ) -> Result<Option<crate::EditReceipt>> {
+    checked_publication_receipt_with_budget(
+        connection,
+        intent,
+        &crate::projection_publication::default_budget(),
+    )
+}
+
+pub(crate) fn checked_publication_receipt_with_budget(
+    connection: &rusqlite::Connection,
+    intent: &TakePublication,
+    budget: &InspectionBudget,
+) -> Result<Option<crate::EditReceipt>> {
     let request = publication_request(intent)?;
-    let Some(receipt) = replay_operation(
+    crate::projection_metadata::prepay_operation(connection, &intent.operation_id.0, budget)?;
+    let Some(receipt) = read_operation_metadata(
         connection,
         &intent.operation_id.0,
         &intent.project_id.0,

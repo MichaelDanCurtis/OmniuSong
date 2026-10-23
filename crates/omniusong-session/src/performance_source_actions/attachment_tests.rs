@@ -1,5 +1,7 @@
 //! Unix-qualified synthetic attachment and receipt tests. No native devices.
 #![cfg(unix)]
+#[path = "attachment_tests/projection_consumer_review.rs"]
+mod projection_consumer_review;
 
 use super::super::{
     decisions::{PerformanceSourceAttachmentChoice, PerformanceSourceDecision},
@@ -34,8 +36,81 @@ fn checksum(bytes: &[u8]) -> String {
 }
 
 #[test]
-fn unsupported_projection_target_refuses_before_recovered_original_ingestion() {
+fn unverified_projection_target_refuses_publication_and_retains_recovered_original_for_review() {
+    use rusqlite::{Connection, types::Value as SqlValue};
     use serde_json::json;
+    use std::{collections::BTreeMap, path::Path};
+    type Rows = Vec<Vec<SqlValue>>;
+    type Snapshot = BTreeMap<String, Rows>;
+    type Tree = BTreeMap<PathBuf, Option<Vec<u8>>>;
+    fn snapshot(connection: &Connection) -> Snapshot {
+        let mut names = connection
+            .prepare("SELECT name FROM sqlite_schema WHERE type='table' ORDER BY name")
+            .unwrap()
+            .query_map([], |row| row.get::<_, String>(0))
+            .unwrap()
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .unwrap();
+        assert_eq!(names.len(), 13);
+        names.push("sqlite_schema".into());
+        names
+            .into_iter()
+            .map(|name| {
+                let mut statement = connection
+                    .prepare(&format!(
+                        "SELECT * FROM \"{}\" ORDER BY rowid",
+                        name.replace('"', "\"\"")
+                    ))
+                    .unwrap();
+                let columns = statement.column_count();
+                let rows = statement
+                    .query_map([], |row| {
+                        (0..columns)
+                            .map(|column| row.get(column))
+                            .collect::<rusqlite::Result<Vec<_>>>()
+                    })
+                    .unwrap()
+                    .collect::<rusqlite::Result<Rows>>()
+                    .unwrap();
+                (name, rows)
+            })
+            .collect()
+    }
+    fn tree_without_catalog(root: &Path) -> Tree {
+        fn visit(root: &Path, path: &Path, result: &mut Tree) {
+            for entry in fs::read_dir(path).unwrap() {
+                let path = entry.unwrap().path();
+                let relative = path.strip_prefix(root).unwrap().to_path_buf();
+                // Catalog state is compared through SQLite cells, never a raw
+                // descriptor on the open live catalog or its sidecars.
+                if relative.components().count() == 1
+                    && matches!(
+                        relative.to_str(),
+                        Some(
+                            "studio.sqlite3"
+                                | "studio.sqlite3-journal"
+                                | "studio.sqlite3-wal"
+                                | "studio.sqlite3-shm"
+                        )
+                    )
+                {
+                    continue;
+                }
+                let metadata = fs::symlink_metadata(&path).unwrap();
+                assert!(!metadata.file_type().is_symlink());
+                if metadata.is_dir() {
+                    result.insert(relative, None);
+                    visit(root, &path, result);
+                } else {
+                    assert!(metadata.is_file());
+                    result.insert(relative, Some(fs::read(&path).unwrap()));
+                }
+            }
+        }
+        let mut result = Tree::new();
+        visit(root, root, &mut result);
+        result
+    }
     let (f, mut backend, source, _, verified) = verified(fixture::Mode::Tail);
     let pending = choose(&mut backend, &verified, &source, CHOICE, None, 240);
     let publication = publication(&pending).clone();
@@ -72,10 +147,20 @@ fn unsupported_projection_target_refuses_before_recovered_original_ingestion() {
             ],
         )
         .unwrap();
-    drop(connection);
-    let before = fixture::tree(&native);
+    let before = snapshot(&connection);
+    assert!(before["native_takes"].is_empty());
+    let project_before: (String, i64, i64) = connection
+        .query_row(
+            "SELECT payload,revision,cursor FROM projects WHERE id=?1",
+            [&publication.project_id.0],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .unwrap();
+    let files_before = tree_without_catalog(&native);
     let history = fixture::history(&mut backend);
     let source_before = fs::read(f.source_path()).unwrap();
+    let working = f.action_parent().join(ACTION).join("recovery/take.sqlite3");
+    let working_before = fs::read(&working).unwrap();
     assert!(
         !backend
             .store()
@@ -83,19 +168,112 @@ fn unsupported_projection_target_refuses_before_recovered_original_ingestion() {
             .has_registered_take(&publication.clip.source.take_id)
             .unwrap()
     );
+    // Structural metadata admission is intentional. Source proof is required
+    // later, after the separately authorized recovered-original ingestion.
+    backend
+        .store()
+        .unwrap()
+        .check_project_metadata_admission(&publication.project_id.0)
+        .unwrap();
     let error = attach(&mut backend, &pending).unwrap_err();
+    assert_eq!(error.kind, FailureKind::SourceUnavailable);
     assert!(
-        error.message.contains("Performance projection ownership"),
+        error.outcome_unknown,
+        "retained ingestion is not a project commitment"
+    );
+    assert!(
+        error
+            .message
+            .contains("Registered projection source is absent"),
         "{error:?}"
     );
-    assert_eq!(fixture::tree(&native), before);
     assert_eq!(fixture::history(&mut backend), history);
     assert_eq!(fs::read(f.source_path()).unwrap(), source_before);
+    assert_eq!(fs::read(&working).unwrap(), working_before);
+    let object = backend
+        .store()
+        .unwrap()
+        .registered_take(&publication.clip.source.take_id)
+        .unwrap();
+    let expected = verified_result(&verified).unwrap();
+    assert_eq!(object.take_id.0, expected.take_id);
+    assert_eq!(object.manifest_sha256, expected.manifest_sha256);
+    assert_eq!(object.object_sha256, expected.working_sha256);
+    assert_eq!(object.byte_length, expected.working_bytes);
+    let governor = omniusong_recording::InspectionBudget::new(
+        omniusong_recording::InspectionLimits::default(),
+        fixture::token(),
+    )
+    .unwrap();
+    let sealed = backend
+        .store()
+        .unwrap()
+        .open_take_with_budget(&publication.clip.source, &governor)
+        .unwrap();
+    omniusong_engine::performance_copy::authenticate_owned_performance_copy(
+        &sealed,
+        &source.performance,
+        ACTION,
+        &verified.prepared.action.recovery_operation_id.0,
+    )
+    .unwrap();
+    let inspection = sealed.inspect_snapshot().unwrap();
+    assert_eq!(inspection.descriptor_sha256, expected.descriptor_sha256);
+    assert_eq!(
+        inspection.original_rows_sha256,
+        expected.original_rows_sha256
+    );
+    assert!(inspection.report.unknown_tail);
+    drop(sealed);
+    let owned_relative = PathBuf::from(format!("takes/{}.sqlite3", object.object_sha256));
+    assert_eq!(
+        fs::read(native.join(&owned_relative)).unwrap(),
+        working_before
+    );
+    let mut expected_files = files_before;
+    expected_files.entry(PathBuf::from("takes")).or_default();
+    assert!(
+        expected_files
+            .insert(owned_relative, Some(working_before))
+            .is_none()
+    );
+    assert_eq!(tree_without_catalog(&native), expected_files);
+    let mut after = snapshot(&connection);
+    let inserted = after.get_mut("native_takes").unwrap();
+    let expected_registration = vec![vec![
+        SqlValue::Text(object.take_id.0.clone()),
+        SqlValue::Text(object.manifest_sha256.clone()),
+        SqlValue::Text(object.object_sha256.clone()),
+        SqlValue::Integer(object.byte_length as i64),
+        SqlValue::Text(String::from_utf8(object.manifest.canonical_bytes().unwrap()).unwrap()),
+    ]];
+    assert_eq!(*inserted, expected_registration);
+    inserted.clear();
+    assert_eq!(
+        after, before,
+        "all 13 tables and schema differ only by the one real incoming registration"
+    );
+    let project_after: (String, i64, i64) = connection
+        .query_row(
+            "SELECT payload,revision,cursor FROM projects WHERE id=?1",
+            [&publication.project_id.0],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .unwrap();
+    assert_eq!(project_after, project_before);
+    assert!(
+        backend
+            .store()
+            .unwrap()
+            .take_publication_receipt(&publication)
+            .unwrap()
+            .is_none()
+    );
     assert!(
         !backend
             .store()
             .unwrap()
-            .has_registered_take(&publication.clip.source.take_id)
+            .has_registered_take(&TakeId("unverified-original".into()))
             .unwrap()
     );
 }
