@@ -177,7 +177,7 @@ fn cleanup_failures_preserve_durable_export_and_committed_restore() {
     )
     .unwrap();
     assert_eq!(exported.completion, ArchiveCompletion::ExportDurable);
-    assert_eq!(exported.cleanup.len(), 2);
+    assert_eq!(exported.cleanup.len(), 3);
     assert!(exported.cleanup.iter().all(|issue| issue.path.exists()));
     assert_eq!(checksum(&fs::read(&path).unwrap()), exported.value.sha256);
     let mut destination = fixture.store("destination");
@@ -275,9 +275,15 @@ fn mixed_metadata_destinations_keep_their_sql_origin_through_opposite_outer_tags
     let fixture = Fixture::new();
     let (source, project) = fixture.source();
     let broken_output = Connection::open_in_memory().unwrap();
+    let expected = PostimageLedger::new(
+        &fs::canonicalize(&fixture.0).unwrap(),
+        Layout::ArchiveV2,
+        None,
+    )
+    .unwrap();
     let output = boundary::live(copy_metadata(
         &source.connection,
-        Some(Destination::Archive(&broken_output)),
+        Some(Destination::ArchiveExpected(&broken_output, &expected)),
         project.id(),
     ))
     .err()

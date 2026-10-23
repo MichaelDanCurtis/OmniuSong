@@ -245,6 +245,9 @@ impl<T> ArchiveOutcome<T> {
 #[cfg(test)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum TestEvent {
+    ExportSchema,
+    RestoreAcquired,
+    CopyPlanFrozen,
     OutputLink,
     ExportSync,
     RestoreCommit,

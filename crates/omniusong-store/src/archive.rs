@@ -6,6 +6,7 @@ use crate::{
         self as boundary, ArchiveAction, ArchiveCompletion, ArchiveContext, ArchiveFailure,
         ArchiveOutcome, ArchivePhase, ArchiveSqlOrigin, sql_error,
     },
+    archive_postimage::{Layout, PostimageLedger},
     catalog_transaction::CatalogTransaction,
     checksum, load_document, read_asset,
     takes::{TakeObject, load_take, object_path, verify_owned_take},
@@ -16,6 +17,7 @@ use omniusong_core::{
     contracts::{EditOperation, EditScope, ProjectEditIntent, TakeId, WORKER_MAX_BYTES},
     native::TakeReference,
 };
+use rusqlite::types::ValueRef as SqlCell;
 use rusqlite::{Connection, OpenFlags, OptionalExtension, params};
 use sha2::{Digest, Sha256};
 use std::{
@@ -226,25 +228,35 @@ impl Bundle {
 }
 #[derive(Clone, Copy)]
 pub(super) enum Destination<'a> {
-    Archive(&'a Connection),
+    ArchiveExpected(&'a Connection, &'a PostimageLedger<'a>),
     Store(&'a Connection),
+    /// Store-shaped private planning rows, with no live-catalog SQL authority.
+    PlanCatalog(&'a Connection),
 }
 impl Destination<'_> {
     fn connection(&self) -> &Connection {
         match self {
-            Self::Archive(c) | Self::Store(c) => c,
+            Self::ArchiveExpected(c, _) | Self::Store(c) | Self::PlanCatalog(c) => c,
         }
     }
     fn sql<T>(&self, result: rusqlite::Result<T>) -> Result<T> {
         result.map_err(|error| {
             sql_error(
                 match self {
-                    Self::Archive(_) => ArchiveSqlOrigin::PrivateOutput,
+                    Self::ArchiveExpected(_, _) | Self::PlanCatalog(_) => {
+                        ArchiveSqlOrigin::PrivateOutput
+                    }
                     Self::Store(_) => ArchiveSqlOrigin::LiveCatalog,
                 },
                 error,
             )
         })
+    }
+    fn expect(&self, table: &str, cells: &[SqlCell<'_>]) -> Result<()> {
+        if let Self::ArchiveExpected(_, expected) = self {
+            expected.expect_insert(table, cells, false)?;
+        }
+        Ok(())
     }
 }
 
@@ -572,19 +584,24 @@ pub(super) fn copy_metadata(
     );
     if let Some(target) = destination {
         match target {
-            Destination::Archive(c) => {
+            Destination::ArchiveExpected(c, _) => {
+                let sha = checksum(payload.as_bytes());
+                target.expect(
+                    "projects",
+                    &[
+                        SqlCell::Text(project_id.as_bytes()),
+                        SqlCell::Text(payload.as_bytes()),
+                        SqlCell::Integer(revision),
+                        SqlCell::Integer(cursor as i64),
+                        SqlCell::Text(sha.as_bytes()),
+                    ],
+                )?;
                 target.sql(c.execute(
                     "INSERT INTO projects VALUES(?1,?2,?3,?4,?5)",
-                    params![
-                        project_id,
-                        payload,
-                        revision,
-                        cursor as i64,
-                        checksum(payload.as_bytes())
-                    ],
+                    params![project_id, payload, revision, cursor as i64, sha],
                 ))?;
             }
-            Destination::Store(c) => {
+            Destination::Store(c) | Destination::PlanCatalog(c) => {
                 target.sql(c.execute(
                     "INSERT INTO projects(id,payload,revision,cursor) VALUES(?1,?2,?3,?4)",
                     params![project_id, payload, revision, cursor as i64],
@@ -622,7 +639,20 @@ pub(super) fn copy_metadata(
         );
         if let Some(target) = destination {
             match target {
-                Destination::Archive(c) => {
+                Destination::ArchiveExpected(c, _) => {
+                    let before_sha = checksum(before.as_bytes());
+                    let after_sha = checksum(after.as_bytes());
+                    target.expect(
+                        "edits",
+                        &[
+                            SqlCell::Text(project_id.as_bytes()),
+                            SqlCell::Integer(sequence as i64),
+                            SqlCell::Text(before.as_bytes()),
+                            SqlCell::Text(after.as_bytes()),
+                            SqlCell::Text(before_sha.as_bytes()),
+                            SqlCell::Text(after_sha.as_bytes()),
+                        ],
+                    )?;
                     target.sql(c.execute(
                         "INSERT INTO edits VALUES(?1,?2,?3,?4,?5,?6)",
                         params![
@@ -630,12 +660,12 @@ pub(super) fn copy_metadata(
                             sequence as i64,
                             before,
                             after,
-                            checksum(before.as_bytes()),
-                            checksum(after.as_bytes())
+                            before_sha,
+                            after_sha
                         ],
                     ))?;
                 }
-                Destination::Store(c) => {
+                Destination::Store(c) | Destination::PlanCatalog(c) => {
                     target.sql(c.execute("INSERT INTO edits(project_id,sequence,before_json,after_json) VALUES(?1,?2,?3,?4)", params![project_id,sequence as i64,before,after]))?;
                 }
             }
@@ -694,9 +724,22 @@ pub(super) fn copy_metadata(
             ],
         );
         if let Some(target) = destination {
-            if matches!(target, Destination::Store(_)) {
+            if matches!(target, Destination::Store(_) | Destination::PlanCatalog(_)) {
                 super::source_attachment::reject_reserved_operation(&id)?;
             }
+            target.expect(
+                "operations",
+                &[
+                    SqlCell::Text(id.as_bytes()),
+                    SqlCell::Text(project_id.as_bytes()),
+                    SqlCell::Text(request.as_bytes()),
+                    SqlCell::Text(request_sha.as_bytes()),
+                    SqlCell::Integer(previous as i64),
+                    SqlCell::Integer(committed as i64),
+                    SqlCell::Text(result.as_bytes()),
+                    SqlCell::Text(result_sha.as_bytes()),
+                ],
+            )?;
             target.sql(target.connection().execute(
                 "INSERT INTO operations VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",
                 params![
@@ -730,6 +773,14 @@ pub(super) fn copy_metadata(
         bundle.totals.imports = 1;
         bundle.record(b"import", &[sha.as_bytes(), &bytes]);
         if let Some(target) = destination {
+            target.expect(
+                "imports",
+                &[
+                    SqlCell::Text(project_id.as_bytes()),
+                    SqlCell::Text(sha.as_bytes()),
+                    SqlCell::Blob(&bytes),
+                ],
+            )?;
             target.sql(target.connection().execute(
                 "INSERT INTO imports VALUES(?1,?2,?3)",
                 params![project_id, sha, bytes],
@@ -739,7 +790,7 @@ pub(super) fn copy_metadata(
     Ok(bundle)
 }
 
-fn take_metadata(source: &Connection, take_id: &str) -> Result<(TakeObject, String)> {
+pub(super) fn take_metadata(source: &Connection, take_id: &str) -> Result<(TakeObject, String)> {
     let object = load_take(source, &TakeId(take_id.into()))?;
     let json: String = source.query_row("SELECT CASE WHEN octet_length(manifest_json)<=?2 THEN manifest_json END FROM native_takes WHERE take_id=?1", params![take_id,MAX_MANIFEST_BYTES as i64], |row| row.get(0))?;
     ensure(
@@ -769,7 +820,11 @@ pub(super) fn take_ids(bundle: &Bundle) -> Result<BTreeMap<String, String>> {
     )?;
     Ok(identities)
 }
-fn register_take(connection: &Connection, object: &TakeObject, manifest: &str) -> Result<()> {
+pub(super) fn register_take(
+    connection: &Connection,
+    object: &TakeObject,
+    manifest: &str,
+) -> Result<()> {
     connection.execute("INSERT INTO native_takes(take_id,manifest_sha256,object_sha256,byte_length,manifest_json) VALUES(?1,?2,?3,?4,?5)",
         params![object.take_id.0,object.manifest_sha256,object.object_sha256,object.byte_length as i64,manifest])?;
     Ok(())
@@ -832,10 +887,16 @@ fn export_objects(
     archive: &Connection,
     root: &Path,
     bundle: &mut Bundle,
+    expected: &PostimageLedger<'_>,
 ) -> Result<()> {
     for id in bundle.assets.clone() {
         let payload = read_asset(source, &id)?;
         account_asset(bundle, &id, &payload)?;
+        expected.expect_insert(
+            "assets",
+            &[SqlCell::Text(id.as_bytes()), SqlCell::Blob(&payload)],
+            false,
+        )?;
         archive
             .execute("INSERT INTO assets VALUES(?1,?2)", params![id, payload])
             .map_err(|error| sql_error(ArchiveSqlOrigin::PrivateOutput, error))?;
@@ -877,6 +938,18 @@ fn export_objects(
                 "object length",
             )?;
             hash.update(&buffer[..filled]);
+            let chunk_sha = checksum(&buffer[..filled]);
+            expected.expect_insert(
+                "take_chunks",
+                &[
+                    SqlCell::Text(object.object_sha256.as_bytes()),
+                    SqlCell::Integer(sequence),
+                    SqlCell::Integer(filled as i64),
+                    SqlCell::Text(chunk_sha.as_bytes()),
+                    SqlCell::Blob(&buffer[..filled]),
+                ],
+                false,
+            )?;
             archive
                 .execute(
                     "INSERT INTO take_chunks VALUES(?1,?2,?3,?4,?5)",
@@ -884,7 +957,7 @@ fn export_objects(
                         object.object_sha256,
                         sequence,
                         filled as i64,
-                        checksum(&buffer[..filled]),
+                        chunk_sha,
                         &buffer[..filled]
                     ],
                 )
@@ -903,13 +976,47 @@ fn export_objects(
                 && format!("{:x}", hash.finalize()) == object.object_sha256,
             "Owned take file changed or differs from its registered digest",
         )?;
+        expected.expect_insert(
+            "native_takes",
+            &[
+                SqlCell::Text(object.take_id.0.as_bytes()),
+                SqlCell::Text(object.manifest_sha256.as_bytes()),
+                SqlCell::Text(object.object_sha256.as_bytes()),
+                SqlCell::Integer(object.byte_length as i64),
+                SqlCell::Text(json.as_bytes()),
+            ],
+            false,
+        )?;
         boundary::output(register_take(archive, &object, &json))?;
     }
     Ok(())
 }
 
-fn insert_meta(connection: &Connection, bundle: &Bundle) -> Result<()> {
+fn insert_meta(
+    connection: &Connection,
+    bundle: &Bundle,
+    expected: &PostimageLedger<'_>,
+) -> Result<()> {
     let t = &bundle.totals;
+    let digest = bundle.index_digest();
+    expected.expect_insert(
+        "archive_meta",
+        &[
+            SqlCell::Integer(1),
+            SqlCell::Text(bundle.project.id().as_bytes()),
+            SqlCell::Integer(t.metadata as i64),
+            SqlCell::Integer(t.assets as i64),
+            SqlCell::Integer(t.takes as i64),
+            SqlCell::Integer(t.edits as i64),
+            SqlCell::Integer(t.operations as i64),
+            SqlCell::Integer(t.imports as i64),
+            SqlCell::Integer(t.asset_count as i64),
+            SqlCell::Integer(t.take_count as i64),
+            SqlCell::Integer(t.chunks as i64),
+            SqlCell::Text(digest.as_bytes()),
+        ],
+        false,
+    )?;
     connection.execute(
         "INSERT INTO archive_meta VALUES(1,?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",
         params![
@@ -923,9 +1030,50 @@ fn insert_meta(connection: &Connection, bundle: &Bundle) -> Result<()> {
             t.asset_count as i64,
             t.take_count as i64,
             t.chunks as i64,
-            bundle.index_digest()
+            digest
         ],
     )?;
+    Ok(())
+}
+
+/// Derive lineage expectations solely from the consistent source snapshot.
+/// No value in this function comes from the private output being checked.
+fn expect_export_lineage(
+    source: &Connection,
+    project_id: &str,
+    expected: &PostimageLedger<'_>,
+) -> Result<()> {
+    for (table, sql, columns) in [
+        (
+            "archive_copy_proofs",
+            "SELECT p.proof_sha256,CASE WHEN octet_length(p.receipt_json)<=8421376 THEN p.receipt_json END FROM archive_copy_proofs p JOIN archive_project_lineage l ON l.proof_sha256=p.proof_sha256 WHERE l.project_id=?1 ORDER BY p.proof_sha256",
+            2,
+        ),
+        (
+            "archive_copy_proof_operations",
+            "SELECT p.proof_sha256,p.source_operation_id,p.destination_operation_id,p.source_request_sha256,p.source_result_sha256,p.destination_request_sha256,p.destination_result_sha256 FROM archive_copy_proof_operations p JOIN archive_project_lineage l ON l.proof_sha256=p.proof_sha256 WHERE l.project_id=?1 ORDER BY p.proof_sha256,p.source_operation_id",
+            7,
+        ),
+        (
+            "archive_project_lineage",
+            "SELECT project_id,proof_sha256 FROM archive_project_lineage WHERE project_id=?1 ORDER BY proof_sha256",
+            2,
+        ),
+        (
+            "archive_copies",
+            "SELECT operation_id,project_id,proof_sha256 FROM archive_copies WHERE project_id=?1 ORDER BY operation_id",
+            3,
+        ),
+    ] {
+        let mut statement = source.prepare(sql)?;
+        let mut rows = statement.query([project_id])?;
+        while let Some(row) = rows.next()? {
+            let cells = (0..columns)
+                .map(|column| row.get_ref(column))
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            expected.expect_insert(table, &cells, false)?;
+        }
+    }
     Ok(())
 }
 
@@ -993,6 +1141,21 @@ impl NativeStore {
                     .execute_batch(sql)
                     .map_err(|error| sql_error(ArchiveSqlOrigin::PrivateOutput, error))?;
             }
+            archive
+                .execute_batch("COMMIT")
+                .map_err(|error| sql_error(ArchiveSqlOrigin::PrivateOutput, error))?;
+            // A fresh output's expected schema precedes all row writes. Tests
+            // may add a trigger here; row expectations still come only from
+            // the held live snapshot and exact original bytes below.
+            #[cfg(test)]
+            boundary::checkpoint(boundary::TestEvent::ExportSchema, &context)?;
+            let expected =
+                PostimageLedger::new(&stage, Layout::archive_version(ARCHIVE_VERSION)?, None)?;
+            expected.capture_schema(&archive, ArchiveSqlOrigin::PrivateOutput)?;
+            let expected_path = expected.path().to_owned();
+            archive
+                .execute_batch("BEGIN IMMEDIATE")
+                .map_err(|error| sql_error(ArchiveSqlOrigin::PrivateOutput, error))?;
             // This separately opened handle is the actual live studio catalog,
             // with a scoped rollback path rather than an unobserved Drop.
             let source = boundary::live((|| -> Result<Connection> {
@@ -1008,7 +1171,7 @@ impl NativeStore {
             let bundle = boundary::live(source_scope.run(|scope| {
                 let mut bundle = boundary::live(copy_metadata(
                     scope,
-                    Some(Destination::Archive(&archive)),
+                    Some(Destination::ArchiveExpected(&archive, &expected)),
                     project_id,
                 ))?;
                 boundary::live(crate::archive_copy::read_lineage(
@@ -1018,7 +1181,14 @@ impl NativeStore {
                     &mut bundle,
                     false,
                 ))?;
-                boundary::live(export_objects(scope, &archive, &self.root, &mut bundle))?;
+                boundary::live(expect_export_lineage(scope, project_id, &expected))?;
+                boundary::live(export_objects(
+                    scope,
+                    &archive,
+                    &self.root,
+                    &mut bundle,
+                    &expected,
+                ))?;
                 scope.rollback()?;
                 Ok(bundle)
             }))?;
@@ -1027,7 +1197,13 @@ impl NativeStore {
                 .map_err(|(_, error)| sql_error(ArchiveSqlOrigin::LiveCatalog, error))?;
             // Check every declared native source/range before publishing export.
             boundary::output(validate_all_reference_snapshots(&archive, project_id))?;
-            boundary::output(insert_meta(&archive, &bundle))?;
+            boundary::output(insert_meta(&archive, &bundle, &expected))?;
+            expected
+                .freeze()?
+                .verify(&archive, ArchiveSqlOrigin::PrivateOutput)?;
+            // Row expectations and their schema-stability hash do not grant
+            // arbitrary triggers or indexes a place in the fixed OSAR format.
+            boundary::output(validate_schema(&archive))?;
             archive
                 .execute_batch("COMMIT")
                 .map_err(|error| sql_error(ArchiveSqlOrigin::PrivateOutput, error))?;
@@ -1060,6 +1236,7 @@ impl NativeStore {
             context.phase = ArchivePhase::ExportDurable;
             let mut outcome = ArchiveOutcome::new(receipt, ArchiveCompletion::ExportDurable);
             outcome.cleanup_file(&path);
+            outcome.cleanup_file(&expected_path);
             outcome.cleanup_empty_dir(&stage);
             Ok(outcome)
         })();
@@ -1481,12 +1658,13 @@ impl NativeStore {
             let path = fs::canonicalize(archive_path)?;
             context.source = Some(path.clone());
             let _writer = crate::retained_file_coordination::writer_with_file(&self.root, &path)?;
-            let metadata = fs::metadata(&path)?;
-            ensure(
-                metadata.is_file() && metadata.len() <= MAX_ARCHIVE_FILE_BYTES,
-                "Archive is not a supported bounded file",
-            )?;
-            let archive = boundary::input(readonly(&path))?;
+            let stage = private_directory(&self.root, "archive-restore")?;
+            context.staging = Some(stage.clone());
+            let (input, _, sha256) = crate::archive_copy::acquire(&path, &stage, None)?;
+            context.archive_sha256 = Some(sha256);
+            #[cfg(test)]
+            boundary::checkpoint(boundary::TestEvent::RestoreAcquired, &context)?;
+            let archive = boundary::input(readonly(&input))?;
             boundary::input(validate_schema(&archive))?;
             let meta = boundary::input(load_meta(&archive))?;
             boundary::input(validate_snapshot_hashes(&archive, &meta.project_id))?;
@@ -1504,9 +1682,7 @@ impl NativeStore {
                     && bundle.totals.imports == meta.totals.imports,
                 "Archive contains unrelated project rows",
             )?;
-            let stage = private_directory(&self.root, "archive-restore")?;
-            context.staging = Some(stage.clone());
-            let diagnostic = serde_json::json!({"formatVersion":ARCHIVE_VERSION,"sourceArchive":path,"projectId":meta.project_id,"destinationRoot":self.root,"mode":"preserve_identity"});
+            let diagnostic = serde_json::json!({"formatVersion":ARCHIVE_VERSION,"sourceArchive":path,"acquiredArchiveSha256":context.archive_sha256,"projectId":meta.project_id,"destinationRoot":self.root,"mode":"preserve_identity"});
             let mut report = OpenOptions::new()
                 .write(true)
                 .create_new(true)
@@ -1526,6 +1702,39 @@ impl NativeStore {
             let scope = boundary::live(CatalogTransaction::legacy_immediate(&mut self.connection))?;
             let project = boundary::live(scope.run(|scope| {
                 collision_checks(scope, &archive, &meta.project_id)?;
+                // The complete plan is isolated from destination triggers and
+                // frozen against the original entire catalog before placement.
+                let expected = PostimageLedger::new(&stage, Layout::Catalog, None)?;
+                expected.capture_baseline(scope, ArchiveSqlOrigin::LiveCatalog)?;
+                let plan = crate::archive_plan::open_catalog(&stage)?;
+                boundary::input(copy_metadata(
+                    &archive,
+                    Some(Destination::PlanCatalog(&plan)),
+                    &meta.project_id,
+                ))?;
+                crate::archive_plan::plan_objects(&archive, &bundle, &plan)?;
+                let mut planned_lineage =
+                    boundary::input(copy_metadata(&archive, None, &meta.project_id))?;
+                boundary::input(crate::archive_copy::read_lineage(
+                    &archive,
+                    Some((
+                        &plan,
+                        &meta.project_id,
+                        true,
+                        ArchiveSqlOrigin::PrivateOutput,
+                    )),
+                    &meta.project_id,
+                    &mut planned_lineage,
+                    true,
+                ))?;
+                expected.expect_from_plan(
+                    &plan,
+                    ArchiveSqlOrigin::PrivateOutput,
+                    crate::archive_plan::REUSABLE_TABLES,
+                )?;
+                let expected = expected.freeze()?;
+                plan.execute_batch("PRAGMA query_only=ON")
+                    .map_err(|error| sql_error(ArchiveSqlOrigin::PrivateOutput, error))?;
                 context.phase = ArchivePhase::ObjectsPlacementAttempted;
                 install_objects(
                     scope,
@@ -1536,21 +1745,22 @@ impl NativeStore {
                     &mut context.published_objects,
                 )?;
                 context.phase = ArchivePhase::ObjectsPlaced;
-                boundary::input(copy_metadata(
-                    &archive,
+                boundary::output(copy_metadata(
+                    &plan,
                     Some(Destination::Store(scope)),
                     &meta.project_id,
                 ))?;
                 let mut lineage_bundle =
-                    boundary::input(copy_metadata(&archive, None, &meta.project_id))?;
-                boundary::input(crate::archive_copy::read_lineage(
-                    &archive,
+                    boundary::output(copy_metadata(&plan, None, &meta.project_id))?;
+                boundary::output(crate::archive_copy::read_lineage(
+                    &plan,
                     Some((scope, &meta.project_id, true, ArchiveSqlOrigin::LiveCatalog)),
                     &meta.project_id,
                     &mut lineage_bundle,
-                    true,
+                    false,
                 ))?;
                 boundary::live(validate_all_reference_snapshots(scope, &meta.project_id))?;
+                expected.verify(scope, ArchiveSqlOrigin::LiveCatalog)?;
                 // Prepare the exact result before the sole commit fence.
                 let project = bundle.project.clone();
                 context.phase = ArchivePhase::CatalogCommitAttempted;
@@ -1574,6 +1784,10 @@ impl NativeStore {
 #[cfg(test)]
 #[path = "archive/outcome_tests.rs"]
 mod outcome_tests;
+
+#[cfg(test)]
+#[path = "archive/postimage_tests.rs"]
+mod postimage_tests;
 
 #[cfg(test)]
 mod tests {

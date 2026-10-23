@@ -10,6 +10,8 @@ pub use archive_boundary::{
 };
 mod archive_copy;
 mod archive_operation;
+mod archive_plan;
+mod archive_postimage;
 mod archive_projection;
 pub use archive_projection::RetainedProjectionClosureInspection;
 mod captures;

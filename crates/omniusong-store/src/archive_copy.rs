@@ -8,6 +8,7 @@ use crate::{
         self as boundary, ArchiveAction, ArchiveCompletion, ArchiveContext, ArchiveFailure,
         ArchiveOutcome, ArchivePhase, ArchiveSqlOrigin,
     },
+    archive_postimage::{Layout, PostimageLedger},
     catalog_transaction::CatalogTransaction,
     checksum, load_document,
     takes::verify_owned_take,
@@ -617,9 +618,34 @@ fn remap_document(json: &str, project_id: &str) -> Result<ProjectDocument> {
 }
 /// Allocate/remap only typed identities. The caller owns pending_copy_map and
 /// still must authenticate the entire archive and final expected postimages.
+#[cfg(test)]
 pub(super) fn mapped_copy_request(
     connection: &Connection,
     source: &Connection,
+    request: &str,
+    project: &str,
+    reserved: &str,
+) -> Result<(String, String)> {
+    mapped_copy_request_in(
+        CopyCatalogs {
+            live: connection,
+            input: source,
+            pending: connection,
+            pending_origin: ArchiveSqlOrigin::LiveCatalog,
+        },
+        request,
+        project,
+        reserved,
+    )
+}
+struct CopyCatalogs<'a> {
+    live: &'a Connection,
+    input: &'a Connection,
+    pending: &'a Connection,
+    pending_origin: ArchiveSqlOrigin,
+}
+fn mapped_copy_request_in(
+    catalogs: CopyCatalogs<'_>,
     request: &str,
     project: &str,
     reserved: &str,
@@ -631,14 +657,18 @@ pub(super) fn mapped_copy_request(
     ) {
         String::new()
     } else {
-        fresh_operation(connection, source, reserved)?
+        fresh_operation(catalogs.live, catalogs.input, reserved)?
     };
     let (operation, request) = parsed.remap(project, &ordinary)?;
-    let exists: bool = tagged_sql(ArchiveSqlOrigin::LiveCatalog,connection.query_row(
+    let exists: bool = tagged_sql(ArchiveSqlOrigin::LiveCatalog,catalogs.live.query_row(
+        "SELECT EXISTS(SELECT 1 FROM operations WHERE operation_id=?1 UNION ALL SELECT 1 FROM archive_copies WHERE operation_id=?1)",
+        [&operation], |row| row.get(0),
+    ))?;
+    let pending: bool = tagged_sql(catalogs.pending_origin,catalogs.pending.query_row(
         "SELECT EXISTS(SELECT 1 FROM operations WHERE operation_id=?1 UNION ALL SELECT 1 FROM archive_copies WHERE operation_id=?1 UNION ALL SELECT 1 FROM pending_copy_map WHERE destination_operation_id=?1)",
         [&operation], |row| row.get(0),
     ))?;
-    let source_sql = if boundary::input(has_lineage(source))? {
+    let source_sql = if boundary::input(has_lineage(catalogs.input))? {
         "SELECT EXISTS(SELECT 1 FROM operations WHERE operation_id=?1 UNION ALL SELECT 1 FROM archive_copies WHERE operation_id=?1)"
     } else {
         // Strict version-1 archives have no lineage/copy tables.
@@ -646,10 +676,12 @@ pub(super) fn mapped_copy_request(
     };
     let source_exists: bool = tagged_sql(
         ArchiveSqlOrigin::Input,
-        source.query_row(source_sql, [&operation], |row| row.get(0)),
+        catalogs
+            .input
+            .query_row(source_sql, [&operation], |row| row.get(0)),
     )?;
     ensure(
-        !exists && !source_exists && operation != reserved,
+        !exists && !pending && !source_exists && operation != reserved,
         "Copied operation identity collides with retained or pending authority",
     )?;
     Ok((operation, request))
@@ -661,7 +693,11 @@ fn document_json(document: &ProjectDocument) -> Result<String> {
 
 /// Reserve an owned immutable input copy so validation and publication consume
 /// exactly the fingerprinted bytes even if the acquisition path is replaced.
-fn acquire(path: &Path, stage: &Path, expected: Option<&str>) -> Result<(PathBuf, u64, String)> {
+pub(super) fn acquire(
+    path: &Path,
+    stage: &Path,
+    expected: Option<&str>,
+) -> Result<(PathBuf, u64, String)> {
     let mut source = File::open(path)?;
     let metadata = source.metadata()?;
     ensure(
@@ -848,17 +884,13 @@ impl NativeStore {
                 context.phase=ArchivePhase::RecordedReplay;
                 return Ok((receipt,ArchiveCompletion::RecordedReplay));
             }
+            // The complete target rows are planned independently while the
+            // live transaction is still read-only. No destination trigger or
+            // mutable live pending table can author the expected postimage.
+            let ledger=PostimageLedger::new(&stage,Layout::Catalog,None)?;
+            ledger.capture_baseline(tx,ArchiveSqlOrigin::LiveCatalog)?;
+            let plan=crate::archive_plan::open_catalog(&stage)?;
             let project_id = fresh_project(tx, &meta.project_id)?;
-            context.phase=ArchivePhase::ObjectsPlacementAttempted;
-            archive::install_objects(
-                tx,
-                &archive,
-                &root,
-                &stage,
-                &bundle,
-                &mut context.published_objects,
-            )?;
-            context.phase=ArchivePhase::ObjectsPlaced;
             let current_json = document_json(&bundle.project)?;
             let document = remap_document(&current_json, &project_id)?;
             let cursor: i64 = tagged_sql(ArchiveSqlOrigin::Input,archive.query_row(
@@ -866,7 +898,7 @@ impl NativeStore {
                 [&meta.project_id],
                 |r| r.get(0),
             ))?;
-            tx.execute(
+            tagged_sql(ArchiveSqlOrigin::PrivateOutput,plan.execute(
                 "INSERT INTO projects(id,payload,revision,cursor) VALUES(?1,?2,?3,?4)",
                 params![
                     project_id,
@@ -874,7 +906,7 @@ impl NativeStore {
                     document.revision() as i64,
                     cursor
                 ],
-            )?;
+            ))?;
             let mut history=tagged_sql(ArchiveSqlOrigin::Input,archive.prepare("SELECT sequence,CASE WHEN octet_length(before_json)<=?2 THEN before_json END,CASE WHEN octet_length(after_json)<=?2 THEN after_json END FROM edits WHERE project_id=?1 ORDER BY sequence"))?;
             let mut rows =
                 tagged_sql(ArchiveSqlOrigin::Input,history.query(params![meta.project_id, MAX_NATIVE_PROJECT_BYTES as i64]))?;
@@ -882,20 +914,20 @@ impl NativeStore {
                 let sequence: i64 = tagged_sql(ArchiveSqlOrigin::Input,row.get(0))?;
                 let before: String = tagged_sql(ArchiveSqlOrigin::Input,row.get(1))?;
                 let after: String = tagged_sql(ArchiveSqlOrigin::Input,row.get(2))?;
-                tx.execute("INSERT INTO edits(project_id,sequence,before_json,after_json) VALUES(?1,?2,?3,?4)",params![project_id,sequence,document_json(&remap_document(&before,&project_id)?)?,document_json(&remap_document(&after,&project_id)?)?])?;
+                tagged_sql(ArchiveSqlOrigin::PrivateOutput,plan.execute("INSERT INTO edits(project_id,sequence,before_json,after_json) VALUES(?1,?2,?3,?4)",params![project_id,sequence,document_json(&remap_document(&before,&project_id)?)?,document_json(&remap_document(&after,&project_id)?)?]))?;
             }
             drop(rows);
             drop(history);
             let original:Option<(String,Vec<u8>)>=tagged_sql(ArchiveSqlOrigin::Input,archive.query_row("SELECT source_sha256,CASE WHEN octet_length(original_json)<=?2 THEN original_json END FROM imports WHERE project_id=?1",params![meta.project_id,omniusong_core::MAX_PROJECT_BYTES as i64],|r|Ok((r.get(0)?,r.get(1)?))).optional())?;
             if let Some((sha, bytes)) = original {
-                tx.execute(
+                tagged_sql(ArchiveSqlOrigin::PrivateOutput,plan.execute(
                     "INSERT INTO imports VALUES(?1,?2,?3)",
                     params![project_id, sha, bytes],
-                )?;
+                ))?;
             }
             // Stage bounded mapping rows in a private SQLite table. This keeps a
             // 100k-operation copy from collecting every receipt in memory.
-            tx.execute_batch("CREATE TEMP TABLE IF NOT EXISTS pending_copy_map(source_operation_id TEXT PRIMARY KEY,destination_operation_id TEXT UNIQUE,source_request_sha256 TEXT,source_result_sha256 TEXT,destination_request_sha256 TEXT,destination_result_sha256 TEXT); DELETE FROM pending_copy_map;")?;
+            tagged_sql(ArchiveSqlOrigin::PrivateOutput,plan.execute_batch("CREATE TEMP TABLE pending_copy_map(source_operation_id TEXT PRIMARY KEY,destination_operation_id TEXT UNIQUE,source_request_sha256 TEXT,source_result_sha256 TEXT,destination_request_sha256 TEXT,destination_result_sha256 TEXT);"))?;
             let mut statement=tagged_sql(ArchiveSqlOrigin::Input,archive.prepare("SELECT operation_id,CASE WHEN octet_length(request_json)<=?2 THEN request_json END,request_sha256,previous_revision,committed_revision,CASE WHEN octet_length(result_json)<=?3 THEN result_json END,result_sha256 FROM operations WHERE project_id=?1 ORDER BY operation_id"))?;
             let mut rows = tagged_sql(ArchiveSqlOrigin::Input,statement.query(params![
                 meta.project_id,
@@ -912,9 +944,8 @@ impl NativeStore {
                 let revision: i64 = tagged_sql(ArchiveSqlOrigin::Input,row.get(4))?;
                 let result: String = tagged_sql(ArchiveSqlOrigin::Input,row.get(5))?;
                 let source_result: String = tagged_sql(ArchiveSqlOrigin::Input,row.get(6))?;
-                let (operation, request) = mapped_copy_request(
-                    tx,
-                    &archive,
+                let (operation, request) = mapped_copy_request_in(
+                    CopyCatalogs{live:tx,input:&archive,pending:&plan,pending_origin:ArchiveSqlOrigin::PrivateOutput},
                     &request,
                     &project_id,
                     &intent.operation_id.0,
@@ -939,7 +970,7 @@ impl NativeStore {
                 mapping.validate()?;
                 hash_mapping(&mut mapping_digest, &mapping);
                 mapping_count += 1;
-                tx.execute(
+                tagged_sql(ArchiveSqlOrigin::PrivateOutput,plan.execute(
                     "INSERT INTO operations VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",
                     params![
                         mapping.destination,
@@ -951,8 +982,8 @@ impl NativeStore {
                         result,
                         mapping.destination_result
                     ],
-                )?;
-                tx.execute(
+                ))?;
+                tagged_sql(ArchiveSqlOrigin::PrivateOutput,plan.execute(
                     "INSERT INTO pending_copy_map VALUES(?1,?2,?3,?4,?5,?6)",
                     params![
                         mapping.source,
@@ -962,14 +993,14 @@ impl NativeStore {
                         mapping.destination_request,
                         mapping.destination_result
                     ],
-                )?;
+                ))?;
             }
             drop(rows);
             drop(statement);
             let mut inherited = boundary::input(archive::copy_metadata(&archive, None, &meta.project_id))?;
             boundary::input(read_lineage(
                 &archive,
-                Some((tx, &project_id, false,ArchiveSqlOrigin::LiveCatalog)),
+                Some((&plan, &project_id, false,ArchiveSqlOrigin::PrivateOutput)),
                 &meta.project_id,
                 &mut inherited,
                 true,
@@ -989,29 +1020,47 @@ impl NativeStore {
             };
             let json = proof.json()?;
             let proof_sha = checksum(json.as_bytes());
-            tx.execute(
+            tagged_sql(ArchiveSqlOrigin::PrivateOutput,plan.execute(
                 "INSERT INTO archive_copy_proofs VALUES(?1,?2)",
                 params![proof_sha, json],
-            )?;
-            tx.execute("INSERT INTO archive_copy_proof_operations SELECT ?1,source_operation_id,destination_operation_id,source_request_sha256,source_result_sha256,destination_request_sha256,destination_result_sha256 FROM pending_copy_map",[&proof_sha])?;
-            tx.execute_batch("DELETE FROM pending_copy_map")?;
-            tx.execute(
+            ))?;
+            tagged_sql(ArchiveSqlOrigin::PrivateOutput,plan.execute("INSERT INTO archive_copy_proof_operations SELECT ?1,source_operation_id,destination_operation_id,source_request_sha256,source_result_sha256,destination_request_sha256,destination_result_sha256 FROM pending_copy_map",[&proof_sha]))?;
+            tagged_sql(ArchiveSqlOrigin::PrivateOutput,plan.execute_batch("DROP TABLE pending_copy_map"))?;
+            tagged_sql(ArchiveSqlOrigin::PrivateOutput,plan.execute(
                 "INSERT INTO archive_project_lineage VALUES(?1,?2)",
                 params![project_id, proof_sha],
-            )?;
-            tx.execute(
+            ))?;
+            tagged_sql(ArchiveSqlOrigin::PrivateOutput,plan.execute(
                 "INSERT INTO archive_copies VALUES(?1,?2,?3)",
                 params![intent.operation_id.0, project_id, proof_sha],
-            )?;
+            ))?;
+            crate::archive_plan::plan_objects(&archive,&bundle,&plan)?;
+            let mut planned_bundle=boundary::output(archive::copy_metadata(&plan,None,&project_id))?;
+            boundary::output(read_lineage(&plan,None,&project_id,&mut planned_bundle,false))?;
+            boundary::output(archive::validate_all_reference_snapshots(&plan,&project_id))?;
+            let object_metadata = bundle.totals.metadata.checked_sub(inherited.totals.metadata)
+                .ok_or_else(||invalid("Archive metadata accounting underflow"))?;
+            archive::add(&mut planned_bundle.totals.metadata,object_metadata,archive::ARCHIVE_METADATA_BYTES,
+                "planned copy metadata including objects")?;
+            // Freeze both the exact planned rows and the full receipt before
+            // the first live write or final-path object placement.
+            let receipt=proof.receipt(false)?;
+            ledger.expect_from_plan(&plan,ArchiveSqlOrigin::PrivateOutput,crate::archive_plan::REUSABLE_TABLES)?;
+            let expected=ledger.freeze()?;
+            boundary::output((|| -> Result<()> {plan.execute_batch("PRAGMA query_only=ON")?;Ok(())})())?;
+            #[cfg(test)]
+            boundary::checkpoint(boundary::TestEvent::CopyPlanFrozen,&context)?;
+            context.phase=ArchivePhase::ObjectsPlacementAttempted;
+            archive::install_objects(tx,&archive,&root,&stage,&bundle,&mut context.published_objects)?;
+            context.phase=ArchivePhase::ObjectsPlaced;
+            boundary::output(archive::copy_metadata(&plan,Some(archive::Destination::Store(tx)),&project_id))?;
+            let mut applied=boundary::output(archive::copy_metadata(&plan,None,&project_id))?;
+            boundary::output(read_lineage(&plan,Some((tx,&project_id,true,ArchiveSqlOrigin::LiveCatalog)),
+                &project_id,&mut applied,false))?;
             // Validate the final copy's own budgets, lineage and references before
             // the sole publication commit. Its new proof may push it over a cap.
             let mut final_bundle = archive::copy_metadata(tx, None, &project_id)?;
             read_lineage(tx, None, &project_id, &mut final_bundle, false)?;
-            let object_metadata = bundle
-                .totals
-                .metadata
-                .checked_sub(inherited.totals.metadata)
-                .ok_or_else(|| invalid("Archive metadata accounting underflow"))?;
             archive::add(
                 &mut final_bundle.totals.metadata,
                 object_metadata,
@@ -1019,8 +1068,7 @@ impl NativeStore {
                 "copy metadata including objects",
             )?;
             validate_owned_closure(tx, &root, &final_bundle)?;
-            // Construct every fallible receipt field while rollback is possible.
-            let receipt=proof.receipt(false)?;
+            expected.verify(tx,ArchiveSqlOrigin::LiveCatalog)?;
             context.phase=ArchivePhase::CatalogCommitAttempted;
             #[cfg(test)]
             boundary::checkpoint(boundary::TestEvent::CopyCommit,&context)?;
@@ -1468,6 +1516,147 @@ mod tests {
             snapshot.insert(name, values);
         }
         snapshot
+    }
+
+    fn assert_exact_postimage_refusal(
+        target: &mut NativeStore,
+        path: &Path,
+        sha: &str,
+        operation: &str,
+    ) {
+        let before = sql_snapshot(&target.connection);
+        let input = fs::read(path).unwrap();
+        let failure = target
+            .restore_archive_as_copy_outcome(path, &intent(sha, operation))
+            .unwrap_err();
+        assert!(
+            matches!(failure.operation_error(),StoreError::Invalid(message)
+            if message=="Final SQL rows differ from the frozen expected postimage"),
+            "{failure:?}"
+        );
+        assert_eq!(failure.context().phase, ArchivePhase::ObjectsPlaced);
+        assert!(target.connection.is_autocommit());
+        assert!(!failure.catalog_connection_unusable());
+        assert_eq!(sql_snapshot(&target.connection), before);
+        assert_eq!(fs::read(path).unwrap(), input);
+    }
+
+    #[test]
+    fn exact_copy_postimage_refuses_a_valid_changed_current_project() {
+        let f = Fixture::new();
+        let (_, _, path, sha) = fixture_archive(&f);
+        let mut target = f.store("changed-current");
+        target.connection.execute_batch("CREATE TRIGGER alter_copied_project AFTER INSERT ON projects BEGIN
+            UPDATE projects SET payload=json_set(payload,'$.lyrics','valid but unplanned') WHERE id=NEW.id; END;").unwrap();
+        assert_exact_postimage_refusal(&mut target, &path, &sha, "copy-current-postimage");
+        target
+            .connection
+            .execute_batch("DROP TRIGGER alter_copied_project")
+            .unwrap();
+        assert_eq!(
+            target
+                .restore_archive_as_copy_outcome(&path, &intent(&sha, "copy-current-postimage"))
+                .unwrap()
+                .completion,
+            ArchiveCompletion::CatalogCommitted
+        );
+    }
+
+    #[test]
+    fn exact_copy_postimage_refuses_same_count_unrelated_row_replacement() {
+        let f = Fixture::new();
+        let (_, _, path, sha) = fixture_archive(&f);
+        let mut target = f.store("unrelated-swap");
+        let original = target
+            .create(&ProjectDocument::new("Unrelated retained original").unwrap())
+            .unwrap();
+        let replacement = ProjectDocument::new("Valid unrelated replacement").unwrap();
+        let literal = document_json(&replacement).unwrap().replace('\'', "''");
+        target
+            .connection
+            .execute_batch(&format!(
+                "CREATE TRIGGER replace_unrelated AFTER INSERT ON projects WHEN NEW.id!='{}' BEGIN
+            DELETE FROM projects WHERE id='{}'; INSERT INTO projects(id,payload,revision,cursor)
+            VALUES('{}','{}',0,0); END;",
+                replacement.id(),
+                original.id(),
+                replacement.id(),
+                literal
+            ))
+            .unwrap();
+        assert_exact_postimage_refusal(&mut target, &path, &sha, "copy-unrelated-postimage");
+        assert_eq!(target.load(original.id()).unwrap(), original);
+        assert!(target.load(replacement.id()).is_err());
+    }
+
+    #[test]
+    fn exact_copy_postimage_refuses_unplanned_local_recording_intent() {
+        let f = Fixture::new();
+        let (_, _, path, sha) = fixture_archive(&f);
+        let mut target = f.store("local-intent");
+        let digest = checksum(b"{}");
+        target
+            .connection
+            .execute_batch(&format!(
+                "CREATE TRIGGER inject_local_intent AFTER INSERT ON projects BEGIN
+            INSERT INTO recording_intents(id,revision,payload,payload_sha256)
+            VALUES('11111111111111111111111111111111',1,X'7b7d','{digest}'); END;"
+            ))
+            .unwrap();
+        assert_exact_postimage_refusal(&mut target, &path, &sha, "copy-local-intent-postimage");
+        assert!(target.list_performance_intents().unwrap().is_empty());
+    }
+
+    #[test]
+    fn frozen_copy_postimage_refuses_coherently_rewritten_private_plan_mapping() {
+        use std::{cell::Cell, rc::Rc};
+        let f = Fixture::new();
+        let (_, _, path, sha) = fixture_archive(&f);
+        let mut target = f.store("private-plan-rewrite");
+        let before = sql_snapshot(&target.connection);
+        let input = fs::read(&path).unwrap();
+        let attacked = Rc::new(Cell::new(false));
+        let observed = Rc::clone(&attacked);
+        let failure=boundary::with_test_hook(Box::new(move |event,context| {
+            if event!=boundary::TestEvent::CopyPlanFrozen {return Ok(());}
+            assert_eq!(context.phase,ArchivePhase::NotStarted);assert_eq!(context.published_objects,0);
+            let plan=Connection::open(context.staging.as_ref().unwrap().join("planned-catalog.sqlite3")).unwrap();
+            let (old_operation,raw):(String,String)=plan.query_row("SELECT operation_id,request_json FROM operations",[],|row|Ok((row.get(0)?,row.get(1)?))).unwrap();
+            let mut request:ProjectEditIntent=serde_json::from_str(&raw).unwrap();
+            let operation="coherently-rewritten-private-operation";
+            request.operation_id=OperationId(operation.into());
+            let raw=serde_json::to_string(&request).unwrap();let request_sha=checksum(raw.as_bytes());
+            plan.execute("UPDATE operations SET operation_id=?1,request_json=?2,request_sha256=?3 WHERE operation_id=?4",params![operation,raw,request_sha,old_operation]).unwrap();
+            let (old_proof,raw):(String,String)=plan.query_row("SELECT proof_sha256,receipt_json FROM archive_copy_proofs",[],|row|Ok((row.get(0)?,row.get(1)?))).unwrap();
+            plan.execute("UPDATE archive_copy_proof_operations SET destination_operation_id=?1,destination_request_sha256=?2 WHERE proof_sha256=?3",params![operation,request_sha,old_proof]).unwrap();
+            let mut proof:Proof=serde_json::from_str(&raw).unwrap();
+            let mut digest=mapping_hash();let mut statement=plan.prepare(MAP_SELECT).unwrap();
+            let mut rows=statement.query([&old_proof]).unwrap();
+            while let Some(row)=rows.next().unwrap(){let mapping=Mapping::from_row(row).unwrap();mapping.validate().unwrap();hash_mapping(&mut digest,&mapping);}
+            drop(rows);drop(statement);
+            proof.mapping_sha256=format!("{:x}",digest.finalize());let raw=proof.json().unwrap();let sha=checksum(raw.as_bytes());
+            plan.execute("INSERT INTO archive_copy_proofs VALUES(?1,?2)",params![sha,raw]).unwrap();
+            for table in ["archive_copy_proof_operations","archive_project_lineage","archive_copies"] {
+                plan.execute(&format!("UPDATE {table} SET proof_sha256=?1 WHERE proof_sha256=?2"),params![sha,old_proof]).unwrap();
+            }
+            plan.execute("DELETE FROM archive_copy_proofs WHERE proof_sha256=?1",[old_proof]).unwrap();
+            // The private replacement is internally valid, including its new
+            // framed map digest, canonical proof and exact live-map hashes.
+            let project:String=plan.query_row("SELECT id FROM projects",[],|row|row.get(0)).unwrap();
+            let mut bundle=archive::copy_metadata(&plan,None,&project).unwrap();
+            read_lineage(&plan,None,&project,&mut bundle,false).unwrap();
+            observed.set(true);Ok(())
+        }),||target.restore_archive_as_copy_outcome(&path,&intent(&sha,"copy-private-plan-postimage"))).unwrap_err();
+        assert!(attacked.get());
+        assert!(
+            matches!(failure.operation_error(),StoreError::Invalid(message)
+            if message=="Final SQL rows differ from the frozen expected postimage"),
+            "{failure:?}"
+        );
+        assert_eq!(failure.context().phase, ArchivePhase::ObjectsPlaced);
+        assert!(target.connection.is_autocommit());
+        assert_eq!(sql_snapshot(&target.connection), before);
+        assert_eq!(fs::read(&path).unwrap(), input);
     }
 
     #[test]
