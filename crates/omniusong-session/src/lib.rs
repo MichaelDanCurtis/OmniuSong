@@ -3,6 +3,10 @@ mod evidence_jobs;
 mod performance_intents;
 mod performance_source_actions;
 mod performance_sources;
+mod project_archives;
+pub use project_archives::*;
+#[cfg(test)]
+mod project_archive_controls_review;
 #[cfg(test)]
 mod source_action_controls_review;
 pub use evidence_jobs::{
@@ -119,6 +123,9 @@ impl DocumentView {
 
 #[derive(Debug, Clone)]
 pub enum Command {
+    RunProjectArchive {
+        request: Box<ProjectArchiveRequest>,
+    },
     RunEvidenceJob {
         request: Box<EvidenceJobRequest>,
     },
@@ -225,6 +232,7 @@ pub enum Command {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommandKind {
+    RunProjectArchive,
     RunEvidenceJob,
     InspectRetainedEvidence,
     ListEvidenceJobs,
@@ -261,6 +269,7 @@ pub enum CommandKind {
 impl Command {
     pub fn kind(&self) -> CommandKind {
         match self {
+            Self::RunProjectArchive { .. } => CommandKind::RunProjectArchive,
             Self::RunEvidenceJob { .. } => CommandKind::RunEvidenceJob,
             Self::InspectRetainedEvidence { .. } => CommandKind::InspectRetainedEvidence,
             Self::ListEvidenceJobs => CommandKind::ListEvidenceJobs,
@@ -313,6 +322,7 @@ impl Command {
         !matches!(
             self,
             Self::Create { .. }
+                | Self::RunProjectArchive { .. }
                 | Self::ImportLegacy { .. }
                 | Self::ExportArchive { .. }
                 | Self::RunEvidenceJob { .. }
@@ -323,6 +333,7 @@ impl Command {
         matches!(
             self,
             Self::RunEvidenceJob { .. }
+                | Self::RunProjectArchive { .. }
                 | Self::Create { .. }
                 | Self::ImportLegacy { .. }
                 | Self::Edit { .. }
@@ -364,6 +375,7 @@ impl Command {
                 .map_err(|e| ServiceError::rejected(e.to_string()))
         };
         match self {
+            Self::RunProjectArchive { request } => request.validate(),
             Self::RunEvidenceJob { request } => request.validate(),
             Self::InspectRetainedEvidence { path } => evidence_jobs::path_text(path).map(|_| ()),
             Self::ListEvidenceJobs => Ok(()),
@@ -584,6 +596,7 @@ pub struct Request {
 }
 #[derive(Debug)]
 pub enum Reply {
+    ProjectArchive(Box<ProjectArchiveReply>),
     EvidenceJobOutcome(Box<EvidenceJobReply>),
     RetainedEvidenceInspected(Box<omniusong_store::EvidenceArchiveInspection>),
     EvidenceJobs(EvidenceJobList),
@@ -620,6 +633,9 @@ impl Reply {
             return matches;
         }
         match (self, command) {
+            (Self::ProjectArchive(reply), Command::RunProjectArchive { request }) => {
+                reply.validate_for(request).is_ok()
+            }
             (Self::EvidenceJobOutcome(reply), Command::RunEvidenceJob { request }) => {
                 reply.job_id == request.job_id
                     && request
@@ -682,13 +698,16 @@ impl Reply {
     fn matches(&self, kind: CommandKind) -> bool {
         matches!(
             (self, kind),
-            (
-                Self::EvidenceJobOutcome(_),
-                CommandKind::RunEvidenceJob | CommandKind::ReconcileEvidenceJob
-            ) | (
-                Self::RetainedEvidenceInspected(_),
-                CommandKind::InspectRetainedEvidence
-            ) | (Self::EvidenceJobs(_), CommandKind::ListEvidenceJobs)
+            (Self::ProjectArchive(_), CommandKind::RunProjectArchive)
+                | (
+                    Self::EvidenceJobOutcome(_),
+                    CommandKind::RunEvidenceJob | CommandKind::ReconcileEvidenceJob
+                )
+                | (
+                    Self::RetainedEvidenceInspected(_),
+                    CommandKind::InspectRetainedEvidence
+                )
+                | (Self::EvidenceJobs(_), CommandKind::ListEvidenceJobs)
                 | (Self::EvidenceJob(_), CommandKind::ReadEvidenceJob)
                 | (
                     Self::Library(_),
@@ -759,6 +778,9 @@ impl Reply {
     }
 }
 fn terminal_storage_failure(result: &Result<Reply, ServiceError>) -> Option<ServiceError> {
+    if let Ok(Reply::ProjectArchive(reply)) = result {
+        return reply.retirement_error();
+    }
     let error = match result {
         Err(error) => Some(error),
         Ok(Reply::PerformanceSourceAttachment(receipt)) => receipt.current_document_error.as_ref(),
@@ -886,6 +908,26 @@ pub struct SubmitError {
 
 /// A backend exists only on its owning worker. Test injection is opt-in.
 pub trait Backend: Send + 'static {
+    /// Separate project-archive token; accepted mutations retain it on Drop.
+    fn handle_with_project_archive_cancellation(
+        &mut self,
+        command: &Command,
+        inspection_cancelled: &Arc<AtomicBool>,
+        source_action_cancelled: &Arc<AtomicBool>,
+        evidence_cancelled: &Arc<AtomicBool>,
+        project_archive_cancelled: &Arc<AtomicBool>,
+    ) -> Result<Reply, ServiceError> {
+        if matches!(command, Command::RunProjectArchive { .. }) {
+            self.handle_with_cancel(command, project_archive_cancelled)
+        } else {
+            self.handle_with_evidence_cancellation(
+                command,
+                inspection_cancelled,
+                source_action_cancelled,
+                evidence_cancelled,
+            )
+        }
+    }
     /// Compatible entry point for the evidence token; older injected backends
     /// retain their established inspection/source-action handling.
     fn handle_with_evidence_cancellation(
@@ -938,6 +980,7 @@ pub struct SessionService {
     inspection_cancelled: Arc<AtomicBool>,
     source_action_cancelled: Arc<AtomicBool>,
     evidence_cancelled: Arc<AtomicBool>,
+    project_archive_cancelled: Arc<AtomicBool>,
 }
 static GENERATION: AtomicU64 = AtomicU64::new(1);
 impl SessionService {
@@ -957,6 +1000,7 @@ impl SessionService {
                 inspection_cancelled: Arc::new(AtomicBool::new(false)),
                 source_action_cancelled: Arc::new(AtomicBool::new(false)),
                 evidence_cancelled: Arc::new(AtomicBool::new(false)),
+                project_archive_cancelled: Arc::new(AtomicBool::new(false)),
             },
             requests,
             responses,
@@ -986,16 +1030,18 @@ impl SessionService {
         let inspection_cancelled = Arc::clone(&client.inspection_cancelled);
         let source_action_cancelled = Arc::clone(&client.source_action_cancelled);
         let evidence_cancelled = Arc::clone(&client.evidence_cancelled);
+        let project_archive_cancelled = Arc::clone(&client.project_archive_cancelled);
         std::thread::Builder::new()
             .name("omniusong-sessions".into())
             .spawn(move || {
                 while let Ok(request) = requests.recv() {
                     let kind = request.command.kind();
-                    let result = backend.handle_with_evidence_cancellation(
+                    let result = backend.handle_with_project_archive_cancellation(
                         &request.command,
                         &inspection_cancelled,
                         &source_action_cancelled,
                         &evidence_cancelled,
+                        &project_archive_cancelled,
                     );
                     let terminal = terminal_storage_failure(&result).is_some();
                     if responses
@@ -1084,6 +1130,19 @@ impl SessionService {
             false
         }
     }
+    /// Exact request cancellation asks work to stop and retains worker credit.
+    /// It cannot undo a committed copy or a durably linked archive.
+    pub fn cancel_project_archive(&self, id: RequestId) -> bool {
+        if self.pending.as_ref().is_some_and(|request| {
+            request.id == id && matches!(request.command, Command::RunProjectArchive { .. })
+        }) {
+            self.project_archive_cancelled
+                .store(true, Ordering::Release);
+            true
+        } else {
+            false
+        }
+    }
     pub fn try_submit(&mut self, command: Command) -> Result<RequestId, Box<SubmitError>> {
         let fail = |kind, message: &str, command| {
             Box::new(SubmitError {
@@ -1130,6 +1189,8 @@ impl SessionService {
         self.inspection_cancelled.store(false, Ordering::Release);
         self.source_action_cancelled.store(false, Ordering::Release);
         self.evidence_cancelled.store(false, Ordering::Release);
+        self.project_archive_cancelled
+            .store(false, Ordering::Release);
         match self.requests.try_send(request.clone()) {
             Ok(()) => {
                 self.next_sequence = next;
@@ -1167,11 +1228,25 @@ impl SessionService {
             });
         }
         match self.responses.try_recv() {
-            Ok(completion) => {
+            Ok(mut completion) => {
+                let mut invalid_archive_body = false;
+                let mut archive_retirement = None;
                 let valid = self.pending.as_ref().is_some_and(|request| {
                     request.id == completion.id
                         && request.command.kind() == completion.kind
                         && match &completion.result {
+                            Ok(Reply::ProjectArchive(reply)) => {
+                                if let Command::RunProjectArchive { request } = &request.command {
+                                    if !reply.matches_request_reference(request) {
+                                        return false;
+                                    }
+                                    archive_retirement = reply.retirement_error();
+                                    invalid_archive_body = reply.validate_for(request).is_err();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
                             Ok(reply) => reply.matches_command(&request.command),
                             Err(_) => true,
                         }
@@ -1186,12 +1261,21 @@ impl SessionService {
                     });
                 }
                 let request = self.pending.take().expect("validated pending request");
+                if invalid_archive_body {
+                    completion.result = Err(ServiceError {
+                        kind: FailureKind::Protocol,
+                        message: "Project archive reply matched this request but its result was invalid; verify the recorded operation before any new attempt.".into(),
+                        outcome_unknown: true,
+                    });
+                }
                 self.retry = if completion.result.is_err() && request.command.retry_safe() {
                     Some(request.command)
                 } else {
                     None
                 };
-                if let Some(error) = terminal_storage_failure(&completion.result) {
+                if let Some(error) =
+                    archive_retirement.or_else(|| terminal_storage_failure(&completion.result))
+                {
                     self.disconnected = true;
                     self.terminal_failure = Some(error);
                 }
@@ -1207,7 +1291,11 @@ impl SessionService {
                 self.retry = request
                     .filter(|request| request.command.retry_safe())
                     .map(|request| request.command);
-                Err(ServiceError{kind:FailureKind::Disconnected,message:"Session worker stopped. Accepted work may have completed; no automatic retry was started.".into(),outcome_unknown:unknown})
+                let error=ServiceError{kind:FailureKind::Disconnected,message:"Session worker stopped. Accepted work may have completed; no automatic retry was started.".into(),outcome_unknown:unknown};
+                // Non-retryable requests still retain their uncertainty on
+                // every later poll; a missing retry slot is not a rollback.
+                self.terminal_failure = Some(error.clone());
+                Err(error)
             }
         }
     }
@@ -1354,6 +1442,26 @@ impl NativeBackend {
     }
 }
 impl Backend for NativeBackend {
+    fn handle_with_project_archive_cancellation(
+        &mut self,
+        command: &Command,
+        inspection_cancelled: &Arc<AtomicBool>,
+        source_action_cancelled: &Arc<AtomicBool>,
+        evidence_cancelled: &Arc<AtomicBool>,
+        project_archive_cancelled: &Arc<AtomicBool>,
+    ) -> Result<Reply, ServiceError> {
+        command.validate()?;
+        if let Command::RunProjectArchive { request } = command {
+            self.run_project_archive(request, Arc::clone(project_archive_cancelled))
+        } else {
+            self.handle_with_evidence_cancellation(
+                command,
+                inspection_cancelled,
+                source_action_cancelled,
+                evidence_cancelled,
+            )
+        }
+    }
     fn handle_with_evidence_cancellation(
         &mut self,
         command: &Command,
@@ -1655,6 +1763,9 @@ impl Backend for NativeBackend {
                     .export_archive(&project_id.0, destination)
                     .map_err(work)?,
             )),
+            Command::RunProjectArchive { request } => {
+                self.run_project_archive(request, Arc::new(AtomicBool::new(false)))
+            }
             Command::InspectArchive { path } => Ok(Reply::Inspected(
                 self.store()?.inspect_archive(path).map_err(work)?,
             )),
@@ -1680,6 +1791,7 @@ impl Backend for NativeBackend {
                         | Command::SavePerformanceSourceDecision { .. }
                         | Command::AttachPerformanceSource { .. }
                         | Command::RunEvidenceJob { .. }
+                        | Command::RunProjectArchive { .. }
                 )
                 && !matches!(
                     error.kind,

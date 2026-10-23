@@ -2223,6 +2223,7 @@ version = "0.2.0"
 dependencies = [
  "omniusong-core",
  "omniusong-engine",
+ "omniusong-performance",
  "omniusong-recording",
  "omniusong-store",
  "rusqlite",

@@ -446,6 +446,9 @@ impl StudioApp {
         }
     }
     fn submit(&mut self, command: Command, action: Action, after: Option<Action>) -> AppResult<()> {
+        if matches!(command, Command::RunProjectArchive { .. }) {
+            return Err("Governed project archives require their durable confirmation and result flow before native admission".into());
+        }
         if self.active.is_some() {
             return Err(
                 "The current native action still owns its completion; wait for that exact result"
@@ -837,6 +840,10 @@ impl StudioApp {
             Ok(reply) => {
                 let mut after = None;
                 match reply {
+                    Reply::ProjectArchive(_) => {
+                        self.error=Some("An unadmitted project archive result was received; the current editor and drafts were kept.".into());
+                        self.status="Review the exact archive operation before continuing.".into();
+                    }
                     Reply::EvidenceJobOutcome(_) | Reply::RetainedEvidenceInspected(_)
                     | Reply::EvidenceJobs(_) | Reply::EvidenceJob(_) => {
                         self.status = "Studio-evidence result retained; review its exact job history explicitly.".into();
@@ -2672,6 +2679,57 @@ mod tests {
             DocumentView::prepare(ProjectDocument::new("Manual session").unwrap()).unwrap(),
         );
         (ctx, app, peer)
+    }
+
+    #[test]
+    fn governed_archive_raw_routes_keep_editor_drafts_and_never_queue_work() {
+        use omniusong_session::{ProjectArchiveOperation, ProjectArchiveRequest};
+        let fixture = Fixture::new();
+        let (ctx, mut app, peer) = manual(&fixture);
+        let document = app.document.as_ref().unwrap().clone();
+        app.draft.name = "Unsent human draft".into();
+        let name = app.draft.name.clone();
+        for operation in [
+            ProjectArchiveOperation::Export {
+                project_id: ProjectId(document.id().into()),
+                destination: "/synthetic/backup.osar".into(),
+            },
+            ProjectArchiveOperation::RestoreIdentity {
+                archive_path: "/synthetic/backup.osar".into(),
+            },
+            ProjectArchiveOperation::RestoreCopy {
+                archive_path: "/synthetic/backup.osar".into(),
+                intent: RestoreCopyIntent {
+                    operation_id: OperationId("native-unadmitted-copy".into()),
+                    expected_archive_sha256: "a".repeat(64),
+                },
+            },
+        ] {
+            let command = Command::RunProjectArchive {
+                request: Box::new(ProjectArchiveRequest {
+                    version: 1,
+                    origin_root: "/synthetic/native".into(),
+                    operation,
+                }),
+            };
+            assert!(
+                app.submit(command.clone(), Action::Refresh, Some(Action::Save))
+                    .unwrap_err()
+                    .to_string()
+                    .contains("durable confirmation")
+            );
+            assert!(
+                app.dispatch(Action::Performance(Box::new(command)), None)
+                    .is_err()
+            );
+            assert!(peer.requests.try_recv().is_err());
+            assert!(app.active.is_none());
+            assert_eq!(app.document.as_ref().unwrap(), &document);
+            assert_eq!(app.draft.name, name);
+        }
+        assert!(!frame(&ctx, &mut app, vec![]).shapes.is_empty());
+        assert!(peer.requests.try_recv().is_err());
+        assert_eq!(app.draft.name, name);
     }
 
     #[test]

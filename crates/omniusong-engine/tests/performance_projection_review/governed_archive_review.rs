@@ -1,5 +1,7 @@
 //! Real device-free writer originals through the three bounded OSAR routes.
 //! No native input/output, inference, one-auth counter or Windows claim.
+#[path = "governed_archive_review/evidence_archive_review.rs"]
+mod evidence_archive_review;
 use super::*;
 use omniusong_core::{
     NoteTimelinePolicy, ProjectDocument,
@@ -39,6 +41,7 @@ impl ArchiveFixture {
             .join("../../.runtime/governed-projection-archive-review")
             .join(uuid::Uuid::new_v4().to_string());
         fs::create_dir_all(&root).unwrap();
+        let root = fs::canonicalize(root).unwrap();
         let mut store = NativeStore::open(root.join("source")).unwrap();
         let source = SealedJournal::open(&original.path).unwrap();
         store.ingest_take(&source).unwrap();
