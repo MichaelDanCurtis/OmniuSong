@@ -3,6 +3,11 @@
 
 mod active_projection_edits;
 mod archive;
+mod archive_boundary;
+pub use archive_boundary::{
+    ArchiveAction, ArchiveCleanupIssue, ArchiveCompletion, ArchiveContext, ArchiveFailure,
+    ArchiveOutcome, ArchivePhase, ArchiveSqlFailure, ArchiveSqlOrigin,
+};
 mod archive_copy;
 mod archive_operation;
 mod archive_projection;
@@ -91,6 +96,8 @@ pub enum StoreError {
     Io(io::Error),
     Recording(omniusong_recording::RecordingError),
     Catalog(Box<CatalogFailure>),
+    Archive(Box<ArchiveFailure>),
+    ArchiveSql(Box<ArchiveSqlFailure>),
     Conflict,
     Invalid(String),
 }
@@ -103,6 +110,8 @@ impl fmt::Display for StoreError {
             Self::Io(e) => e.fmt(f),
             Self::Recording(e) => e.fmt(f),
             Self::Catalog(e) => e.fmt(f),
+            Self::Archive(e) => e.fmt(f),
+            Self::ArchiveSql(e) => e.fmt(f),
             Self::Conflict => f.write_str("Project changed. Reopen it before saving."),
             Self::Invalid(message) => f.write_str(message),
         }
@@ -116,13 +125,30 @@ impl StoreError {
         match self {
             Self::Database(error) => error.sqlite_error().map(|e| e.extended_code),
             Self::Catalog(error) => error.catalog_sqlite_error_code(),
+            Self::Archive(error) => error.catalog_sqlite_error_code(),
+            Self::ArchiveSql(error) => error.catalog_sqlite_error_code(),
             _ => None,
         }
     }
     pub fn catalog_connection_unusable(&self) -> bool {
         self.catalog_sqlite_error_code()
             .is_some_and(|code| matches!(code & 0xff, 10 | 11 | 26))
-            || matches!(self,Self::Catalog(error) if error.connection_unusable())
+            || match self {
+                Self::Catalog(error) => {
+                    error.connection_unusable()
+                        || error.operation_error().catalog_connection_unusable()
+                }
+                Self::Archive(error) => error.catalog_connection_unusable(),
+                Self::ArchiveSql(error) => error.catalog_connection_unusable(),
+                _ => false,
+            }
+    }
+    pub fn archive_publication_uncertain(&self) -> bool {
+        match self {
+            Self::Archive(error) => error.publication_uncertain(),
+            Self::Catalog(error) => error.operation_error().archive_publication_uncertain(),
+            _ => false,
+        }
     }
 }
 impl From<DocumentError> for StoreError {

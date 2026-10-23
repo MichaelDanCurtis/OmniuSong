@@ -510,6 +510,46 @@ fn only_current_live_or_mixed_fatal_codes_can_request_worker_retirement() {
     );
 }
 
+#[test]
+fn archive_diagnostic_mapper_honors_explicit_sql_origin_inside_nested_failure() {
+    use omniusong_store::{
+        ArchiveAction, ArchiveContext, ArchiveFailure, ArchiveSqlFailure, ArchiveSqlOrigin,
+        StoreError,
+    };
+    for origin in [
+        ArchiveSqlOrigin::Input,
+        ArchiveSqlOrigin::PrivateOutput,
+        ArchiveSqlOrigin::LiveCatalog,
+    ] {
+        let error = StoreError::Archive(Box::new(ArchiveFailure::new(
+            ArchiveContext::new(ArchiveAction::Inspect, Path::new("isolated archive")),
+            StoreError::ArchiveSql(Box::new(ArchiveSqlFailure::new(
+                origin,
+                rusqlite::Error::SqliteFailure(
+                    rusqlite::ffi::Error::new(26),
+                    Some("explicit diagnostic constructor".into()),
+                ),
+            ))),
+        )));
+        let problem =
+            super::runner::problem_from_store(&error, EvidenceResourceOrigin::BackupTransfer, None);
+        assert_eq!(problem.kind, EvidenceProblemKind::Sqlite);
+        assert_eq!(problem.sqlite_code, Some(26));
+        let expected = if origin == ArchiveSqlOrigin::LiveCatalog {
+            EvidenceResourceOrigin::LiveCatalog
+        } else {
+            EvidenceResourceOrigin::Evidence
+        };
+        assert_eq!(problem.origin, expected);
+        assert_eq!(
+            current_catalog_retirement(problem.origin, problem.sqlite_code, &problem.detail)
+                .is_some(),
+            origin == ArchiveSqlOrigin::LiveCatalog
+        );
+        assert!(problem.detail.message.contains("destination="));
+    }
+}
+
 fn corrupt_archived_catalog(path: &Path, destination: &Path) {
     let bytes = fs::read(path).unwrap();
     assert_eq!(&bytes[..8], b"OSRE\x01\r\n\0");

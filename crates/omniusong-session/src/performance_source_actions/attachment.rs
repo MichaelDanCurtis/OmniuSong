@@ -29,7 +29,9 @@ enum AttachmentBoundary {
 fn source_store(error: omniusong_store::StoreError) -> ServiceError {
     match error {
         error @ (omniusong_store::StoreError::Database(_)
-        | omniusong_store::StoreError::Catalog(_)) => store_failure(error, false),
+        | omniusong_store::StoreError::Catalog(_)
+        | omniusong_store::StoreError::Archive(_)
+        | omniusong_store::StoreError::ArchiveSql(_)) => store_failure(error, false),
         omniusong_store::StoreError::Recording(error) => local(error),
         error => unavailable(error.to_string()),
     }

@@ -654,10 +654,34 @@ fn missing_ancestor_or_final_sql_abort_never_publishes_project_or_lineage() {
     let db = f.db("target");
     db.execute_batch("CREATE TRIGGER review_final_abort BEFORE INSERT ON archive_copies BEGIN SELECT RAISE(ABORT,'independent final copy fault'); END;").unwrap();
     let failed = target
-        .restore_archive_as_copy(&path, &copy_intent(&sha, "retry-final-fault"))
-        .unwrap_err()
-        .to_string();
-    assert!(failed.contains("committed=false"));
+        .restore_archive_as_copy_outcome(&path, &copy_intent(&sha, "retry-final-fault"))
+        .unwrap_err();
+    assert_eq!(
+        failed.context().action,
+        omniusong_store::ArchiveAction::Copy
+    );
+    assert_eq!(
+        failed.context().phase,
+        omniusong_store::ArchivePhase::ObjectsPlaced
+    );
+    assert_eq!(
+        failed.context().operation_id.as_deref(),
+        Some("retry-final-fault")
+    );
+    assert_eq!(
+        failed.context().expected_archive_sha256.as_deref(),
+        Some(sha.as_str())
+    );
+    assert_eq!(
+        failed.context().archive_sha256.as_deref(),
+        Some(sha.as_str())
+    );
+    assert!(!failed.publication_uncertain());
+    assert_eq!(
+        failed.catalog_sqlite_error_code().unwrap() & 0xff,
+        rusqlite::ffi::SQLITE_CONSTRAINT
+    );
+    assert!(failed.context().staging.as_ref().unwrap().is_dir());
     for table in [
         "projects",
         "edits",

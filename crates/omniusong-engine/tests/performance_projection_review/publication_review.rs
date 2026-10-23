@@ -1143,10 +1143,21 @@ fn fresh_generic_paths_cannot_claim_projection_namespace_but_exact_legacy_receip
     };
     let rejected = p
         .store
-        .restore_archive_as_copy(&harness.root.join("absent-archive.omniusong"), &copy);
+        .restore_archive_as_copy_outcome(&harness.root.join("absent-archive.omniusong"), &copy)
+        .unwrap_err();
     assert!(
-        matches!(&rejected, Err(StoreError::Invalid(message)) if message.to_lowercase().contains("projection")),
+        matches!(rejected.operation_error(), StoreError::Invalid(message) if message.to_lowercase().contains("projection")),
         "Refusal must precede archive acquisition: {rejected:?}"
+    );
+    assert_eq!(
+        rejected.context().phase,
+        omniusong_store::ArchivePhase::NotStarted
+    );
+    assert!(rejected.context().staging.is_none());
+    assert!(rejected.context().archive_sha256.is_none());
+    assert_eq!(
+        rejected.context().expected_archive_sha256.as_deref(),
+        Some(copy.expected_archive_sha256.as_str())
     );
     assert_eq!(catalog(&harness.db()), before);
     assert_source_bytes(&harness, &staged, &p.owned, &original);

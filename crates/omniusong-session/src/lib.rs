@@ -834,6 +834,7 @@ fn fatal_sqlite_primary(extended_code: i32) -> bool {
     matches!(extended_code & 0xff, 10 | 11 | 26)
 }
 fn store_failure(error: omniusong_store::StoreError, outcome_unknown: bool) -> ServiceError {
+    let outcome_unknown = outcome_unknown || error.archive_publication_uncertain();
     if matches!(error, omniusong_store::StoreError::EditRejected(_)) {
         return ServiceError {
             kind: FailureKind::EditRejected,
@@ -1863,6 +1864,77 @@ mod tests {
         for code in [0, 1, 5, 6, 8, 13, 14, 19, 20, 21, 19 | (8 << 8)] {
             assert!(!fatal_sqlite_primary(code));
         }
+    }
+
+    #[test]
+    fn typed_archive_sql_domains_preserve_retirement_and_attempt_uncertainty() {
+        use omniusong_store::{
+            ArchiveAction, ArchiveContext, ArchiveFailure, ArchivePhase, ArchiveSqlFailure,
+            ArchiveSqlOrigin, StoreError,
+        };
+        // Constructor coverage, not simulated physical catalog corruption.
+        for origin in [
+            ArchiveSqlOrigin::Input,
+            ArchiveSqlOrigin::PrivateOutput,
+            ArchiveSqlOrigin::LiveCatalog,
+        ] {
+            for code in [10, 11, 26, 10 | (1 << 8), 5, 19] {
+                for phase in [
+                    ArchivePhase::NotStarted,
+                    ArchivePhase::ObjectsPlaced,
+                    ArchivePhase::OutputLinkAttempted,
+                    ArchivePhase::OutputLinked,
+                    ArchivePhase::CatalogCommitAttempted,
+                ] {
+                    let mut context =
+                        ArchiveContext::new(ArchiveAction::Copy, Path::new("isolated-destination"));
+                    context.phase = phase;
+                    let uncertain = context.publication_uncertain();
+                    let sql = StoreError::ArchiveSql(Box::new(ArchiveSqlFailure::new(
+                        origin,
+                        rusqlite::Error::SqliteFailure(
+                            rusqlite::ffi::Error::new(code),
+                            Some("explicit test code".into()),
+                        ),
+                    )));
+                    let error = store_failure(
+                        StoreError::Archive(Box::new(ArchiveFailure::new(context, sql))),
+                        false,
+                    );
+                    assert_eq!(
+                        error.kind == FailureKind::StorageUnavailable,
+                        origin == ArchiveSqlOrigin::LiveCatalog && fatal_sqlite_primary(code)
+                    );
+                    assert_eq!(error.outcome_unknown, uncertain);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn private_archive_notadb_keeps_actual_session_generation_usable() {
+        let fixture = Fixture::new();
+        let invalid = fixture.0.join("private-invalid.omniusong");
+        fs::write(&invalid, b"This is an isolated archive input, not SQLite.").unwrap();
+        let mut service = SessionService::spawn(fixture.paths()).unwrap();
+        call(&mut service, Command::Initialize).unwrap();
+        let error = call(&mut service, Command::InspectArchive { path: invalid }).unwrap_err();
+        assert_eq!(error.kind, FailureKind::Backend);
+        assert!(!error.outcome_unknown);
+        assert!(error.message.contains("Input"), "{error:?}");
+        let Reply::Document { view, .. } = call(
+            &mut service,
+            Command::Create {
+                name: "Healthy after private input rejection".into(),
+            },
+        )
+        .unwrap() else {
+            panic!()
+        };
+        assert_eq!(
+            view.document.name(),
+            "Healthy after private input rejection"
+        );
     }
 
     #[test]

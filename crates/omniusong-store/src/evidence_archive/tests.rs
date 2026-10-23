@@ -613,7 +613,8 @@ fn cross_root_archive_destinations_and_nested_open_cannot_bypass_evidence_lease(
                     unrelated
                         .store
                         .export_archive(project.id(), &forbidden_output),
-                    Err(StoreError::Recording(RecordingError::Owned))
+                    Err(StoreError::Archive(failure))
+                        if matches!(failure.operation_error(),StoreError::Recording(RecordingError::Owned))
                 ));
                 assert!(matches!(
                     NativeStore::open(&new_root),

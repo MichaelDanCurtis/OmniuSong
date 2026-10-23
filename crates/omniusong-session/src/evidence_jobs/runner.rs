@@ -44,6 +44,8 @@ fn store_stop(error: &StoreError) -> Option<EvidenceBudgetStop> {
     match error {
         StoreError::Recording(error) => stopped(error),
         StoreError::Catalog(failure) => store_stop(failure.operation_error()),
+        StoreError::Archive(failure) => store_stop(failure.operation_error()),
+        StoreError::ArchiveSql(failure) => store_stop(failure.operation_error()),
         _ => None,
     }
 }
@@ -52,6 +54,25 @@ pub(super) fn problem_from_store(
     origin: EvidenceResourceOrigin,
     later_stop: Option<&RecordingError>,
 ) -> EvidenceProblem {
+    // Preserve explicit nested SQL provenance if an archive failure reaches
+    // this diagnostic mapper. Private SQLite must never retire the studio.
+    let nested = match error {
+        StoreError::Archive(failure) => Some((failure.operation_error(), origin)),
+        StoreError::ArchiveSql(failure) => Some((
+            failure.operation_error(),
+            if failure.origin() == omniusong_store::ArchiveSqlOrigin::LiveCatalog {
+                EvidenceResourceOrigin::LiveCatalog
+            } else {
+                EvidenceResourceOrigin::Evidence
+            },
+        )),
+        _ => None,
+    };
+    if let Some((inner, inner_origin)) = nested {
+        let mut problem = problem_from_store(inner, inner_origin, later_stop);
+        problem.detail = EvidenceMessage::new(error.to_string());
+        return problem;
+    }
     let (kind, sqlite_code, operation_stop) = match error {
         StoreError::Database(sqlite) => (
             EvidenceProblemKind::Sqlite,
@@ -76,6 +97,7 @@ pub(super) fn problem_from_store(
         | StoreError::Document(_)
         | StoreError::EditRejected(_)
         | StoreError::Conflict => (EvidenceProblemKind::Rejected, None, None),
+        StoreError::Archive(_) | StoreError::ArchiveSql(_) => unreachable!("handled above"),
     };
     EvidenceProblem {
         kind,

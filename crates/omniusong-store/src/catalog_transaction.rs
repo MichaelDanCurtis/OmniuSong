@@ -140,6 +140,30 @@ pub(crate) struct CatalogTransaction<'c, 'b> {
     budget: Option<&'b InspectionBudget>,
 }
 impl<'c, 'b> CatalogTransaction<'c, 'b> {
+    /// Ordinary archive routes keep their existing ungoverned SQL behavior,
+    /// while retaining explicit rollback failures and connection usability.
+    pub(crate) fn legacy_immediate(connection: &'c mut Connection) -> Result<Self> {
+        Self::legacy_begin(connection, TransactionBehavior::Immediate)
+    }
+    pub(crate) fn legacy_deferred(connection: &'c Connection) -> Result<Self> {
+        Self::legacy_begin(connection, TransactionBehavior::Deferred)
+    }
+    fn legacy_begin(connection: &'c Connection, behavior: TransactionBehavior) -> Result<Self> {
+        if !connection.is_autocommit() {
+            return Err(StoreError::Invalid(
+                "Catalog scope requires an idle connection".into(),
+            ));
+        }
+        let transaction = Transaction::new_unchecked(connection, behavior).map_err(|error| {
+            Self::cleanup_connection(connection, StoreError::Database(error), Vec::new())
+        })?;
+        Ok(Self {
+            connection,
+            transaction: Some(transaction),
+            progress: None,
+            budget: None,
+        })
+    }
     pub(crate) fn immediate(
         connection: &'c mut Connection,
         budget: &'b InspectionBudget,

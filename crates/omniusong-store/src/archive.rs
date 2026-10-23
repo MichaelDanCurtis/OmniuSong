@@ -1,7 +1,13 @@
 //! Complete, bounded per-project archives. All work belongs on storage threads.
 
 use crate::{
-    NativeStore, Result, StoreError, checksum, load_document, read_asset,
+    NativeStore, Result, StoreError,
+    archive_boundary::{
+        self as boundary, ArchiveAction, ArchiveCompletion, ArchiveContext, ArchiveFailure,
+        ArchiveOutcome, ArchivePhase, ArchiveSqlOrigin, sql_error,
+    },
+    catalog_transaction::CatalogTransaction,
+    checksum, load_document, read_asset,
     takes::{TakeObject, load_take, object_path, verify_owned_take},
 };
 use omniusong_core::{
@@ -10,7 +16,7 @@ use omniusong_core::{
     contracts::{EditOperation, EditScope, ProjectEditIntent, TakeId, WORKER_MAX_BYTES},
     native::TakeReference,
 };
-use rusqlite::{Connection, OpenFlags, OptionalExtension, TransactionBehavior, params};
+use rusqlite::{Connection, OpenFlags, OptionalExtension, params};
 use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -228,6 +234,17 @@ impl Destination<'_> {
         match self {
             Self::Archive(c) | Self::Store(c) => c,
         }
+    }
+    fn sql<T>(&self, result: rusqlite::Result<T>) -> Result<T> {
+        result.map_err(|error| {
+            sql_error(
+                match self {
+                    Self::Archive(_) => ArchiveSqlOrigin::PrivateOutput,
+                    Self::Store(_) => ArchiveSqlOrigin::LiveCatalog,
+                },
+                error,
+            )
+        })
     }
 }
 
@@ -556,7 +573,7 @@ pub(super) fn copy_metadata(
     if let Some(target) = destination {
         match target {
             Destination::Archive(c) => {
-                c.execute(
+                target.sql(c.execute(
                     "INSERT INTO projects VALUES(?1,?2,?3,?4,?5)",
                     params![
                         project_id,
@@ -565,13 +582,13 @@ pub(super) fn copy_metadata(
                         cursor as i64,
                         checksum(payload.as_bytes())
                     ],
-                )?;
+                ))?;
             }
             Destination::Store(c) => {
-                c.execute(
+                target.sql(c.execute(
                     "INSERT INTO projects(id,payload,revision,cursor) VALUES(?1,?2,?3,?4)",
                     params![project_id, payload, revision, cursor as i64],
-                )?;
+                ))?;
             }
         }
     }
@@ -606,7 +623,7 @@ pub(super) fn copy_metadata(
         if let Some(target) = destination {
             match target {
                 Destination::Archive(c) => {
-                    c.execute(
+                    target.sql(c.execute(
                         "INSERT INTO edits VALUES(?1,?2,?3,?4,?5,?6)",
                         params![
                             project_id,
@@ -616,10 +633,10 @@ pub(super) fn copy_metadata(
                             checksum(before.as_bytes()),
                             checksum(after.as_bytes())
                         ],
-                    )?;
+                    ))?;
                 }
                 Destination::Store(c) => {
-                    c.execute("INSERT INTO edits(project_id,sequence,before_json,after_json) VALUES(?1,?2,?3,?4)", params![project_id,sequence as i64,before,after])?;
+                    target.sql(c.execute("INSERT INTO edits(project_id,sequence,before_json,after_json) VALUES(?1,?2,?3,?4)", params![project_id,sequence as i64,before,after]))?;
                 }
             }
         }
@@ -680,7 +697,7 @@ pub(super) fn copy_metadata(
             if matches!(target, Destination::Store(_)) {
                 super::source_attachment::reject_reserved_operation(&id)?;
             }
-            target.connection().execute(
+            target.sql(target.connection().execute(
                 "INSERT INTO operations VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",
                 params![
                     id,
@@ -692,7 +709,7 @@ pub(super) fn copy_metadata(
                     result,
                     result_sha
                 ],
-            )?;
+            ))?;
         }
     }
     let import: Option<(String, Vec<u8>)> = source.query_row(
@@ -713,10 +730,10 @@ pub(super) fn copy_metadata(
         bundle.totals.imports = 1;
         bundle.record(b"import", &[sha.as_bytes(), &bytes]);
         if let Some(target) = destination {
-            target.connection().execute(
+            target.sql(target.connection().execute(
                 "INSERT INTO imports VALUES(?1,?2,?3)",
                 params![project_id, sha, bytes],
-            )?;
+            ))?;
         }
     }
     Ok(bundle)
@@ -819,7 +836,9 @@ fn export_objects(
     for id in bundle.assets.clone() {
         let payload = read_asset(source, &id)?;
         account_asset(bundle, &id, &payload)?;
-        archive.execute("INSERT INTO assets VALUES(?1,?2)", params![id, payload])?;
+        archive
+            .execute("INSERT INTO assets VALUES(?1,?2)", params![id, payload])
+            .map_err(|error| sql_error(ArchiveSqlOrigin::PrivateOutput, error))?;
     }
     let mut object_ids = BTreeSet::new();
     for (id, expected_manifest) in take_ids(bundle)? {
@@ -858,16 +877,18 @@ fn export_objects(
                 "object length",
             )?;
             hash.update(&buffer[..filled]);
-            archive.execute(
-                "INSERT INTO take_chunks VALUES(?1,?2,?3,?4,?5)",
-                params![
-                    object.object_sha256,
-                    sequence,
-                    filled as i64,
-                    checksum(&buffer[..filled]),
-                    &buffer[..filled]
-                ],
-            )?;
+            archive
+                .execute(
+                    "INSERT INTO take_chunks VALUES(?1,?2,?3,?4,?5)",
+                    params![
+                        object.object_sha256,
+                        sequence,
+                        filled as i64,
+                        checksum(&buffer[..filled]),
+                        &buffer[..filled]
+                    ],
+                )
+                .map_err(|error| sql_error(ArchiveSqlOrigin::PrivateOutput, error))?;
             add(
                 &mut bundle.totals.chunks,
                 1,
@@ -882,7 +903,7 @@ fn export_objects(
                 && format!("{:x}", hash.finalize()) == object.object_sha256,
             "Owned take file changed or differs from its registered digest",
         )?;
-        register_take(archive, &object, &json)?;
+        boundary::output(register_take(archive, &object, &json))?;
     }
     Ok(())
 }
@@ -909,12 +930,24 @@ fn insert_meta(connection: &Connection, bundle: &Bundle) -> Result<()> {
 }
 
 impl NativeStore {
-    /// Export a complete retained project closure without overwriting a name.
+    /// Compatibility wrapper. Completion cleanup warnings are available from
+    /// `export_archive_outcome`; this legacy return value drops those warnings.
     pub fn export_archive(&self, project_id: &str, destination: &Path) -> Result<ArchiveReceipt> {
-        let _writer = crate::retained_file_coordination::writer_with_file(&self.root, destination)?;
-        let mut staging: Option<PathBuf> = None;
-        let mut published = false;
-        let outcome = (|| {
+        self.export_archive_outcome(project_id, destination)
+            .map(|outcome| outcome.value)
+            .map_err(|failure| StoreError::Archive(Box::new(failure)))
+    }
+
+    /// Export a complete retained project closure without overwriting a name.
+    /// Durable publication remains successful when private staging cleanup fails.
+    pub fn export_archive_outcome(
+        &self,
+        project_id: &str,
+        destination: &Path,
+    ) -> std::result::Result<ArchiveOutcome<ArchiveReceipt>, ArchiveFailure> {
+        let mut context = ArchiveContext::new(ArchiveAction::Export, destination);
+        context.source = Some(self.root.join("studio.sqlite3"));
+        let result = (|| -> Result<ArchiveOutcome<ArchiveReceipt>> {
             let parent = fs::canonicalize(
                 destination
                     .parent()
@@ -926,12 +959,15 @@ impl NativeStore {
                     .file_name()
                     .ok_or_else(|| invalid("Archive destination requires a file name"))?,
             );
+            context.destination = destination.clone();
+            let _writer =
+                crate::retained_file_coordination::writer_with_file(&self.root, &destination)?;
             ensure(
                 !destination.try_exists()? && fs::symlink_metadata(&destination).is_err(),
                 "Archive destination already exists",
             )?;
             let stage = private_directory(&parent, "archive-export")?;
-            staging = Some(stage.clone());
+            context.staging = Some(stage.clone());
             let path = stage.join("archive.sqlite3");
             let reservation = OpenOptions::new()
                 .read(true)
@@ -941,43 +977,70 @@ impl NativeStore {
             let archive = Connection::open_with_flags(
                 &path,
                 OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX,
-            )?;
-            archive.execute_batch("PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL; PRAGMA cache_size=-2048; PRAGMA mmap_size=0; BEGIN IMMEDIATE;")?;
-            archive.pragma_update(None, "application_id", ARCHIVE_APPLICATION_ID)?;
-            archive.pragma_update(None, "user_version", ARCHIVE_VERSION)?;
+            )
+            .map_err(|error| sql_error(ArchiveSqlOrigin::PrivateOutput, error))?;
+            boundary::output((|| -> Result<()> {
+                archive.execute_batch("PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL; PRAGMA cache_size=-2048; PRAGMA mmap_size=0; BEGIN IMMEDIATE;")?;
+                archive.pragma_update(None, "application_id", ARCHIVE_APPLICATION_ID)?;
+                archive.pragma_update(None, "user_version", ARCHIVE_VERSION)?;
+                Ok(())
+            })())?;
             for (_, sql) in TABLES
                 .iter()
                 .chain(crate::archive_copy::LINEAGE_TABLES.iter())
             {
-                archive.execute_batch(sql)?;
+                archive
+                    .execute_batch(sql)
+                    .map_err(|error| sql_error(ArchiveSqlOrigin::PrivateOutput, error))?;
             }
-            let source = readonly(&self.root.join("studio.sqlite3"))?;
-            let mut bundle =
-                copy_metadata(&source, Some(Destination::Archive(&archive)), project_id)?;
-            crate::archive_copy::read_lineage(
-                &source,
-                Some((&archive, project_id, true)),
-                project_id,
-                &mut bundle,
-                false,
-            )?;
-            export_objects(&source, &archive, &self.root, &mut bundle)?;
+            // This separately opened handle is the actual live studio catalog,
+            // with a scoped rollback path rather than an unobserved Drop.
+            let source = boundary::live((|| -> Result<Connection> {
+                let source = Connection::open_with_flags(
+                    self.root.join("studio.sqlite3"),
+                    OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+                )?;
+                source.busy_timeout(Duration::from_secs(2))?;
+                source.execute_batch("PRAGMA query_only=ON; PRAGMA trusted_schema=OFF; PRAGMA cache_size=-2048; PRAGMA mmap_size=0;")?;
+                Ok(source)
+            })())?;
+            let source_scope = boundary::live(CatalogTransaction::legacy_deferred(&source))?;
+            let bundle = boundary::live(source_scope.run(|scope| {
+                let mut bundle = boundary::live(copy_metadata(
+                    scope,
+                    Some(Destination::Archive(&archive)),
+                    project_id,
+                ))?;
+                boundary::live(crate::archive_copy::read_lineage(
+                    scope,
+                    Some((&archive, project_id, true, ArchiveSqlOrigin::PrivateOutput)),
+                    project_id,
+                    &mut bundle,
+                    false,
+                ))?;
+                boundary::live(export_objects(scope, &archive, &self.root, &mut bundle))?;
+                scope.rollback()?;
+                Ok(bundle)
+            }))?;
+            source
+                .close()
+                .map_err(|(_, error)| sql_error(ArchiveSqlOrigin::LiveCatalog, error))?;
             // Check every declared native source/range before publishing export.
-            validate_all_reference_snapshots(&archive, project_id)?;
-            insert_meta(&archive, &bundle)?;
-            archive.execute_batch("COMMIT")?;
-            archive.close().map_err(|(_, e)| StoreError::Database(e))?;
+            boundary::output(validate_all_reference_snapshots(&archive, project_id))?;
+            boundary::output(insert_meta(&archive, &bundle))?;
+            archive
+                .execute_batch("COMMIT")
+                .map_err(|error| sql_error(ArchiveSqlOrigin::PrivateOutput, error))?;
+            archive
+                .close()
+                .map_err(|(_, error)| sql_error(ArchiveSqlOrigin::PrivateOutput, error))?;
             reservation.sync_all()?;
             drop(reservation);
             let (byte_length, sha256) = hash_file(&path, MAX_ARCHIVE_FILE_BYTES)?;
-            fs::hard_link(&path, &destination)?;
-            published = true;
-            sync_directory(&parent)?;
-            fs::remove_file(&path)?;
-            fs::remove_dir(&stage)?;
-            staging = None;
-            Ok(ArchiveReceipt {
-                path: destination,
+            context.archive_sha256 = Some(sha256.clone());
+            // All fallible receipt preparation precedes the publication fence.
+            let receipt = ArchiveReceipt {
+                path: destination.clone(),
                 project_id: project_id.into(),
                 sha256,
                 byte_length,
@@ -985,9 +1048,22 @@ impl NativeStore {
                 operation_rows: bundle.totals.operations,
                 asset_count: bundle.totals.asset_count,
                 take_count: bundle.totals.take_count,
-            })
+            };
+            context.phase = ArchivePhase::OutputLinkAttempted;
+            #[cfg(test)]
+            boundary::checkpoint(boundary::TestEvent::OutputLink, &context)?;
+            fs::hard_link(&path, &destination)?;
+            context.phase = ArchivePhase::OutputLinked;
+            #[cfg(test)]
+            boundary::checkpoint(boundary::TestEvent::ExportSync, &context)?;
+            sync_directory(&parent)?;
+            context.phase = ArchivePhase::ExportDurable;
+            let mut outcome = ArchiveOutcome::new(receipt, ArchiveCompletion::ExportDurable);
+            outcome.cleanup_file(&path);
+            outcome.cleanup_empty_dir(&stage);
+            Ok(outcome)
         })();
-        outcome.map_err(|error: StoreError| invalid(format!("Archive export failed; staging={staging:?}; destination={}; published={published}: {error}",destination.display())))
+        result.map_err(|error| ArchiveFailure::new(context, error))
     }
 }
 
@@ -1245,36 +1321,50 @@ fn collision_checks(
     archive: &Connection,
     project_id: &str,
 ) -> Result<()> {
-    let project_exists: bool = destination.query_row(
-        "SELECT EXISTS(SELECT 1 FROM projects WHERE id=?1)",
-        [project_id],
-        |row| row.get(0),
-    )?;
+    let project_exists: bool = destination
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM projects WHERE id=?1)",
+            [project_id],
+            |row| row.get(0),
+        )
+        .map_err(|error| sql_error(ArchiveSqlOrigin::LiveCatalog, error))?;
     ensure(
         !project_exists,
         "Identity-preserving restore conflicts with an existing project",
     )?;
     // Corrupt orphan rows are conflicts too; restoration never replaces them.
     for table in ["edits", "imports", "operations"] {
-        let exists: bool = destination.query_row(
-            &format!("SELECT EXISTS(SELECT 1 FROM {table} WHERE project_id=?1)"),
-            [project_id],
-            |row| row.get(0),
-        )?;
+        let exists: bool = destination
+            .query_row(
+                &format!("SELECT EXISTS(SELECT 1 FROM {table} WHERE project_id=?1)"),
+                [project_id],
+                |row| row.get(0),
+            )
+            .map_err(|error| sql_error(ArchiveSqlOrigin::LiveCatalog, error))?;
         ensure(
             !exists,
             "Restore project identity has preexisting retained rows",
         )?;
     }
-    let mut statement=archive.prepare("SELECT CASE WHEN octet_length(operation_id)<=96 THEN operation_id END FROM operations ORDER BY operation_id")?;
-    let mut rows = statement.query([])?;
-    while let Some(row) = rows.next()? {
-        let id: String = row.get(0)?;
-        let exists: bool = destination.query_row(
-            "SELECT EXISTS(SELECT 1 FROM operations WHERE operation_id=?1)",
-            [id],
-            |row| row.get(0),
-        )?;
+    let mut statement=archive.prepare("SELECT CASE WHEN octet_length(operation_id)<=96 THEN operation_id END FROM operations ORDER BY operation_id")
+        .map_err(|error|sql_error(ArchiveSqlOrigin::Input,error))?;
+    let mut rows = statement
+        .query([])
+        .map_err(|error| sql_error(ArchiveSqlOrigin::Input, error))?;
+    while let Some(row) = rows
+        .next()
+        .map_err(|error| sql_error(ArchiveSqlOrigin::Input, error))?
+    {
+        let id: String = row
+            .get(0)
+            .map_err(|error| sql_error(ArchiveSqlOrigin::Input, error))?;
+        let exists: bool = destination
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM operations WHERE operation_id=?1)",
+                [id],
+                |row| row.get(0),
+            )
+            .map_err(|error| sql_error(ArchiveSqlOrigin::LiveCatalog, error))?;
         ensure(
             !exists,
             "Restore conflicts with a global operation identity",
@@ -1303,33 +1393,39 @@ pub(super) fn install_objects(
         Err(error) => return Err(error.into()),
     }
     for id in &bundle.assets {
-        let payload = read_asset(archive, id)?;
-        let exists: bool = destination.query_row(
-            "SELECT EXISTS(SELECT 1 FROM assets WHERE id=?1)",
-            [id],
-            |row| row.get(0),
-        )?;
+        let payload = boundary::input(read_asset(archive, id))?;
+        let exists: bool = destination
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM assets WHERE id=?1)",
+                [id],
+                |row| row.get(0),
+            )
+            .map_err(|error| sql_error(ArchiveSqlOrigin::LiveCatalog, error))?;
         if exists {
             ensure(
-                read_asset(destination, id)? == payload,
+                boundary::live(read_asset(destination, id))? == payload,
                 "Shared legacy asset differs from archived content",
             )?;
         } else {
-            destination.execute(
-                "INSERT INTO assets(id,payload) VALUES(?1,?2)",
-                params![id, payload],
-            )?;
+            destination
+                .execute(
+                    "INSERT INTO assets(id,payload) VALUES(?1,?2)",
+                    params![id, payload],
+                )
+                .map_err(|error| sql_error(ArchiveSqlOrigin::LiveCatalog, error))?;
         }
     }
     for (id, _) in take_ids(bundle)? {
-        let (object, json) = take_metadata(archive, &id)?;
-        let exists: bool = destination.query_row(
-            "SELECT EXISTS(SELECT 1 FROM native_takes WHERE take_id=?1)",
-            [&id],
-            |row| row.get(0),
-        )?;
+        let (object, json) = boundary::input(take_metadata(archive, &id))?;
+        let exists: bool = destination
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM native_takes WHERE take_id=?1)",
+                [&id],
+                |row| row.get(0),
+            )
+            .map_err(|error| sql_error(ArchiveSqlOrigin::LiveCatalog, error))?;
         if exists {
-            let (existing, existing_json) = take_metadata(destination, &id)?;
+            let (existing, existing_json) = boundary::live(take_metadata(destination, &id))?;
             ensure(
                 existing.manifest_sha256 == object.manifest_sha256
                     && existing.object_sha256 == object.object_sha256
@@ -1356,7 +1452,7 @@ pub(super) fn install_objects(
                 }
                 Err(error) => return Err(error.into()),
             }
-            register_take(destination, &object, &json)?;
+            boundary::live(register_take(destination, &object, &json))?;
         }
     }
     sync_directory(&take_directory)?;
@@ -1365,27 +1461,43 @@ pub(super) fn install_objects(
 }
 
 impl NativeStore {
-    /// Restore exact identities without replacing projects or operation receipts.
-    /// Restore-as-copy uses its separate typed and idempotent admission API.
+    /// Compatibility wrapper. Completion cleanup warnings are available from
+    /// `restore_archive_outcome`; this legacy return value drops those warnings.
     pub fn restore_archive(&mut self, archive_path: &Path) -> Result<ProjectDocument> {
-        let _writer =
-            crate::retained_file_coordination::writer_with_file(&self.root, archive_path)?;
-        let mut staging: Option<PathBuf> = None;
-        let mut published_objects = 0;
-        let mut committed = false;
-        let outcome = (|| {
+        self.restore_archive_outcome(archive_path)
+            .map(|outcome| outcome.value)
+            .map_err(|failure| StoreError::Archive(Box::new(failure)))
+    }
+
+    /// Restore exact identities without replacing projects or operation receipts.
+    /// A committed project remains successful when private staging cleanup fails.
+    pub fn restore_archive_outcome(
+        &mut self,
+        archive_path: &Path,
+    ) -> std::result::Result<ArchiveOutcome<ProjectDocument>, ArchiveFailure> {
+        let mut context = ArchiveContext::new(ArchiveAction::Restore, &self.root);
+        context.source = Some(archive_path.into());
+        let result = (|| -> Result<ArchiveOutcome<ProjectDocument>> {
             let path = fs::canonicalize(archive_path)?;
+            context.source = Some(path.clone());
+            let _writer = crate::retained_file_coordination::writer_with_file(&self.root, &path)?;
             let metadata = fs::metadata(&path)?;
             ensure(
                 metadata.is_file() && metadata.len() <= MAX_ARCHIVE_FILE_BYTES,
                 "Archive is not a supported bounded file",
             )?;
-            let archive = readonly(&path)?;
-            validate_schema(&archive)?;
-            let meta = load_meta(&archive)?;
-            validate_snapshot_hashes(&archive, &meta.project_id)?;
-            let mut bundle = copy_metadata(&archive, None, &meta.project_id)?;
-            crate::archive_copy::read_lineage(&archive, None, &meta.project_id, &mut bundle, true)?;
+            let archive = boundary::input(readonly(&path))?;
+            boundary::input(validate_schema(&archive))?;
+            let meta = boundary::input(load_meta(&archive))?;
+            boundary::input(validate_snapshot_hashes(&archive, &meta.project_id))?;
+            let mut bundle = boundary::input(copy_metadata(&archive, None, &meta.project_id))?;
+            boundary::input(crate::archive_copy::read_lineage(
+                &archive,
+                None,
+                &meta.project_id,
+                &mut bundle,
+                true,
+            ))?;
             ensure(
                 bundle.totals.edits == meta.totals.edits
                     && bundle.totals.operations == meta.totals.operations
@@ -1393,7 +1505,7 @@ impl NativeStore {
                 "Archive contains unrelated project rows",
             )?;
             let stage = private_directory(&self.root, "archive-restore")?;
-            staging = Some(stage.clone());
+            context.staging = Some(stage.clone());
             let diagnostic = serde_json::json!({"formatVersion":ARCHIVE_VERSION,"sourceArchive":path,"projectId":meta.project_id,"destinationRoot":self.root,"mode":"preserve_identity"});
             let mut report = OpenOptions::new()
                 .write(true)
@@ -1403,45 +1515,65 @@ impl NativeStore {
                 &serde_json::to_vec_pretty(&diagnostic).map_err(|e| invalid(e.to_string()))?,
             )?;
             report.sync_all()?;
-            restore_object_files(&archive, &stage, &mut bundle)?;
+            drop(report);
+            boundary::input(restore_object_files(&archive, &stage, &mut bundle))?;
             ensure(
                 bundle.totals == meta.totals && bundle.index_digest() == meta.index,
                 "Archive closure, byte budget or metadata index differs from its receipt",
             )?;
-            validate_all_reference_snapshots(&archive, &meta.project_id)?;
-            let tx = self
-                .connection
-                .transaction_with_behavior(TransactionBehavior::Immediate)?;
-            collision_checks(&tx, &archive, &meta.project_id)?;
-            install_objects(
-                &tx,
-                &archive,
-                &self.root,
-                &stage,
-                &bundle,
-                &mut published_objects,
-            )?;
-            copy_metadata(&archive, Some(Destination::Store(&tx)), &meta.project_id)?;
-            let mut lineage_bundle = copy_metadata(&archive, None, &meta.project_id)?;
-            crate::archive_copy::read_lineage(
-                &archive,
-                Some((&tx, &meta.project_id, true)),
-                &meta.project_id,
-                &mut lineage_bundle,
-                true,
-            )?;
-            validate_all_reference_snapshots(&tx, &meta.project_id)?;
-            tx.commit()?;
-            committed = true;
+            boundary::input(validate_all_reference_snapshots(&archive, &meta.project_id))?;
+            let root = &self.root;
+            let scope = boundary::live(CatalogTransaction::legacy_immediate(&mut self.connection))?;
+            let project = boundary::live(scope.run(|scope| {
+                collision_checks(scope, &archive, &meta.project_id)?;
+                context.phase = ArchivePhase::ObjectsPlacementAttempted;
+                install_objects(
+                    scope,
+                    &archive,
+                    root,
+                    &stage,
+                    &bundle,
+                    &mut context.published_objects,
+                )?;
+                context.phase = ArchivePhase::ObjectsPlaced;
+                boundary::input(copy_metadata(
+                    &archive,
+                    Some(Destination::Store(scope)),
+                    &meta.project_id,
+                ))?;
+                let mut lineage_bundle =
+                    boundary::input(copy_metadata(&archive, None, &meta.project_id))?;
+                boundary::input(crate::archive_copy::read_lineage(
+                    &archive,
+                    Some((scope, &meta.project_id, true, ArchiveSqlOrigin::LiveCatalog)),
+                    &meta.project_id,
+                    &mut lineage_bundle,
+                    true,
+                ))?;
+                boundary::live(validate_all_reference_snapshots(scope, &meta.project_id))?;
+                // Prepare the exact result before the sole commit fence.
+                let project = bundle.project.clone();
+                context.phase = ArchivePhase::CatalogCommitAttempted;
+                #[cfg(test)]
+                boundary::checkpoint(boundary::TestEvent::RestoreCommit, &context)?;
+                scope.commit()?;
+                context.phase = ArchivePhase::CatalogCommitted;
+                Ok(project)
+            }))?;
             // Only this UUID-owned staging directory is removed on success.
             // Failed publication retains it and any content-addressed orphans.
-            fs::remove_dir_all(&stage)?;
-            staging = None;
-            Ok(bundle.project)
+            drop(archive);
+            let mut outcome = ArchiveOutcome::new(project, ArchiveCompletion::CatalogCommitted);
+            outcome.cleanup_tree(&stage);
+            Ok(outcome)
         })();
-        outcome.map_err(|error:StoreError|invalid(format!("Archive restore failed; staging={staging:?}; destination={}; published_objects={published_objects}; committed={committed}: {error}",self.root.display())))
+        result.map_err(|error| ArchiveFailure::new(context, error))
     }
 }
+
+#[cfg(test)]
+#[path = "archive/outcome_tests.rs"]
+mod outcome_tests;
 
 #[cfg(test)]
 mod tests {
@@ -1615,9 +1747,9 @@ mod tests {
 
         let mut fail = fixture.store("failure");
         fail.connection.execute_batch("CREATE TRIGGER archive_final_failure BEFORE INSERT ON operations BEGIN SELECT RAISE(ABORT,'fixture final operation failure'); END;").unwrap();
-        let error = fail.restore_archive(&archive).unwrap_err().to_string();
-        assert!(error.contains("committed=false"));
-        assert!(error.contains("staging=Some"));
+        let error = fail.restore_archive_outcome(&archive).unwrap_err();
+        assert_eq!(error.context().phase, ArchivePhase::ObjectsPlaced);
+        assert!(error.context().staging.is_some());
         for table in [
             "projects",
             "edits",
@@ -1701,11 +1833,14 @@ mod tests {
             .unwrap();
         let archive = fixture.0.join("must-not-exist.sqlite3");
         let error = store
-            .export_archive(project.id(), &archive)
-            .unwrap_err()
-            .to_string();
+            .export_archive_outcome(project.id(), &archive)
+            .unwrap_err();
         assert!(!archive.exists());
-        assert!(error.contains("Unknown archived operation wrapper"));
-        assert!(error.contains("staging=Some"));
+        assert!(
+            error
+                .to_string()
+                .contains("Unknown archived operation wrapper")
+        );
+        assert!(error.context().staging.is_some());
     }
 }

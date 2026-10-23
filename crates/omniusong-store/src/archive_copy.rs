@@ -4,6 +4,11 @@
 use crate::{
     NativeStore, Result, StoreError,
     archive::{self, Bundle},
+    archive_boundary::{
+        self as boundary, ArchiveAction, ArchiveCompletion, ArchiveContext, ArchiveFailure,
+        ArchiveOutcome, ArchivePhase, ArchiveSqlOrigin,
+    },
+    catalog_transaction::CatalogTransaction,
     checksum, load_document,
     takes::verify_owned_take,
 };
@@ -12,13 +17,15 @@ use omniusong_core::{
     MAX_NATIVE_PROJECT_BYTES, ProjectDocument,
     contracts::{OperationId, ProjectId, Validate, WORKER_MAX_BYTES},
 };
-use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
+use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
+#[cfg(test)]
+use std::fs;
 use std::{
     collections::{BTreeMap, BTreeSet},
-    fs::{self, File, OpenOptions},
+    fs::{File, OpenOptions},
     io::{Read, Write},
     path::{Path, PathBuf},
 };
@@ -28,6 +35,17 @@ pub const MAX_LINEAGE_MAPPINGS: u64 = 1_000_000;
 const MAX_PROOF_MAPPINGS: u64 = 100_000;
 // Compact nested JSON, not an escaped JSON string. Leaves room for bounded ancestry.
 const MAX_PROOF_BYTES: usize = MAX_NATIVE_PROJECT_BYTES + 32 * 1024;
+
+fn tagged_sql<T>(origin: ArchiveSqlOrigin, result: rusqlite::Result<T>) -> Result<T> {
+    result.map_err(|error| boundary::sql_error(origin, error))
+}
+fn tagged<T>(origin: ArchiveSqlOrigin, result: Result<T>) -> Result<T> {
+    match origin {
+        ArchiveSqlOrigin::Input => boundary::input(result),
+        ArchiveSqlOrigin::PrivateOutput => boundary::output(result),
+        ArchiveSqlOrigin::LiveCatalog => boundary::live(result),
+    }
+}
 
 pub(crate) const LINEAGE_TABLES: &[(&str, &str)] = &[
     (
@@ -266,7 +284,7 @@ fn validate_live_mapping(connection: &Connection, project: &str, m: &Mapping) ->
 /// only the association's project ID can change. No history is collected in RAM.
 pub(super) fn read_lineage(
     source: &Connection,
-    destination: Option<(&Connection, &str, bool)>,
+    destination: Option<(&Connection, &str, bool, ArchiveSqlOrigin)>,
     project_id: &str,
     bundle: &mut Bundle,
     source_is_archive: bool,
@@ -330,15 +348,18 @@ pub(super) fn read_lineage(
         bundle.metadata(json.len() + sha.len())?;
         bundle.references(&proof.document()?)?;
         bundle.record(b"copy-proof", &[sha.as_bytes(), json.as_bytes()]);
-        let reuse = if let Some((dest, _, _)) = destination {
-            let old:Option<String>=dest.query_row("SELECT CASE WHEN octet_length(receipt_json)<=?2 THEN receipt_json END FROM archive_copy_proofs WHERE proof_sha256=?1",params![sha,MAX_PROOF_BYTES as i64],|r|r.get(0)).optional()?;
+        let reuse = if let Some((dest, _, _, origin)) = destination {
+            let old:Option<String>=tagged_sql(origin,dest.query_row("SELECT CASE WHEN octet_length(receipt_json)<=?2 THEN receipt_json END FROM archive_copy_proofs WHERE proof_sha256=?1",params![sha,MAX_PROOF_BYTES as i64],|r|r.get(0)).optional())?;
             if let Some(old) = old {
                 ensure(old == json, "Existing lineage proof differs")?;
                 true
             } else {
-                dest.execute(
-                    "INSERT INTO archive_copy_proofs VALUES(?1,?2)",
-                    params![sha, json],
+                tagged_sql(
+                    origin,
+                    dest.execute(
+                        "INSERT INTO archive_copy_proofs VALUES(?1,?2)",
+                        params![sha, json],
+                    ),
                 )?;
                 false
             }
@@ -376,16 +397,20 @@ pub(super) fn read_lineage(
                     mapping.fields()[5],
                 ],
             );
-            if let Some((dest, _, _)) = destination {
+            if let Some((dest, _, _, origin)) = destination {
                 if reuse {
-                    let old: Mapping = dest.query_row(
-                        &MAP_SELECT.replace(" ORDER BY", " AND source_operation_id=?2 ORDER BY"),
-                        params![sha, mapping.source],
-                        Mapping::from_row,
+                    let old: Mapping = tagged_sql(
+                        origin,
+                        dest.query_row(
+                            &MAP_SELECT
+                                .replace(" ORDER BY", " AND source_operation_id=?2 ORDER BY"),
+                            params![sha, mapping.source],
+                            Mapping::from_row,
+                        ),
                     )?;
                     ensure(old == mapping, "Existing lineage operation mapping differs")?;
                 } else {
-                    insert_mapping(dest, sha, &mapping)?;
+                    tagged(origin, insert_mapping(dest, sha, &mapping))?;
                 }
             }
         }
@@ -394,19 +419,25 @@ pub(super) fn read_lineage(
                 && format!("{:x}", hash.finalize()) == proof.mapping_sha256,
             "Copy mapping count or digest mismatch",
         )?;
-        if let Some((dest, dest_project, _)) = destination {
-            let n: i64 = dest.query_row(
-                "SELECT count(*) FROM archive_copy_proof_operations WHERE proof_sha256=?1",
-                [sha],
-                |r| r.get(0),
+        if let Some((dest, dest_project, _, origin)) = destination {
+            let n: i64 = tagged_sql(
+                origin,
+                dest.query_row(
+                    "SELECT count(*) FROM archive_copy_proof_operations WHERE proof_sha256=?1",
+                    [sha],
+                    |r| r.get(0),
+                ),
             )?;
             ensure(
                 n == count as i64,
                 "Shared copy proof has extraneous mapping rows",
             )?;
-            dest.execute(
-                "INSERT INTO archive_project_lineage(project_id,proof_sha256) VALUES(?1,?2)",
-                params![dest_project, sha],
+            tagged_sql(
+                origin,
+                dest.execute(
+                    "INSERT INTO archive_project_lineage(project_id,proof_sha256) VALUES(?1,?2)",
+                    params![dest_project, sha],
+                ),
             )?;
         }
         bundle.metadata(project_id.len() + sha.len())?;
@@ -462,13 +493,16 @@ pub(super) fn read_lineage(
             b"copy-admission",
             &[operation.as_bytes(), project_id.as_bytes(), sha.as_bytes()],
         );
-        if let Some((dest, dest_project, true)) = destination {
+        if let Some((dest, dest_project, true, origin)) = destination {
             if source_is_archive {
                 super::source_attachment::reject_reserved_operation(&operation)?;
             }
-            dest.execute(
-                "INSERT INTO archive_copies VALUES(?1,?2,?3)",
-                params![operation, dest_project, sha],
+            tagged_sql(
+                origin,
+                dest.execute(
+                    "INSERT INTO archive_copies VALUES(?1,?2,?3)",
+                    params![operation, dest_project, sha],
+                ),
             )?;
         }
     }
@@ -542,10 +576,13 @@ fn replay(
 fn fresh_project(connection: &Connection, source: &str) -> Result<String> {
     for _ in 0..8 {
         let id = uuid::Uuid::new_v4().to_string();
-        let exists: bool = connection.query_row(
-            "SELECT EXISTS(SELECT 1 FROM projects WHERE id=?1)",
-            [&id],
-            |r| r.get(0),
+        let exists: bool = tagged_sql(
+            ArchiveSqlOrigin::LiveCatalog,
+            connection.query_row(
+                "SELECT EXISTS(SELECT 1 FROM projects WHERE id=?1)",
+                [&id],
+                |r| r.get(0),
+            ),
         )?;
         if !exists && id != source {
             return Ok(id);
@@ -556,11 +593,14 @@ fn fresh_project(connection: &Connection, source: &str) -> Result<String> {
 fn fresh_operation(connection: &Connection, source: &Connection, reserved: &str) -> Result<String> {
     for _ in 0..8 {
         let id = uuid::Uuid::new_v4().to_string();
-        let exists:bool=connection.query_row("SELECT EXISTS(SELECT 1 FROM operations WHERE operation_id=?1 UNION ALL SELECT 1 FROM archive_copies WHERE operation_id=?1)",[&id],|r|r.get(0))?;
-        let source_exists: bool = source.query_row(
-            "SELECT EXISTS(SELECT 1 FROM operations WHERE operation_id=?1)",
-            [&id],
-            |r| r.get(0),
+        let exists:bool=tagged_sql(ArchiveSqlOrigin::LiveCatalog,connection.query_row("SELECT EXISTS(SELECT 1 FROM operations WHERE operation_id=?1 UNION ALL SELECT 1 FROM archive_copies WHERE operation_id=?1)",[&id],|r|r.get(0)))?;
+        let source_exists: bool = tagged_sql(
+            ArchiveSqlOrigin::Input,
+            source.query_row(
+                "SELECT EXISTS(SELECT 1 FROM operations WHERE operation_id=?1)",
+                [&id],
+                |r| r.get(0),
+            ),
         )?;
         if !exists && !source_exists && id != reserved {
             return Ok(id);
@@ -594,17 +634,20 @@ pub(super) fn mapped_copy_request(
         fresh_operation(connection, source, reserved)?
     };
     let (operation, request) = parsed.remap(project, &ordinary)?;
-    let exists: bool = connection.query_row(
+    let exists: bool = tagged_sql(ArchiveSqlOrigin::LiveCatalog,connection.query_row(
         "SELECT EXISTS(SELECT 1 FROM operations WHERE operation_id=?1 UNION ALL SELECT 1 FROM archive_copies WHERE operation_id=?1 UNION ALL SELECT 1 FROM pending_copy_map WHERE destination_operation_id=?1)",
         [&operation], |row| row.get(0),
-    )?;
-    let source_sql = if has_lineage(source)? {
+    ))?;
+    let source_sql = if boundary::input(has_lineage(source))? {
         "SELECT EXISTS(SELECT 1 FROM operations WHERE operation_id=?1 UNION ALL SELECT 1 FROM archive_copies WHERE operation_id=?1)"
     } else {
         // Strict version-1 archives have no lineage/copy tables.
         "SELECT EXISTS(SELECT 1 FROM operations WHERE operation_id=?1)"
     };
-    let source_exists: bool = source.query_row(source_sql, [&operation], |row| row.get(0))?;
+    let source_exists: bool = tagged_sql(
+        ArchiveSqlOrigin::Input,
+        source.query_row(source_sql, [&operation], |row| row.get(0)),
+    )?;
     ensure(
         !exists && !source_exists && operation != reserved,
         "Copied operation identity collides with retained or pending authority",
@@ -662,16 +705,34 @@ fn acquire(path: &Path, stage: &Path, expected: Option<&str>) -> Result<(PathBuf
 impl NativeStore {
     /// A fingerprint and bounded header summary. This is not complete restore
     /// validation. It uses a private disk snapshot, then removes it on success.
+    /// This compatibility wrapper discards post-completion private cleanup
+    /// warnings; use `inspect_archive_outcome` when those warnings are needed.
     pub fn inspect_archive(&self, path: &Path) -> Result<ArchiveInspection> {
-        let _writer = crate::retained_file_coordination::writer_with_file(&self.root, path)?;
-        let stage = archive::private_directory(&self.root, "archive-inspect")?;
-        let result = (|| {
+        self.inspect_archive_outcome(path)
+            .map(|outcome| outcome.value)
+            .map_err(|failure| StoreError::Archive(Box::new(failure)))
+    }
+
+    pub fn inspect_archive_outcome(
+        &self,
+        path: &Path,
+    ) -> std::result::Result<ArchiveOutcome<ArchiveInspection>, ArchiveFailure> {
+        let mut context = ArchiveContext::new(ArchiveAction::Inspect, path);
+        context.source = Some(path.to_owned());
+        let result = (|| -> Result<_> {
+            let _writer = crate::retained_file_coordination::writer_with_file(&self.root, path)?;
+            let stage = archive::private_directory(&self.root, "archive-inspect")?;
+            context.staging = Some(stage.clone());
             let (input, byte_length, sha256) = acquire(path, &stage, None)?;
-            let archive = archive::readonly(&input)?;
-            archive::validate_schema(&archive)?;
-            let meta = archive::load_meta(&archive)?;
-            let project = load_document(&archive, &meta.project_id)?;
-            archive::validate_snapshot_hashes(&archive, &meta.project_id)?;
+            context.archive_sha256 = Some(sha256.clone());
+            let archive = boundary::input(archive::readonly(&input))?;
+            boundary::input(archive::validate_schema(&archive))?;
+            let meta = boundary::input(archive::load_meta(&archive))?;
+            let project = boundary::input(load_document(&archive, &meta.project_id))?;
+            boundary::input(archive::validate_snapshot_hashes(
+                &archive,
+                &meta.project_id,
+            ))?;
             let result = ArchiveInspection {
                 sha256,
                 byte_length,
@@ -684,42 +745,60 @@ impl NativeStore {
                 take_count: meta.totals.take_count,
             };
             drop(archive);
-            fs::remove_dir_all(&stage)?;
-            Ok(result)
+            context.phase = ArchivePhase::ReadOnlyCompleted;
+            let mut outcome = ArchiveOutcome::new(result, ArchiveCompletion::ReadOnlyCompleted);
+            outcome.cleanup_tree(&stage);
+            Ok(outcome)
         })();
-        result.map_err(|e: StoreError| {
-            invalid(format!(
-                "Archive inspection failed; staging={}: {e}",
-                stage.display()
-            ))
-        })
+        result.map_err(|error| ArchiveFailure::new(context, error))
     }
 
+    /// Compatibility wrapper which discards post-completion private cleanup
+    /// warnings. A returned receipt still denotes completion, never a retry.
     pub fn restore_archive_as_copy(
         &mut self,
         path: &Path,
         intent: &RestoreCopyIntent,
     ) -> Result<RestoreCopyReceipt> {
-        intent.validate()?;
-        // This early replay intentionally does not touch the acquisition path.
-        {
-            let tx = self
-                .connection
-                .transaction_with_behavior(TransactionBehavior::Deferred)?;
-            let existing = replay(&tx, &self.root, intent)?;
-            tx.commit()?;
+        self.restore_archive_as_copy_outcome(path, intent)
+            .map(|outcome| outcome.value)
+            .map_err(|failure| StoreError::Archive(Box::new(failure)))
+    }
+
+    pub fn restore_archive_as_copy_outcome(
+        &mut self,
+        path: &Path,
+        intent: &RestoreCopyIntent,
+    ) -> std::result::Result<ArchiveOutcome<RestoreCopyReceipt>, ArchiveFailure> {
+        let root = self.root.clone();
+        let mut context = ArchiveContext::new(ArchiveAction::Copy, &root);
+        context.source = Some(path.to_owned());
+        let result = (|| -> Result<_> {
+            intent.validate()?;
+            context.operation_id = Some(intent.operation_id.0.clone());
+            context.expected_archive_sha256 = Some(intent.expected_archive_sha256.clone());
+            let _owned_files = crate::retained_file_coordination::writer(&root)?;
+            // Exact replay precedes input acquisition and identity allocation.
+            // Its source-authenticated receipt is built before explicit rollback.
+            let tx = boundary::live(CatalogTransaction::legacy_deferred(&self.connection))?;
+            let existing = boundary::live(tx.run(|tx| {
+                let existing = boundary::live(replay(tx, &root, intent))?;
+                tx.rollback()?;
+                Ok(existing)
+            }))?;
             if let Some(receipt) = existing {
-                return Ok(receipt);
+                context.phase = ArchivePhase::RecordedReplay;
+                return Ok(ArchiveOutcome::new(
+                    receipt,
+                    ArchiveCompletion::RecordedReplay,
+                ));
             }
-        }
-        super::source_attachment::reject_reserved_operation(&intent.operation_id.0)?;
-        crate::projection_publication_types::reject_reserved_operation(&intent.operation_id.0)?;
-        let _writer = crate::retained_file_coordination::writer_with_file(&self.root, path)?;
-        let stage = archive::private_directory(&self.root, "archive-copy")?;
-        let mut published_objects = 0;
-        let mut committed = false;
-        let result = (|| {
-            let diagnostic = serde_json::json!({"mode":"copy","operationId":intent.operation_id.0,"expectedArchiveSha256":intent.expected_archive_sha256,"sourcePath":path,"destinationRoot":self.root});
+            super::source_attachment::reject_reserved_operation(&intent.operation_id.0)?;
+            crate::projection_publication_types::reject_reserved_operation(&intent.operation_id.0)?;
+            let _writer = crate::retained_file_coordination::writer_with_file(&root, path)?;
+            let stage = archive::private_directory(&root, "archive-copy")?;
+            context.staging = Some(stage.clone());
+            let diagnostic = serde_json::json!({"mode":"copy","operationId":intent.operation_id.0,"expectedArchiveSha256":intent.expected_archive_sha256,"sourcePath":path,"destinationRoot":root});
             let mut report = OpenOptions::new()
                 .create_new(true)
                 .write(true)
@@ -728,50 +807,65 @@ impl NativeStore {
                 &serde_json::to_vec_pretty(&diagnostic).map_err(|e| invalid(e.to_string()))?,
             )?;
             report.sync_all()?;
+            drop(report);
             let (input, byte_length, sha256) =
                 acquire(path, &stage, Some(&intent.expected_archive_sha256))?;
-            let archive = archive::readonly(&input)?;
-            archive::validate_schema(&archive)?;
-            let meta = archive::load_meta(&archive)?;
-            archive::validate_snapshot_hashes(&archive, &meta.project_id)?;
-            let mut bundle = archive::copy_metadata(&archive, None, &meta.project_id)?;
-            let ancestors = read_lineage(&archive, None, &meta.project_id, &mut bundle, true)?;
+            context.archive_sha256 = Some(sha256.clone());
+            let archive = boundary::input(archive::readonly(&input))?;
+            boundary::input(archive::validate_schema(&archive))?;
+            let meta = boundary::input(archive::load_meta(&archive))?;
+            boundary::input(archive::validate_snapshot_hashes(
+                &archive,
+                &meta.project_id,
+            ))?;
+            let mut bundle =
+                boundary::input(archive::copy_metadata(&archive, None, &meta.project_id))?;
+            let ancestors = boundary::input(read_lineage(
+                &archive,
+                None,
+                &meta.project_id,
+                &mut bundle,
+                true,
+            ))?;
             ensure(
                 ancestors.len() < MAX_LINEAGE_PROOFS,
                 "Copy would exceed its ancestry proof ceiling",
             )?;
-            archive::restore_object_files(&archive, &stage, &mut bundle)?;
+            boundary::input(archive::restore_object_files(&archive, &stage, &mut bundle))?;
             ensure(
                 bundle.totals == meta.totals && bundle.index_digest() == meta.index,
                 "Archive closure differs from its receipt",
             )?;
-            archive::validate_all_reference_snapshots(&archive, &meta.project_id)?;
-            let tx = self
-                .connection
-                .transaction_with_behavior(TransactionBehavior::Immediate)?;
-            // Another connection may have completed this same request meanwhile.
-            if let Some(receipt) = replay(&tx, &self.root, intent)? {
-                tx.commit()?;
-                drop(archive);
-                fs::remove_dir_all(&stage)?;
-                return Ok(receipt);
-            }
-            let project_id = fresh_project(&tx, &meta.project_id)?;
-            archive::install_objects(
-                &tx,
+            boundary::input(archive::validate_all_reference_snapshots(
                 &archive,
-                &self.root,
+                &meta.project_id,
+            ))?;
+            let tx = boundary::live(CatalogTransaction::legacy_immediate(&mut self.connection))?;
+            let (receipt,completion)=boundary::live(tx.run(|tx| {
+            // Another connection may have completed this same request meanwhile.
+            if let Some(receipt) = boundary::live(replay(tx, &root, intent))? {
+                tx.rollback()?;
+                context.phase=ArchivePhase::RecordedReplay;
+                return Ok((receipt,ArchiveCompletion::RecordedReplay));
+            }
+            let project_id = fresh_project(tx, &meta.project_id)?;
+            context.phase=ArchivePhase::ObjectsPlacementAttempted;
+            archive::install_objects(
+                tx,
+                &archive,
+                &root,
                 &stage,
                 &bundle,
-                &mut published_objects,
+                &mut context.published_objects,
             )?;
+            context.phase=ArchivePhase::ObjectsPlaced;
             let current_json = document_json(&bundle.project)?;
             let document = remap_document(&current_json, &project_id)?;
-            let cursor: i64 = archive.query_row(
+            let cursor: i64 = tagged_sql(ArchiveSqlOrigin::Input,archive.query_row(
                 "SELECT cursor FROM projects WHERE id=?1",
                 [&meta.project_id],
                 |r| r.get(0),
-            )?;
+            ))?;
             tx.execute(
                 "INSERT INTO projects(id,payload,revision,cursor) VALUES(?1,?2,?3,?4)",
                 params![
@@ -781,18 +875,18 @@ impl NativeStore {
                     cursor
                 ],
             )?;
-            let mut history=archive.prepare("SELECT sequence,CASE WHEN octet_length(before_json)<=?2 THEN before_json END,CASE WHEN octet_length(after_json)<=?2 THEN after_json END FROM edits WHERE project_id=?1 ORDER BY sequence")?;
+            let mut history=tagged_sql(ArchiveSqlOrigin::Input,archive.prepare("SELECT sequence,CASE WHEN octet_length(before_json)<=?2 THEN before_json END,CASE WHEN octet_length(after_json)<=?2 THEN after_json END FROM edits WHERE project_id=?1 ORDER BY sequence"))?;
             let mut rows =
-                history.query(params![meta.project_id, MAX_NATIVE_PROJECT_BYTES as i64])?;
-            while let Some(row) = rows.next()? {
-                let sequence: i64 = row.get(0)?;
-                let before: String = row.get(1)?;
-                let after: String = row.get(2)?;
+                tagged_sql(ArchiveSqlOrigin::Input,history.query(params![meta.project_id, MAX_NATIVE_PROJECT_BYTES as i64]))?;
+            while let Some(row) = tagged_sql(ArchiveSqlOrigin::Input,rows.next())? {
+                let sequence: i64 = tagged_sql(ArchiveSqlOrigin::Input,row.get(0))?;
+                let before: String = tagged_sql(ArchiveSqlOrigin::Input,row.get(1))?;
+                let after: String = tagged_sql(ArchiveSqlOrigin::Input,row.get(2))?;
                 tx.execute("INSERT INTO edits(project_id,sequence,before_json,after_json) VALUES(?1,?2,?3,?4)",params![project_id,sequence,document_json(&remap_document(&before,&project_id)?)?,document_json(&remap_document(&after,&project_id)?)?])?;
             }
             drop(rows);
             drop(history);
-            let original:Option<(String,Vec<u8>)>=archive.query_row("SELECT source_sha256,CASE WHEN octet_length(original_json)<=?2 THEN original_json END FROM imports WHERE project_id=?1",params![meta.project_id,omniusong_core::MAX_PROJECT_BYTES as i64],|r|Ok((r.get(0)?,r.get(1)?))).optional()?;
+            let original:Option<(String,Vec<u8>)>=tagged_sql(ArchiveSqlOrigin::Input,archive.query_row("SELECT source_sha256,CASE WHEN octet_length(original_json)<=?2 THEN original_json END FROM imports WHERE project_id=?1",params![meta.project_id,omniusong_core::MAX_PROJECT_BYTES as i64],|r|Ok((r.get(0)?,r.get(1)?))).optional())?;
             if let Some((sha, bytes)) = original {
                 tx.execute(
                     "INSERT INTO imports VALUES(?1,?2,?3)",
@@ -802,24 +896,24 @@ impl NativeStore {
             // Stage bounded mapping rows in a private SQLite table. This keeps a
             // 100k-operation copy from collecting every receipt in memory.
             tx.execute_batch("CREATE TEMP TABLE IF NOT EXISTS pending_copy_map(source_operation_id TEXT PRIMARY KEY,destination_operation_id TEXT UNIQUE,source_request_sha256 TEXT,source_result_sha256 TEXT,destination_request_sha256 TEXT,destination_result_sha256 TEXT); DELETE FROM pending_copy_map;")?;
-            let mut statement=archive.prepare("SELECT operation_id,CASE WHEN octet_length(request_json)<=?2 THEN request_json END,request_sha256,previous_revision,committed_revision,CASE WHEN octet_length(result_json)<=?3 THEN result_json END,result_sha256 FROM operations WHERE project_id=?1 ORDER BY operation_id")?;
-            let mut rows = statement.query(params![
+            let mut statement=tagged_sql(ArchiveSqlOrigin::Input,archive.prepare("SELECT operation_id,CASE WHEN octet_length(request_json)<=?2 THEN request_json END,request_sha256,previous_revision,committed_revision,CASE WHEN octet_length(result_json)<=?3 THEN result_json END,result_sha256 FROM operations WHERE project_id=?1 ORDER BY operation_id"))?;
+            let mut rows = tagged_sql(ArchiveSqlOrigin::Input,statement.query(params![
                 meta.project_id,
                 WORKER_MAX_BYTES as i64,
                 MAX_NATIVE_PROJECT_BYTES as i64
-            ])?;
+            ]))?;
             let mut mapping_count = 0;
             let mut mapping_digest = mapping_hash();
-            while let Some(row) = rows.next()? {
-                let source_id: String = row.get(0)?;
-                let request: String = row.get(1)?;
-                let source_request: String = row.get(2)?;
-                let previous: i64 = row.get(3)?;
-                let revision: i64 = row.get(4)?;
-                let result: String = row.get(5)?;
-                let source_result: String = row.get(6)?;
+            while let Some(row) = tagged_sql(ArchiveSqlOrigin::Input,rows.next())? {
+                let source_id: String = tagged_sql(ArchiveSqlOrigin::Input,row.get(0))?;
+                let request: String = tagged_sql(ArchiveSqlOrigin::Input,row.get(1))?;
+                let source_request: String = tagged_sql(ArchiveSqlOrigin::Input,row.get(2))?;
+                let previous: i64 = tagged_sql(ArchiveSqlOrigin::Input,row.get(3))?;
+                let revision: i64 = tagged_sql(ArchiveSqlOrigin::Input,row.get(4))?;
+                let result: String = tagged_sql(ArchiveSqlOrigin::Input,row.get(5))?;
+                let source_result: String = tagged_sql(ArchiveSqlOrigin::Input,row.get(6))?;
                 let (operation, request) = mapped_copy_request(
-                    &tx,
+                    tx,
                     &archive,
                     &request,
                     &project_id,
@@ -872,14 +966,14 @@ impl NativeStore {
             }
             drop(rows);
             drop(statement);
-            let mut inherited = archive::copy_metadata(&archive, None, &meta.project_id)?;
-            read_lineage(
+            let mut inherited = boundary::input(archive::copy_metadata(&archive, None, &meta.project_id))?;
+            boundary::input(read_lineage(
                 &archive,
-                Some((&tx, &project_id, false)),
+                Some((tx, &project_id, false,ArchiveSqlOrigin::LiveCatalog)),
                 &meta.project_id,
                 &mut inherited,
                 true,
-            )?;
+            ))?;
             let proof = Proof {
                 version: 1,
                 operation_id: intent.operation_id.clone(),
@@ -911,8 +1005,8 @@ impl NativeStore {
             )?;
             // Validate the final copy's own budgets, lineage and references before
             // the sole publication commit. Its new proof may push it over a cap.
-            let mut final_bundle = archive::copy_metadata(&tx, None, &project_id)?;
-            read_lineage(&tx, None, &project_id, &mut final_bundle, false)?;
+            let mut final_bundle = archive::copy_metadata(tx, None, &project_id)?;
+            read_lineage(tx, None, &project_id, &mut final_bundle, false)?;
             let object_metadata = bundle
                 .totals
                 .metadata
@@ -924,14 +1018,22 @@ impl NativeStore {
                 archive::ARCHIVE_METADATA_BYTES,
                 "copy metadata including objects",
             )?;
-            validate_owned_closure(&tx, &self.root, &final_bundle)?;
+            validate_owned_closure(tx, &root, &final_bundle)?;
+            // Construct every fallible receipt field while rollback is possible.
+            let receipt=proof.receipt(false)?;
+            context.phase=ArchivePhase::CatalogCommitAttempted;
+            #[cfg(test)]
+            boundary::checkpoint(boundary::TestEvent::CopyCommit,&context)?;
             tx.commit()?;
-            committed = true;
+            context.phase=ArchivePhase::CatalogCommitted;
+            Ok((receipt,ArchiveCompletion::CatalogCommitted))
+            }))?;
             drop(archive);
-            fs::remove_dir_all(&stage)?;
-            proof.receipt(false)
+            let mut outcome = ArchiveOutcome::new(receipt, completion);
+            outcome.cleanup_tree(&stage);
+            Ok(outcome)
         })();
-        result.map_err(|e:StoreError|invalid(format!("Archive copy failed; staging={}; published_objects={published_objects}; committed={committed}: {e}",stage.display())))
+        result.map_err(|error| ArchiveFailure::new(context, error))
     }
 }
 
@@ -1237,10 +1339,17 @@ mod tests {
         assert!(target.list().unwrap().is_empty());
         target.connection.execute_batch("CREATE TRIGGER copy_fail BEFORE INSERT ON archive_copies BEGIN SELECT RAISE(ABORT,'copy fixture final failure'); END;").unwrap();
         let error = target
-            .restore_archive_as_copy(&path, &intent(&sha, "retry-copy"))
-            .unwrap_err()
-            .to_string();
-        assert!(error.contains("committed=false"));
+            .restore_archive_as_copy_outcome(&path, &intent(&sha, "retry-copy"))
+            .unwrap_err();
+        assert_eq!(error.context().phase, ArchivePhase::ObjectsPlaced);
+        assert!(!error.publication_uncertain());
+        assert!(matches!(error.operation_error(),StoreError::ArchiveSql(sql)
+            if sql.origin()==ArchiveSqlOrigin::LiveCatalog));
+        assert_eq!(
+            error.catalog_sqlite_error_code().map(|code| code & 0xff),
+            Some(rusqlite::ffi::SQLITE_CONSTRAINT)
+        );
+        assert!(error.context().staging.as_ref().unwrap().is_dir());
         for table in [
             "projects",
             "edits",
@@ -1311,5 +1420,238 @@ mod tests {
             archive::count(&target.connection, "archive_copies").unwrap(),
             1
         );
+    }
+
+    #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+    enum SqlCell {
+        Null,
+        Integer(i64),
+        Real(u64),
+        Text(Vec<u8>),
+        Blob(Vec<u8>),
+    }
+    fn sql_snapshot(connection: &Connection) -> BTreeMap<String, Vec<Vec<SqlCell>>> {
+        use rusqlite::types::ValueRef;
+        let names: Vec<String> = connection
+            .prepare("SELECT name FROM sqlite_schema WHERE type='table' ORDER BY name")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        let mut snapshot = BTreeMap::new();
+        for name in names
+            .into_iter()
+            .chain(std::iter::once("sqlite_schema".into()))
+        {
+            let quoted = format!("\"{}\"", name.replace('"', "\"\""));
+            let mut statement = connection
+                .prepare(&format!("SELECT * FROM {quoted}"))
+                .unwrap();
+            let columns = statement.column_count();
+            let mut rows = statement.query([]).unwrap();
+            let mut values = Vec::new();
+            while let Some(row) = rows.next().unwrap() {
+                values.push(
+                    (0..columns)
+                        .map(|i| match row.get_ref(i).unwrap() {
+                            ValueRef::Null => SqlCell::Null,
+                            ValueRef::Integer(v) => SqlCell::Integer(v),
+                            ValueRef::Real(v) => SqlCell::Real(v.to_bits()),
+                            ValueRef::Text(v) => SqlCell::Text(v.to_vec()),
+                            ValueRef::Blob(v) => SqlCell::Blob(v.to_vec()),
+                        })
+                        .collect::<Vec<_>>(),
+                );
+            }
+            values.sort();
+            snapshot.insert(name, values);
+        }
+        snapshot
+    }
+
+    #[test]
+    fn inspection_completion_survives_a_private_cleanup_warning() {
+        let f = Fixture::new();
+        let (_, source, path, _) = fixture_archive(&f);
+        let target = f.store("inspect-target");
+        let before = sql_snapshot(&target.connection);
+        let input = fs::read(&path).unwrap();
+        let outcome = boundary::with_test_hook(
+            Box::new(|event, _| {
+                if event == boundary::TestEvent::PrivateCleanup {
+                    Err(std::io::Error::new(
+                        std::io::ErrorKind::PermissionDenied,
+                        "injected private inspection cleanup",
+                    ))
+                } else {
+                    Ok(())
+                }
+            }),
+            || target.inspect_archive_outcome(&path),
+        )
+        .unwrap();
+        assert_eq!(outcome.completion, ArchiveCompletion::ReadOnlyCompleted);
+        assert_eq!(outcome.value.project_id, source.id());
+        assert_eq!(outcome.cleanup.len(), 1);
+        assert_eq!(
+            outcome.cleanup[0].error.kind(),
+            std::io::ErrorKind::PermissionDenied
+        );
+        assert!(outcome.cleanup[0].path.is_dir());
+        assert_eq!(sql_snapshot(&target.connection), before);
+        assert_eq!(fs::read(&path).unwrap(), input);
+    }
+
+    #[test]
+    fn committed_copy_and_missing_input_replay_keep_completion_separate_from_cleanup() {
+        let f = Fixture::new();
+        let (_, _, path, sha) = fixture_archive(&f);
+        let mut target = f.store("cleanup-target");
+        let request = intent(&sha, "copy-with-cleanup-warning");
+        let outcome = boundary::with_test_hook(
+            Box::new(|event, _| {
+                if event == boundary::TestEvent::PrivateCleanup {
+                    Err(std::io::Error::new(
+                        std::io::ErrorKind::PermissionDenied,
+                        "injected private copy cleanup",
+                    ))
+                } else {
+                    Ok(())
+                }
+            }),
+            || target.restore_archive_as_copy_outcome(&path, &request),
+        )
+        .unwrap();
+        assert_eq!(outcome.completion, ArchiveCompletion::CatalogCommitted);
+        assert!(!outcome.value.replayed);
+        assert_eq!(outcome.cleanup.len(), 1);
+        assert_eq!(
+            outcome.cleanup[0].error.kind(),
+            std::io::ErrorKind::PermissionDenied
+        );
+        assert!(outcome.cleanup[0].path.is_dir());
+        assert_eq!(
+            target.load(outcome.value.document.id()).unwrap(),
+            outcome.value.document
+        );
+        fs::remove_file(&path).unwrap();
+        let before = sql_snapshot(&target.connection);
+        let replay = target
+            .restore_archive_as_copy_outcome(&path, &request)
+            .unwrap();
+        assert_eq!(replay.completion, ArchiveCompletion::RecordedReplay);
+        assert!(replay.value.replayed && replay.cleanup.is_empty());
+        assert_eq!(replay.value.operation_id, request.operation_id);
+        assert_eq!(replay.value.document, outcome.value.document);
+        assert_eq!(sql_snapshot(&target.connection), before);
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn injected_before_copy_commit_failure_rolls_back_every_catalog_cell_then_reuses_connection() {
+        let f = Fixture::new();
+        let (_, _, path, sha) = fixture_archive(&f);
+        let mut target = f.store("precommit-target");
+        let request = intent(&sha, "copy-precommit-refused");
+        let before = sql_snapshot(&target.connection);
+        let input = fs::read(&path).unwrap();
+        let failure = boundary::with_test_hook(
+            Box::new(|event, _| {
+                if event == boundary::TestEvent::CopyCommit {
+                    Err(std::io::Error::new(
+                        std::io::ErrorKind::PermissionDenied,
+                        "injected before copy commit",
+                    ))
+                } else {
+                    Ok(())
+                }
+            }),
+            || target.restore_archive_as_copy_outcome(&path, &request),
+        )
+        .unwrap_err();
+        assert_eq!(failure.context().action, ArchiveAction::Copy);
+        assert_eq!(
+            failure.context().phase,
+            ArchivePhase::CatalogCommitAttempted
+        );
+        assert!(failure.publication_uncertain());
+        assert!(
+            matches!(failure.operation_error(),StoreError::Io(error) if error.kind()==std::io::ErrorKind::PermissionDenied)
+        );
+        assert!(target.connection.is_autocommit());
+        assert_eq!(sql_snapshot(&target.connection), before);
+        assert_eq!(fs::read(&path).unwrap(), input);
+        let completed = target
+            .restore_archive_as_copy_outcome(&path, &request)
+            .unwrap();
+        assert_eq!(completed.completion, ArchiveCompletion::CatalogCommitted);
+        assert!(!completed.value.replayed);
+    }
+
+    #[test]
+    fn real_private_notadb_stays_input_local_on_inspection_and_copy() {
+        let f = Fixture::new();
+        let path = f.0.join("not-an-archive.omniusong");
+        let bytes = vec![0xa5; 4096];
+        fs::write(&path, &bytes).unwrap();
+        let mut target = f.store("notadb-target");
+        let before = sql_snapshot(&target.connection);
+        let inspection = target.inspect_archive_outcome(&path).unwrap_err();
+        let copying = target
+            .restore_archive_as_copy_outcome(&path, &intent(&checksum(&bytes), "notadb-copy"))
+            .unwrap_err();
+        for failure in [inspection, copying] {
+            let StoreError::ArchiveSql(sql) = failure.operation_error() else {
+                panic!("Expected actual private SQLite error: {failure:?}")
+            };
+            assert_eq!(sql.origin(), ArchiveSqlOrigin::Input);
+            assert!(matches!(sql.operation_error(),StoreError::Database(error)
+                if error.sqlite_error().is_some_and(|code|code.extended_code&0xff==rusqlite::ffi::SQLITE_NOTADB)));
+            assert_eq!(failure.catalog_sqlite_error_code(), None);
+            assert!(!failure.catalog_connection_unusable());
+        }
+        assert_eq!(
+            target
+                .connection
+                .query_row("SELECT 1", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            1
+        );
+        assert_eq!(sql_snapshot(&target.connection), before);
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+    }
+
+    #[test]
+    fn actual_main_commit_hook_refusal_keeps_live_sql_origin_and_rolls_back() {
+        let f = Fixture::new();
+        let (_, _, path, sha) = fixture_archive(&f);
+        let mut target = f.store("commit-target");
+        let before = sql_snapshot(&target.connection);
+        let input = fs::read(&path).unwrap();
+        target.connection.commit_hook(Some(|| true)).unwrap();
+        let failure = target
+            .restore_archive_as_copy_outcome(&path, &intent(&sha, "commit-hook-refused"))
+            .unwrap_err();
+        target.connection.commit_hook(None::<fn() -> bool>).unwrap();
+        assert_eq!(
+            failure.context().phase,
+            ArchivePhase::CatalogCommitAttempted
+        );
+        assert!(
+            matches!(failure.operation_error(),StoreError::ArchiveSql(sql)
+            if sql.origin()==ArchiveSqlOrigin::LiveCatalog)
+        );
+        assert_eq!(
+            failure.catalog_sqlite_error_code(),
+            Some(rusqlite::ffi::SQLITE_CONSTRAINT_COMMITHOOK)
+        );
+        assert!(target.connection.is_autocommit());
+        assert_eq!(sql_snapshot(&target.connection), before);
+        assert_eq!(fs::read(&path).unwrap(), input);
+        let completed = target
+            .restore_archive_as_copy_outcome(&path, &intent(&sha, "commit-hook-refused"))
+            .unwrap();
+        assert_eq!(completed.completion, ArchiveCompletion::CatalogCommitted);
     }
 }

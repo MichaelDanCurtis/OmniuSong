@@ -13,6 +13,145 @@ fn connection() -> Connection {
     db.execute_batch("CREATE TABLE retained(id INTEGER PRIMARY KEY,value TEXT NOT NULL); INSERT INTO retained VALUES(1,'before'); CREATE TABLE earlier(id INTEGER PRIMARY KEY);").unwrap();
     db
 }
+
+#[test]
+fn legacy_archive_scope_commits_and_explicitly_rolls_back_without_a_governor() {
+    let mut db = connection();
+    CatalogTransaction::legacy_immediate(&mut db)
+        .unwrap()
+        .run(|tx| {
+            tx.execute(
+                "INSERT INTO retained VALUES(2,'committed legacy archive')",
+                [],
+            )?;
+            tx.commit()
+        })
+        .unwrap();
+    let error: crate::Result<()> =
+        CatalogTransaction::legacy_immediate(&mut db)
+            .unwrap()
+            .run(|tx| {
+                tx.execute("INSERT INTO retained VALUES(3,'must roll back')", [])?;
+                Err(StoreError::Invalid("original legacy body refusal".into()))
+            });
+    assert!(
+        matches!(error,Err(StoreError::Invalid(message)) if message=="original legacy body refusal")
+    );
+    CatalogTransaction::legacy_deferred(&db)
+        .unwrap()
+        .run(|tx| {
+            assert_eq!(
+                tx.query_row("SELECT count(*) FROM retained", [], |row| row
+                    .get::<_, i64>(0))?,
+                2
+            );
+            tx.rollback()
+        })
+        .unwrap();
+    assert!(db.is_autocommit());
+    assert_eq!(
+        rows(&db),
+        vec![(1, "before".into()), (2, "committed legacy archive".into())]
+    );
+}
+
+#[test]
+fn legacy_archive_denied_commit_retains_sql_and_rolls_back_real_mutation() {
+    use rusqlite::hooks::{AuthAction, AuthContext, Authorization, TransactionOperation};
+    let mut db = connection();
+    db.authorizer(Some(|context: AuthContext<'_>| {
+        if matches!(
+            context.action,
+            AuthAction::Transaction {
+                // This pinned rusqlite maps COMMIT to Unknown; its public
+                // TransactionOperation has Begin/Release/Rollback only.
+                operation: TransactionOperation::Unknown
+            }
+        ) {
+            Authorization::Deny
+        } else {
+            Authorization::Allow
+        }
+    }))
+    .unwrap();
+    let error = CatalogTransaction::legacy_immediate(&mut db)
+        .unwrap()
+        .run(|tx| {
+            tx.execute("INSERT INTO retained VALUES(2,'refused commit')", [])?;
+            tx.commit()
+        })
+        .unwrap_err();
+    assert_eq!(
+        error.catalog_sqlite_error_code(),
+        Some(rusqlite::ffi::SQLITE_AUTH)
+    );
+    assert!(!error.catalog_connection_unusable());
+    assert!(db.is_autocommit());
+    db.authorizer(None::<fn(AuthContext<'_>) -> Authorization>)
+        .unwrap();
+    assert_eq!(rows(&db), vec![(1, "before".into())]);
+}
+
+#[test]
+fn nested_archive_private_failure_cannot_hide_real_live_rollback_failure() {
+    use crate::{
+        ArchiveAction, ArchiveContext, ArchiveFailure, ArchiveSqlOrigin, archive_boundary,
+    };
+    use rusqlite::hooks::{AuthAction, AuthContext, Authorization, TransactionOperation};
+    let mut db = connection();
+    db.authorizer(Some(|context: AuthContext<'_>| {
+        if matches!(
+            context.action,
+            AuthAction::Transaction {
+                operation: TransactionOperation::Rollback
+            }
+        ) {
+            Authorization::Deny
+        } else {
+            Authorization::Allow
+        }
+    }))
+    .unwrap();
+    let error: crate::Result<()> =
+        CatalogTransaction::legacy_immediate(&mut db)
+            .unwrap()
+            .run(|tx| {
+                tx.execute(
+                    "INSERT INTO retained VALUES(2,'actual pending mutation')",
+                    [],
+                )?;
+                Err(archive_boundary::sql_error(
+                    ArchiveSqlOrigin::Input,
+                    rusqlite::Error::SqliteFailure(
+                        rusqlite::ffi::Error::new(26),
+                        Some("explicit private error constructor".into()),
+                    ),
+                ))
+            });
+    let error = error.unwrap_err();
+    let StoreError::Catalog(failure) = &error else {
+        panic!("lost actual cleanup: {error:?}")
+    };
+    assert!(
+        matches!(failure.operation_error(),StoreError::ArchiveSql(private) if private.origin()==ArchiveSqlOrigin::Input)
+    );
+    assert_eq!(failure.cleanup_errors().len(), 1);
+    assert!(!db.is_autocommit());
+    let error = StoreError::Archive(Box::new(ArchiveFailure::new(
+        ArchiveContext::new(ArchiveAction::Restore, std::path::Path::new("isolated")),
+        error,
+    )));
+    let error = archive_boundary::input::<()>(Err(error)).unwrap_err();
+    assert_eq!(
+        error.catalog_sqlite_error_code(),
+        Some(rusqlite::ffi::SQLITE_AUTH)
+    );
+    assert!(error.catalog_connection_unusable());
+    db.authorizer(None::<fn(AuthContext<'_>) -> Authorization>)
+        .unwrap();
+    db.execute_batch("ROLLBACK").unwrap();
+    assert_eq!(rows(&db), vec![(1, "before".into())]);
+}
 fn governor(steps: u64) -> (InspectionBudget, Arc<AtomicBool>) {
     let cancelled = Arc::new(AtomicBool::new(false));
     (
