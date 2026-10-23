@@ -202,6 +202,78 @@ fn assert_detached(db: &Connection, budget: &InspectionBudget) {
 }
 
 #[test]
+fn explicitly_tagged_live_interrupt_maps_only_this_scopes_governor_stop() {
+    let mut db = connection();
+    let (budget, _) = governor(128);
+    let result = CatalogTransaction::immediate(&mut db, &budget).unwrap().run(|tx| {
+        tx.execute("INSERT INTO retained VALUES(2,'rollback live tagged')", [])?;
+        crate::archive_boundary::live(tx.query_row("WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<100000) SELECT sum(x) FROM n", [], |row| row.get::<_, i64>(0)).map_err(StoreError::Database))?;
+        tx.commit()
+    });
+    vm_limit(result);
+    assert_detached(&db, &budget);
+    assert_eq!(rows(&db), vec![(1, "before".into())]);
+}
+
+#[test]
+fn private_interrupt_is_not_relabelled_after_actual_live_hook_stop() {
+    let mut db = connection();
+    let (budget, _) = governor(128);
+    let result: crate::Result<()> = CatalogTransaction::immediate(&mut db, &budget).unwrap().run(|tx| {
+        let actual = tx.query_row("WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<100000) SELECT sum(x) FROM n", [], |row| row.get::<_, i64>(0)).unwrap_err();
+        assert_eq!(actual.sqlite_error().unwrap().extended_code, 9);
+        // Explicit origin injection: this is not the failing live query.
+        Err(crate::archive_boundary::sql_error(crate::ArchiveSqlOrigin::Input, rusqlite::Error::SqliteFailure(rusqlite::ffi::Error::new(9),Some("private origin control".into()))))
+    });
+    let error = result.unwrap_err();
+    assert!(
+        matches!(&error, StoreError::ArchiveSql(value) if value.origin()==crate::ArchiveSqlOrigin::Input)
+    );
+    assert_eq!(error.catalog_sqlite_error_code(), None);
+    assert_detached(&db, &budget);
+}
+
+#[test]
+fn own_interrupt_mapping_cannot_erase_nested_connection_unusable_failure() {
+    let mut db = connection();
+    let (budget, _) = governor(128);
+    let result: crate::Result<()> = CatalogTransaction::immediate(&mut db, &budget).unwrap().run(|tx| {
+        let actual = tx.query_row("WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<100000) SELECT sum(x) FROM n", [], |row| row.get::<_, i64>(0)).unwrap_err();
+        // Construct a nested prior cleanup failure; outer scope cleanup must
+        // preserve its unusable fact even though its own connection recovers.
+        Err(StoreError::Catalog(Box::new(CatalogFailure {
+            operation: Box::new(crate::archive_boundary::sql_error(crate::ArchiveSqlOrigin::LiveCatalog, actual)),
+            cleanup: vec![], transaction_active: true,
+        })))
+    });
+    let error = result.unwrap_err();
+    assert!(error.catalog_connection_unusable());
+    assert_eq!(error.catalog_sqlite_error_code(), Some(9));
+    assert_detached(&db, &budget);
+}
+
+#[test]
+fn preparation_failure_explicitly_rolls_back_and_detaches_before_return() {
+    let mut db = connection();
+    let (budget, _) = governor(1024);
+    {
+        let mut scope = CatalogTransaction::immediate(&mut db, &budget).unwrap();
+        let error = scope
+            .prepare::<()>(|tx| {
+                tx.execute("INSERT INTO retained VALUES(2,'preparation rollback')", [])?;
+                tx.execute("INSERT INTO absent_table VALUES(1)", [])?;
+                Ok(())
+            })
+            .unwrap_err();
+        assert_eq!(error.catalog_sqlite_error_code(), Some(1));
+        assert!(scope.transaction.is_none());
+        assert!(scope.is_autocommit());
+    }
+    assert_detached(&db, &budget);
+    assert_eq!(rows(&db), vec![(1, "before".into())]);
+}
+
+#[test]
 fn real_recursive_read_quota_rolls_back_prior_writes_and_detaches_for_connection_reuse() {
     let mut db = connection();
     let before = rows(&db);

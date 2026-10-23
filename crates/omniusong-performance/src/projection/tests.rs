@@ -1,5 +1,32 @@
 use super::*;
 
+#[test]
+fn projection_finalizer_retains_original_failure_beside_later_sticky_stop() {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    };
+    let token = Arc::new(AtomicBool::new(false));
+    let budget = InspectionBudget::new(
+        omniusong_recording::InspectionLimits::default(),
+        Arc::clone(&token),
+    )
+    .unwrap();
+    let source_error: Result<()> = Err(RecordingError::Invalid("original changed".into()));
+    token.store(true, Ordering::Release);
+    assert!(
+        matches!(finish(&budget, source_error), Err(RecordingError::Invalid(value)) if value=="original changed")
+    );
+    assert!(matches!(
+        budget.checkpoint(),
+        Err(RecordingError::InspectionCancelled)
+    ));
+    assert!(matches!(
+        finish(&budget, Ok(())),
+        Err(RecordingError::InspectionCancelled)
+    ));
+}
+
 pub(super) fn request() -> PerformanceProjectionRequest {
     PerformanceProjectionRequest {
         version: 1,

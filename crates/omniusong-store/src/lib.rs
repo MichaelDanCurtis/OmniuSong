@@ -9,6 +9,8 @@ pub use archive_boundary::{
     ArchiveOutcome, ArchivePhase, ArchiveSqlFailure, ArchiveSqlOrigin,
 };
 mod archive_copy;
+mod archive_governed;
+mod archive_metadata;
 mod archive_operation;
 mod archive_plan;
 mod archive_postimage;

@@ -1,0 +1,1944 @@
+{
+  "atUtc": "2026-10-23T03:05:24.625527+00:00",
+  "scope": "Actual new bounded performance-aware OSAR export, identity restore and restore-copy together; one cumulative governor, held final sources and complete SQL postimages. Legacy ordinary routes and native dispatch remain separate.",
+  "baselineCommit": "053688f",
+  "passed": true,
+  "sourceStable": true,
+  "sourceInputCount": 280,
+  "sourceSnapshots": [
+    {
+      "path": ".cargo/config.toml",
+      "sha256": "a64c48300486b9bd06dd77b2ab72ebb53b18dc6a475be4546a26c8d9bb67963e",
+      "byteLength": 17
+    },
+    {
+      "path": "Cargo.lock",
+      "sha256": "dbd7ba92ae97cfc4a693cb095008aeff7d9d987e80ca05d8dcc96c7d5317f096",
+      "byteLength": 103125
+    },
+    {
+      "path": "Cargo.toml",
+      "sha256": "21e4dffd8dd8b337219a1cb490614b3c72c812befc5b28bacf4dd22a50f259cd",
+      "byteLength": 1641
+    },
+    {
+      "path": "crates/omniusong-app/Cargo.toml",
+      "sha256": "f54e1eecf5c1f1c07fb0b917f1e76df7274c7249d6bf27ffd833330bbcb90101",
+      "byteLength": 494
+    },
+    {
+      "path": "crates/omniusong-app/src/arrangement_integration_review.rs",
+      "sha256": "dbc4b90e1b2f545d44a1e0cc9e36d4783ede0b48221bd89c73e4505eea8d22d5",
+      "byteLength": 33062
+    },
+    {
+      "path": "crates/omniusong-app/src/arrangement_math.rs",
+      "sha256": "8fbf3ea7f5f2cb0d0235e88ad1819eb34311a6d734cb2ad5fbaf657bd01ad175",
+      "byteLength": 33599
+    },
+    {
+      "path": "crates/omniusong-app/src/arrangement_types.rs",
+      "sha256": "3621121f275aabe34702304c5b63e2616828e945cb446fec89675a7cdccb37f2",
+      "byteLength": 1441
+    },
+    {
+      "path": "crates/omniusong-app/src/arrangement_ui.rs",
+      "sha256": "23faaba9e46fdc85a940050aad43bbbd4ec643d2e9849413b8e77d68ed285aca",
+      "byteLength": 81689
+    },
+    {
+      "path": "crates/omniusong-app/src/audio_ui.rs",
+      "sha256": "d4819c5c19167117238dab7f7226963d349559a14cde9f4655b0303c4379e358",
+      "byteLength": 64280
+    },
+    {
+      "path": "crates/omniusong-app/src/clip_editor_integration_review.rs",
+      "sha256": "50cd7183b4622ee719fa6d65f2f89fe32fc333caad6a4e09ff41dc68b7493950",
+      "byteLength": 52869
+    },
+    {
+      "path": "crates/omniusong-app/src/clip_ui.rs",
+      "sha256": "65de7f3ef15ac710e6b12b53cd7ca28bb3a0cce6993fca789564610affeb9284",
+      "byteLength": 67673
+    },
+    {
+      "path": "crates/omniusong-app/src/evidence_integration.rs",
+      "sha256": "057ed0d9896488dcc46183d8d2005a0ff0da1d3eb72eeb321119ae9bbbbbf08c",
+      "byteLength": 12616
+    },
+    {
+      "path": "crates/omniusong-app/src/evidence_integration_review.rs",
+      "sha256": "d162dd029799edaa232ca60c4515e908652ce03347d059f50094c0b2beb86217",
+      "byteLength": 22439
+    },
+    {
+      "path": "crates/omniusong-app/src/evidence_ui.rs",
+      "sha256": "f54b1563f96beff2700b6a44aa4361a033121e1629f2c5c1f002c091b523778b",
+      "byteLength": 68585
+    },
+    {
+      "path": "crates/omniusong-app/src/evidence_ui/tests.rs",
+      "sha256": "1b4988e4498f0d5821e5c6389fee0e4e9aad66bda9948a62f13384ce46cd8c01",
+      "byteLength": 32675
+    },
+    {
+      "path": "crates/omniusong-app/src/live_ui.rs",
+      "sha256": "6193dc78864e42aa411b2dd413b425287b8fe0c05f25f00d1e5ad147d96206b9",
+      "byteLength": 67735
+    },
+    {
+      "path": "crates/omniusong-app/src/main.rs",
+      "sha256": "596460fbfdc7e8aca3440db6cbfea1dd0707628065e607c12bab1f01a0344f31",
+      "byteLength": 190626
+    },
+    {
+      "path": "crates/omniusong-app/src/note_editor_review.rs",
+      "sha256": "98bdd9694a259efe290d51d705b0155c5002b419ac73d6c605d6567652d8c445",
+      "byteLength": 28959
+    },
+    {
+      "path": "crates/omniusong-app/src/note_ui.rs",
+      "sha256": "8995f53679f5d8445b72425b1aabeff4c17e94181b5ca72977d9d13581d6c3ab",
+      "byteLength": 39094
+    },
+    {
+      "path": "crates/omniusong-app/src/performance_presentation_review.rs",
+      "sha256": "39e67f244baf408833116470f561d3eaa17ab3f15191f0bc94eabd7f0fd4e725",
+      "byteLength": 39008
+    },
+    {
+      "path": "crates/omniusong-app/src/performance_source_integration_review.rs",
+      "sha256": "42cdf8a5ea514debbce6ad9fb1ae429430ca0d09ec9367c64b76330d45831684",
+      "byteLength": 41813
+    },
+    {
+      "path": "crates/omniusong-app/src/performance_source_ui.rs",
+      "sha256": "ead21cb0073b7854e8e82226d45fb836d4be890bdc11147f035b823d63d12c18",
+      "byteLength": 91958
+    },
+    {
+      "path": "crates/omniusong-app/src/performance_ui.rs",
+      "sha256": "e6faa6ae7544dd6742419fe22c6130074a3d978b33ab594c7300b0b519186c77",
+      "byteLength": 68279
+    },
+    {
+      "path": "crates/omniusong-app/src/recovery_ui.rs",
+      "sha256": "201082b9ac305ee29fef085e483b2e47459234fcaa6f53a67409eb84005b565c",
+      "byteLength": 46799
+    },
+    {
+      "path": "crates/omniusong-app/src/source_recovery_integration.rs",
+      "sha256": "a3859f38c0801e139bb4918ea2ac579540dda6b5bc1b476764872a05022d2f8e",
+      "byteLength": 16649
+    },
+    {
+      "path": "crates/omniusong-app/src/source_recovery_integration_review.rs",
+      "sha256": "3a0b32ae4c5e3a89d4c01ff351e1807d06f4a8a55d03035f1f852f1e44c3c2db",
+      "byteLength": 43664
+    },
+    {
+      "path": "crates/omniusong-app/src/source_recovery_ui.rs",
+      "sha256": "1bac4b3d25068c3723f4f60500047597a19b9c418030823b507061cffcd89ad2",
+      "byteLength": 108050
+    },
+    {
+      "path": "crates/omniusong-app/src/source_recovery_ui/tests.rs",
+      "sha256": "31d2d5ba668dec5b18474d32875a3eaa1b342e806c4e7a16af06ac43b65a507f",
+      "byteLength": 61717
+    },
+    {
+      "path": "crates/omniusong-app/src/waveform_ui.rs",
+      "sha256": "0eafc0d039557c5a95bfce25d740ae6c6bde420cc13b31526a3fe4bcafc605ae",
+      "byteLength": 75084
+    },
+    {
+      "path": "crates/omniusong-core/Cargo.toml",
+      "sha256": "b2e07cb138f58d96a003c4f597dee58972508ade8aad0273f9790608a1c0ff62",
+      "byteLength": 228
+    },
+    {
+      "path": "crates/omniusong-core/src/clip_edit.rs",
+      "sha256": "ce627e0890c7d6646408cfc26431bc8cd1d67b14ed7f17ca9cc138aa06d4465d",
+      "byteLength": 28265
+    },
+    {
+      "path": "crates/omniusong-core/src/clip_edit_types.rs",
+      "sha256": "ebf2308bab7461d44cd7d1382f5d34d7478f8ee790741924aebfd10805537779",
+      "byteLength": 13719
+    },
+    {
+      "path": "crates/omniusong-core/src/contracts.rs",
+      "sha256": "d85cc881c898ddd12a705cafcc725eabdb45659ea3afdf370a880daa77c8a885",
+      "byteLength": 70633
+    },
+    {
+      "path": "crates/omniusong-core/src/lib.rs",
+      "sha256": "0faba0b5e6ae03ee127ab7e496b13b755a4b9ec4c55d1af49fa6074d78e30b9d",
+      "byteLength": 28892
+    },
+    {
+      "path": "crates/omniusong-core/src/native.rs",
+      "sha256": "ec2ca516b32ad48db5099d96dae105e3ade7891c41880938da6392b2fb7bc494",
+      "byteLength": 31895
+    },
+    {
+      "path": "crates/omniusong-core/src/note_edit.rs",
+      "sha256": "1fc3c19b7730e5b371f59598519804d55f1a2848be8e42ca9a1c942c60418c0b",
+      "byteLength": 19738
+    },
+    {
+      "path": "crates/omniusong-core/src/note_edit_types.rs",
+      "sha256": "2c6887dd198234e3ebf6c29871380881b0028dfd5e3063c7803d36ff1fb9656b",
+      "byteLength": 7602
+    },
+    {
+      "path": "crates/omniusong-core/src/performance_projection.rs",
+      "sha256": "9df2fb57c69715c6cb12f041f5285c22dd6788fe3acfcaa99e9bc37b8552afdd",
+      "byteLength": 19384
+    },
+    {
+      "path": "crates/omniusong-core/src/performance_projection/publication.rs",
+      "sha256": "ef1e7f6866903a7360425cf870e3477cf10a2d47b923765839a38d11ca2a9de7",
+      "byteLength": 6848
+    },
+    {
+      "path": "crates/omniusong-core/src/performance_projection/tests.rs",
+      "sha256": "706bd293c8e5a4446a8ddfdea9f3d597b8e9e9c6aa3339ed2c8558f4c107b72a",
+      "byteLength": 31630
+    },
+    {
+      "path": "crates/omniusong-core/tests/note_edit_review.rs",
+      "sha256": "9f65284815e1cd01bd477900dda9624be8608d1ec0dea0c4502d7ea7530f532d",
+      "byteLength": 17425
+    },
+    {
+      "path": "crates/omniusong-engine/Cargo.toml",
+      "sha256": "63f7c07229c9453b41970314a20231676ad6e476c26698a287ec4e659a757116",
+      "byteLength": 574
+    },
+    {
+      "path": "crates/omniusong-engine/examples/qualify_bounded_performance.rs",
+      "sha256": "7b89a598bddd39124485f09b04e292fe18165bb703feb872975c505d0883099d",
+      "byteLength": 3432
+    },
+    {
+      "path": "crates/omniusong-engine/examples/qualify_live_bus.rs",
+      "sha256": "d984089f2ae46b69be7bec2f46c0d429048f1ae51026b395d4fda50d0b0ec711",
+      "byteLength": 13398
+    },
+    {
+      "path": "crates/omniusong-engine/examples/qualify_native_performance.rs",
+      "sha256": "7e8c269478830e3fa47a220053ae38c8c7619eb4e66cb4db2de1a0aa20ccd075",
+      "byteLength": 16140
+    },
+    {
+      "path": "crates/omniusong-engine/examples/qualify_note_editor_render.rs",
+      "sha256": "e0a4209d9595ddb3be5f9cc5bd797fde8052764495c6a9804fa44362fa2af504",
+      "byteLength": 21863
+    },
+    {
+      "path": "crates/omniusong-engine/examples/qualify_performance_finish.rs",
+      "sha256": "de0d3a2637bce675283348d24c0c49ad3b6e719056ce4060cca97c75f0253dae",
+      "byteLength": 18323
+    },
+    {
+      "path": "crates/omniusong-engine/examples/qualify_performance_tap.rs",
+      "sha256": "7004650451ce3490f0abf0bc9536a152d32ab68d49ef9ed1827836ce18fd2bfa",
+      "byteLength": 25243
+    },
+    {
+      "path": "crates/omniusong-engine/examples/qualify_performance_writer.rs",
+      "sha256": "605186606ef00651fa11a47e07fcdc8e99b9d61b7054f8f0e31e70c04fc9349f",
+      "byteLength": 38100
+    },
+    {
+      "path": "crates/omniusong-engine/examples/qualify_sealed_performance.rs",
+      "sha256": "9bdcf3c00782b92c98d4c5d9ad6e993410ce295ba4e18319a86ef96be1fdaa7e",
+      "byteLength": 4193
+    },
+    {
+      "path": "crates/omniusong-engine/examples/qualify_software_bus.rs",
+      "sha256": "de8114c1261b0427fa8bce073ee2686ecd79f4bff9de692ea4b5a378ef34b692",
+      "byteLength": 9433
+    },
+    {
+      "path": "crates/omniusong-engine/examples/qualify_waveform.rs",
+      "sha256": "466e2af493103d881ebbe4ff5d41feb2f3925cf29ab499c6556dba6e1b3575ba",
+      "byteLength": 11921
+    },
+    {
+      "path": "crates/omniusong-engine/src/capture.rs",
+      "sha256": "f7f3fa854a10adf336ef399f2088637b33746da4aba1ff89b0a7983e1b059004",
+      "byteLength": 14188
+    },
+    {
+      "path": "crates/omniusong-engine/src/lib.rs",
+      "sha256": "e9939b3b32dfd772f35141b34a8406690cf188d7dcfe6b21464bb2e81e3d019d",
+      "byteLength": 3291
+    },
+    {
+      "path": "crates/omniusong-engine/src/live.rs",
+      "sha256": "93b76db41f703ac9ac4e626488f20805b18cc13e7565a5f1ab966cc6edfe9bd9",
+      "byteLength": 74648
+    },
+    {
+      "path": "crates/omniusong-engine/src/live_supervisor.rs",
+      "sha256": "613bae29cc64568b3472b226613c627d3e75a9c70f4e6c6f2fe03b0f3b00f9ef",
+      "byteLength": 65406
+    },
+    {
+      "path": "crates/omniusong-engine/src/live_types.rs",
+      "sha256": "931da9c290434e151391e8491612f1949ecf199d97e8a62e6e1a672b2b4c01d5",
+      "byteLength": 10528
+    },
+    {
+      "path": "crates/omniusong-engine/src/performance_copy.rs",
+      "sha256": "161ee94f7fdb8e7e4be18c8aa1c4d96976e868ad5300ed15746264134b77b9df",
+      "byteLength": 12012
+    },
+    {
+      "path": "crates/omniusong-engine/src/performance_records.rs",
+      "sha256": "25a2d4072bf48f4b04fa1df0207e3437602d9ef12f58093a6c5d444c94eb8fc3",
+      "byteLength": 126
+    },
+    {
+      "path": "crates/omniusong-engine/src/performance_session.rs",
+      "sha256": "15ec9627d5fc61e1cb9d2cffa28af258af65950647a2140eb0b3ac6caa977524",
+      "byteLength": 85068
+    },
+    {
+      "path": "crates/omniusong-engine/src/performance_tap.rs",
+      "sha256": "3efb09f6c644435d29591f1800173c9b483bc1f3082f602cd5ac6a03215e5a6e",
+      "byteLength": 46450
+    },
+    {
+      "path": "crates/omniusong-engine/src/performance_types.rs",
+      "sha256": "dbd4f713cdcc5bfc742d070964186c2815a7ae2c2b363f3cd07a8400a9f69daa",
+      "byteLength": 11759
+    },
+    {
+      "path": "crates/omniusong-engine/src/performance_writer.rs",
+      "sha256": "d8aa2c2c3c76015177146bc9aa6a129869c40f152810460f0af001e94b0de9f4",
+      "byteLength": 40919
+    },
+    {
+      "path": "crates/omniusong-engine/src/performance_writer/seal_cost_tests.rs",
+      "sha256": "84c590297219020d18a9ecb322bac739093312b1ccdcd0701c5dc7be6b36b451",
+      "byteLength": 16274
+    },
+    {
+      "path": "crates/omniusong-engine/src/realtime.rs",
+      "sha256": "bc9c8b36f1242e226810569e4b896aea92f4a117efa9dff08bdfed43325bf8fe",
+      "byteLength": 14528
+    },
+    {
+      "path": "crates/omniusong-engine/src/render.rs",
+      "sha256": "cbae2f4b3244ce70f34400984549c9fd55c8836d12ee14832e0294b5f0e3d623",
+      "byteLength": 21641
+    },
+    {
+      "path": "crates/omniusong-engine/src/transport.rs",
+      "sha256": "f8bd0e8a2b73b7019a77107de2d81d85a29d3d9d253f1ac68349e5ea3ee873f9",
+      "byteLength": 44864
+    },
+    {
+      "path": "crates/omniusong-engine/src/waveform.rs",
+      "sha256": "ee8505c7724ef1bb6b1944235822983e82bcd815b70eb32b1c0eff4eb67a258d",
+      "byteLength": 53914
+    },
+    {
+      "path": "crates/omniusong-engine/src/waveform_types.rs",
+      "sha256": "1b683f30256ef2ed8f9284b5dfbb2a201b7bf390fb6d642fd293c2203cbefc3c",
+      "byteLength": 19483
+    },
+    {
+      "path": "crates/omniusong-engine/src/worker.rs",
+      "sha256": "86412c610f3d4a3d90a66001015ca587e95d034519fa5834fcc3bc803898333b",
+      "byteLength": 71469
+    },
+    {
+      "path": "crates/omniusong-engine/tests/clip_render_review.rs",
+      "sha256": "0a85809ecd710c219bb61353dcc2221a38e86b6a41fe0b6bcb9efebb918081cd",
+      "byteLength": 28578
+    },
+    {
+      "path": "crates/omniusong-engine/tests/engine_process_review.rs",
+      "sha256": "31161f660b3fa760b2faf4a5aa2b403f8c0af2df33ef5c60d4ca6293dbf91db3",
+      "byteLength": 13501
+    },
+    {
+      "path": "crates/omniusong-engine/tests/engine_review.rs",
+      "sha256": "6f57e4dc66b705e5a9279e820cdd611f87534334f691cf31b954dcfb669593d9",
+      "byteLength": 28719
+    },
+    {
+      "path": "crates/omniusong-engine/tests/live_process_review.rs",
+      "sha256": "6b94aeef2b99295055b35fabe7f52f692b4966f94c1b32e216c05e0731e9a499",
+      "byteLength": 25807
+    },
+    {
+      "path": "crates/omniusong-engine/tests/live_review.rs",
+      "sha256": "72ea33e7311259026117a8e238c1e13295c0dea1cfe47fc5431f894e2c16b224",
+      "byteLength": 26488
+    },
+    {
+      "path": "crates/omniusong-engine/tests/panic_progress_review.rs",
+      "sha256": "468d3744bf6ad38a0b67e526905db850ff784e4ada5e33310399b823950c28ae",
+      "byteLength": 7661
+    },
+    {
+      "path": "crates/omniusong-engine/tests/performance_bounded.rs",
+      "sha256": "ee58723c84d4e0ec2c03ca61e7f6cbe288a0e321f7405bb89d7377497fc62ac7",
+      "byteLength": 12007
+    },
+    {
+      "path": "crates/omniusong-engine/tests/performance_copy.rs",
+      "sha256": "7153f8ecef18c9be5ea9c5c6e9785b4b23d724b6b33943af6765b7f70c92a74b",
+      "byteLength": 31159
+    },
+    {
+      "path": "crates/omniusong-engine/tests/performance_finish_codec.rs",
+      "sha256": "8050de8433de9dabf859e96f18fb7403899a8356c13e379708af7129fc31d3ce",
+      "byteLength": 23595
+    },
+    {
+      "path": "crates/omniusong-engine/tests/performance_finish_render.rs",
+      "sha256": "ffef8e99b8f43fc382907c3f31a72d08fc738b459d4d4ab37769c7f200df3226",
+      "byteLength": 13898
+    },
+    {
+      "path": "crates/omniusong-engine/tests/performance_finish_review.rs",
+      "sha256": "e9e9be7ef2b98d908f84fb5820397970a1d3bcaac19193414cb0da789dfee271",
+      "byteLength": 27252
+    },
+    {
+      "path": "crates/omniusong-engine/tests/performance_playback_lifecycle_review.rs",
+      "sha256": "c705c49339cb6faaadb32f8b1124873f2ee36db4022c0ead4723855237700be4",
+      "byteLength": 16133
+    },
+    {
+      "path": "crates/omniusong-engine/tests/performance_projection_review.rs",
+      "sha256": "d57a119a18ea0d57f5b538aa7494b7bd0fb61754842f83185902cfb8f29242ad",
+      "byteLength": 33586
+    },
+    {
+      "path": "crates/omniusong-engine/tests/performance_projection_review/archive_closure_review.rs",
+      "sha256": "a732fc5d59fca022e3e6cb58bbf1d34bbdfc8ceb661735457c1fdd87e1fea130",
+      "byteLength": 47988
+    },
+    {
+      "path": "crates/omniusong-engine/tests/performance_projection_review/binding_review.rs",
+      "sha256": "7a90d0d7a67e06bca3d0f976a06b77a1f192ca7aa9e14511f6ca8eab89226493",
+      "byteLength": 30481
+    },
+    {
+      "path": "crates/omniusong-engine/tests/performance_projection_review/catalog_review.rs",
+      "sha256": "567db9f2dafcdbfc4938c2ccaa7950f1e87488dd8a9f2dfabac876dd31c92ef9",
+      "byteLength": 6326
+    },
+    {
+      "path": "crates/omniusong-engine/tests/performance_projection_review/governed_archive_review.rs",
+      "sha256": "733188ed2d4206ce110481bbea93ac81756635c6b9b4359b9a22c49a22e2686b",
+      "byteLength": 48559
+    },
+    {
+      "path": "crates/omniusong-engine/tests/performance_projection_review/publication_review.rs",
+      "sha256": "a3a4fb3d9709ef569953cebf674cf0f0e2d4b35459897679470d1316a833af08",
+      "byteLength": 49670
+    },
+    {
+      "path": "crates/omniusong-engine/tests/performance_recording_review.rs",
+      "sha256": "2fc60a68500eaf0cec031f359691cde44997bcef51d5d2c7166d0e9911699552",
+      "byteLength": 29273
+    },
+    {
+      "path": "crates/omniusong-engine/tests/performance_writer_review.rs",
+      "sha256": "28b6461064d1c74f25470185cb9888a19c2933cead43459be4d50be09d568717",
+      "byteLength": 37140
+    },
+    {
+      "path": "crates/omniusong-ipc/Cargo.toml",
+      "sha256": "d31a056573f76d139ce83dda60161009cc118eade4c282af99b9fda9318a8e1e",
+      "byteLength": 263
+    },
+    {
+      "path": "crates/omniusong-ipc/src/lib.rs",
+      "sha256": "cd8b4fb53dc68fbb24d9a8b9c817d2967cd8981733669aa3f4e7a958a754c498",
+      "byteLength": 11768
+    },
+    {
+      "path": "crates/omniusong-ipc/src/unix.rs",
+      "sha256": "1944638a1590569fd4e9cb4fa3e78437a824f5e1b17633cbb4c489c765d11edc",
+      "byteLength": 19942
+    },
+    {
+      "path": "crates/omniusong-ipc/tests/framing.rs",
+      "sha256": "84de874795dd450acd385993735e08a1bea88ec709312c76573ec6c87ccb8062",
+      "byteLength": 9311
+    },
+    {
+      "path": "crates/omniusong-ipc/tests/process_transport.rs",
+      "sha256": "a1db74eab0dd54c7047777fa164a05cff1b7ba859969cae90d7e100abd20a0b0",
+      "byteLength": 9322
+    },
+    {
+      "path": "crates/omniusong-ipc/tests/review_regressions.rs",
+      "sha256": "3fae358ea71efa1d464b14fe73a3888fdb9a8592ba38c6db029c86751322d127",
+      "byteLength": 15640
+    },
+    {
+      "path": "crates/omniusong-performance/Cargo.toml",
+      "sha256": "0cf62fd8925f70b284948ea0ad31ebe0a218a67ad9201fb73a3db5e84f15d3ae",
+      "byteLength": 326
+    },
+    {
+      "path": "crates/omniusong-performance/src/lib.rs",
+      "sha256": "74fba19567cf8b3874fac60074752b1edac27efb47a4be9f1b87b0aff8c20bc1",
+      "byteLength": 297
+    },
+    {
+      "path": "crates/omniusong-performance/src/live_types.rs",
+      "sha256": "536ad339cbc9a79a39900df1af2413606cdc456fcf51cea52ef42d959c0d32e1",
+      "byteLength": 8026
+    },
+    {
+      "path": "crates/omniusong-performance/src/performance_inspection.rs",
+      "sha256": "a5aa7ad9efc33d4781e6b38916f3a8e94542c2f143cce41835061c82f924060d",
+      "byteLength": 44076
+    },
+    {
+      "path": "crates/omniusong-performance/src/performance_records.rs",
+      "sha256": "cd00a1befd5387e4e2fab7e5b84c68e6c40ae10672a577b7841ecc0d488ea57f",
+      "byteLength": 54968
+    },
+    {
+      "path": "crates/omniusong-performance/src/performance_tap.rs",
+      "sha256": "bcef258934fe07a4d7fc96ab1a59adff82ad409b3308ad347d7d75a80e56e23d",
+      "byteLength": 3508
+    },
+    {
+      "path": "crates/omniusong-performance/src/projection.rs",
+      "sha256": "37288ef6baac43445c043f93b89c3866bd22729d81c3e1ec166a313abdc8dbde",
+      "byteLength": 24131
+    },
+    {
+      "path": "crates/omniusong-performance/src/projection/arithmetic.rs",
+      "sha256": "f574114506661cdcd1aa88f8cd049cf6440c94a45d2ade1326bec9e7e50633ce",
+      "byteLength": 3447
+    },
+    {
+      "path": "crates/omniusong-performance/src/projection/binding.rs",
+      "sha256": "dfc3f88a4605368af8274eba6deb21efb759246f5151a375b96961efdbd1ce7a",
+      "byteLength": 21196
+    },
+    {
+      "path": "crates/omniusong-performance/src/projection/binding/tests.rs",
+      "sha256": "981edd40b1ff81b1943e5b85329af35d5ba09b12205a03c1ad47c697dfaddad5",
+      "byteLength": 13983
+    },
+    {
+      "path": "crates/omniusong-performance/src/projection/lifecycle.rs",
+      "sha256": "d79a5a77304abf51b0a85a4aad73045d1036f773488428807e39aadd3b373fec",
+      "byteLength": 46049
+    },
+    {
+      "path": "crates/omniusong-performance/src/projection/lifecycle/tests.rs",
+      "sha256": "c98fe9cc47033c22980cd21e08b8b243b3d0c3cf0b6858ab323e9ed2abfaccaf",
+      "byteLength": 23977
+    },
+    {
+      "path": "crates/omniusong-performance/src/projection/tests.rs",
+      "sha256": "2be980e57db1b821b1d979af1257c56c1a9adcc7fdfc2145633e1134307400dd",
+      "byteLength": 5519
+    },
+    {
+      "path": "crates/omniusong-performance/tests/codec_compatibility.rs",
+      "sha256": "5c6cb1339cb4c42cbf5292603379629554bce0fc1415c556c6ad3c9cf5badf1b",
+      "byteLength": 2326
+    },
+    {
+      "path": "crates/omniusong-performance/tests/fixtures/retained-performance-v2.json",
+      "sha256": "6f1bc73da795dfc09ab5f317ac6ce02f0df84b766ed8dc14aa35d3b9fc5ee3e9",
+      "byteLength": 17149
+    },
+    {
+      "path": "crates/omniusong-recording/Cargo.toml",
+      "sha256": "79d9f1be7bbe85b1c57a7c8aebfbc40279e714c9f3fd496d7d684d7ec30d91fb",
+      "byteLength": 341
+    },
+    {
+      "path": "crates/omniusong-recording/src/budget.rs",
+      "sha256": "392504c8f3432c17486d3c211e81412f61db61348433810bbea95f343fa37892",
+      "byteLength": 18942
+    },
+    {
+      "path": "crates/omniusong-recording/src/inspection.rs",
+      "sha256": "558686f29a18167b8a9c6c1e984c65e7919fb295d68cc4c29264935c72394b00",
+      "byteLength": 32680
+    },
+    {
+      "path": "crates/omniusong-recording/src/inspection/copy_recovery.rs",
+      "sha256": "ce1f61dd48ab45e8532629f68752cb1ce51820d970a68ca6dc366f48c1f25c5f",
+      "byteLength": 21447
+    },
+    {
+      "path": "crates/omniusong-recording/src/inspection/copy_recovery/reconciliation.rs",
+      "sha256": "f30be4752880fb22ea147e5fcc52aebca8d382248aa9e297f1e4260b3244b71d",
+      "byteLength": 14795
+    },
+    {
+      "path": "crates/omniusong-recording/src/inspection/copy_recovery/reconciliation/export.rs",
+      "sha256": "dfa2e7c89eea0579c6c34e27b03d7a796ff055d0c58c4dcaff68bef92c8e30a6",
+      "byteLength": 6442
+    },
+    {
+      "path": "crates/omniusong-recording/src/inspection/hash_tests.rs",
+      "sha256": "15e913d757cb23fa87d386e3fbcef71c8064791843d98c09d51aab2bd8c47373",
+      "byteLength": 19209
+    },
+    {
+      "path": "crates/omniusong-recording/src/inspection_report_reuse_tests.rs",
+      "sha256": "f7504cd315d1b4c6a2b1afba50d2fd88455a47509ae2f03ab01cea14ebe296ba",
+      "byteLength": 13782
+    },
+    {
+      "path": "crates/omniusong-recording/src/journal.rs",
+      "sha256": "a745931036aa9e2cbc0d9a72b2a454c7c05272df5634edc771b246e77241c672",
+      "byteLength": 63670
+    },
+    {
+      "path": "crates/omniusong-recording/src/journal/copy_finalization.rs",
+      "sha256": "08c4e3cece5f952dfa241209ae6730ba1ba24a7131e625dfead4ba0fd395023a",
+      "byteLength": 20580
+    },
+    {
+      "path": "crates/omniusong-recording/src/lib.rs",
+      "sha256": "63bd8de3d42af020ccb4b77dea77df55ee53a4e4f705c91b4a64b8efd98dde2b",
+      "byteLength": 806
+    },
+    {
+      "path": "crates/omniusong-recording/src/snapshot.rs",
+      "sha256": "481ab88fe6fde93dba01305f7379b998f5d44d9dc71a1327d47b90307d7a1ed9",
+      "byteLength": 18847
+    },
+    {
+      "path": "crates/omniusong-recording/src/snapshot_identity.rs",
+      "sha256": "d77327e30ba5bc33a9523c49c061c4d8480d07c86f47d1fb5e1b6427c45c0208",
+      "byteLength": 3355
+    },
+    {
+      "path": "crates/omniusong-recording/src/snapshot_identity_tests.rs",
+      "sha256": "9f186595c73d9128c22395fe5d6fa67d49b63ce371abdc46a027702d10bb0e05",
+      "byteLength": 7137
+    },
+    {
+      "path": "crates/omniusong-recording/src/snapshot_tests.rs",
+      "sha256": "a9c078e85a0cd9ba8d1098b20a70bd47f4bd0ee20824c2467a4d64c6fb66fc28",
+      "byteLength": 15133
+    },
+    {
+      "path": "crates/omniusong-recording/src/tests.rs",
+      "sha256": "d982cada2b309632533e8e76dab4daac7b9b9c49f0087e540c5ac57449ac11a0",
+      "byteLength": 20406
+    },
+    {
+      "path": "crates/omniusong-recording/src/types.rs",
+      "sha256": "9665d67e07b9b81681fe54023483be23d78352e6d999f27abe8b253acf3676ac",
+      "byteLength": 25990
+    },
+    {
+      "path": "crates/omniusong-recording/tests/append_group.rs",
+      "sha256": "8f6235ae3e67a6a9667eafad678cc7f619103748400dc353fa112a046b116c95",
+      "byteLength": 16877
+    },
+    {
+      "path": "crates/omniusong-recording/tests/append_group_process.rs",
+      "sha256": "7afdcbe66fc77cce779cd6bb37d8c5b7bbc77c7d58ae59066fcb9ed66f14290b",
+      "byteLength": 13623
+    },
+    {
+      "path": "crates/omniusong-recording/tests/bounded_inspection_review.rs",
+      "sha256": "205f759e6dd8cd988ac8f4589fd29e063fe83604b647b0bfea5b4809fdee77dd",
+      "byteLength": 16446
+    },
+    {
+      "path": "crates/omniusong-recording/tests/capture_inspection.rs",
+      "sha256": "57973408677867adbbe01e26820f7f37e959ba17f9368a899a8d0eaaae644157",
+      "byteLength": 5957
+    },
+    {
+      "path": "crates/omniusong-recording/tests/capture_inspection_review.rs",
+      "sha256": "c88f80993dbbe5ac62e52784c1badda0efdb5dc44fcf1851bb07c0d169bb251f",
+      "byteLength": 9765
+    },
+    {
+      "path": "crates/omniusong-recording/tests/complete_prefix.rs",
+      "sha256": "85f2233f7fd863ee74c2c284159371bb11cd4ab31412a3298af8502dbee42a47",
+      "byteLength": 20044
+    },
+    {
+      "path": "crates/omniusong-recording/tests/complete_prefix_independent.rs",
+      "sha256": "9f2343e184aa463bba90a7343a5243c48081167fc4ff78064d5e66ae37702297",
+      "byteLength": 19849
+    },
+    {
+      "path": "crates/omniusong-recording/tests/copy_reconciliation.rs",
+      "sha256": "69de638b634f8c412c0480bb8cba28bcba371f1dde585a7dc36dcc5270fbccc6",
+      "byteLength": 34704
+    },
+    {
+      "path": "crates/omniusong-recording/tests/copy_recovery.rs",
+      "sha256": "00e0687fa0431e62139afba1361441c1d80328168ed535be118b9af6175c8f27",
+      "byteLength": 39647
+    },
+    {
+      "path": "crates/omniusong-recording/tests/inspection_budget_owner.rs",
+      "sha256": "0f7cd5141e640ac2ce4525420a7ab162f4cd787a1d371116fd9077e064adb3e0",
+      "byteLength": 7679
+    },
+    {
+      "path": "crates/omniusong-recording/tests/original_rows_hash_independent.rs",
+      "sha256": "824df5fdc54662e2f2a1372bd874b1d99b3cb99daf5b1e7c76fb773730b2e64b",
+      "byteLength": 12837
+    },
+    {
+      "path": "crates/omniusong-recording/tests/recovered_export.rs",
+      "sha256": "f76f9e0032f18ceeae941007e589204c589c459df01050e7db93f3acc2984c9e",
+      "byteLength": 17036
+    },
+    {
+      "path": "crates/omniusong-recording/tests/review_regressions.rs",
+      "sha256": "c564b14b78846f098cd2c03f2903279e9121b661c0423f05ae0e27876e0a69a3",
+      "byteLength": 26985
+    },
+    {
+      "path": "crates/omniusong-recording/tests/selected_prefix.rs",
+      "sha256": "1500665b5a7a04fb9e8eb1ac87c5bf78f7d7ce08cebed6dbb5e49c80eaf5d44b",
+      "byteLength": 14243
+    },
+    {
+      "path": "crates/omniusong-recording/tests/snapshot_review.rs",
+      "sha256": "8a8ac2d7b4ccd5977968cff469b229e51c57a5e76b2161b44cc64161c50482f0",
+      "byteLength": 11017
+    },
+    {
+      "path": "crates/omniusong-session/Cargo.toml",
+      "sha256": "df0135de091896db9683a207b62c38de2e84f7e5de0df2ad7fa348f278fadfa0",
+      "byteLength": 476
+    },
+    {
+      "path": "crates/omniusong-session/src/evidence_jobs.rs",
+      "sha256": "61c49812815518c9d91e93717784329f5de40ed8b66c8e59252b5b7e0a268c44",
+      "byteLength": 16741
+    },
+    {
+      "path": "crates/omniusong-session/src/evidence_jobs/journal.rs",
+      "sha256": "911efc9588bcb8495ce924739b87dc4a1147dc203df5ce4c8bba37b447eeb4e3",
+      "byteLength": 50795
+    },
+    {
+      "path": "crates/omniusong-session/src/evidence_jobs/journal_tests.rs",
+      "sha256": "ea8c668d2d6aa55a95912414d6c61e32e810603658b4ea0d8c0a9eff37f25738",
+      "byteLength": 35818
+    },
+    {
+      "path": "crates/omniusong-session/src/evidence_jobs/runner.rs",
+      "sha256": "8b739bd02a456b6c3ccf8634fc75194395668f7cbe81491b3719e608aec5d452",
+      "byteLength": 21175
+    },
+    {
+      "path": "crates/omniusong-session/src/evidence_jobs/service_tests.rs",
+      "sha256": "9524facad866bb6bd4ffb2c6bcff8615ba740c45265160409dadd3b2ea62b52a",
+      "byteLength": 13092
+    },
+    {
+      "path": "crates/omniusong-session/src/evidence_jobs/tests.rs",
+      "sha256": "8646b99cb2ad6998e24b3b8dcce8dc6772ac4f0ba0776a193aa1541bfe5d4231",
+      "byteLength": 25509
+    },
+    {
+      "path": "crates/omniusong-session/src/lib.rs",
+      "sha256": "4eeb86bcff8aa1bd205d1ee52c3ebe3ae31a8abe5d3d13ea56d6a492ef4d6e46",
+      "byteLength": 80351
+    },
+    {
+      "path": "crates/omniusong-session/src/performance_intents.rs",
+      "sha256": "a4ddb08bb06bf45a6782a1f59ceaa8d9f5dcfc7779a3fd3cc472fa05045e55b1",
+      "byteLength": 50568
+    },
+    {
+      "path": "crates/omniusong-session/src/performance_source_actions.rs",
+      "sha256": "c2e8aabd6d47b49d3a37da88fad9199c697171ffbc9cc68cedb5e5c59f8d8998",
+      "byteLength": 20877
+    },
+    {
+      "path": "crates/omniusong-session/src/performance_source_actions/attachment.rs",
+      "sha256": "db0901125ce41b357c0541f2e126d902e2846d413d90dc51c6cca71c26cca9ae",
+      "byteLength": 12599
+    },
+    {
+      "path": "crates/omniusong-session/src/performance_source_actions/attachment_tests.rs",
+      "sha256": "9f197523eecc894c82691cadebfe7120fd1bf32196966f2b35bcef34210a5b78",
+      "byteLength": 39964
+    },
+    {
+      "path": "crates/omniusong-session/src/performance_source_actions/decisions.rs",
+      "sha256": "600aa2d487f2ba22e26dca83b8a880655688e7b54c31ba880e2f061b3acbd127",
+      "byteLength": 26376
+    },
+    {
+      "path": "crates/omniusong-session/src/performance_source_actions/decisions_tests.rs",
+      "sha256": "dd97d883a007f96b85a8cbb32e0b01f963c36fcf21906980c08e6fe386ecc9c0",
+      "byteLength": 29014
+    },
+    {
+      "path": "crates/omniusong-session/src/performance_source_actions/detail.rs",
+      "sha256": "e3195a789e5fe1a618158a24a317cee13a1b8a1e22c245298da0dc2bf22e2717",
+      "byteLength": 19317
+    },
+    {
+      "path": "crates/omniusong-session/src/performance_source_actions/detail_tests.rs",
+      "sha256": "8482cbdb3a1646dca0e30cb5758f771e047fcbd4ebba16900440a362c94abe08",
+      "byteLength": 37941
+    },
+    {
+      "path": "crates/omniusong-session/src/performance_source_actions/execution.rs",
+      "sha256": "1d91b361f301869166424e279a81f49dc4ba99de6b3e1d9b8d63e4901b29c5b5",
+      "byteLength": 28978
+    },
+    {
+      "path": "crates/omniusong-session/src/performance_source_actions/execution_tests.rs",
+      "sha256": "472b7ee546c749141398225286c8484ce0243deeed4cb6a6fc501a32bd255eeb",
+      "byteLength": 36551
+    },
+    {
+      "path": "crates/omniusong-session/src/performance_source_actions_tests.rs",
+      "sha256": "c25fb0a444ee4e540684084ff38ae479c575358d14a2fdf787d83facec6480d4",
+      "byteLength": 40900
+    },
+    {
+      "path": "crates/omniusong-session/src/performance_sources.rs",
+      "sha256": "730344f5d5fdf0ae891c13027501f388f1fc4e1ae8e15e74ef46b0190a116e44",
+      "byteLength": 26387
+    },
+    {
+      "path": "crates/omniusong-session/src/source_action_controls_review.rs",
+      "sha256": "9e907934fdd35cac41157af448a8581fd5bff5fd0f970cdada7a22844f698bf6",
+      "byteLength": 12424
+    },
+    {
+      "path": "crates/omniusong-session/tests/capture_recovery_service.rs",
+      "sha256": "2b800c601f65f7c0f729056ff9957a7a18980b69d4d31c1e74f8c352e8407163",
+      "byteLength": 13019
+    },
+    {
+      "path": "crates/omniusong-session/tests/capture_service.rs",
+      "sha256": "963484d16523dfa5c71b3a122cf061f257a788fd4c6fc323eed88c54c83805b4",
+      "byteLength": 5409
+    },
+    {
+      "path": "crates/omniusong-session/tests/clip_edit_service.rs",
+      "sha256": "4d7b2a9fe3d2492ba0f40ae35e399532a8e5b9b9a0888023c9f5585c1d16f62a",
+      "byteLength": 9048
+    },
+    {
+      "path": "crates/omniusong-session/tests/note_edit_service.rs",
+      "sha256": "e0f9921ca24d3232865f06acb65c3a1a1cb325c7328b004f8816bf58412523e5",
+      "byteLength": 17466
+    },
+    {
+      "path": "crates/omniusong-session/tests/projection_schema_view.rs",
+      "sha256": "9c552fd645ff7badd60e484b7f0d33b9bc5bee0043da37cf4489b3c1352b05de",
+      "byteLength": 3606
+    },
+    {
+      "path": "crates/omniusong-session/tests/service_review.rs",
+      "sha256": "ec73b47d0b9d0494bbcb33d2a234e9f7f4b01c4e9c61b18081a3e3f556d1bef6",
+      "byteLength": 24926
+    },
+    {
+      "path": "crates/omniusong-store/Cargo.toml",
+      "sha256": "7ef13c650512b712ea49b17075c3556fc9e8fef1e356f375764627699013493f",
+      "byteLength": 385
+    },
+    {
+      "path": "crates/omniusong-store/examples/prepare_capture_recovery_ui.rs",
+      "sha256": "4a5795fb61d104921021d18dd549e073ecfd3030af1d078364f0aebae6eb84ec",
+      "byteLength": 16920
+    },
+    {
+      "path": "crates/omniusong-store/examples/prepare_clip_editor_ui.rs",
+      "sha256": "3e012f6c692da7aa9e777da5784b2ce8e397ebd0d1c6cbbea9a1f0ecf6946422",
+      "byteLength": 27631
+    },
+    {
+      "path": "crates/omniusong-store/examples/prepare_native_audio_fixture.rs",
+      "sha256": "f4b794ede52f1316f20f8609424c60b96b5aff1e8114eaf35fbeba003e056db4",
+      "byteLength": 2303
+    },
+    {
+      "path": "crates/omniusong-store/examples/prepare_native_ui_fixture.rs",
+      "sha256": "d9bbb827354a86844ed75633e6d26344cc7a8a69e31abe6021080457b34391d2",
+      "byteLength": 9015
+    },
+    {
+      "path": "crates/omniusong-store/examples/prepare_note_editor_ui.rs",
+      "sha256": "a7dbc60273c0ed6635898004c92dabd228da7e59b33ec74539c33e874a43b166",
+      "byteLength": 16943
+    },
+    {
+      "path": "crates/omniusong-store/examples/qualify_archive_copy.rs",
+      "sha256": "28c2845334b0b380d3c36a254b9e1278e4b6e51a93bfca26ca04ee71c0d1bfee",
+      "byteLength": 10278
+    },
+    {
+      "path": "crates/omniusong-store/examples/qualify_capture_recovery.rs",
+      "sha256": "b5867ace00471f9ba83a2370639914d8e7bcfb741df139c3cec9aa49261720d3",
+      "byteLength": 9444
+    },
+    {
+      "path": "crates/omniusong-store/examples/qualify_legacy.rs",
+      "sha256": "83d6aea6aa30c9f94ebbdc13bf8284afc4de646496736a7419a1fc6e242316a1",
+      "byteLength": 4284
+    },
+    {
+      "path": "crates/omniusong-store/examples/qualify_native_archive.rs",
+      "sha256": "b0a7a1502d6d7f2b4a191875ec4eb10bd67397725bde341db8eff8e73a95a778",
+      "byteLength": 13244
+    },
+    {
+      "path": "crates/omniusong-store/examples/qualify_note_edit.rs",
+      "sha256": "47c2272e99e146501c3ee22568b660bbf5ed7860620a43a294ac25f98ca43619",
+      "byteLength": 16648
+    },
+    {
+      "path": "crates/omniusong-store/examples/recover_disconnected_preview.rs",
+      "sha256": "b26f8c8479df6168ffc88f58682034aa0b241b1e4d22fcb008051b7ae9101c00",
+      "byteLength": 13922
+    },
+    {
+      "path": "crates/omniusong-store/src/active_projection_edits.rs",
+      "sha256": "1488fd369be3b985f6778f6332f309f69696507cddec3cd51a0dd5e20ae4484c",
+      "byteLength": 13544
+    },
+    {
+      "path": "crates/omniusong-store/src/archive.rs",
+      "sha256": "7418408998d4298247ef6c0e9f3d66d8c111b08dc6f6cc95350c5d696cad5eab",
+      "byteLength": 86235
+    },
+    {
+      "path": "crates/omniusong-store/src/archive/outcome_tests.rs",
+      "sha256": "5f88c99d7d22aebb160b5d5137018f25a566378910127750c172fe1af154fa4c",
+      "byteLength": 11534
+    },
+    {
+      "path": "crates/omniusong-store/src/archive/postimage_tests.rs",
+      "sha256": "ddc77d04bc3c492909cd5d80aef23539411cff83c9120c587a61dd0f3a598d87",
+      "byteLength": 16092
+    },
+    {
+      "path": "crates/omniusong-store/src/archive_boundary.rs",
+      "sha256": "6c0cc9e5b99e0f667f77466d2048a328963d818453cc85030c015f690145a214",
+      "byteLength": 9696
+    },
+    {
+      "path": "crates/omniusong-store/src/archive_boundary/tests.rs",
+      "sha256": "ec2b0d2335ea75b7763873e64b281f841f20692160e8829ab0cdc6d8844ba3a4",
+      "byteLength": 3804
+    },
+    {
+      "path": "crates/omniusong-store/src/archive_copy.rs",
+      "sha256": "c85b6206ca48a7bcdb5e7d178b4fc6e7946229ae75810a772909c1cd5bcae44a",
+      "byteLength": 152129
+    },
+    {
+      "path": "crates/omniusong-store/src/archive_governed.rs",
+      "sha256": "138ca88eb4d1152d04667f75d2c3c190892cb62d8b546910610dcf7c51da0c9c",
+      "byteLength": 43718
+    },
+    {
+      "path": "crates/omniusong-store/src/archive_governed/tests.rs",
+      "sha256": "59b293a5d9207047098d937b4491108e3f0d17584b48ce1b90ab82554dce422b",
+      "byteLength": 14822
+    },
+    {
+      "path": "crates/omniusong-store/src/archive_metadata.rs",
+      "sha256": "f58b59c8a48d45d54dcff992fbe0a0c25c684b2f8d9d2dad702c3bf55efe9c58",
+      "byteLength": 38031
+    },
+    {
+      "path": "crates/omniusong-store/src/archive_metadata/tests.rs",
+      "sha256": "279604fbf5785a89ef9d9f16e84d9dc0dc908afea757e1d83009e477e60287a0",
+      "byteLength": 19241
+    },
+    {
+      "path": "crates/omniusong-store/src/archive_operation.rs",
+      "sha256": "4bff243553b293334462e703a7442d3674c93cbf073dd23586f96163f3eba089",
+      "byteLength": 26665
+    },
+    {
+      "path": "crates/omniusong-store/src/archive_plan.rs",
+      "sha256": "ff32c29e97723f0c6e9b4affaf60f1bbeedabd868fe4eaea21147e9fe1068674",
+      "byteLength": 4656
+    },
+    {
+      "path": "crates/omniusong-store/src/archive_postimage.rs",
+      "sha256": "ff86e0a037e38bb7626d98b3bbe25f74820ef701103526443d8d5dc3e6911034",
+      "byteLength": 40259
+    },
+    {
+      "path": "crates/omniusong-store/src/archive_postimage/tests.rs",
+      "sha256": "70bc1f925a406f9916e4a13bc6da426b177878125b1a520df3181fc3aa60623d",
+      "byteLength": 21664
+    },
+    {
+      "path": "crates/omniusong-store/src/archive_projection.rs",
+      "sha256": "0fcfaee8ee1bac19f162da80caec6c92d530e43c2298ca63f40f384556dddbcb",
+      "byteLength": 45608
+    },
+    {
+      "path": "crates/omniusong-store/src/archive_projection/tests.rs",
+      "sha256": "ad3f5a1b84a88f5022a119cce131e3f21da8c68891e94acc42dbb82d6cca5b3b",
+      "byteLength": 36120
+    },
+    {
+      "path": "crates/omniusong-store/src/captures.rs",
+      "sha256": "fc57ebd772ee7bd27256638ce9ae9ce14c5262a206f1cee272a7471e9a4a40c6",
+      "byteLength": 15639
+    },
+    {
+      "path": "crates/omniusong-store/src/catalog_transaction.rs",
+      "sha256": "23e15a32be6c5da08e665f02d364363f747a2d035ebfd7896b48d272c11ef804",
+      "byteLength": 14454
+    },
+    {
+      "path": "crates/omniusong-store/src/catalog_transaction/tests.rs",
+      "sha256": "80b39dc20fef0073ba6f7199c053f3696c0e476dd3828addbdbc430c636c807a",
+      "byteLength": 27497
+    },
+    {
+      "path": "crates/omniusong-store/src/evidence_archive.rs",
+      "sha256": "bb310d74b529fa1e893e9f65e919e00f9d6c2fb3f4dbd417b7eb0889097a8c05",
+      "byteLength": 52028
+    },
+    {
+      "path": "crates/omniusong-store/src/evidence_archive/export_origin_tests.rs",
+      "sha256": "2340a047bf88ead5e962d390ae913973b643feed57a90c7d673cef5a51eb2ee8",
+      "byteLength": 5562
+    },
+    {
+      "path": "crates/omniusong-store/src/evidence_archive/export_reconciliation.rs",
+      "sha256": "49c50b1a42d08b066df69a6b75229fe2b203f477c2c138d68e14f8549bdf4f34",
+      "byteLength": 2642
+    },
+    {
+      "path": "crates/omniusong-store/src/evidence_archive/export_reconciliation_tests.rs",
+      "sha256": "79d19971c0155c0aad1fc4419eaff2c20fb919bc887388f52da9393586b28848",
+      "byteLength": 7702
+    },
+    {
+      "path": "crates/omniusong-store/src/evidence_archive/inert_reconciliation.rs",
+      "sha256": "b39c992503caecd1cc47e226e0260cf5c3dc641ecb3bff1b80be01bbddc30a8c",
+      "byteLength": 17454
+    },
+    {
+      "path": "crates/omniusong-store/src/evidence_archive/inert_reconciliation_oracle_tests.rs",
+      "sha256": "9670874b52d89a56cc83f2d909d253e1bb9aa26863cea7cdab884a6ab9f73789",
+      "byteLength": 3417
+    },
+    {
+      "path": "crates/omniusong-store/src/evidence_archive/inert_reconciliation_tests.rs",
+      "sha256": "a64f75031730343c828c658bbde7854a2e3b1ca7c3b13485c75109483c1c2c56",
+      "byteLength": 25192
+    },
+    {
+      "path": "crates/omniusong-store/src/evidence_archive/raw.rs",
+      "sha256": "8ec7c58df9067f4188801fcc4f38d771b4144798750e3ae857d354c78dd62c69",
+      "byteLength": 28811
+    },
+    {
+      "path": "crates/omniusong-store/src/evidence_archive/reviewed_restore_tests.rs",
+      "sha256": "22694df177945f1a56c33ce767b673c5d5a046049efe5aa9a37bbbca9f819cda",
+      "byteLength": 29084
+    },
+    {
+      "path": "crates/omniusong-store/src/evidence_archive/tests.rs",
+      "sha256": "177e1db75963e7558947a2daa3b8b66f69164461e32ec6b3de0cd2cad46d283a",
+      "byteLength": 82071
+    },
+    {
+      "path": "crates/omniusong-store/src/evidence_failure.rs",
+      "sha256": "1ac3ffc0bacd0dcde2d64bf48d1e6492583119ec755debd17a4ebcbc69ece272",
+      "byteLength": 8348
+    },
+    {
+      "path": "crates/omniusong-store/src/lib.rs",
+      "sha256": "ab251566792b63c35669ba1af56980161317480293b022fb4f2ff6472685b6c0",
+      "byteLength": 48876
+    },
+    {
+      "path": "crates/omniusong-store/src/operations.rs",
+      "sha256": "050c8826d9c9a56574a8455d1b48d2b0ac9abbd69d46e3a313b60dadce550d74",
+      "byteLength": 16096
+    },
+    {
+      "path": "crates/omniusong-store/src/performance_attachment_check.rs",
+      "sha256": "669264f413f55fc2f5d89404a456b0cf22dc0782a2eca0c947a7d9d4c080d161",
+      "byteLength": 13389
+    },
+    {
+      "path": "crates/omniusong-store/src/performance_intents.rs",
+      "sha256": "94adf13986e654fb47b9eddaea48f20f9fd7f5b331cc3b3e29f9d35ecb8ec649",
+      "byteLength": 13223
+    },
+    {
+      "path": "crates/omniusong-store/src/performance_source_actions.rs",
+      "sha256": "8c1ec4e6d2da38611298fe59160096b559ae4007d82e7c12604c277224506392",
+      "byteLength": 14717
+    },
+    {
+      "path": "crates/omniusong-store/src/performance_source_actions_review.rs",
+      "sha256": "5725f0b1a22e7b0a55891c0ac0a709c9d562ab208f8b3c1b888d6697bedbddd9",
+      "byteLength": 44386
+    },
+    {
+      "path": "crates/omniusong-store/src/projection_boundary.rs",
+      "sha256": "37bf1b1c7febae4f9343ecfd788e665554fb887aa1c8c07f3035b3f3bf6dffd1",
+      "byteLength": 1302
+    },
+    {
+      "path": "crates/omniusong-store/src/projection_metadata.rs",
+      "sha256": "5a49a2d5374edac9a780b5879eb4dcae76220e4e4c0773e7c5707214878bcc53",
+      "byteLength": 6271
+    },
+    {
+      "path": "crates/omniusong-store/src/projection_publication.rs",
+      "sha256": "56eae208174e0d2431d116157c136351ba1a7d393384f330b521b4456b0101ce",
+      "byteLength": 19773
+    },
+    {
+      "path": "crates/omniusong-store/src/projection_publication_types.rs",
+      "sha256": "6ae239a090e24db3aba7c051b9e4420b569b7b8ffff55fc0ddb89710578d623c",
+      "byteLength": 23804
+    },
+    {
+      "path": "crates/omniusong-store/src/projection_sources.rs",
+      "sha256": "4bb53b049b16d136f363149354589503378ea3cfa7fc358e6f58e0d6e6f0e97b",
+      "byteLength": 43768
+    },
+    {
+      "path": "crates/omniusong-store/src/reader.rs",
+      "sha256": "054d3ffc02dfbdbbd166ace59c0f80346b6417c06a39cf15c1387ba5b5ee0ce6",
+      "byteLength": 5195
+    },
+    {
+      "path": "crates/omniusong-store/src/reader_tests.rs",
+      "sha256": "1117e948940ccda4b6c7cc390c44b0509c8df39003900843d444675a0cfd3346",
+      "byteLength": 22917
+    },
+    {
+      "path": "crates/omniusong-store/src/recovered_takes.rs",
+      "sha256": "c4bd2b66a1ff0366de4706a9b2c5aad14d7ab211211a748adb0b9ef8970e6b06",
+      "byteLength": 8567
+    },
+    {
+      "path": "crates/omniusong-store/src/retained_file_coordination.rs",
+      "sha256": "fabafc221a3cf15189da193649704db3b3e744bba8a4265e56fa0c2a56c49a87",
+      "byteLength": 3941
+    },
+    {
+      "path": "crates/omniusong-store/src/source_attachment.rs",
+      "sha256": "3af227cc7b047259fd458f2662c7c282a1a996e0e20e6e1e7c955b19db05111c",
+      "byteLength": 7861
+    },
+    {
+      "path": "crates/omniusong-store/src/source_attachment_tests.rs",
+      "sha256": "b4f14c22a77e67a4c15781bd3c28e2ec4043df63f04239d164fe72c73ca2efc5",
+      "byteLength": 47365
+    },
+    {
+      "path": "crates/omniusong-store/src/takes.rs",
+      "sha256": "e2ba715ed3efde190e36e05c7c84f9d4c06961028706078ce1c4f0638350ee76",
+      "byteLength": 31789
+    },
+    {
+      "path": "crates/omniusong-store/tests/archive_copy_review.rs",
+      "sha256": "e62dc35b7561e2b34f7a512a053f6f4b8c0466bfe8ba148ecad86a943721d341",
+      "byteLength": 38648
+    },
+    {
+      "path": "crates/omniusong-store/tests/archive_review.rs",
+      "sha256": "7b4b811ee419d31dc0cd0be64834b2ab908e1f2785cd091e702f2118d361da6d",
+      "byteLength": 18572
+    },
+    {
+      "path": "crates/omniusong-store/tests/capture_attachment.rs",
+      "sha256": "35f0802b19752773c0785854f63098ffa0607d802d2bfcc9ddb54604d174b8ad",
+      "byteLength": 7350
+    },
+    {
+      "path": "crates/omniusong-store/tests/capture_recovery.rs",
+      "sha256": "72968c1a13c7e307643e6f59e59f80ea8aa451e0f23ea3ba633d5ff0cfae1297",
+      "byteLength": 10376
+    },
+    {
+      "path": "crates/omniusong-store/tests/capture_recovery_review.rs",
+      "sha256": "82f579583ec0efad29b73971b520c8a8c5662dc89c5660fc3dab309ff3a886fc",
+      "byteLength": 17444
+    },
+    {
+      "path": "crates/omniusong-store/tests/clip_edit_review.rs",
+      "sha256": "355e75462fed9cf7a4a7d2187fc58eb8e6fde9cacea92922c6cae0895c2751d2",
+      "byteLength": 46492
+    },
+    {
+      "path": "crates/omniusong-store/tests/clip_range_rejection_review.rs",
+      "sha256": "63c6200dad06a2eb7c687a603a213e04f9174ae856440ee7750bb602624dc7f0",
+      "byteLength": 19691
+    },
+    {
+      "path": "crates/omniusong-store/tests/existing_open.rs",
+      "sha256": "7817a27a70e43c61073458f75e1460a6a393f5b3b2cffa7281f9ac2a85e6d773",
+      "byteLength": 2966
+    },
+    {
+      "path": "crates/omniusong-store/tests/note_edit.rs",
+      "sha256": "2678a8fa3c8a69bd15fdf300e38f33f40df57e562df1c253cd43d63faf4ef32f",
+      "byteLength": 14471
+    },
+    {
+      "path": "crates/omniusong-store/tests/note_edit_review.rs",
+      "sha256": "fee8592c513bec3b5da7d35909961bd50cd1697fdcc3d7814b6a81a3921506c8",
+      "byteLength": 21398
+    },
+    {
+      "path": "crates/omniusong-store/tests/operation_review.rs",
+      "sha256": "e34cfbb64662fc6f02e54b26c2d5527fbca50745e8f6d7666f7764a7537d501e",
+      "byteLength": 22022
+    },
+    {
+      "path": "crates/omniusong-store/tests/performance_intent_review.rs",
+      "sha256": "52055d7ad2664205a283c53c4efb35c8918b533c77d3d44be14a0f0bd7d15468",
+      "byteLength": 4730
+    },
+    {
+      "path": "crates/omniusong-store/tests/projection_schema_review.rs",
+      "sha256": "84fa5cf20dd7eeff03dc02e0c2cd8bd89f8feb26a94189fcc1a7eb758f775877",
+      "byteLength": 36722
+    },
+    {
+      "path": "crates/omniusong-store/tests/review_regressions.rs",
+      "sha256": "43fa472f76fcd8f31ec2c9d46c463f410290aa4d2cf13408c8e83704200b2402",
+      "byteLength": 15313
+    },
+    {
+      "path": "crates/omniusong-store/tests/session_edit.rs",
+      "sha256": "1c1208315c0982bad6b9a2068fbe8736d924be34884a74e965c16e914c34aad1",
+      "byteLength": 4498
+    },
+    {
+      "path": "crates/omniusong-store/tests/take_review.rs",
+      "sha256": "b28e81550559e3e610b16a35a154eea5e862f3b85050950c0ae4dbfd534b4ca6",
+      "byteLength": 26677
+    },
+    {
+      "path": "docs/RUST-ARCHITECTURE.md",
+      "sha256": "d9ee53c698c2ed75490e3327725cb469c3967704e6a69c89e1c4589fdd3c37df",
+      "byteLength": 14891
+    },
+    {
+      "path": "docs/contracts/BOUNDED-COPY-RECOVERY.md",
+      "sha256": "4048018247cb114e95e62f751731f485cba25024cb3867157930fed1c307d63f",
+      "byteLength": 4898
+    },
+    {
+      "path": "docs/contracts/BOUNDED-PERFORMANCE-INSPECTION.md",
+      "sha256": "fc5b5bf46f6dfdf81c7c83b515e7a9385b60767ce221c8731414db46f55d87de",
+      "byteLength": 8152
+    },
+    {
+      "path": "docs/contracts/NATIVE-ARCHIVE-OUTCOMES.md",
+      "sha256": "b9589c4b9030a0c36d02bb9b0d186b13d3c1a567673210abf2c9acf6f5382ace",
+      "byteLength": 6474
+    },
+    {
+      "path": "docs/contracts/NATIVE-ARCHIVE-POSTIMAGES.md",
+      "sha256": "18ce294da640b3f7143ac1b270b7d8df4ebea78b22af9a339e1130a5763c8a54",
+      "byteLength": 8203
+    },
+    {
+      "path": "docs/contracts/NATIVE-CATALOG-VM-SCOPE.md",
+      "sha256": "6e428836996bf9c016249ddb1ce3c8fd7d01ff50030eac7d110fb5a1ad0f56af",
+      "byteLength": 6166
+    },
+    {
+      "path": "docs/contracts/NATIVE-EVIDENCE-JOBS.md",
+      "sha256": "37b5903c41c0a86d70c4a71483295f6af3e50552a423d8335ff12a54a713c799",
+      "byteLength": 8919
+    },
+    {
+      "path": "docs/contracts/NATIVE-EVIDENCE-UI.md",
+      "sha256": "91d5b4619948d76022388a1921d7dda2fae033be9050d5b67d587a590173356f",
+      "byteLength": 5725
+    },
+    {
+      "path": "docs/contracts/NATIVE-GOVERNED-PROJECTION-ARCHIVES.md",
+      "sha256": "38b691bf269c50fb2b8333559bfa03fac6209c6793959146bb33bb75fb34f5d6",
+      "byteLength": 8715
+    },
+    {
+      "path": "docs/contracts/NATIVE-MAC-BUILD.md",
+      "sha256": "d9c7e47705263f45762c61dad6078e3d7e5dba414637995c4de322cef14463b6",
+      "byteLength": 3950
+    },
+    {
+      "path": "docs/contracts/NATIVE-PERFORMANCE-FINISH.md",
+      "sha256": "d5b0fce20f0cfbcfefc1b23bab1d5827581b51eff967e9ee50bb0173382ba756",
+      "byteLength": 13072
+    },
+    {
+      "path": "docs/contracts/NATIVE-PERFORMANCE-PRESENTATION.md",
+      "sha256": "341e49df508b81441c6fa058f93a3224ee449fae8fdafe698b6d7773fff4e2c4",
+      "byteLength": 9678
+    },
+    {
+      "path": "docs/contracts/NATIVE-PERFORMANCE-PROGRESS.md",
+      "sha256": "90bdd9aa123699614e56a59094409338d7ed49a8e02c0a1f6cfe4322c963cc62",
+      "byteLength": 3478
+    },
+    {
+      "path": "docs/contracts/NATIVE-PERFORMANCE-PROJECTION-BINDING.md",
+      "sha256": "702a90c5d7332a63329db100af70185cc79f38e8697615e3541e8e9d00f466af",
+      "byteLength": 6670
+    },
+    {
+      "path": "docs/contracts/NATIVE-PERFORMANCE-PROJECTION-OWNERSHIP.md",
+      "sha256": "7b7c2c80430ba38a75dc4a4d7f65655a0f9bc39e3fb393e24109b9a10ee58d76",
+      "byteLength": 7515
+    },
+    {
+      "path": "docs/contracts/NATIVE-PERFORMANCE-PROJECTION-PUBLICATION.md",
+      "sha256": "3e27a4daa69e1cee7174a3aed44720b51eeaf8d505a1d9654703d87711e687de",
+      "byteLength": 10472
+    },
+    {
+      "path": "docs/contracts/NATIVE-PERFORMANCE-PROJECTION.md",
+      "sha256": "0edb41cb2ad8e4efd733f4e3ccd8a84659469a430d4ebd1a98725c76456e9b59",
+      "byteLength": 9255
+    },
+    {
+      "path": "docs/contracts/NATIVE-PERFORMANCE-SESSION.md",
+      "sha256": "a87e9819d3150d5904ffd72aa0ef3f48690871f7414371de3a485de220377ea5",
+      "byteLength": 8316
+    },
+    {
+      "path": "docs/contracts/NATIVE-PERFORMANCE-SOURCE-ACTIONS.md",
+      "sha256": "0827ace4ae45e90dc99442b3096fda4404c7dce2fc19f813ee5f2d162ea98d61",
+      "byteLength": 11062
+    },
+    {
+      "path": "docs/contracts/NATIVE-PERFORMANCE-SOURCE-REVIEW-UI.md",
+      "sha256": "1407329ff30d0ba02fa38353cf43e38352df63c1bf22687dc5259779ed860c6e",
+      "byteLength": 35554
+    },
+    {
+      "path": "docs/contracts/NATIVE-PERFORMANCE-UI.md",
+      "sha256": "93692faa037017e660516e1e613296eb0b8210b2efcf7768fd2626ad04c352cd",
+      "byteLength": 10005
+    },
+    {
+      "path": "docs/contracts/NATIVE-PERFORMANCE-WRITER.md",
+      "sha256": "81b9037b8ec94c35b6bd00ae715c06290e81ce483d230b9efdc8eb2bde109ea1",
+      "byteLength": 27782
+    },
+    {
+      "path": "docs/contracts/NATIVE-PROJECTION-ARCHIVE-PREP.md",
+      "sha256": "7ae2352484d5cdb2a767efdfbea9bea03269d0ca13c4ac17ed4ff2ccd95a69a2",
+      "byteLength": 5070
+    },
+    {
+      "path": "docs/contracts/NATIVE-RETAINED-EVIDENCE-ARCHIVE.md",
+      "sha256": "d252f363b8cf0c0513af05403109ce4b15dd487e767d951ec85764aa63260254",
+      "byteLength": 16253
+    },
+    {
+      "path": "docs/contracts/NATIVE-RETAINED-PROJECTION-CLOSURE.md",
+      "sha256": "5d0eb081d24cf7fa14563722683506f43881cc2876511d3ef7f1253dfdf11724",
+      "byteLength": 5566
+    },
+    {
+      "path": "docs/contracts/NATIVE-SOURCE-ACTION-EXECUTION.md",
+      "sha256": "464610ceb9a0f01e5e620c6e6480235bc26ffc4cdeb6efc018ab771a57a00fda",
+      "byteLength": 7991
+    },
+    {
+      "path": "docs/contracts/NATIVE-SOURCE-ATTACHMENT.md",
+      "sha256": "db31287396aa673e4ecccf45c2e41c1af72c00fe47c5455335bbc79652bd51fe",
+      "byteLength": 9851
+    },
+    {
+      "path": "docs/contracts/NATIVE-SOURCE-RECOVERY-UI.md",
+      "sha256": "e3c355d8883d6a54e6e75fc1cc29ef1fb7c5b4c926c9c21f0d501a5098d7e960",
+      "byteLength": 5455
+    },
+    {
+      "path": "docs/contracts/SEALED-INSPECTION-REPORT-REUSE.md",
+      "sha256": "f65d51f807150b2f53eeb33eef54b5e56bce2822284e66f94be8008d12e6a8c0",
+      "byteLength": 3099
+    },
+    {
+      "path": "docs/reviews/RUST-PERFORMANCE-ACTION-UI-PLAN.md",
+      "sha256": "2ad951c1c3c38762da413ad7f3b80ac354bbebedf3e351bbb8b9aa2d0e7bbdc2",
+      "byteLength": 46058
+    },
+    {
+      "path": "docs/reviews/RUST-PERFORMANCE-PROJECTION-PLAN.md",
+      "sha256": "23245e777a9324563ab8b7cba148820941cc66da10534d82c829a9da22c08cb1",
+      "byteLength": 5362
+    },
+    {
+      "path": "docs/reviews/RUST-PROJECTION-ARCHIVE-DESIGN.md",
+      "sha256": "560fb3ef09d715f04ca3621a8d4f82d3f553d28545a6a5c8f3d5d6acb2bfae34",
+      "byteLength": 20370
+    },
+    {
+      "path": "scripts/build-native-mac.sh",
+      "sha256": "f2bc1e59441832207c64064dc6b1b1e47e270a10f596ce4f5060d3581b24c10b",
+      "byteLength": 7007
+    }
+  ],
+  "gateRunner": {
+    "path": ".runtime/rust-governed-projection-archives/run-gate.py",
+    "sha256": "9a1092b3966a8b688b1e5cfcd80683d2154c917e5649f241b60a2750ad377568",
+    "byteLength": 3586
+  },
+  "packetBuilder": {
+    "path": ".runtime/rust-governed-projection-archives/build-packet.py",
+    "sha256": "514ca337fad150bdbe1a543b1536241c03618070553b4030462134183206af7d",
+    "byteLength": 10294
+  },
+  "stabilityEvidence": {
+    "path": ".runtime/rust-governed-projection-archives/gate-qualified/gate-run.json",
+    "sha256": "31471421c22f61a7b6c690c804a16a13c0d23a5efd7757ecd0a6259ce806051b",
+    "byteLength": 112898
+  },
+  "commands": [
+    {
+      "name": "fmt",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exitCode": 0,
+      "seconds": 1.0260762089747004,
+      "log": {
+        "path": ".runtime/rust-governed-projection-archives/gate-qualified/gate-fmt.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "byteLength": 0
+      }
+    },
+    {
+      "name": "clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--all-features",
+        "--locked",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exitCode": 0,
+      "seconds": 45.644567999988794,
+      "log": {
+        "path": ".runtime/rust-governed-projection-archives/gate-qualified/gate-clippy.log",
+        "sha256": "4b6e5de495f49be7ffb3d34fef655e2196453aab81b29ca4f058a881083e18da",
+        "byteLength": 499
+      }
+    },
+    {
+      "name": "workspace",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--workspace",
+        "--all-features",
+        "--locked",
+        "--",
+        "--test-threads=1"
+      ],
+      "exitCode": 0,
+      "seconds": 399.3350189580233,
+      "log": {
+        "path": ".runtime/rust-governed-projection-archives/gate-qualified/gate-workspace.log",
+        "sha256": "c3fc9f6f443a383f88b2423071ef020141cb4aae2e64e361af301a1c71284e34",
+        "byteLength": 167680
+      },
+      "tests": {
+        "passed": 1443,
+        "failed": 0,
+        "ignored": 9,
+        "groups": 72
+      }
+    },
+    {
+      "name": "build",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--locked"
+      ],
+      "exitCode": 0,
+      "seconds": 41.28733308298979,
+      "log": {
+        "path": ".runtime/rust-governed-projection-archives/gate-qualified/gate-build.log",
+        "sha256": "9b2cbe3316545ef56da5fdcb4122e2a42945132037b16b999a21743d698b3fe8",
+        "byteLength": 617
+      }
+    },
+    {
+      "name": "store-library-release",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--release",
+        "-p",
+        "omniusong-store",
+        "--lib",
+        "--locked",
+        "--",
+        "--test-threads=1"
+      ],
+      "exitCode": 0,
+      "seconds": 84.92909108300228,
+      "log": {
+        "path": ".runtime/rust-governed-projection-archives/gate-qualified/gate-store-library-release.log",
+        "sha256": "37b1efa86d9caa73072200d9c844834346d2b68240d6479fd4e61dc7c8bfff11",
+        "byteLength": 31634
+      },
+      "tests": {
+        "passed": 275,
+        "failed": 0,
+        "ignored": 1,
+        "groups": 1
+      }
+    },
+    {
+      "name": "session-library-release",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--release",
+        "-p",
+        "omniusong-session",
+        "--lib",
+        "--all-features",
+        "--locked",
+        "--",
+        "--test-threads=1"
+      ],
+      "exitCode": 0,
+      "seconds": 70.37761174998013,
+      "log": {
+        "path": ".runtime/rust-governed-projection-archives/gate-qualified/gate-session-library-release.log",
+        "sha256": "525326af90351cf1b5104893364a2501f5667a73536542ae9d0de0ce66bbc52b",
+        "byteLength": 16712
+      },
+      "tests": {
+        "passed": 123,
+        "failed": 0,
+        "ignored": 2,
+        "groups": 1
+      }
+    },
+    {
+      "name": "engine-projection-release",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--release",
+        "-p",
+        "omniusong-engine",
+        "--test",
+        "performance_projection_review",
+        "--all-features",
+        "--locked",
+        "--",
+        "--test-threads=1"
+      ],
+      "exitCode": 0,
+      "seconds": 50.55001558299409,
+      "log": {
+        "path": ".runtime/rust-governed-projection-archives/gate-qualified/gate-engine-projection-release.log",
+        "sha256": "4d98ee86300e5f2b80a5be70aa48ebe8dcbafb1d2d2847782c4d7ebf845e5141",
+        "byteLength": 7709
+      },
+      "tests": {
+        "passed": 61,
+        "failed": 0,
+        "ignored": 0,
+        "groups": 1
+      }
+    },
+    {
+      "name": "archive-review-release",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--release",
+        "-p",
+        "omniusong-store",
+        "--test",
+        "archive_review",
+        "--locked",
+        "--",
+        "--test-threads=1"
+      ],
+      "exitCode": 0,
+      "seconds": 33.0483744579833,
+      "log": {
+        "path": ".runtime/rust-governed-projection-archives/gate-qualified/gate-archive-review-release.log",
+        "sha256": "4f1c16312a67ffc3a5a763326ae6402a088a73347057debed4108534f41196b5",
+        "byteLength": 1124
+      },
+      "tests": {
+        "passed": 8,
+        "failed": 0,
+        "ignored": 0,
+        "groups": 1
+      }
+    },
+    {
+      "name": "archive-copy-review-release",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--release",
+        "-p",
+        "omniusong-store",
+        "--test",
+        "archive_copy_review",
+        "--locked",
+        "--",
+        "--test-threads=1"
+      ],
+      "exitCode": 0,
+      "seconds": 11.95130254200194,
+      "log": {
+        "path": ".runtime/rust-governed-projection-archives/gate-qualified/gate-archive-copy-review-release.log",
+        "sha256": "ae8de19c771c3b7162c8ec3b61250c90ace8aa5de2ac05e83fd53a47e77ca560",
+        "byteLength": 1307
+      },
+      "tests": {
+        "passed": 10,
+        "failed": 0,
+        "ignored": 0,
+        "groups": 1
+      }
+    }
+  ],
+  "workspace": {
+    "passed": 1443,
+    "failed": 0,
+    "ignored": 9,
+    "groups": 72
+  },
+  "optimizedChecks": 477,
+  "newCases": {
+    "total": 56,
+    "files": [
+      {
+        "path": "crates/omniusong-engine/tests/performance_projection_review/governed_archive_review.rs",
+        "cases": 11,
+        "names": [
+          "actual_v1_v2_projection_audio_and_opaque_fields_survive_bounded_identity_and_two_copy_generations",
+          "all_three_actual_routes_keep_typed_stops_and_reuse_the_same_store_with_fresh_governors",
+          "an_existing_wrong_owned_object_is_never_overwritten_or_adopted_by_bounded_restore",
+          "both_bounded_restores_rollback_registration_replacement_and_unrelated_asset_trigger_changes",
+          "bounded_archives_keep_undo_hidden_and_pruned_publication_results_with_real_copy_ancestry",
+          "coherently_rehashed_false_music_in_an_operation_only_snapshot_refuses_actual_bounded_export",
+          "exact_bounded_copy_replay_needs_no_input_but_missing_owned_source_stays_a_recorded_refusal",
+          "existing_legacy_archive_routes_still_refuse_current_and_hidden_projection_authority",
+          "export_work_credit_is_cumulative_across_calls_without_raising_compiled_ceilings",
+          "pruned_initial_publication_still_requires_its_original_muted_lane_on_bounded_export",
+          "strict_osar_v1_without_lineage_tables_accepts_genuine_performance_profiles_in_both_restores"
+        ]
+      },
+      {
+        "path": "crates/omniusong-performance/src/projection/tests.rs",
+        "cases": 1,
+        "names": [
+          "projection_finalizer_retains_original_failure_beside_later_sticky_stop"
+        ]
+      },
+      {
+        "path": "crates/omniusong-store/src/archive_copy.rs",
+        "cases": 11,
+        "names": [
+          "bounded_copy_actual_private_notadb_never_becomes_live_fatal",
+          "bounded_copy_cancel_after_frozen_plan_retains_no_catalog_authority",
+          "bounded_copy_cancellation_inside_successful_commit_cannot_relabel_completion",
+          "bounded_copy_checks_stored_snapshot_hash_columns_before_planning",
+          "bounded_copy_commits_exact_plan_and_replays_without_input",
+          "bounded_copy_invalid_recorded_proof_never_falls_through_to_missing_input",
+          "bounded_copy_live_trigger_failure_keeps_actual_origin_and_rolls_back",
+          "bounded_copy_vm_limit_detaches_actual_catalog_hook_before_reuse",
+          "bounded_copy_zero_work_refuses_before_acquisition_and_does_not_reset_budget",
+          "copy_plan_prepays_operation_payload_before_preparing_its_point_query",
+          "snapshot_hash_pass_prepays_before_preparing_any_large_payload_query"
+        ]
+      },
+      {
+        "path": "crates/omniusong-store/src/archive_governed/tests.rs",
+        "cases": 5,
+        "names": [
+          "all_governed_routes_recheck_the_held_final_owned_path_after_the_publication_hook",
+          "bounded_export_initial_stop_keeps_catalog_and_destination_unchanged",
+          "bounded_ordinary_export_identity_and_two_copy_generations_are_complete",
+          "governed_export_rejects_valid_but_unplanned_output_rows_before_link",
+          "late_export_cancel_after_link_sync_does_not_erase_durable_completion"
+        ]
+      },
+      {
+        "path": "crates/omniusong-store/src/archive_metadata/tests.rs",
+        "cases": 13,
+        "names": [
+          "bounded_document_encoding_matches_core_pretty_bytes_with_opaque_escapes",
+          "bounded_prepayment_precedes_damaged_large_current_json",
+          "bounded_prepayment_precedes_damaged_large_history_json",
+          "bounded_prepayment_precedes_damaged_large_operation_json",
+          "count_and_cursor_preflight_precede_any_current_document_parse",
+          "exact_legacy_logical_index_totals_and_opaque_rows_match",
+          "original_imports_still_require_musical_schema_one",
+          "private_destination_sql_is_never_retagged_as_live_source_sql",
+          "private_notadb_survives_late_cancellation_and_live_fatal_keeps_main_domain",
+          "schema_three_rows_are_untrusted_while_legacy_guard_remains_closed",
+          "source_attachment_reserved_operations_stay_forbidden_in_store_and_plan_rows",
+          "source_sql_errors_keep_the_explicit_handle_origin",
+          "take_manifest_and_asset_materialization_require_prepaid_work_and_correct_types"
+        ]
+      },
+      {
+        "path": "crates/omniusong-store/src/archive_postimage/tests.rs",
+        "cases": 1,
+        "names": [
+          "late_stop_cannot_erase_actual_private_sqlite_full_or_semantic_failure"
+        ]
+      },
+      {
+        "path": "crates/omniusong-store/src/archive_projection/tests.rs",
+        "cases": 8,
+        "names": [
+          "a_retained_walk_cannot_rebind_its_first_pass_to_another_governor",
+          "actual_ordinary_audio_remains_a_nonperformance_role_and_final_source_change_refuses",
+          "exact_binding_memo_refuses_a_changed_same_id_before_any_new_source_proof",
+          "explicit_origin_preserves_an_actual_sqlite_fault_and_reports_late_stop_separately",
+          "namespace_link_checks_do_not_accidentally_visit_a_prior_namespace_memo",
+          "osar_v1_walk_never_queries_lineage_but_v2_still_requires_its_tables",
+          "retained_first_walk_is_exact_and_a_refused_validator_cannot_be_reused",
+          "reusable_validator_keeps_separate_namespace_walks_under_one_original_governor"
+        ]
+      },
+      {
+        "path": "crates/omniusong-store/src/catalog_transaction/tests.rs",
+        "cases": 4,
+        "names": [
+          "explicitly_tagged_live_interrupt_maps_only_this_scopes_governor_stop",
+          "own_interrupt_mapping_cannot_erase_nested_connection_unusable_failure",
+          "preparation_failure_explicitly_rolls_back_and_detaches_before_return",
+          "private_interrupt_is_not_relabelled_after_actual_live_hook_stop"
+        ]
+      },
+      {
+        "path": "crates/omniusong-store/src/projection_sources.rs",
+        "cases": 2,
+        "names": [
+          "explicit_registered_open_preserves_actual_private_notadb_and_never_opens_an_original",
+          "new_error_preservation_keeps_source_primary_and_recursive_live_authority_with_late_stop"
+        ]
+      }
+    ]
+  },
+  "contract": {
+    "path": "docs/contracts/NATIVE-GOVERNED-PROJECTION-ARCHIVES.md",
+    "sha256": "38b691bf269c50fb2b8333559bfa03fac6209c6793959146bb33bb75fb34f5d6",
+    "byteLength": 8715
+  },
+  "independentSourceReview": {
+    "path": "docs/reviews/RUST-GOVERNED-PROJECTION-ARCHIVE-REVIEW.md",
+    "sha256": "cd90f210ad06a18c01467c59e2fd565d306dc49c43f978f71f887f348c432267",
+    "byteLength": 17008
+  },
+  "precedingPostimageGate": {
+    "path": "docs/verification/rust-native-archive-postimages-tests.json",
+    "sha256": "e20c4e4405dc215031dfa7573428521ba22cd38fd9a17770784a25457bbcae6c",
+    "byteLength": 77689
+  },
+  "precedingFailedGates": [
+    {
+      "record": {
+        "path": ".runtime/rust-governed-projection-archives/gate-candidate/gate-run.json",
+        "sha256": "5844c9570c8490bdbf6532f2f7c7c001c4282fc742ff474a576b238365302eb4",
+        "byteLength": 108180
+      },
+      "commands": [
+        {
+          "name": "fmt",
+          "command": [
+            "cargo",
+            "fmt",
+            "--all",
+            "--",
+            "--check"
+          ],
+          "exitCode": 0,
+          "seconds": 1.0474461249541491,
+          "log": {
+            "path": ".runtime/rust-governed-projection-archives/gate-candidate/gate-fmt.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "byteLength": 0
+          }
+        },
+        {
+          "name": "clippy",
+          "command": [
+            "cargo",
+            "clippy",
+            "--offline",
+            "--workspace",
+            "--all-targets",
+            "--all-features",
+            "--locked",
+            "--",
+            "-D",
+            "warnings"
+          ],
+          "exitCode": 101,
+          "seconds": 5.721615499991458,
+          "log": {
+            "path": ".runtime/rust-governed-projection-archives/gate-candidate/gate-clippy.log",
+            "sha256": "f1708ae63349ecc849f73bff0cdd2841426f4abe5aa77688dc982feca2d4bb3e",
+            "byteLength": 1721
+          }
+        }
+      ],
+      "passed": false,
+      "sourceStable": true
+    }
+  ],
+  "preliminaryToolOutputSummary": {
+    "standaloneRawLogSaved": false,
+    "note": "Preliminary runs below are tool-transcript observations, not standalone logs. Final acceptance uses only the stable complete-gate logs above.",
+    "observations": [
+      "First compile required explicit serde JSON diagnostic error conversion. An invalid recorded-proof fixture initially hit the immutable SQL trigger before its intended checksum oracle; only that isolated fixture removes the trigger.",
+      "Initial full store pass succeeded at 266 passed and one ignored. After error-retention changes, a later preliminary run reported 271 passed, one failed, one ignored: the spool own VM interruption needed an explicit own-hook attribution rather than unconditional error replacement.",
+      "First real governed engine selection reported ten passed and one failed: strict OSAR v1 projection validation queried its absent archive_copies table. Both deterministic-link and forward-history paths now handle separately validated v1 layout without weakening active catalog copy collisions. Focused strict-v1 rerun passed.",
+      "Five focused governed store tests passed, including actual ordinary audio owned-file replacement with identical bytes at all three final publication hooks, catalog rollback and clean retry."
+    ]
+  },
+  "diagnosticCorrections": [
+    "Independent review split export lineage expectations, snapshot hashes and copy history/operation planning into fixed identity/length scans and separately prepaid bounded payload reads.",
+    "RecordedReplay context is saved immediately after exact canonical proof match, before current source usability checks; failures cannot fall through into a fresh copy.",
+    "Received physical/semantic errors survive governed finalizers with a separate later governor stop. The spool maps only its known own private INTERRUPT, and the live scope preserves nested unusable-connection facts.",
+    "Strict OSAR-v1 link/history validation omits nonexistent copy tables while retaining exact raw operation, result, revision, typed initial-lane and full initial-append checks.",
+    "Warnings-denied Clippy requested a grouped bounded-copy input object and a local registration-length type alias; fixed without lint suppression."
+  ],
+  "capabilities": [
+    "All three new public bounded routes accept real published projections, separate ordinary audio, hidden/pruned results and copy ancestors under one borrowed governor.",
+    "Restore authenticates final installed content-addressed originals and exact tentative registrations; one held owner/proof context and exact binding memo span input, plan and final namespaces through commitment.",
+    "Both restores retain the thirteen-table independent baseline/overlay postimage check; export independently checks complete output rows and strict schema before durable link publication.",
+    "Real device-free performance profiles v1/v2, strict OSAR v1/v2, identity restore, two copy generations and reexport preserve original bytes/manifests/review/binding/note identities and deterministic destination operation mapping.",
+    "Actual bounded export refuses coherently false retained music and a wrong pruned initial muted result. Both restore modes reject registration/unrelated-asset trigger changes, identity restore rejects a wrong owned object, and all three routes reject final identical-byte pathname replacement using ordinary audio. Source originals and healthy connection reuse are checked; these are distinct scoped controls, not every negative on every route/profile.",
+    "Exact copy replay works without input, preserves later human edits, and retains known RecordedReplay on missing-owned-source refusal. Initial/cumulative work, VM and cancellation stops remain sticky; late successful durable completion is not erased."
+  ],
+  "limits": {
+    "boundedProjectionArchiveFamilyQualified": true,
+    "strictOsarV1ReadQualified": true,
+    "finalOwnedPathReplacementQualified": true,
+    "legacyOrdinaryArchiveGovernorQualified": false,
+    "legacyOrdinaryNonemptyProjectionGuardsOpen": false,
+    "guardedReaderListAttachmentAdmissionQualified": false,
+    "schema3InertOsreRoundtripQualified": false,
+    "nativeSuccessSurfacesCleanupWarnings": false,
+    "durableNativeProjectionAdmissionQualified": false,
+    "nativeUiQualified": false,
+    "newInstalledBinary": false,
+    "windowsQualified": false,
+    "physicalInputOutputOrListeningQualified": false,
+    "authConstructorCountInstrumented": false,
+    "universalLowerLevelPhysicalErrorRetention": false,
+    "hardWallClockOrEveryAllocationBound": false,
+    "hardPowerLossOrDiskFailureQualified": false,
+    "schemaOrArchiveVersionChanged": false,
+    "compiledLimits": {
+      "maximumIndividualFileBytes": 536870912,
+      "cumulativeWorkBytes": 1073741824,
+      "physicalRows": 262144,
+      "rowVisits": 4194304,
+      "chunkVisits": 524288,
+      "recordVisits": 2097152,
+      "groups": 65536,
+      "vmSteps": 32000000,
+      "privatePlanMainBytes": 536870912,
+      "digestSpoolMainBytes": 536870912
+    },
+    "notes": "Caller ceilings can only be lowered. Main-file caps exclude journals, temporaries, filesystem overhead and retained staging. Recording shared finish compatibility can replace a reader error before governed boundaries receive it. Cooperative trusted directories only; final checks do not guarantee against mutation afterward. Deferred coherent mutated OSAR index construction is distinct from executed catalog/source mutation attacks."
+  },
+  "preservation": {
+    "before": {
+      "path": ".runtime/rust-seal-native/governed-archives-before-tests.json",
+      "sha256": "cb067b5b001ddf15e0d9423c474e8232ef21444dd3bc0fedff62c2672d22ec6e",
+      "byteLength": 51310
+    },
+    "after": {
+      "path": ".runtime/rust-seal-native/governed-archives-after-tests.json",
+      "sha256": "24352aebda9f7f4d236d438bdd68a570f48fac3ec0989164f31552a1eb697cae",
+      "byteLength": 51310
+    },
+    "exact": {
+      "tables": true,
+      "projectIds": true,
+      "files": true,
+      "catalogFile": true,
+      "binary": true
+    },
+    "tables": 13,
+    "regularProjects": 22,
+    "catalogRows": 403,
+    "protectedFiles": 80,
+    "catalogSchemaBaselineCarriedByExactBytes": 6,
+    "catalogFile": {
+      "path": ".runtime/native-studio/studio.sqlite3",
+      "sha256": "8dae5fe2a7f1a2fae0e7687a30fbe48ad908e35f24a59877e8555e172e766e14",
+      "byteLength": 8613888
+    },
+    "installedBinary": {
+      "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+      "sha256": "82ca1c38fa474938cbf21994435b592ca052d6a68d71dfe9e7f749739a9a25ca",
+      "byteLength": 23062544
+    },
+    "nativeAppOrDeviceOpened": false,
+    "snapshotOperator": "coordinator only"
+  },
+  "nextWork": [
+    "Qualify schema-3 inert OSRE separately and integrate guarded readers/list/attachment without weakening their source authority.",
+    "Add durable exact-request projection admission and typed session/native result and cleanup-warning transport.",
+    "Qualify named-binary preview, confirmation, editable projection, Undo/Redo, archive/copy/restart/retry and original-versus-derived audition.",
+    "Continue native recording controls and long-recording capacity, MIDI2/MPE, plugins, real Rust inference roles, choir, packaging and actual Windows parity under the full active goal."
+  ]
+}

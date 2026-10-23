@@ -841,8 +841,9 @@ pub fn inspect_performance_bounded(
                 .read_ordinal(ordinal)
                 .map_err(InspectionFailure::from)
         });
+    let inspected = result.map_err(InspectionFailure::into_recording)?;
     budget.checkpoint()?;
-    result.map_err(InspectionFailure::into_recording)
+    Ok(inspected)
 }
 /// Bounded format-aware inspection of a sealed source. Its snapshot, all
 /// rereads and semantic decodes retain the same cumulative reader governor.
@@ -861,11 +862,10 @@ pub fn inspect_sealed_performance_bounded(
             .read_ordinal(ordinal)
             .map_err(InspectionFailure::from)
     });
+    let inspected = result.map_err(InspectionFailure::into_recording)?;
     budget.checkpoint()?;
-    if result.is_ok() {
-        reader.verify_source_identity()?;
-    }
-    result.map_err(InspectionFailure::into_recording)
+    reader.verify_source_identity()?;
+    Ok(inspected)
 }
 /// Shared semantic validator for a held action-owned immutable image. Callers
 /// must retain the exact reader/governor and its owner for the entire pass.
@@ -879,8 +879,9 @@ pub fn inspect_snapshot_with_budget(
     let result = inspect_performance_snapshot_bounded(inspection, Some(budget), |ordinal| {
         read_ordinal(ordinal).map_err(InspectionFailure::from)
     });
+    let inspected = result.map_err(InspectionFailure::into_recording)?;
     budget.checkpoint()?;
-    result.map_err(InspectionFailure::into_recording)
+    Ok(inspected)
 }
 #[doc(hidden)]
 pub fn inspect_performance_snapshot(

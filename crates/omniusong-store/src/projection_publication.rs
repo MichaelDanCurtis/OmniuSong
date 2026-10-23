@@ -334,6 +334,26 @@ pub(crate) fn validate_forward_transition(
     after: &ProjectDocument,
     budget: &InspectionBudget,
 ) -> Result<()> {
+    validate_forward_transition_in(connection, before, after, budget, false)
+}
+
+/// Only for a separately strict-schema-validated OSAR v1 snapshot. This format
+/// cannot contain copy admissions; active catalog callers retain their guard.
+pub(crate) fn validate_forward_transition_archive_v1(
+    connection: &Connection,
+    before: &ProjectDocument,
+    after: &ProjectDocument,
+    budget: &InspectionBudget,
+) -> Result<()> {
+    validate_forward_transition_in(connection, before, after, budget, true)
+}
+fn validate_forward_transition_in(
+    connection: &Connection,
+    before: &ProjectDocument,
+    after: &ProjectDocument,
+    budget: &InspectionBudget,
+    archive_v1: bool,
+) -> Result<()> {
     crate::projection_boundary::reject_opaque_promotion(before, after)?;
     let old = before
         .performance_projections()?
@@ -384,8 +404,28 @@ pub(crate) fn validate_forward_transition(
     {
         return Err(invalid("Stored history publication request differs"));
     }
-    let receipt = recorded_commit_with_budget(connection, &intent, &canonical, budget)?
-        .ok_or_else(|| invalid("Stored projection history has no publication receipt"))?;
+    let receipt = if archive_v1 {
+        // The retained walk also checks the exact canonical request/result
+        // bytes. Bind this history edge to those same operation cells using
+        // fixed-sized stored hashes/revisions, without a nonexistent table.
+        budget.charge_work(4096)?;
+        budget.visit_rows(1)?;
+        let (request_sha,result_sha,previous,committed):(Option<String>,Option<String>,i64,i64)=connection.query_row(
+            "SELECT CASE WHEN octet_length(request_sha256)=64 THEN request_sha256 END,CASE WHEN octet_length(result_sha256)=64 THEN result_sha256 END,previous_revision,committed_revision FROM operations WHERE operation_id=?1 AND project_id=?2",
+            params![op.0,before.id()],|row|Ok((row.get(0)?,row.get(1)?,row.get(2)?,row.get(3)?)))?;
+        let expected_sha = checksum(&after.to_json()?);
+        if request_sha.as_deref() != Some(checksum(canonical.as_bytes()).as_str())
+            || result_sha.as_deref() != Some(expected_sha.as_str())
+            || u64::try_from(previous).ok() != Some(before.revision())
+            || u64::try_from(committed).ok() != Some(after.revision())
+        {
+            return Err(invalid("Stored projection history result differs"));
+        }
+        validate_publication_result(&intent, &canonical, after, &expected_sha, budget)?
+    } else {
+        recorded_commit_with_budget(connection, &intent, &canonical, budget)?
+            .ok_or_else(|| invalid("Stored projection history has no publication receipt"))?
+    };
     if receipt.committed_revision != after.revision()
         || receipt.result_sha256 != checksum(&after.to_json()?)
     {

@@ -4,6 +4,8 @@
 mod archive_closure_review;
 #[path = "performance_projection_review/binding_review.rs"]
 mod binding_review;
+#[path = "performance_projection_review/governed_archive_review.rs"]
+mod governed_archive_review;
 #[path = "performance_projection_review/publication_review.rs"]
 mod publication_review;
 use omniusong_core::contracts::{ClockEpochId, EndpointId, TakeId};

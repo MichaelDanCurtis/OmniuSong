@@ -73,12 +73,14 @@ impl ArchiveContext {
 pub struct ArchiveFailure {
     context: Box<ArchiveContext>,
     operation: Box<StoreError>,
+    governor_stop: Option<Box<omniusong_recording::RecordingError>>,
 }
 impl ArchiveFailure {
     pub fn new(context: ArchiveContext, error: StoreError) -> Self {
         Self {
             context: Box::new(context),
             operation: Box::new(error),
+            governor_stop: None,
         }
     }
     pub fn context(&self) -> &ArchiveContext {
@@ -86,6 +88,18 @@ impl ArchiveFailure {
     }
     pub fn operation_error(&self) -> &StoreError {
         &self.operation
+    }
+    /// A sticky inspection stop observed beside the original failure. This
+    /// never replaces a private/source SQL error or a live cleanup failure.
+    pub fn governor_stop(&self) -> Option<&omniusong_recording::RecordingError> {
+        self.governor_stop.as_deref()
+    }
+    pub(crate) fn with_governor_stop(
+        mut self,
+        stop: Option<omniusong_recording::RecordingError>,
+    ) -> Self {
+        self.governor_stop = stop.map(Box::new);
+        self
     }
     pub fn publication_uncertain(&self) -> bool {
         self.context.publication_uncertain() || self.operation.archive_publication_uncertain()
@@ -112,7 +126,11 @@ impl fmt::Display for ArchiveFailure {
             self.context.expected_archive_sha256,
             self.context.archive_sha256,
             self.context.published_objects
-        )
+        )?;
+        if let Some(stop) = &self.governor_stop {
+            write!(f, "; governor stop: {stop}")?;
+        }
+        Ok(())
     }
 }
 impl std::error::Error for ArchiveFailure {

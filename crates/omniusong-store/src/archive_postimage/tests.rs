@@ -78,6 +78,43 @@ fn governor(limits: omniusong_recording::InspectionLimits) -> (InspectionBudget,
 }
 
 #[test]
+fn late_stop_cannot_erase_actual_private_sqlite_full_or_semantic_failure() {
+    use omniusong_recording::{InspectionLimits, RecordingError};
+    let database = Connection::open_in_memory().unwrap();
+    database
+        .execute_batch("CREATE TABLE full_test(payload BLOB); PRAGMA max_page_count=4;")
+        .unwrap();
+    let full = database
+        .execute("INSERT INTO full_test VALUES(zeroblob(1048576))", [])
+        .unwrap_err();
+    assert_eq!(
+        full.sqlite_error().unwrap().extended_code,
+        rusqlite::ffi::SQLITE_FULL
+    );
+    let (budget, token) = governor(InspectionLimits::default());
+    token.store(true, Ordering::Release);
+    let result: Result<()> = finish(
+        Some(&budget),
+        Err(boundary::sql_error(ArchiveSqlOrigin::PrivateOutput, full)),
+    );
+    let error = result.unwrap_err();
+    assert!(
+        matches!(&error, StoreError::ArchiveSql(value) if value.origin()==ArchiveSqlOrigin::PrivateOutput && matches!(value.operation_error(), StoreError::Database(sql) if sql.sqlite_error().unwrap().extended_code==rusqlite::ffi::SQLITE_FULL))
+    );
+    assert_eq!(error.catalog_sqlite_error_code(), None);
+    assert!(matches!(
+        budget.checkpoint(),
+        Err(RecordingError::InspectionCancelled)
+    ));
+    let semantic: Result<()> = finish(Some(&budget), Err(invalid("postimage mismatch")));
+    assert!(matches!(semantic, Err(StoreError::Invalid(value)) if value=="postimage mismatch"));
+    assert!(matches!(
+        finish(Some(&budget), Ok(())),
+        Err(StoreError::Recording(RecordingError::InspectionCancelled))
+    ));
+}
+
+#[test]
 fn repeated_substring_queries_prepay_full_cell_work_each_time() {
     use omniusong_recording::{InspectionLimits, InspectionResource, RecordingError};
     let source = empty(Layout::Catalog);

@@ -1,6 +1,10 @@
 //! Registered original ownership beside a borrowed performance authentication.
 //! No catalog connection, writer lease or caller-supplied inspection is retained.
-use crate::{Result, StoreError, TakeObject, recovered_takes, takes};
+use crate::{
+    Result, StoreError, TakeObject,
+    archive_boundary::{self as boundary, ArchiveSqlOrigin},
+    recovered_takes, takes,
+};
 use omniusong_core::{ProjectDocument, contracts::TakeId, native::TakeReference};
 use omniusong_performance::projection::AuthenticatedPerformance;
 use omniusong_recording::{InspectionBudget, SealedJournal};
@@ -29,15 +33,32 @@ fn charge(budget: &InspectionBudget, bytes: usize) -> Result<()> {
     Ok(())
 }
 fn finish<T>(budget: &InspectionBudget, result: Result<T>) -> Result<T> {
-    // Only this module's registration queries use StoreError::Database; source
-    // SQLite remains wrapped in RecordingError. A later cancellation cannot
-    // hide a fatal failure of the actual live catalog from worker retirement.
-    if matches!(&result,Err(StoreError::Database(error)) if error.sqlite_error().is_some_and(|code| matches!(code.extended_code & 0xff,10|11|26)))
-    {
+    // Explicit handle tags precede this finalizer. Recursive main-catalog
+    // failure/cleanup authority survives a later sticky stop; private source
+    // SQLite never acquires that authority from an enclosing live caller.
+    if result.as_ref().err().is_some_and(|error| {
+        error.catalog_connection_unusable()
+            || error
+                .catalog_sqlite_error_code()
+                .is_some_and(|code| matches!(code & 0xff, 10 | 11 | 26))
+    }) {
         return result;
     }
     budget.checkpoint()?;
     result
+}
+fn origin<T>(origin: ArchiveSqlOrigin, result: Result<T>) -> Result<T> {
+    match origin {
+        ArchiveSqlOrigin::Input => boundary::input(result),
+        ArchiveSqlOrigin::PrivateOutput => boundary::output(result),
+        ArchiveSqlOrigin::LiveCatalog => boundary::live(result),
+    }
+}
+fn preserve<T>(budget: &InspectionBudget, result: Result<T>) -> Result<T> {
+    result.and_then(|value| {
+        budget.checkpoint()?;
+        Ok(value)
+    })
 }
 
 struct DocumentMeter<'a> {
@@ -154,7 +175,7 @@ impl<'b> RegisteredSourceSet<'b> {
             require(!self.failed, "Registered source collection already failed")?;
             group_document(&mut self.grouped, document, self.budget)
         })();
-        let result = finish(self.budget, result);
+        let result = preserve(self.budget, result);
         self.failed |= result.is_err();
         result
     }
@@ -166,7 +187,7 @@ impl<'b> RegisteredSourceSet<'b> {
             reference.validate()?;
             add_reference(&mut self.grouped, reference.clone(), true, self.budget)
         })();
-        let result = finish(self.budget, result);
+        let result = preserve(self.budget, result);
         self.failed |= result.is_err();
         result
     }
@@ -176,35 +197,39 @@ fn load_registered(
     connection: &Connection,
     take_id: &TakeId,
     budget: &InspectionBudget,
+    sql_origin: ArchiveSqlOrigin,
 ) -> Result<(TakeObject, usize)> {
-    budget.checkpoint()?;
-    budget.visit_rows(2)?;
-    charge(budget, 4096)?;
-    let length: Option<i64> = connection
-        .query_row(
-            "SELECT octet_length(manifest_json) FROM native_takes WHERE take_id=?1",
-            [&take_id.0],
-            |row| row.get(0),
-        )
-        .optional()?;
-    let length = length
-        .and_then(|size| usize::try_from(size).ok())
-        .filter(|size| *size <= MAX_REGISTERED_MANIFEST_BYTES)
-        .ok_or_else(|| {
-            StoreError::Invalid(
-                "Registered projection source is absent or its manifest is oversized".into(),
+    let result = (|| {
+        budget.checkpoint()?;
+        budget.visit_rows(2)?;
+        charge(budget, 4096)?;
+        let length: Option<i64> = connection
+            .query_row(
+                "SELECT octet_length(manifest_json) FROM native_takes WHERE take_id=?1",
+                [&take_id.0],
+                |row| row.get(0),
             )
-        })?;
-    charge(
-        budget,
-        length
-            .checked_mul(64)
-            .and_then(|n| n.checked_add(4096))
-            .ok_or_else(|| StoreError::Invalid("Registered manifest work overflow".into()))?,
-    )?;
-    let object = takes::load_take(connection, take_id)?;
-    budget.checkpoint()?;
-    Ok((object, length))
+            .optional()?;
+        let length = length
+            .and_then(|size| usize::try_from(size).ok())
+            .filter(|size| *size <= MAX_REGISTERED_MANIFEST_BYTES)
+            .ok_or_else(|| {
+                StoreError::Invalid(
+                    "Registered projection source is absent or its manifest is oversized".into(),
+                )
+            })?;
+        charge(
+            budget,
+            length
+                .checked_mul(64)
+                .and_then(|n| n.checked_add(4096))
+                .ok_or_else(|| StoreError::Invalid("Registered manifest work overflow".into()))?,
+        )?;
+        let object = takes::load_take(connection, take_id)?;
+        budget.checkpoint()?;
+        Ok((object, length))
+    })();
+    preserve(budget, origin(sql_origin, result))
 }
 fn path_credit(path: &Path, budget: &InspectionBudget) -> Result<()> {
     charge(budget, path.as_os_str().len())?;
@@ -321,6 +346,19 @@ impl<'b> RegisteredProjectionSources<'b> {
         connection: &Connection,
         collected: RegisteredSourceSet<'b>,
     ) -> Result<Self> {
+        let budget = collected.budget;
+        finish(
+            budget,
+            Self::open_collected_from(root, connection, collected, ArchiveSqlOrigin::LiveCatalog),
+        )
+    }
+
+    pub(crate) fn open_collected_from(
+        root: &Path,
+        connection: &Connection,
+        collected: RegisteredSourceSet<'b>,
+        sql_origin: ArchiveSqlOrigin,
+    ) -> Result<Self> {
         let RegisteredSourceSet {
             budget,
             grouped,
@@ -333,7 +371,8 @@ impl<'b> RegisteredProjectionSources<'b> {
             let mut sources = BTreeMap::new();
             for (take_id, group) in grouped {
                 budget.checkpoint()?;
-                let (object, manifest_length) = load_registered(connection, &take_id, budget)?;
+                let (object, manifest_length) =
+                    load_registered(connection, &take_id, budget, sql_origin)?;
                 for reference in &group.references {
                     reference_credit(&object, budget)?;
                     takes::check_reference(&object, reference)?;
@@ -393,7 +432,7 @@ impl<'b> RegisteredProjectionSources<'b> {
             sources.verify_with_budget(budget)?;
             Ok(sources)
         })();
-        finish(budget, result)
+        preserve(budget, origin(sql_origin, result))
     }
 
     fn verify_with_budget(&self, budget: &InspectionBudget) -> Result<()> {
@@ -448,7 +487,7 @@ impl<'b> RegisteredProjectionSources<'b> {
             }
             Ok(())
         })();
-        finish(budget, result)
+        preserve(budget, result)
     }
 
     pub(crate) fn authenticate<'a>(
@@ -485,16 +524,29 @@ impl<'b> RegisteredProjectionSources<'b> {
             proofs.verify_unchanged()?;
             Ok(proofs)
         })();
-        finish(budget, result)
+        preserve(budget, result)
     }
 }
 
 impl<'a> ProjectionProofs<'a> {
+    pub(crate) fn uses_governor(&self, budget: &InspectionBudget) -> bool {
+        self.budget.shares_governor(budget)
+    }
     pub(crate) fn verify_registrations(&self, connection: &Connection) -> Result<()> {
+        finish(
+            self.budget,
+            self.verify_registrations_from(connection, ArchiveSqlOrigin::LiveCatalog),
+        )
+    }
+    pub(crate) fn verify_registrations_from(
+        &self,
+        connection: &Connection,
+        sql_origin: ArchiveSqlOrigin,
+    ) -> Result<()> {
         let result = (|| {
             for source in self.sources.sources.values() {
                 let (current, _) =
-                    load_registered(connection, &source.object.take_id, self.budget)?;
+                    load_registered(connection, &source.object.take_id, self.budget, sql_origin)?;
                 require(
                     current == source.object,
                     "Registered source changed during the project transaction",
@@ -502,7 +554,7 @@ impl<'a> ProjectionProofs<'a> {
             }
             Ok(())
         })();
-        finish(self.budget, result)
+        preserve(self.budget, origin(sql_origin, result))
     }
     fn registered(&self, reference: &TakeReference) -> Result<&RegisteredSource> {
         self.budget.checkpoint()?;
@@ -525,6 +577,13 @@ impl<'a> ProjectionProofs<'a> {
         takes::check_reference(&source.object, reference)?;
         Ok(source)
     }
+    /// Borrow the original object/path already held by this proof owner. The
+    /// caller still checks unchanged identity around bounded copying; this
+    /// getter neither reopens a source nor grants installation authority.
+    pub(crate) fn original(&self, reference: &TakeReference) -> Result<(&TakeObject, &Path)> {
+        let source = self.registered(reference)?;
+        Ok((&source.object, &source.path))
+    }
     pub(crate) fn performance(
         &self,
         reference: &TakeReference,
@@ -535,7 +594,7 @@ impl<'a> ProjectionProofs<'a> {
                 StoreError::Invalid("Take has no held performance authentication".into())
             })
         })();
-        finish(self.budget, result)
+        preserve(self.budget, result)
     }
     pub(crate) fn validate_document(&self, document: &ProjectDocument) -> Result<()> {
         self.validate_document_parts(document, true)
@@ -577,7 +636,7 @@ impl<'a> ProjectionProofs<'a> {
             }
             self.verify_unchanged()
         })();
-        finish(self.budget, result)
+        preserve(self.budget, result)
     }
     pub(crate) fn verify_unchanged(&self) -> Result<()> {
         self.sources.verify_with_budget(self.budget)
@@ -964,6 +1023,87 @@ mod error_domain_tests {
             Err(StoreError::Recording(
                 RecordingError::InspectionLimit { .. }
             ))
+        ));
+    }
+    #[test]
+    fn explicit_registered_open_preserves_actual_private_notadb_and_never_opens_an_original() {
+        let directory = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../.runtime/registered-source-origin")
+            .join(uuid::Uuid::new_v4().to_string());
+        fs::create_dir_all(&directory).unwrap();
+        let path = directory.join("private.sqlite3");
+        fs::write(&path, [0x93; 4096]).unwrap();
+        let connection = Connection::open(&path).unwrap();
+        for sql_origin in [ArchiveSqlOrigin::Input, ArchiveSqlOrigin::PrivateOutput] {
+            let budget = InspectionBudget::new(
+                InspectionLimits::default(),
+                Arc::new(AtomicBool::new(false)),
+            )
+            .unwrap();
+            let mut set = RegisteredSourceSet::new(&budget);
+            set.add_performance_reference(&TakeReference {
+                take_id: TakeId("registered-origin".into()),
+                manifest_sha256: "a".repeat(64),
+                stream_id: "audio".into(),
+            })
+            .unwrap();
+            let result = RegisteredProjectionSources::open_collected_from(
+                Path::new("never-opened-original-root"),
+                &connection,
+                set,
+                sql_origin,
+            );
+            let Err(StoreError::ArchiveSql(error)) = result else {
+                panic!("private SQL origin was lost")
+            };
+            assert_eq!(error.origin(), sql_origin);
+            assert_eq!(error.catalog_sqlite_error_code(), None);
+            assert!(
+                matches!(error.operation_error(), StoreError::Database(error)
+                if error.sqlite_error().is_some_and(|code| code.extended_code & 0xff == rusqlite::ffi::SQLITE_NOTADB))
+            );
+            assert_eq!(budget.usage().file_bytes, 0);
+        }
+        drop(connection);
+        assert_eq!(fs::read(&path).unwrap(), [0x93; 4096]);
+        fs::remove_dir_all(directory).unwrap();
+    }
+    #[test]
+    fn new_error_preservation_keeps_source_primary_and_recursive_live_authority_with_late_stop() {
+        let budget =
+            InspectionBudget::new(InspectionLimits::default(), Arc::new(AtomicBool::new(true)))
+                .unwrap();
+        let primary: Result<()> = preserve(
+            &budget,
+            Err(StoreError::Recording(RecordingError::Database(sqlite(11)))),
+        );
+        assert!(
+            matches!(primary, Err(StoreError::Recording(RecordingError::Database(error)))
+            if error.sqlite_error().is_some_and(|code| code.extended_code == 11))
+        );
+        let failure = crate::ArchiveFailure::new(
+            crate::ArchiveContext::new(
+                crate::ArchiveAction::Inspect,
+                Path::new("isolated-destination"),
+            ),
+            boundary::sql_error(ArchiveSqlOrigin::LiveCatalog, sqlite(26)),
+        );
+        let nested: Result<()> = finish(&budget, Err(StoreError::Archive(Box::new(failure))));
+        assert_eq!(
+            nested.as_ref().unwrap_err().catalog_sqlite_error_code(),
+            Some(26)
+        );
+        assert!(matches!(nested, Err(StoreError::Archive(_))));
+        let private: Result<()> = preserve(
+            &budget,
+            Err(boundary::sql_error(ArchiveSqlOrigin::Input, sqlite(26))),
+        );
+        assert!(
+            matches!(private, Err(StoreError::ArchiveSql(error)) if error.origin() == ArchiveSqlOrigin::Input)
+        );
+        assert!(matches!(
+            preserve(&budget, Ok(())),
+            Err(StoreError::Recording(RecordingError::InspectionCancelled))
         ));
     }
 }

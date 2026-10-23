@@ -18,6 +18,7 @@ use omniusong_core::{
     MAX_NATIVE_PROJECT_BYTES, ProjectDocument,
     contracts::{OperationId, ProjectId, Validate, WORKER_MAX_BYTES},
 };
+use omniusong_recording::InspectionBudget;
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -171,6 +172,148 @@ impl Proof {
             replayed,
         })
     }
+
+    // These methods inventory untrusted retained metadata. Unlike the legacy
+    // methods above they do not confer projection authority: every caller is
+    // fenced by the held source/publication/history validator before commit or
+    // a bounded recorded replay can return.
+    fn metadata_document(&self, budget: &InspectionBudget) -> Result<ProjectDocument> {
+        let length = encoded_length(&self.result, MAX_NATIVE_PROJECT_BYTES, budget)?;
+        prepay_metadata(budget, length)?;
+        Ok(ProjectDocument::from_value(self.result.clone())?)
+    }
+    fn validate_metadata(&self, budget: &InspectionBudget) -> Result<()> {
+        copy_step(Some(budget))?;
+        self.operation_id
+            .validate()
+            .map_err(|e| invalid(e.to_string()))?;
+        ProjectId(self.source_project_id.clone())
+            .validate()
+            .map_err(|e| invalid(e.to_string()))?;
+        ProjectId(self.destination_project_id.clone())
+            .validate()
+            .map_err(|e| invalid(e.to_string()))?;
+        let document = self.metadata_document(budget)?;
+        let json = crate::archive_metadata::document_json(&document, budget)?;
+        budget.charge_work(json.len() as u64)?;
+        ensure(
+            self.version == 1
+                && archive::digest_valid(&self.source_archive_sha256)
+                && self.source_archive_byte_length > 0
+                && self.source_archive_byte_length <= archive::MAX_ARCHIVE_FILE_BYTES
+                && self.source_project_id != self.destination_project_id
+                && document.id() == self.destination_project_id
+                && checksum(json.as_bytes()) == self.result_sha256
+                && self.mapping_count <= MAX_PROOF_MAPPINGS
+                && archive::digest_valid(&self.mapping_sha256)
+                && self.ancestors.len() < MAX_LINEAGE_PROOFS
+                && self.ancestors.iter().all(|s| archive::digest_valid(s))
+                && self.ancestors.windows(2).all(|p| p[0] < p[1]),
+            "Invalid copy lineage proof",
+        )?;
+        budget.checkpoint()?;
+        Ok(())
+    }
+    fn metadata_json(&self, budget: &InspectionBudget) -> Result<String> {
+        self.validate_metadata(budget)?;
+        bounded_encoding(self, MAX_PROOF_BYTES, budget)
+    }
+    fn metadata_receipt(
+        &self,
+        replayed: bool,
+        budget: &InspectionBudget,
+    ) -> Result<RestoreCopyReceipt> {
+        copy_step(Some(budget))?;
+        Ok(RestoreCopyReceipt {
+            operation_id: self.operation_id.clone(),
+            source_project_id: self.source_project_id.clone(),
+            source_archive_sha256: self.source_archive_sha256.clone(),
+            document: self.metadata_document(budget)?,
+            replayed,
+        })
+    }
+}
+
+fn copy_step(budget: Option<&InspectionBudget>) -> Result<()> {
+    if let Some(budget) = budget {
+        budget.visit_rows(1)?;
+        // Covers bounded IDs, hashes, map fields and their fixed-size copies.
+        // Variable JSON is credited from its exact byte length separately.
+        budget.charge_work(4096)?;
+    }
+    Ok(())
+}
+fn prepay_metadata(budget: &InspectionBudget, length: usize) -> Result<()> {
+    budget.charge_work(
+        (length as u64)
+            .checked_mul(64)
+            .and_then(|value| value.checked_add(4096))
+            .ok_or_else(|| invalid("Copy metadata work overflow"))?,
+    )?;
+    Ok(())
+}
+fn metadata_length(length: i64, maximum: usize) -> Result<usize> {
+    usize::try_from(length)
+        .ok()
+        .filter(|length| *length <= maximum)
+        .ok_or_else(|| invalid("Copy metadata exceeds its bounded row ceiling"))
+}
+struct EncodingLength<'b> {
+    budget: &'b InspectionBudget,
+    length: usize,
+    maximum: usize,
+}
+impl Write for EncodingLength<'_> {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        if bytes.len() > self.maximum.saturating_sub(self.length) {
+            return Err(std::io::Error::other(
+                "Copy metadata encoding exceeds its ceiling",
+            ));
+        }
+        self.budget
+            .charge_work(bytes.len() as u64)
+            .map_err(|_| std::io::Error::other("Copy metadata governor stopped encoding"))?;
+        self.length += bytes.len();
+        Ok(bytes.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+fn encoded_length(
+    value: &impl Serialize,
+    maximum: usize,
+    budget: &InspectionBudget,
+) -> Result<usize> {
+    let mut output = EncodingLength {
+        budget,
+        length: 0,
+        maximum,
+    };
+    let result = serde_json::to_writer(&mut output, value).map_err(|e| invalid(e.to_string()));
+    budget.checkpoint()?;
+    result?;
+    Ok(output.length)
+}
+fn bounded_encoding(
+    value: &impl Serialize,
+    maximum: usize,
+    budget: &InspectionBudget,
+) -> Result<String> {
+    let length = encoded_length(value, maximum, budget)?;
+    // Prepay output allocation, serialization, checksum and bounded copies.
+    prepay_metadata(budget, length)?;
+    let mut bytes = Vec::new();
+    bytes
+        .try_reserve_exact(length)
+        .map_err(|_| invalid("Cannot reserve copy metadata encoding"))?;
+    serde_json::to_writer(&mut bytes, value).map_err(|e| invalid(e.to_string()))?;
+    ensure(
+        bytes.len() == length,
+        "Copy metadata changed while encoding",
+    )?;
+    budget.checkpoint()?;
+    String::from_utf8(bytes).map_err(|e| invalid(e.to_string()))
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Mapping {
@@ -249,6 +392,53 @@ fn read_proof(connection: &Connection, sha: &str) -> Result<(Proof, String)> {
     ensure(proof.json()? == json, "Noncanonical copy proof")?;
     Ok((proof, json))
 }
+fn read_proof_bounded(
+    connection: &Connection,
+    sha: &str,
+    budget: &InspectionBudget,
+) -> Result<(Proof, String)> {
+    copy_step(Some(budget))?;
+    ensure(archive::digest_valid(sha), "Invalid copy proof identity")?;
+    let length: i64 = connection.query_row(
+        "SELECT octet_length(receipt_json) FROM archive_copy_proofs WHERE proof_sha256=?1",
+        [sha],
+        |row| row.get(0),
+    )?;
+    let length = metadata_length(length, MAX_PROOF_BYTES)?;
+    prepay_metadata(budget, length)?;
+    copy_step(Some(budget))?;
+    let json: String = connection.query_row(
+        "SELECT CASE WHEN octet_length(receipt_json)<=?2 THEN receipt_json END FROM archive_copy_proofs WHERE proof_sha256=?1",
+        params![sha, MAX_PROOF_BYTES as i64], |row| row.get(0),
+    )?;
+    ensure(
+        json.len() == length && checksum(json.as_bytes()) == sha,
+        "Copy proof checksum mismatch",
+    )?;
+    let proof: Proof = serde_json::from_str(&json).map_err(|e| invalid(e.to_string()))?;
+    ensure(
+        proof.metadata_json(budget)? == json,
+        "Noncanonical copy proof",
+    )?;
+    budget.checkpoint()?;
+    Ok((proof, json))
+}
+fn retained_proof(
+    connection: &Connection,
+    sha: &str,
+    budget: Option<&InspectionBudget>,
+) -> Result<(Proof, String)> {
+    match budget {
+        Some(budget) => read_proof_bounded(connection, sha, budget),
+        None => read_proof(connection, sha),
+    }
+}
+fn retained_document(proof: &Proof, budget: Option<&InspectionBudget>) -> Result<ProjectDocument> {
+    match budget {
+        Some(budget) => proof.metadata_document(budget),
+        None => proof.document(),
+    }
+}
 fn insert_mapping(connection: &Connection, sha: &str, m: &Mapping) -> Result<()> {
     connection.execute(
         "INSERT INTO archive_copy_proof_operations VALUES(?1,?2,?3,?4,?5,?6,?7)",
@@ -265,6 +455,24 @@ fn insert_mapping(connection: &Connection, sha: &str, m: &Mapping) -> Result<()>
     Ok(())
 }
 fn validate_live_mapping(connection: &Connection, project: &str, m: &Mapping) -> Result<()> {
+    validate_live_mapping_in(connection, project, m, None)
+}
+fn validate_live_mapping_in(
+    connection: &Connection,
+    project: &str,
+    m: &Mapping,
+    budget: Option<&InspectionBudget>,
+) -> Result<()> {
+    copy_step(budget)?;
+    if let Some(budget) = budget {
+        let (request, result): (i64, i64) = connection.query_row(
+            "SELECT octet_length(request_json),octet_length(result_json) FROM operations WHERE operation_id=?1 AND project_id=?2",
+            params![m.destination, project], |row| Ok((row.get(0)?,row.get(1)?)),
+        )?;
+        prepay_metadata(budget, metadata_length(request, WORKER_MAX_BYTES)?)?;
+        prepay_metadata(budget, metadata_length(result, MAX_NATIVE_PROJECT_BYTES)?)?;
+    }
+    copy_step(budget)?;
     let (request,request_sha,previous,committed,result,result_sha):(String,String,i64,i64,String,String)=connection.query_row("SELECT CASE WHEN octet_length(request_json)<=?3 THEN request_json END,CASE WHEN octet_length(request_sha256)=64 THEN request_sha256 END,previous_revision,committed_revision,CASE WHEN octet_length(result_json)<=?4 THEN result_json END,CASE WHEN octet_length(result_sha256)=64 THEN result_sha256 END FROM operations WHERE operation_id=?1 AND project_id=?2",params![m.destination,project,WORKER_MAX_BYTES as i64,MAX_NATIVE_PROJECT_BYTES as i64],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?)))?;
     let doc = ProjectDocument::from_json(result.as_bytes())?;
     let previous = archive::unsigned(previous, "mapped previous revision")?;
@@ -278,7 +486,17 @@ fn validate_live_mapping(connection: &Connection, project: &str, m: &Mapping) ->
             && previous.checked_add(1) == Some(doc.revision()),
         "Copied live operation differs from its immutable mapping",
     )?;
-    archive::validate_request(&request, &m.destination, project, previous, &doc)
+    match budget {
+        Some(budget) => crate::archive_metadata::validate_request(
+            &request,
+            &m.destination,
+            project,
+            previous,
+            &doc,
+            budget,
+        ),
+        None => archive::validate_request(&request, &m.destination, project, previous, &doc),
+    }
 }
 
 /// Validates and streams immutable proofs. Historical IDs are copied verbatim;
@@ -290,9 +508,60 @@ pub(super) fn read_lineage(
     bundle: &mut Bundle,
     source_is_archive: bool,
 ) -> Result<BTreeSet<String>> {
+    read_lineage_in(
+        source,
+        destination,
+        project_id,
+        bundle,
+        source_is_archive,
+        None,
+    )
+}
+
+/// Untrusted bounded metadata traversal. A successful walk is not a source or
+/// publication proof; bounded routes must subsequently use RetainedValidator.
+pub(super) fn read_lineage_bounded(
+    source: &Connection,
+    destination: Option<(&Connection, &str, bool, ArchiveSqlOrigin)>,
+    project_id: &str,
+    bundle: &mut Bundle,
+    source_is_archive: bool,
+    budget: &InspectionBudget,
+) -> Result<BTreeSet<String>> {
+    budget.checkpoint()?;
+    ensure(
+        project_id.len() <= 96,
+        "Copy lineage project identity exceeds its byte ceiling",
+    )?;
+    copy_step(Some(budget))?;
+    ProjectId(project_id.into())
+        .validate()
+        .map_err(|e| invalid(e.to_string()))?;
+    read_lineage_in(
+        source,
+        destination,
+        project_id,
+        bundle,
+        source_is_archive,
+        Some(budget),
+    )
+}
+fn read_lineage_in(
+    source: &Connection,
+    destination: Option<(&Connection, &str, bool, ArchiveSqlOrigin)>,
+    project_id: &str,
+    bundle: &mut Bundle,
+    source_is_archive: bool,
+    budget: Option<&InspectionBudget>,
+) -> Result<BTreeSet<String>> {
+    copy_step(budget)?;
     if !has_lineage(source)? {
+        if let Some(budget) = budget {
+            budget.checkpoint()?;
+        }
         return Ok(BTreeSet::new());
     }
+    copy_step(budget)?;
     let lineage_count: i64 = source.query_row(
         "SELECT count(*) FROM archive_project_lineage WHERE project_id=?1",
         [project_id],
@@ -303,9 +572,25 @@ pub(super) fn read_lineage(
         "Copy ancestry exceeds its proof ceiling",
     )?;
     let mut statement=source.prepare("SELECT CASE WHEN octet_length(proof_sha256)=64 THEN proof_sha256 END FROM archive_project_lineage WHERE project_id=?1 ORDER BY proof_sha256")?;
-    let ids = statement
-        .query_map([project_id], |r| r.get::<_, String>(0))?
-        .collect::<std::result::Result<BTreeSet<_>, _>>()?;
+    let mut rows = statement.query([project_id])?;
+    let mut ids = BTreeSet::new();
+    while let Some(row) = {
+        copy_step(budget)?;
+        rows.next()?
+    } {
+        ensure(
+            ids.len() < MAX_LINEAGE_PROOFS,
+            "Copy ancestry exceeds its proof ceiling",
+        )?;
+        ids.insert(row.get::<_, String>(0)?);
+    }
+    ensure(
+        ids.len() as i64 == lineage_count,
+        "Copy ancestry changed during traversal",
+    )?;
+    drop(rows);
+    drop(statement);
+    copy_step(budget)?;
     let live:Option<(String,String)>=source.query_row("SELECT CASE WHEN octet_length(operation_id)<=96 THEN operation_id END,CASE WHEN octet_length(proof_sha256)=64 THEN proof_sha256 END FROM archive_copies WHERE project_id=?1",[project_id],|r|Ok((r.get(0)?,r.get(1)?))).optional()?;
     ensure(
         ids.is_empty() == live.is_none(),
@@ -315,7 +600,8 @@ pub(super) fn read_lineage(
     let mut identities = BTreeMap::new();
     let mut total_maps = 0;
     for sha in &ids {
-        let (proof, json) = read_proof(source, sha)?;
+        copy_step(budget)?;
+        let (proof, json) = retained_proof(source, sha, budget)?;
         ensure(
             !proof.ancestors.contains(sha) && proof.ancestors.iter().all(|p| ids.contains(p)),
             "Copy ancestry has a missing or self-referential proof",
@@ -328,7 +614,7 @@ pub(super) fn read_lineage(
                     && proof.destination_project_id == project_id
                     && proof.ancestors.iter().cloned().collect::<BTreeSet<_>>()
                         == ids.iter().filter(|p| *p != sha).cloned().collect()
-                    && proof.document()?.revision() <= bundle.project.revision(),
+                    && retained_document(&proof, budget)?.revision() <= bundle.project.revision(),
                 "Active copy receipt does not own its complete ancestry",
             )?;
             let collision: bool = source.query_row(
@@ -347,9 +633,25 @@ pub(super) fn read_lineage(
             ),
         );
         bundle.metadata(json.len() + sha.len())?;
-        bundle.references(&proof.document()?)?;
+        let document = retained_document(&proof, budget)?;
+        if budget.is_some() {
+            bundle.references_untrusted(&document)?;
+        } else {
+            bundle.references(&document)?;
+        }
         bundle.record(b"copy-proof", &[sha.as_bytes(), json.as_bytes()]);
         let reuse = if let Some((dest, _, _, origin)) = destination {
+            if let Some(budget) = budget {
+                copy_step(Some(budget))?;
+                let length: Option<i64> = tagged_sql(origin, dest.query_row(
+                    "SELECT octet_length(receipt_json) FROM archive_copy_proofs WHERE proof_sha256=?1",
+                    [sha], |row| row.get(0),
+                ).optional())?;
+                if let Some(length) = length {
+                    prepay_metadata(budget, metadata_length(length, MAX_PROOF_BYTES)?)?;
+                }
+            }
+            copy_step(budget)?;
             let old:Option<String>=tagged_sql(origin,dest.query_row("SELECT CASE WHEN octet_length(receipt_json)<=?2 THEN receipt_json END FROM archive_copy_proofs WHERE proof_sha256=?1",params![sha,MAX_PROOF_BYTES as i64],|r|r.get(0)).optional())?;
             if let Some(old) = old {
                 ensure(old == json, "Existing lineage proof differs")?;
@@ -371,7 +673,10 @@ pub(super) fn read_lineage(
         let mut rows = maps.query([sha])?;
         let mut count = 0;
         let mut hash = mapping_hash();
-        while let Some(row) = rows.next()? {
+        while let Some(row) = {
+            copy_step(budget)?;
+            rows.next()?
+        } {
             archive::add(&mut count, 1, MAX_PROOF_MAPPINGS, "proof mapping count")?;
             archive::add(
                 &mut total_maps,
@@ -383,7 +688,12 @@ pub(super) fn read_lineage(
             mapping.validate()?;
             hash_mapping(&mut hash, &mapping);
             if is_live {
-                validate_live_mapping(source, project_id, &mapping)?;
+                match budget {
+                    Some(budget) => {
+                        validate_live_mapping_in(source, project_id, &mapping, Some(budget))?
+                    }
+                    None => validate_live_mapping(source, project_id, &mapping)?,
+                }
             }
             bundle.metadata(sha.len() + mapping.fields().iter().map(|s| s.len()).sum::<usize>())?;
             bundle.record(
@@ -400,6 +710,7 @@ pub(super) fn read_lineage(
             );
             if let Some((dest, _, _, origin)) = destination {
                 if reuse {
+                    copy_step(budget)?;
                     let old: Mapping = tagged_sql(
                         origin,
                         dest.query_row(
@@ -421,6 +732,7 @@ pub(super) fn read_lineage(
             "Copy mapping count or digest mismatch",
         )?;
         if let Some((dest, dest_project, _, origin)) = destination {
+            copy_step(budget)?;
             let n: i64 = tagged_sql(
                 origin,
                 dest.query_row(
@@ -446,6 +758,7 @@ pub(super) fn read_lineage(
     }
     for (sha, parents) in &ancestors {
         for parent in parents {
+            copy_step(budget)?;
             let grandparents = ancestors
                 .get(parent)
                 .ok_or_else(|| invalid("Missing copy ancestor"))?;
@@ -458,6 +771,7 @@ pub(super) fn read_lineage(
     // Every non-root edge must extend precisely its source project's prior
     // edge, retaining that edge's mapping as part of the new operation map.
     for (sha, parents) in &ancestors {
+        copy_step(budget)?;
         if parents.is_empty() {
             continue;
         }
@@ -516,6 +830,9 @@ pub(super) fn read_lineage(
             "Archive contains unrelated lineage rows",
         )?;
     }
+    if let Some(budget) = budget {
+        budget.checkpoint()?;
+    }
     Ok(ids)
 }
 
@@ -572,6 +889,51 @@ fn replay(
         |r| r.get(0),
     )?;
     ensure(!collision, "Copy operation ID is already an edit operation")?;
+    Ok(None)
+}
+fn replay_bounded(
+    connection: &Connection,
+    root: &Path,
+    intent: &RestoreCopyIntent,
+    budget: &InspectionBudget,
+    context: &mut ArchiveContext,
+) -> Result<Option<RestoreCopyReceipt>> {
+    copy_step(Some(budget))?;
+    let entry: Option<(String, String)> = tagged_sql(ArchiveSqlOrigin::LiveCatalog,
+        connection.query_row(
+            "SELECT CASE WHEN octet_length(project_id)<=80 THEN project_id END,CASE WHEN octet_length(proof_sha256)=64 THEN proof_sha256 END FROM archive_copies WHERE operation_id=?1",
+            [&intent.operation_id.0], |row| Ok((row.get(0)?,row.get(1)?)),
+        ).optional())?;
+    if let Some((project, sha)) = entry {
+        let (proof, _) = boundary::live(read_proof_bounded(connection, &sha, budget))?;
+        ensure(
+            proof.operation_id == intent.operation_id
+                && proof.source_archive_sha256 == intent.expected_archive_sha256
+                && proof.destination_project_id == project,
+            "Copy operation ID was already used for another archive or receipt",
+        )?;
+        // This historical commitment is proven even if current owned sources
+        // are unusable or the remaining governor cannot finish replay.
+        context.phase = ArchivePhase::RecordedReplay;
+        // Prepare the historical receipt, but never mistake its encoding for
+        // source authority. Missing/malformed owned originals refuse replay;
+        // this branch never falls through into fresh acquisition or new IDs.
+        let receipt = proof.metadata_receipt(true, budget)?;
+        crate::archive_governed::validate_owned_closure(connection, root, &project, budget)?;
+        budget.checkpoint()?;
+        return Ok(Some(receipt));
+    }
+    copy_step(Some(budget))?;
+    let collision: bool = tagged_sql(
+        ArchiveSqlOrigin::LiveCatalog,
+        connection.query_row(
+            "SELECT EXISTS(SELECT 1 FROM operations WHERE operation_id=?1)",
+            [&intent.operation_id.0],
+            |row| row.get(0),
+        ),
+    )?;
+    ensure(!collision, "Copy operation ID is already an edit operation")?;
+    budget.checkpoint()?;
     Ok(None)
 }
 fn fresh_project(connection: &Connection, source: &str) -> Result<String> {
@@ -691,6 +1053,488 @@ fn document_json(document: &ProjectDocument) -> Result<String> {
     String::from_utf8(document.to_json()?).map_err(|e| invalid(e.to_string()))
 }
 
+/// Structural OSAR hash columns, not source or projection authentication.
+pub(super) fn validate_snapshot_hashes_bounded(
+    connection: &Connection,
+    project_id: &str,
+    budget: &InspectionBudget,
+) -> Result<()> {
+    copy_step(Some(budget))?;
+    let (projects, edits): (i64, i64) = tagged_sql(
+        ArchiveSqlOrigin::Input,
+        connection.query_row(
+            "SELECT (SELECT count(*) FROM projects WHERE id=?1),(SELECT count(*) FROM edits WHERE project_id=?1)",
+            [project_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        ),
+    )?;
+    ensure(
+        projects == 1 && (0..=10_000).contains(&edits),
+        "Archive snapshot hash row count exceeds its explicit bound",
+    )?;
+    let mut count = 0;
+    for (length_sql, payload_sql, expected_count) in [
+        (
+            "SELECT 0,CASE WHEN typeof(payload)='text' THEN octet_length(payload) ELSE -1 END FROM projects WHERE id=?1",
+            "SELECT CASE WHEN typeof(payload)='text' AND octet_length(payload)<=?3 THEN payload END,CASE WHEN typeof(payload_sha256)='text' AND octet_length(payload_sha256)=64 THEN payload_sha256 END FROM projects WHERE id=?1 AND ?2=0",
+            projects as u64,
+        ),
+        (
+            "SELECT CASE WHEN typeof(sequence)='integer' THEN sequence ELSE -1 END,CASE WHEN typeof(before_json)='text' THEN octet_length(before_json) ELSE -1 END FROM edits WHERE project_id=?1 ORDER BY sequence",
+            "SELECT CASE WHEN typeof(before_json)='text' AND octet_length(before_json)<=?3 THEN before_json END,CASE WHEN typeof(before_sha256)='text' AND octet_length(before_sha256)=64 THEN before_sha256 END FROM edits WHERE project_id=?1 AND sequence=?2",
+            edits as u64,
+        ),
+        (
+            "SELECT CASE WHEN typeof(sequence)='integer' THEN sequence ELSE -1 END,CASE WHEN typeof(after_json)='text' THEN octet_length(after_json) ELSE -1 END FROM edits WHERE project_id=?1 ORDER BY sequence",
+            "SELECT CASE WHEN typeof(after_json)='text' AND octet_length(after_json)<=?3 THEN after_json END,CASE WHEN typeof(after_sha256)='text' AND octet_length(after_sha256)=64 THEN after_sha256 END FROM edits WHERE project_id=?1 AND sequence=?2",
+            edits as u64,
+        ),
+    ] {
+        copy_step(Some(budget))?;
+        let mut statement = tagged_sql(ArchiveSqlOrigin::Input, connection.prepare(length_sql))?;
+        let mut rows = tagged_sql(ArchiveSqlOrigin::Input, statement.query([project_id]))?;
+        let mut seen = 0;
+        while let Some(row) = {
+            copy_step(Some(budget))?;
+            tagged_sql(ArchiveSqlOrigin::Input, rows.next())?
+        } {
+            archive::add(&mut count, 1, 20_001, "archive snapshot hash rows")?;
+            archive::add(&mut seen, 1, expected_count, "archive snapshot hash rows")?;
+            let sequence: i64 = tagged_sql(ArchiveSqlOrigin::Input, row.get(0))?;
+            ensure(
+                (0..=10_000).contains(&sequence),
+                "Archive snapshot hash identity is out of bounds",
+            )?;
+            let length = metadata_length(
+                tagged_sql(ArchiveSqlOrigin::Input, row.get(1))?,
+                MAX_NATIVE_PROJECT_BYTES,
+            )?;
+            // Advancing the cursor above reads only fixed identities/types and
+            // SQLite's stored lengths. Prepare/request the variable JSON only
+            // after this pass has paid for its complete materialization/hash.
+            prepay_metadata(budget, length)?;
+            copy_step(Some(budget))?;
+            let (payload, expected): (Option<String>, Option<String>) = tagged_sql(
+                ArchiveSqlOrigin::Input,
+                connection.query_row(
+                    payload_sql,
+                    params![project_id, sequence, MAX_NATIVE_PROJECT_BYTES as i64],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                ),
+            )?;
+            let payload = payload.ok_or_else(|| invalid("Archive snapshot checksum mismatch"))?;
+            let expected = expected.ok_or_else(|| invalid("Archive snapshot checksum mismatch"))?;
+            ensure(
+                payload.len() == length
+                    && archive::digest_valid(&expected)
+                    && checksum(payload.as_bytes()) == expected,
+                "Archive snapshot checksum mismatch",
+            )?;
+        }
+        ensure(
+            seen == expected_count,
+            "Archive snapshot hash row count changed during traversal",
+        )?;
+    }
+    budget.checkpoint()?;
+    Ok(())
+}
+
+struct BoundedCopyPlan {
+    project_id: String,
+    receipt: RestoreCopyReceipt,
+    object_metadata: u64,
+}
+struct BoundedCopyInput<'a> {
+    bundle: &'a Bundle,
+    source_project: &'a str,
+    ancestors: BTreeSet<String>,
+    intent: &'a RestoreCopyIntent,
+    byte_length: u64,
+    sha256: &'a str,
+}
+
+/// Derive every intended row from immutable input and newly allocated typed
+/// identities in a trigger-free private namespace. No live write or final-path
+/// object placement occurs here, and these rows carry no source authority.
+fn plan_copy_bounded(
+    live: &Connection,
+    input: &Connection,
+    plan: &Connection,
+    request: BoundedCopyInput<'_>,
+    budget: &InspectionBudget,
+) -> Result<BoundedCopyPlan> {
+    let BoundedCopyInput {
+        bundle,
+        source_project,
+        ancestors,
+        intent,
+        byte_length,
+        sha256,
+    } = request;
+    copy_step(Some(budget))?;
+    let project_id = fresh_project(live, source_project)?;
+    let current = crate::archive_metadata::document_json(&bundle.project, budget)?;
+    prepay_metadata(budget, current.len())?;
+    let document = remap_document(&current, &project_id)?;
+    let current = crate::archive_metadata::document_json(&document, budget)?;
+    let cursor: i64 = tagged_sql(
+        ArchiveSqlOrigin::Input,
+        input.query_row(
+            "SELECT cursor FROM projects WHERE id=?1",
+            [source_project],
+            |row| row.get(0),
+        ),
+    )?;
+    tagged_sql(
+        ArchiveSqlOrigin::PrivateOutput,
+        plan.execute(
+            "INSERT INTO projects(id,payload,revision,cursor) VALUES(?1,?2,?3,?4)",
+            params![project_id, current, document.revision() as i64, cursor],
+        ),
+    )?;
+
+    copy_step(Some(budget))?;
+    let history_count: i64 = tagged_sql(
+        ArchiveSqlOrigin::Input,
+        input.query_row(
+            "SELECT count(*) FROM edits WHERE project_id=?1",
+            [source_project],
+            |row| row.get(0),
+        ),
+    )?;
+    ensure(
+        (0..=10_000).contains(&history_count) && history_count as u64 == bundle.totals.edits,
+        "Planned history row count differs from acquired metadata",
+    )?;
+    copy_step(Some(budget))?;
+    let mut history = tagged_sql(ArchiveSqlOrigin::Input, input.prepare(
+        "SELECT CASE WHEN typeof(sequence)='integer' THEN sequence ELSE -1 END,CASE WHEN typeof(before_json)='text' THEN octet_length(before_json) ELSE -1 END,CASE WHEN typeof(after_json)='text' THEN octet_length(after_json) ELSE -1 END FROM edits WHERE project_id=?1 ORDER BY sequence",
+    ))?;
+    let mut rows = tagged_sql(ArchiveSqlOrigin::Input, history.query([source_project]))?;
+    let mut count = 0;
+    while let Some(row) = {
+        copy_step(Some(budget))?;
+        tagged_sql(ArchiveSqlOrigin::Input, rows.next())?
+    } {
+        archive::add(&mut count, 1, 10_000, "planned history rows")?;
+        let before_length = metadata_length(
+            tagged_sql(ArchiveSqlOrigin::Input, row.get(1))?,
+            MAX_NATIVE_PROJECT_BYTES,
+        )?;
+        let after_length = metadata_length(
+            tagged_sql(ArchiveSqlOrigin::Input, row.get(2))?,
+            MAX_NATIVE_PROJECT_BYTES,
+        )?;
+        prepay_metadata(budget, before_length)?;
+        prepay_metadata(budget, after_length)?;
+        let sequence: i64 = tagged_sql(ArchiveSqlOrigin::Input, row.get(0))?;
+        ensure(
+            u64::try_from(sequence).ok() == Some(count),
+            "Planned history sequences are not contiguous",
+        )?;
+        copy_step(Some(budget))?;
+        let (before, after): (Option<String>, Option<String>) = tagged_sql(
+            ArchiveSqlOrigin::Input,
+            input.query_row(
+                "SELECT CASE WHEN typeof(before_json)='text' AND octet_length(before_json)<=?3 THEN before_json END,CASE WHEN typeof(after_json)='text' AND octet_length(after_json)<=?3 THEN after_json END FROM edits WHERE project_id=?1 AND sequence=?2",
+                params![source_project, sequence, MAX_NATIVE_PROJECT_BYTES as i64],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            ),
+        )?;
+        let before =
+            before.ok_or_else(|| invalid("Planned history exceeds its bounded row ceiling"))?;
+        let after =
+            after.ok_or_else(|| invalid("Planned history exceeds its bounded row ceiling"))?;
+        ensure(
+            before.len() == before_length && after.len() == after_length,
+            "Planned history metadata changed during traversal",
+        )?;
+        let before =
+            crate::archive_metadata::document_json(&remap_document(&before, &project_id)?, budget)?;
+        let after =
+            crate::archive_metadata::document_json(&remap_document(&after, &project_id)?, budget)?;
+        tagged_sql(
+            ArchiveSqlOrigin::PrivateOutput,
+            plan.execute(
+                "INSERT INTO edits VALUES(?1,?2,?3,?4)",
+                params![project_id, sequence, before, after],
+            ),
+        )?;
+    }
+    ensure(
+        count == history_count as u64,
+        "Planned history row count changed during traversal",
+    )?;
+    drop(rows);
+    drop(history);
+
+    copy_step(Some(budget))?;
+    let length: Option<i64> = tagged_sql(
+        ArchiveSqlOrigin::Input,
+        input
+            .query_row(
+                "SELECT octet_length(original_json) FROM imports WHERE project_id=?1",
+                [source_project],
+                |row| row.get(0),
+            )
+            .optional(),
+    )?;
+    if let Some(length) = length {
+        prepay_metadata(
+            budget,
+            metadata_length(length, omniusong_core::MAX_PROJECT_BYTES)?,
+        )?;
+        let (sha, bytes): (String, Vec<u8>) = tagged_sql(ArchiveSqlOrigin::Input, input.query_row(
+            "SELECT CASE WHEN octet_length(source_sha256)=64 THEN source_sha256 END,CASE WHEN octet_length(original_json)<=?2 THEN original_json END FROM imports WHERE project_id=?1",
+            params![source_project, omniusong_core::MAX_PROJECT_BYTES as i64], |row| Ok((row.get(0)?,row.get(1)?)),
+        ))?;
+        tagged_sql(
+            ArchiveSqlOrigin::PrivateOutput,
+            plan.execute(
+                "INSERT INTO imports VALUES(?1,?2,?3)",
+                params![project_id, sha, bytes],
+            ),
+        )?;
+    }
+    copy_step(Some(budget))?;
+    tagged_sql(ArchiveSqlOrigin::PrivateOutput, plan.execute_batch(
+        "CREATE TEMP TABLE pending_copy_map(source_operation_id TEXT PRIMARY KEY,destination_operation_id TEXT UNIQUE,source_request_sha256 TEXT,source_result_sha256 TEXT,destination_request_sha256 TEXT,destination_result_sha256 TEXT);",
+    ))?;
+    copy_step(Some(budget))?;
+    let operation_count: i64 = tagged_sql(
+        ArchiveSqlOrigin::Input,
+        input.query_row(
+            "SELECT count(*) FROM operations WHERE project_id=?1",
+            [source_project],
+            |row| row.get(0),
+        ),
+    )?;
+    ensure(
+        (0..=MAX_PROOF_MAPPINGS as i64).contains(&operation_count)
+            && operation_count as u64 == bundle.totals.operations,
+        "Planned operation row count differs from acquired metadata",
+    )?;
+    copy_step(Some(budget))?;
+    let mut statement = tagged_sql(ArchiveSqlOrigin::Input, input.prepare(
+        "SELECT CASE WHEN typeof(operation_id)='text' AND octet_length(operation_id)<=96 THEN operation_id END,CASE WHEN typeof(request_json)='text' THEN octet_length(request_json) ELSE -1 END,CASE WHEN typeof(result_json)='text' THEN octet_length(result_json) ELSE -1 END FROM operations WHERE project_id=?1 ORDER BY operation_id",
+    ))?;
+    let mut rows = tagged_sql(ArchiveSqlOrigin::Input, statement.query([source_project]))?;
+    let mut mapping_count = 0;
+    let mut mapping_digest = mapping_hash();
+    while let Some(row) = {
+        copy_step(Some(budget))?;
+        tagged_sql(ArchiveSqlOrigin::Input, rows.next())?
+    } {
+        archive::add(
+            &mut mapping_count,
+            1,
+            MAX_PROOF_MAPPINGS,
+            "planned operation mappings",
+        )?;
+        let request_length = metadata_length(
+            tagged_sql(ArchiveSqlOrigin::Input, row.get(1))?,
+            WORKER_MAX_BYTES,
+        )?;
+        let result_length = metadata_length(
+            tagged_sql(ArchiveSqlOrigin::Input, row.get(2))?,
+            MAX_NATIVE_PROJECT_BYTES,
+        )?;
+        prepay_metadata(budget, request_length)?;
+        prepay_metadata(budget, result_length)?;
+        let source_id: String = tagged_sql(ArchiveSqlOrigin::Input, row.get(0))?;
+        copy_step(Some(budget))?;
+        let (source_request_json, source_request, previous, revision, result, source_result): (Option<String>, Option<String>, i64, i64, Option<String>, Option<String>) = tagged_sql(
+            ArchiveSqlOrigin::Input,
+            input.query_row(
+                "SELECT CASE WHEN typeof(request_json)='text' AND octet_length(request_json)<=?3 THEN request_json END,CASE WHEN typeof(request_sha256)='text' AND octet_length(request_sha256)=64 THEN request_sha256 END,previous_revision,committed_revision,CASE WHEN typeof(result_json)='text' AND octet_length(result_json)<=?4 THEN result_json END,CASE WHEN typeof(result_sha256)='text' AND octet_length(result_sha256)=64 THEN result_sha256 END FROM operations WHERE operation_id=?1 AND project_id=?2",
+                params![source_id, source_project, WORKER_MAX_BYTES as i64, MAX_NATIVE_PROJECT_BYTES as i64],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?)),
+            ),
+        )?;
+        let source_request_json = source_request_json
+            .ok_or_else(|| invalid("Planned operation request exceeds its bounded row ceiling"))?;
+        let source_request = source_request
+            .ok_or_else(|| invalid("Planned operation request digest is malformed"))?;
+        let result = result
+            .ok_or_else(|| invalid("Planned operation result exceeds its bounded row ceiling"))?;
+        let source_result =
+            source_result.ok_or_else(|| invalid("Planned operation result digest is malformed"))?;
+        ensure(
+            source_request_json.len() == request_length
+                && result.len() == result_length
+                && checksum(source_request_json.as_bytes()) == source_request
+                && checksum(result.as_bytes()) == source_result,
+            "Planned operation raw metadata/hash differs",
+        )?;
+        let (operation, request) = mapped_copy_request_in(
+            CopyCatalogs {
+                live,
+                input,
+                pending: plan,
+                pending_origin: ArchiveSqlOrigin::PrivateOutput,
+            },
+            &source_request_json,
+            &project_id,
+            &intent.operation_id.0,
+        )?;
+        let result_doc = remap_document(&result, &project_id)?;
+        let result = crate::archive_metadata::document_json(&result_doc, budget)?;
+        crate::archive_metadata::validate_request(
+            &request,
+            &operation,
+            &project_id,
+            archive::unsigned(previous, "copy operation revision")?,
+            &result_doc,
+            budget,
+        )?;
+        budget.charge_work((request.len() + result.len()) as u64)?;
+        let mapping = Mapping {
+            source: source_id,
+            destination: operation,
+            source_request,
+            source_result,
+            destination_request: checksum(request.as_bytes()),
+            destination_result: checksum(result.as_bytes()),
+        };
+        mapping.validate()?;
+        hash_mapping(&mut mapping_digest, &mapping);
+        tagged_sql(
+            ArchiveSqlOrigin::PrivateOutput,
+            plan.execute(
+                "INSERT INTO operations VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",
+                params![
+                    mapping.destination,
+                    project_id,
+                    request,
+                    mapping.destination_request,
+                    previous,
+                    revision,
+                    result,
+                    mapping.destination_result
+                ],
+            ),
+        )?;
+        tagged_sql(
+            ArchiveSqlOrigin::PrivateOutput,
+            plan.execute(
+                "INSERT INTO pending_copy_map VALUES(?1,?2,?3,?4,?5,?6)",
+                params![
+                    mapping.source,
+                    mapping.destination,
+                    mapping.source_request,
+                    mapping.source_result,
+                    mapping.destination_request,
+                    mapping.destination_result
+                ],
+            ),
+        )?;
+    }
+    ensure(
+        mapping_count == operation_count as u64,
+        "Planned operation row count changed during traversal",
+    )?;
+    drop(rows);
+    drop(statement);
+
+    let mut inherited = crate::archive_metadata::copy_metadata(
+        input,
+        None,
+        source_project,
+        ArchiveSqlOrigin::Input,
+        budget,
+    )?;
+    boundary::input(read_lineage_bounded(
+        input,
+        Some((plan, &project_id, false, ArchiveSqlOrigin::PrivateOutput)),
+        source_project,
+        &mut inherited,
+        true,
+        budget,
+    ))?;
+    let result_length = encoded_length(document.value(), MAX_NATIVE_PROJECT_BYTES, budget)?;
+    prepay_metadata(budget, result_length)?;
+    copy_step(Some(budget))?;
+    let proof = Proof {
+        version: 1,
+        operation_id: intent.operation_id.clone(),
+        source_archive_sha256: sha256.into(),
+        source_archive_byte_length: byte_length,
+        source_project_id: source_project.into(),
+        destination_project_id: project_id.clone(),
+        mapping_count,
+        mapping_sha256: format!("{:x}", mapping_digest.finalize()),
+        ancestors: ancestors.into_iter().collect(),
+        result: document.value().clone(),
+        result_sha256: checksum(current.as_bytes()),
+    };
+    let json = proof.metadata_json(budget)?;
+    budget.charge_work(json.len() as u64)?;
+    let proof_sha = checksum(json.as_bytes());
+    tagged_sql(
+        ArchiveSqlOrigin::PrivateOutput,
+        plan.execute(
+            "INSERT INTO archive_copy_proofs VALUES(?1,?2)",
+            params![proof_sha, json],
+        ),
+    )?;
+    tagged_sql(ArchiveSqlOrigin::PrivateOutput, plan.execute(
+        "INSERT INTO archive_copy_proof_operations SELECT ?1,source_operation_id,destination_operation_id,source_request_sha256,source_result_sha256,destination_request_sha256,destination_result_sha256 FROM pending_copy_map", [&proof_sha],
+    ))?;
+    tagged_sql(
+        ArchiveSqlOrigin::PrivateOutput,
+        plan.execute_batch("DROP TABLE pending_copy_map"),
+    )?;
+    tagged_sql(
+        ArchiveSqlOrigin::PrivateOutput,
+        plan.execute(
+            "INSERT INTO archive_project_lineage VALUES(?1,?2)",
+            params![project_id, proof_sha],
+        ),
+    )?;
+    tagged_sql(
+        ArchiveSqlOrigin::PrivateOutput,
+        plan.execute(
+            "INSERT INTO archive_copies VALUES(?1,?2,?3)",
+            params![intent.operation_id.0, project_id, proof_sha],
+        ),
+    )?;
+    crate::archive_governed::plan_objects(input, bundle, plan, budget)?;
+    let mut planned_bundle = crate::archive_metadata::copy_metadata(
+        plan,
+        None,
+        &project_id,
+        ArchiveSqlOrigin::PrivateOutput,
+        budget,
+    )?;
+    boundary::output(read_lineage_bounded(
+        plan,
+        None,
+        &project_id,
+        &mut planned_bundle,
+        false,
+        budget,
+    ))?;
+    let object_metadata = bundle
+        .totals
+        .metadata
+        .checked_sub(inherited.totals.metadata)
+        .ok_or_else(|| invalid("Archive metadata accounting underflow"))?;
+    archive::add(
+        &mut planned_bundle.totals.metadata,
+        object_metadata,
+        archive::ARCHIVE_METADATA_BYTES,
+        "planned copy metadata including objects",
+    )?;
+    let receipt = proof.metadata_receipt(false, budget)?;
+    budget.checkpoint()?;
+    Ok(BoundedCopyPlan {
+        project_id,
+        receipt,
+        object_metadata,
+    })
+}
+
 /// Reserve an owned immutable input copy so validation and publication consume
 /// exactly the fingerprinted bytes even if the acquisition path is replaced.
 pub(super) fn acquire(
@@ -799,6 +1643,293 @@ impl NativeStore {
         self.restore_archive_as_copy_outcome(path, intent)
             .map(|outcome| outcome.value)
             .map_err(|failure| StoreError::Archive(Box::new(failure)))
+    }
+
+    /// Acquire, plan and authenticate a fresh typed copy with one cumulative
+    /// governor. Retained projection metadata is accepted only after the held
+    /// originals prove every input, planned and final retained snapshot.
+    pub fn restore_archive_as_copy_bounded_outcome(
+        &mut self,
+        path: &Path,
+        intent: &RestoreCopyIntent,
+        budget: &InspectionBudget,
+    ) -> std::result::Result<ArchiveOutcome<RestoreCopyReceipt>, ArchiveFailure> {
+        // The failure envelope retains the store's trusted canonical root.
+        // Untrusted source/intent copies are populated only after their credit.
+        let mut context = ArchiveContext::new(ArchiveAction::Copy, &self.root);
+        let result = (|| -> Result<_> {
+            budget.checkpoint()?;
+            intent.validate()?;
+            ensure(
+                path.as_os_str().as_encoded_bytes().len() <= 4096
+                    && self.root.as_os_str().as_encoded_bytes().len() <= 4096,
+                "Bounded archive copy paths exceed their byte ceiling",
+            )?;
+            budget.charge_work(
+                ((path.as_os_str().as_encoded_bytes().len()
+                    + self.root.as_os_str().as_encoded_bytes().len()
+                    + intent.operation_id.0.len()
+                    + intent.expected_archive_sha256.len()) as u64)
+                    .saturating_mul(16)
+                    .saturating_add(32 * 1024),
+            )?;
+            let root = self.root.clone();
+            context.destination = root.clone();
+            context.source = Some(path.to_owned());
+            context.operation_id = Some(intent.operation_id.0.clone());
+            context.expected_archive_sha256 = Some(intent.expected_archive_sha256.clone());
+            let _owned_files = crate::retained_file_coordination::writer(&root)?;
+            let tx = boundary::live(CatalogTransaction::deferred(&self.connection, budget))?;
+            let existing = boundary::live(tx.run(|tx| {
+                let existing = replay_bounded(tx, &root, intent, budget, &mut context)?;
+                tx.rollback()?;
+                Ok(existing)
+            }))?;
+            budget.checkpoint()?;
+            if let Some(receipt) = existing {
+                context.phase = ArchivePhase::RecordedReplay;
+                return Ok(ArchiveOutcome::new(
+                    receipt,
+                    ArchiveCompletion::RecordedReplay,
+                ));
+            }
+            super::source_attachment::reject_reserved_operation(&intent.operation_id.0)?;
+            crate::projection_publication_types::reject_reserved_operation(&intent.operation_id.0)?;
+            let _writer = crate::retained_file_coordination::writer_with_file(&root, path)?;
+            copy_step(Some(budget))?;
+            let stage = archive::private_directory(&root, "archive-copy")?;
+            context.staging = Some(stage.clone());
+            let diagnostic = serde_json::json!({"mode":"copy","operationId":intent.operation_id.0,
+                "expectedArchiveSha256":intent.expected_archive_sha256,"sourcePath":path,"destinationRoot":root});
+            let diagnostic = bounded_encoding(&diagnostic, 16 * 1024, budget)?;
+            let mut report = OpenOptions::new()
+                .create_new(true)
+                .write(true)
+                .open(stage.join("restore.json"))?;
+            report.write_all(diagnostic.as_bytes())?;
+            report.sync_all()?;
+            drop(report);
+            let (input, byte_length, sha256) = crate::archive_governed::acquire(
+                path,
+                &stage,
+                Some(&intent.expected_archive_sha256),
+                budget,
+            )?;
+            context.archive_sha256 = Some(sha256.clone());
+            let input = crate::archive_governed::open_input(&input, budget)?;
+            let mut input_sql =
+                crate::archive_governed::PrivateSql::new(&input, budget, ArchiveSqlOrigin::Input)?;
+            // Fixed known schema has at most 3*14 CASE-bounded rows; reserve
+            // their metadata before the compatibility structural checker reads.
+            budget.visit_rows(64)?;
+            budget.charge_work(64 * (8192 + 1024) * 4)?;
+            boundary::input(archive::validate_schema(&input))?;
+            copy_step(Some(budget))?;
+            let version: u32 = tagged_sql(
+                ArchiveSqlOrigin::Input,
+                input.pragma_query_value(None, "user_version", |row| row.get(0)),
+            )?;
+            budget.visit_rows(16)?;
+            budget.charge_work(64 * 1024)?;
+            let meta = boundary::input(archive::load_meta(&input))?;
+            boundary::input(validate_snapshot_hashes_bounded(
+                &input,
+                &meta.project_id,
+                budget,
+            ))?;
+            let mut bundle = crate::archive_metadata::copy_metadata(
+                &input,
+                None,
+                &meta.project_id,
+                ArchiveSqlOrigin::Input,
+                budget,
+            )?;
+            let ancestors = boundary::input(read_lineage_bounded(
+                &input,
+                None,
+                &meta.project_id,
+                &mut bundle,
+                true,
+                budget,
+            ))?;
+            ensure(
+                ancestors.len() < MAX_LINEAGE_PROOFS,
+                "Copy ancestry would exceed its proof ceiling",
+            )?;
+            crate::archive_governed::reconstruct(&input, &stage, &mut bundle, budget)?;
+            ensure(
+                bundle.totals == meta.totals && bundle.index_digest() == meta.index,
+                "Archive metadata, payload totals or canonical index mismatch",
+            )?;
+            let (input_walk, source_set, _input_assets) = crate::archive_projection::collect(
+                &input,
+                crate::archive_projection::RetainedLayout::Osar { version },
+                &meta.project_id,
+                ArchiveSqlOrigin::Input,
+                budget,
+            )?
+            .into_parts();
+
+            let tx = boundary::live(CatalogTransaction::immediate(&mut self.connection, budget))?;
+            let (receipt, completion) = boundary::live(tx.run(|tx| {
+                if let Some(receipt) = replay_bounded(tx, &root, intent, budget, &mut context)? {
+                    input_sql.detach()?;
+                    tx.rollback()?;
+                    budget.checkpoint()?;
+                    context.phase = ArchivePhase::RecordedReplay;
+                    return Ok((receipt, ArchiveCompletion::RecordedReplay));
+                }
+                let ledger = PostimageLedger::new(&stage, Layout::Catalog, Some(budget))?;
+                ledger.capture_baseline(tx, ArchiveSqlOrigin::LiveCatalog)?;
+                let plan = crate::archive_governed::prepare_plan(&stage, budget)?;
+                let mut plan_sql = crate::archive_governed::PrivateSql::new(
+                    &plan,
+                    budget,
+                    ArchiveSqlOrigin::PrivateOutput,
+                )?;
+                let planned = plan_copy_bounded(
+                    tx,
+                    &input,
+                    &plan,
+                    BoundedCopyInput {
+                        bundle: &bundle,
+                        source_project: &meta.project_id,
+                        ancestors,
+                        intent,
+                        byte_length,
+                        sha256: &sha256,
+                    },
+                    budget,
+                )?;
+                let (plan_walk, _plan_sources, _plan_assets) = crate::archive_projection::collect(
+                    &plan,
+                    crate::archive_projection::RetainedLayout::Catalog,
+                    &planned.project_id,
+                    ArchiveSqlOrigin::PrivateOutput,
+                    budget,
+                )?
+                .into_parts();
+                ledger.expect_from_plan(
+                    &plan,
+                    ArchiveSqlOrigin::PrivateOutput,
+                    crate::archive_plan::REUSABLE_TABLES,
+                )?;
+                let expected = ledger.freeze()?;
+                tagged_sql(
+                    ArchiveSqlOrigin::PrivateOutput,
+                    plan.execute_batch("PRAGMA query_only=ON"),
+                )?;
+                #[cfg(test)]
+                boundary::checkpoint(boundary::TestEvent::CopyPlanFrozen, &context)?;
+
+                context.phase = ArchivePhase::ObjectsPlacementAttempted;
+                crate::archive_governed::install(
+                    tx,
+                    &input,
+                    &root,
+                    &stage,
+                    &bundle,
+                    &mut context.published_objects,
+                    budget,
+                )?;
+                context.phase = ArchivePhase::ObjectsPlaced;
+                // The owner is acquired only after tentative ordinary object
+                // placement/registration, and remains held through COMMIT.
+                let sources =
+                    crate::projection_sources::RegisteredProjectionSources::open_collected_from(
+                        &root,
+                        tx,
+                        source_set,
+                        ArchiveSqlOrigin::LiveCatalog,
+                    )?;
+                let proofs = sources.authenticate(budget)?;
+                let mut validator =
+                    crate::archive_projection::RetainedValidator::new(&proofs, budget)?;
+                validator.validate(&input, ArchiveSqlOrigin::Input, &input_walk)?;
+                validator.validate(&plan, ArchiveSqlOrigin::PrivateOutput, &plan_walk)?;
+                crate::archive_metadata::copy_metadata(
+                    &plan,
+                    Some(archive::Destination::Store(tx)),
+                    &planned.project_id,
+                    ArchiveSqlOrigin::PrivateOutput,
+                    budget,
+                )?;
+                let mut applied = crate::archive_metadata::copy_metadata(
+                    &plan,
+                    None,
+                    &planned.project_id,
+                    ArchiveSqlOrigin::PrivateOutput,
+                    budget,
+                )?;
+                boundary::output(read_lineage_bounded(
+                    &plan,
+                    Some((tx, &planned.project_id, true, ArchiveSqlOrigin::LiveCatalog)),
+                    &planned.project_id,
+                    &mut applied,
+                    false,
+                    budget,
+                ))?;
+                let mut final_bundle = crate::archive_metadata::copy_metadata(
+                    tx,
+                    None,
+                    &planned.project_id,
+                    ArchiveSqlOrigin::LiveCatalog,
+                    budget,
+                )?;
+                boundary::live(read_lineage_bounded(
+                    tx,
+                    None,
+                    &planned.project_id,
+                    &mut final_bundle,
+                    false,
+                    budget,
+                ))?;
+                archive::add(
+                    &mut final_bundle.totals.metadata,
+                    planned.object_metadata,
+                    archive::ARCHIVE_METADATA_BYTES,
+                    "copy metadata including objects",
+                )?;
+                let (final_walk, _final_sources, final_assets) =
+                    crate::archive_projection::collect(
+                        tx,
+                        crate::archive_projection::RetainedLayout::Catalog,
+                        &planned.project_id,
+                        ArchiveSqlOrigin::LiveCatalog,
+                        budget,
+                    )?
+                    .into_parts();
+                validator.validate(tx, ArchiveSqlOrigin::LiveCatalog, &final_walk)?;
+                expected.verify(tx, ArchiveSqlOrigin::LiveCatalog)?;
+                crate::archive_governed::verify_assets(
+                    tx,
+                    &final_assets,
+                    ArchiveSqlOrigin::LiveCatalog,
+                    budget,
+                )?;
+                validator.verify_final(tx, ArchiveSqlOrigin::LiveCatalog)?;
+                // No substantive private SQL or fallible result construction
+                // follows the final live fence, and COMMIT owns late stops.
+                plan_sql.detach()?;
+                input_sql.detach()?;
+                budget.checkpoint()?;
+                context.phase = ArchivePhase::CatalogCommitAttempted;
+                #[cfg(test)]
+                boundary::checkpoint(boundary::TestEvent::CopyCommit, &context)?;
+                // Re-prove held originals after the last observable boundary;
+                // this is metadata/identity only, never a second source proof.
+                validator.verify_final(tx, ArchiveSqlOrigin::LiveCatalog)?;
+                tx.commit()?;
+                context.phase = ArchivePhase::CatalogCommitted;
+                Ok((planned.receipt, ArchiveCompletion::CatalogCommitted))
+            }))?;
+            drop(input_sql);
+            drop(input);
+            let mut outcome = ArchiveOutcome::new(receipt, completion);
+            outcome.cleanup_tree(&stage);
+            Ok(outcome)
+        })();
+        result.map_err(|error| crate::archive_governed::finish_failure(context, error, budget))
     }
 
     pub fn restore_archive_as_copy_outcome(
@@ -1842,5 +2973,538 @@ mod tests {
             .restore_archive_as_copy_outcome(&path, &intent(&sha, "commit-hook-refused"))
             .unwrap();
         assert_eq!(completed.completion, ArchiveCompletion::CatalogCommitted);
+    }
+
+    fn bounded_budget() -> InspectionBudget {
+        InspectionBudget::new(
+            Default::default(),
+            std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn bounded_copy_commits_exact_plan_and_replays_without_input() {
+        let f = Fixture::new();
+        let (_, original, path, sha) = fixture_archive(&f);
+        let bytes = fs::read(&path).unwrap();
+        let mut target = f.store("bounded-target");
+        let request = intent(&sha, "bounded-copy");
+        let budget = bounded_budget();
+        let completed = target
+            .restore_archive_as_copy_bounded_outcome(&path, &request, &budget)
+            .unwrap();
+        assert_eq!(completed.completion, ArchiveCompletion::CatalogCommitted);
+        assert!(completed.cleanup.is_empty());
+        assert!(!completed.value.replayed);
+        assert_ne!(completed.value.document.id(), original.id());
+        let mut expected = original.value().clone();
+        expected["id"] = completed.value.document.id().into();
+        assert_eq!(completed.value.document.value(), &expected);
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+        assert!(budget.usage().vm_steps > 0);
+        assert!(budget.usage().work_bytes > bytes.len() as u64);
+        let before = sql_snapshot(&target.connection);
+        fs::remove_file(&path).unwrap();
+        let replay_budget = bounded_budget();
+        let replayed = target
+            .restore_archive_as_copy_bounded_outcome(&path, &request, &replay_budget)
+            .unwrap();
+        assert_eq!(replayed.completion, ArchiveCompletion::RecordedReplay);
+        assert!(replayed.value.replayed);
+        assert_eq!(
+            replayed.value.document.value(),
+            completed.value.document.value()
+        );
+        assert_eq!(sql_snapshot(&target.connection), before);
+        assert!(replay_budget.usage().vm_steps > 0);
+        assert_eq!(replay_budget.usage().file_bytes, 0);
+        assert!(target.connection.is_autocommit());
+    }
+
+    #[test]
+    fn bounded_copy_zero_work_refuses_before_acquisition_and_does_not_reset_budget() {
+        let f = Fixture::new();
+        let (_, _, path, sha) = fixture_archive(&f);
+        let mut target = f.store("bounded-limit-target");
+        let before = sql_snapshot(&target.connection);
+        let budget = InspectionBudget::new(
+            omniusong_recording::InspectionLimits {
+                max_work_bytes: 0,
+                ..Default::default()
+            },
+            std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        )
+        .unwrap();
+        for _ in 0..2 {
+            let failure = target
+                .restore_archive_as_copy_bounded_outcome(
+                    &path,
+                    &intent(&sha, "bounded-limit"),
+                    &budget,
+                )
+                .unwrap_err();
+            assert_eq!(failure.context().phase, ArchivePhase::NotStarted);
+            assert!(failure.context().staging.is_none());
+            assert!(failure.context().archive_sha256.is_none());
+            assert_eq!(sql_snapshot(&target.connection), before);
+            assert!(matches!(
+                budget.checkpoint(),
+                Err(omniusong_recording::RecordingError::InspectionLimit {
+                    resource: omniusong_recording::InspectionResource::WorkBytes,
+                    limit: 0,
+                    ..
+                })
+            ));
+        }
+        assert!(target.connection.is_autocommit());
+    }
+
+    #[test]
+    fn bounded_copy_vm_limit_detaches_actual_catalog_hook_before_reuse() {
+        let f = Fixture::new();
+        let (_, _, path, sha) = fixture_archive(&f);
+        let mut target = f.store("bounded-vm-target");
+        let before = sql_snapshot(&target.connection);
+        let budget = InspectionBudget::new(
+            omniusong_recording::InspectionLimits {
+                max_vm_steps: 1,
+                ..Default::default()
+            },
+            std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        )
+        .unwrap();
+        let failure = target
+            .restore_archive_as_copy_bounded_outcome(&path, &intent(&sha, "bounded-vm"), &budget)
+            .unwrap_err();
+        assert_eq!(failure.context().phase, ArchivePhase::NotStarted);
+        assert!(failure.context().staging.is_none());
+        assert!(!failure.catalog_connection_unusable());
+        assert!(matches!(
+            budget.checkpoint(),
+            Err(omniusong_recording::RecordingError::InspectionLimit {
+                resource: omniusong_recording::InspectionResource::VmSteps,
+                limit: 1,
+                ..
+            })
+        ));
+        assert_eq!(budget.usage().vm_steps, 1);
+        assert!(target.connection.is_autocommit());
+        assert_eq!(
+            target
+                .connection
+                .query_row("SELECT 1", [], |row| row.get::<_, i64>(0))
+                .unwrap(),
+            1
+        );
+        assert_eq!(sql_snapshot(&target.connection), before);
+    }
+
+    #[test]
+    fn bounded_copy_checks_stored_snapshot_hash_columns_before_planning() {
+        let f = Fixture::new();
+        let (_, _, path, _) = fixture_archive(&f);
+        let input = Connection::open(&path).unwrap();
+        input
+            .execute("UPDATE edits SET before_sha256=?1", ["0".repeat(64)])
+            .unwrap();
+        drop(input);
+        let bytes = fs::read(&path).unwrap();
+        let sha = checksum(&bytes);
+        let mut target = f.store("bounded-snapshot-hash-target");
+        let before = sql_snapshot(&target.connection);
+        let failure = target
+            .restore_archive_as_copy_bounded_outcome(
+                &path,
+                &intent(&sha, "bounded-snapshot-hash"),
+                &bounded_budget(),
+            )
+            .unwrap_err();
+        assert!(
+            matches!(failure.operation_error(),StoreError::Invalid(message) if message=="Archive snapshot checksum mismatch")
+        );
+        assert_eq!(failure.context().phase, ArchivePhase::NotStarted);
+        assert_eq!(
+            failure.context().archive_sha256.as_deref(),
+            Some(sha.as_str())
+        );
+        assert_eq!(failure.context().published_objects, 0);
+        assert_eq!(sql_snapshot(&target.connection), before);
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+    }
+
+    #[test]
+    fn bounded_copy_actual_private_notadb_never_becomes_live_fatal() {
+        let f = Fixture::new();
+        let path = f.0.join("bounded-notadb.omniusong");
+        let bytes = vec![0xa5; 4096];
+        fs::write(&path, &bytes).unwrap();
+        let mut target = f.store("bounded-notadb-target");
+        let before = sql_snapshot(&target.connection);
+        let failure = target
+            .restore_archive_as_copy_bounded_outcome(
+                &path,
+                &intent(&checksum(&bytes), "bounded-notadb"),
+                &bounded_budget(),
+            )
+            .unwrap_err();
+        let StoreError::ArchiveSql(sql) = failure.operation_error() else {
+            panic!("Expected private SQLite origin, got {failure:?}")
+        };
+        assert_eq!(sql.origin(), ArchiveSqlOrigin::Input);
+        assert!(matches!(sql.operation_error(),StoreError::Database(error)
+            if error.sqlite_error().is_some_and(|code|code.extended_code & 0xff == rusqlite::ffi::SQLITE_NOTADB)));
+        assert_eq!(failure.catalog_sqlite_error_code(), None);
+        assert!(!failure.catalog_connection_unusable());
+        assert_eq!(sql_snapshot(&target.connection), before);
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+        assert!(target.connection.is_autocommit());
+    }
+
+    #[test]
+    fn bounded_copy_live_trigger_failure_keeps_actual_origin_and_rolls_back() {
+        let f = Fixture::new();
+        let (_, _, path, sha) = fixture_archive(&f);
+        let mut target = f.store("bounded-trigger-target");
+        target.connection.execute_batch("CREATE TRIGGER refuse_bounded_copy BEFORE INSERT ON projects BEGIN SELECT RAISE(ABORT,'bounded live refusal'); END;").unwrap();
+        let before = sql_snapshot(&target.connection);
+        let failure = target
+            .restore_archive_as_copy_bounded_outcome(
+                &path,
+                &intent(&sha, "bounded-trigger"),
+                &bounded_budget(),
+            )
+            .unwrap_err();
+        assert_eq!(failure.context().phase, ArchivePhase::ObjectsPlaced);
+        assert!(
+            matches!(failure.operation_error(),StoreError::ArchiveSql(sql)
+            if sql.origin()==ArchiveSqlOrigin::LiveCatalog)
+        );
+        assert_eq!(
+            failure.catalog_sqlite_error_code(),
+            Some(rusqlite::ffi::SQLITE_CONSTRAINT_TRIGGER)
+        );
+        assert_eq!(sql_snapshot(&target.connection), before);
+        assert!(target.connection.is_autocommit());
+    }
+
+    #[test]
+    fn bounded_copy_cancel_after_frozen_plan_retains_no_catalog_authority() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+        };
+        let f = Fixture::new();
+        let (_, _, path, sha) = fixture_archive(&f);
+        let mut target = f.store("bounded-cancel-target");
+        let before = sql_snapshot(&target.connection);
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let flag = Arc::clone(&cancelled);
+        let budget = InspectionBudget::new(Default::default(), cancelled).unwrap();
+        let failure = boundary::with_test_hook(
+            Box::new(move |event, context| {
+                if event == boundary::TestEvent::CopyPlanFrozen {
+                    assert_eq!(context.phase, ArchivePhase::NotStarted);
+                    assert_eq!(context.published_objects, 0);
+                    flag.store(true, Ordering::Release);
+                }
+                Ok(())
+            }),
+            || {
+                target.restore_archive_as_copy_bounded_outcome(
+                    &path,
+                    &intent(&sha, "bounded-cancel"),
+                    &budget,
+                )
+            },
+        )
+        .unwrap_err();
+        assert!(matches!(
+            budget.checkpoint(),
+            Err(omniusong_recording::RecordingError::InspectionCancelled)
+        ));
+        assert_eq!(
+            failure.context().phase,
+            ArchivePhase::ObjectsPlacementAttempted
+        );
+        assert_eq!(failure.context().published_objects, 0);
+        assert!(failure.context().staging.as_ref().unwrap().is_dir());
+        assert_eq!(sql_snapshot(&target.connection), before);
+        assert!(target.connection.is_autocommit());
+    }
+
+    #[test]
+    fn bounded_copy_cancellation_inside_successful_commit_cannot_relabel_completion() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+        };
+        let f = Fixture::new();
+        let (_, _, path, sha) = fixture_archive(&f);
+        let mut target = f.store("bounded-late-cancel-target");
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let flag = Arc::clone(&cancelled);
+        let budget = InspectionBudget::new(Default::default(), cancelled).unwrap();
+        target
+            .connection
+            .commit_hook(Some(move || {
+                flag.store(true, Ordering::Release);
+                false
+            }))
+            .unwrap();
+        let outcome = target
+            .restore_archive_as_copy_bounded_outcome(
+                &path,
+                &intent(&sha, "bounded-late-cancel"),
+                &budget,
+            )
+            .unwrap();
+        target.connection.commit_hook(None::<fn() -> bool>).unwrap();
+        assert_eq!(outcome.completion, ArchiveCompletion::CatalogCommitted);
+        assert!(!outcome.value.replayed);
+        assert!(matches!(
+            budget.checkpoint(),
+            Err(omniusong_recording::RecordingError::InspectionCancelled)
+        ));
+        assert!(target.connection.is_autocommit());
+        assert_eq!(
+            target.load(outcome.value.document.id()).unwrap().value(),
+            outcome.value.document.value()
+        );
+    }
+
+    #[test]
+    fn bounded_copy_invalid_recorded_proof_never_falls_through_to_missing_input() {
+        let f = Fixture::new();
+        let (_, _, path, sha) = fixture_archive(&f);
+        let mut target = f.store("bounded-replay-invalid-target");
+        let request = intent(&sha, "bounded-replay-invalid");
+        target
+            .restore_archive_as_copy_bounded_outcome(&path, &request, &bounded_budget())
+            .unwrap();
+        // Deliberately bypass the normal write guard to model retained damage;
+        // the replay validator, rather than this setup trigger, must refuse.
+        target
+            .connection
+            .execute_batch("DROP TRIGGER immutable_archive_copy_proofs_update")
+            .unwrap();
+        target
+            .connection
+            .execute(
+                "UPDATE archive_copy_proofs SET receipt_json=receipt_json||' '",
+                [],
+            )
+            .unwrap();
+        let before = sql_snapshot(&target.connection);
+        fs::remove_file(&path).unwrap();
+        let failure = target
+            .restore_archive_as_copy_bounded_outcome(&path, &request, &bounded_budget())
+            .unwrap_err();
+        assert!(
+            matches!(failure.operation_error(),StoreError::Invalid(message) if message=="Copy proof checksum mismatch")
+        );
+        assert_eq!(failure.context().phase, ArchivePhase::NotStarted);
+        assert!(failure.context().staging.is_none());
+        assert!(failure.context().archive_sha256.is_none());
+        assert_eq!(sql_snapshot(&target.connection), before);
+        assert!(target.connection.is_autocommit());
+    }
+}
+
+#[cfg(test)]
+mod bounded_materialization_tests {
+    use super::*;
+    use omniusong_recording::{InspectionLimits, InspectionResource, RecordingError};
+    use rusqlite::hooks::{AuthAction, AuthContext, Authorization};
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    };
+
+    fn catalog() -> Connection {
+        let connection = Connection::open_in_memory().unwrap();
+        connection.execute_batch("CREATE TABLE projects(id TEXT PRIMARY KEY,payload TEXT,revision INTEGER,cursor INTEGER,payload_sha256 TEXT);
+            CREATE TABLE edits(project_id TEXT,sequence INTEGER,before_json TEXT,after_json TEXT,before_sha256 TEXT,after_sha256 TEXT,PRIMARY KEY(project_id,sequence));
+            CREATE TABLE operations(operation_id TEXT PRIMARY KEY,project_id TEXT,request_json TEXT,request_sha256 TEXT,previous_revision INTEGER,committed_revision INTEGER,result_json TEXT,result_sha256 TEXT);
+            CREATE TABLE imports(project_id TEXT PRIMARY KEY,source_sha256 TEXT,original_json BLOB);").unwrap();
+        connection
+    }
+
+    fn budget(max_work_bytes: u64) -> InspectionBudget {
+        InspectionBudget::new(
+            InspectionLimits {
+                max_work_bytes,
+                ..Default::default()
+            },
+            Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap()
+    }
+
+    fn assert_work_stop<T>(result: Result<T>) {
+        assert!(matches!(
+            result,
+            Err(StoreError::Recording(RecordingError::InspectionLimit {
+                resource: InspectionResource::WorkBytes,
+                ..
+            }))
+        ));
+    }
+
+    fn deny_digest_reads(connection: &Connection, column: &'static str) -> Arc<AtomicBool> {
+        let observed = Arc::new(AtomicBool::new(false));
+        let callback_observed = Arc::clone(&observed);
+        connection.authorizer(Some(move |context: AuthContext<'_>| {
+            if matches!(context.action, AuthAction::Read { column_name, .. } if column_name == column) {
+                callback_observed.store(true, Ordering::Release);
+                Authorization::Deny
+            } else {
+                Authorization::Allow
+            }
+        })).unwrap();
+        observed
+    }
+
+    #[test]
+    fn snapshot_hash_pass_prepays_before_preparing_any_large_payload_query() {
+        for column in ["payload_sha256", "before_sha256", "after_sha256"] {
+            let source = catalog();
+            let small = " \n{\"opaque\":true}\n ";
+            let large = format!(" \n{{\"opaque\":\"{}\"}}\n ", "x".repeat(128 * 1024));
+            let current = if column == "payload_sha256" {
+                large.as_str()
+            } else {
+                small
+            };
+            let before = if column == "before_sha256" {
+                large.as_str()
+            } else {
+                small
+            };
+            let after = if column == "after_sha256" {
+                large.as_str()
+            } else {
+                small
+            };
+            source
+                .execute(
+                    "INSERT INTO projects VALUES('source-project',?1,1,1,?2)",
+                    params![current, checksum(current.as_bytes())],
+                )
+                .unwrap();
+            source
+                .execute(
+                    "INSERT INTO edits VALUES('source-project',1,?1,?2,?3,?4)",
+                    params![
+                        before,
+                        after,
+                        checksum(before.as_bytes()),
+                        checksum(after.as_bytes())
+                    ],
+                )
+                .unwrap();
+
+            // A combined length/payload SELECT asks for this digest as soon as
+            // it is prepared. Only the prepaid point SELECT may request it.
+            let point_query = deny_digest_reads(&source, column);
+            let governor = budget(100_000);
+            assert_work_stop(validate_snapshot_hashes_bounded(
+                &source,
+                "source-project",
+                &governor,
+            ));
+            assert!(
+                !point_query.load(Ordering::Acquire),
+                "Payload SQL was prepared before this pass paid for its bytes"
+            );
+            source
+                .authorizer(None::<fn(AuthContext<'_>) -> Authorization>)
+                .unwrap();
+
+            // Raw whitespace is part of each recorded digest. The full-credit
+            // structural pass must hash those exact bytes without reencoding.
+            validate_snapshot_hashes_bounded(
+                &source,
+                "source-project",
+                &budget(InspectionLimits::default().max_work_bytes),
+            )
+            .unwrap();
+        }
+    }
+
+    #[test]
+    fn copy_plan_prepays_operation_payload_before_preparing_its_point_query() {
+        let input = catalog();
+        let live = catalog();
+        let plan = catalog();
+        let document = ProjectDocument::new("Prepaid copy plan").unwrap();
+        let current = document.to_json().unwrap();
+        input
+            .execute(
+                "INSERT INTO projects VALUES(?1,?2,0,0,?3)",
+                params![
+                    document.id(),
+                    String::from_utf8(current.clone()).unwrap(),
+                    checksum(&current)
+                ],
+            )
+            .unwrap();
+        let request = "{damaged request";
+        let result = "{damaged result".repeat(16_384);
+        input
+            .execute(
+                "INSERT INTO operations VALUES('source-operation',?1,?2,?3,0,1,?4,?5)",
+                params![
+                    document.id(),
+                    request,
+                    checksum(request.as_bytes()),
+                    result,
+                    checksum(result.as_bytes())
+                ],
+            )
+            .unwrap();
+        let bundle = Bundle {
+            project: document.clone(),
+            assets: BTreeSet::new(),
+            takes: BTreeSet::new(),
+            totals: archive::Totals {
+                operations: 1,
+                ..Default::default()
+            },
+            index: Sha256::new(),
+        };
+        let intent = RestoreCopyIntent {
+            operation_id: OperationId("copy-operation".into()),
+            expected_archive_sha256: "a".repeat(64),
+        };
+        let point_query = deny_digest_reads(&input, "request_sha256");
+        let governor = budget(1_000_000);
+        assert_work_stop(plan_copy_bounded(
+            &live,
+            &input,
+            &plan,
+            BoundedCopyInput {
+                bundle: &bundle,
+                source_project: document.id(),
+                ancestors: BTreeSet::new(),
+                intent: &intent,
+                byte_length: 1,
+                sha256: &intent.expected_archive_sha256,
+            },
+            &governor,
+        ));
+        assert!(
+            !point_query.load(Ordering::Acquire),
+            "Operation payload SQL was prepared before this pass paid for its bytes"
+        );
+        assert_eq!(
+            plan.query_row("SELECT count(*) FROM operations", [], |row| row
+                .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+        input
+            .authorizer(None::<fn(AuthContext<'_>) -> Authorization>)
+            .unwrap();
     }
 }

@@ -225,6 +225,18 @@ impl<'c, 'b> CatalogTransaction<'c, 'b> {
             Err(error) => Err(self.abort(error)),
         }
     }
+    /// Prepare an owner that borrows no catalog connection while retaining
+    /// this same transaction. Every failed preparation takes the explicit
+    /// abort path; the caller still finishes a successful scope with `run`.
+    pub(crate) fn prepare<T>(
+        &mut self,
+        operation: impl FnOnce(&mut Self) -> Result<T>,
+    ) -> Result<T> {
+        match operation(self) {
+            Ok(value) => Ok(value),
+            Err(error) => Err(self.abort(error)),
+        }
+    }
     fn detach(&mut self) -> Vec<rusqlite::Error> {
         self.progress
             .take()
@@ -344,7 +356,10 @@ impl<'c, 'b> CatalogTransaction<'c, 'b> {
             .as_ref()
             .is_some_and(|p| p.interrupted.load(Ordering::Acquire));
         let error = if own_interrupt
-            && matches!(&error,StoreError::Database(e) if e.sqlite_error().is_some_and(|c|c.extended_code&0xff==9))
+            && !error.catalog_connection_unusable()
+            && error
+                .catalog_sqlite_error_code()
+                .is_some_and(|code| code & 0xff == 9)
         {
             match self.budget.and_then(|b| b.checkpoint().err()) {
                 Some(stop) => StoreError::Recording(stop),

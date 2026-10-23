@@ -15,6 +15,10 @@ use std::{
     cell::{Cell, RefCell},
     fs::{self, File, OpenOptions},
     path::{Path, PathBuf},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 
 const MAX_ROWS: u64 = 4_194_304;
@@ -315,16 +319,29 @@ fn framed(hash: &mut Sha256, bytes: &[u8]) {
     hash.update(bytes);
 }
 fn finish<T>(budget: Option<&InspectionBudget>, result: Result<T>) -> Result<T> {
-    if result.as_ref().err().is_some_and(|error| {
-        error.catalog_connection_unusable()
-            || error
-                .catalog_sqlite_error_code()
-                .is_some_and(|code| matches!(code & 0xff, 10 | 11 | 26))
-    }) {
-        return result;
-    }
+    // A later governor stop cannot replace an already observed SQL or
+    // semantic failure. The archive boundary records the sticky stop beside
+    // the original error; already-stopped calls still refuse at entry.
+    let value = result?;
     checkpoint(budget)?;
-    result
+    Ok(value)
+}
+fn finish_spool<T>(
+    budget: Option<&InspectionBudget>,
+    interrupted: &AtomicBool,
+    result: Result<T>,
+) -> Result<T> {
+    // Only this disposable spool's own hook may translate its INTERRUPT.
+    // A private physical error, source error or unrelated interrupt survives.
+    if interrupted.load(Ordering::Acquire)
+        && result.as_ref().err().is_some_and(|error| matches!(error, StoreError::ArchiveSql(value)
+            if value.origin()==ArchiveSqlOrigin::PrivateOutput && matches!(value.operation_error(), StoreError::Database(sql)
+                if sql.sqlite_error().is_some_and(|code| code.extended_code & 0xff == 9))))
+        && let Some(stop) = budget.and_then(|value| value.checkpoint().err())
+    {
+        return Err(StoreError::Recording(stop));
+    }
+    finish(budget, result)
 }
 fn row_hash(table: Table) -> Sha256 {
     let mut hash = Sha256::new();
@@ -705,6 +722,7 @@ pub(crate) struct PostimageLedger<'b> {
     poisoned: Cell<bool>,
     rows: Cell<u64>,
     raw_bytes: Cell<u64>,
+    interrupted: Arc<AtomicBool>,
 }
 #[derive(PartialEq, Eq)]
 struct TableDigest {
@@ -750,10 +768,25 @@ impl<'b> PostimageLedger<'b> {
             ),
         )?;
         sql(ArchiveSqlOrigin::PrivateOutput,connection.execute_batch("PRAGMA page_size=4096;PRAGMA max_page_count=131072;PRAGMA journal_mode=OFF;PRAGMA synchronous=OFF;PRAGMA temp_store=FILE;PRAGMA cache_size=-512;PRAGMA mmap_size=0;PRAGMA trusted_schema=OFF;"))?;
+        let interrupted = Arc::new(AtomicBool::new(false));
         if let Some(budget) = budget {
-            budget.install_sqlite_progress(&connection)?;
+            let observed = Arc::clone(&interrupted);
+            let mut governor = budget.sqlite_vm_governor();
+            sql(
+                ArchiveSqlOrigin::PrivateOutput,
+                connection.progress_handler(
+                    1,
+                    Some(move || {
+                        let stop = governor();
+                        if stop {
+                            observed.store(true, Ordering::Release);
+                        }
+                        stop
+                    }),
+                ),
+            )?;
         }
-        finish(budget,sql(ArchiveSqlOrigin::PrivateOutput,connection.execute_batch("CREATE TABLE expected(t INTEGER NOT NULL,k BLOB NOT NULL,h BLOB NOT NULL,planned INTEGER NOT NULL,PRIMARY KEY(t,k)) WITHOUT ROWID;CREATE TABLE observed(t INTEGER NOT NULL,k BLOB NOT NULL,h BLOB NOT NULL,PRIMARY KEY(t,k)) WITHOUT ROWID;")))?;
+        finish_spool(budget,&interrupted,sql(ArchiveSqlOrigin::PrivateOutput,connection.execute_batch("CREATE TABLE expected(t INTEGER NOT NULL,k BLOB NOT NULL,h BLOB NOT NULL,planned INTEGER NOT NULL,PRIMARY KEY(t,k)) WITHOUT ROWID;CREATE TABLE observed(t INTEGER NOT NULL,k BLOB NOT NULL,h BLOB NOT NULL,PRIMARY KEY(t,k)) WITHOUT ROWID;")))?;
         let ledger = Self {
             connection,
             file,
@@ -767,6 +800,7 @@ impl<'b> PostimageLedger<'b> {
             poisoned: Cell::new(false),
             rows: Cell::new(0),
             raw_bytes: Cell::new(0),
+            interrupted,
         };
         ledger.spool_identity()?;
         Ok(ledger)
@@ -779,7 +813,7 @@ impl<'b> PostimageLedger<'b> {
         )
     }
     fn checked<T>(&self, result: Result<T>) -> Result<T> {
-        let result = finish(self.budget, result);
+        let result = finish_spool(self.budget, &self.interrupted, result);
         if result.is_err() {
             self.poisoned.set(true);
         }

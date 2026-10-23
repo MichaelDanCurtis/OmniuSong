@@ -405,3 +405,537 @@ fn dense_sorted_ancestry_comparisons_share_work_limits_and_sticky_cancellation()
     ));
     assert_eq!(usage, stopped.usage());
 }
+
+fn retained_rows(connection: &Connection) -> Vec<(String, Vec<Vec<rusqlite::types::Value>>)> {
+    let mut names: Vec<String> = connection
+        .prepare("SELECT name FROM sqlite_schema WHERE type='table' ORDER BY name")
+        .unwrap()
+        .query_map([], |row| row.get(0))
+        .unwrap()
+        .collect::<rusqlite::Result<_>>()
+        .unwrap();
+    names.push("sqlite_schema".into());
+    names
+        .into_iter()
+        .map(|name| {
+            let mut statement = connection
+                .prepare(&format!(
+                    "SELECT * FROM \"{}\" ORDER BY rowid",
+                    name.replace('"', "\"\"")
+                ))
+                .unwrap();
+            let columns = statement.column_count();
+            let rows = statement
+                .query_map([], |row| (0..columns).map(|index| row.get(index)).collect())
+                .unwrap()
+                .collect::<rusqlite::Result<Vec<Vec<rusqlite::types::Value>>>>()
+                .unwrap();
+            (name, rows)
+        })
+        .collect()
+}
+
+#[test]
+fn reusable_validator_keeps_separate_namespace_walks_under_one_original_governor() {
+    let first = Fixture::new(None);
+    let second = Fixture::new(None);
+    let original = [
+        retained_rows(&first.connection),
+        retained_rows(&second.connection),
+    ];
+    let (budget, _) = budget(InspectionLimits::default());
+    let (walk, set, assets) = collect(
+        &first.connection,
+        RetainedLayout::Catalog,
+        &first.project,
+        ArchiveSqlOrigin::PrivateOutput,
+        &budget,
+    )
+    .unwrap()
+    .into_parts();
+    assert!(assets.is_empty());
+    let sources = RegisteredProjectionSources::open_collected_from(
+        Path::new("never-opened-empty-source-root"),
+        &first.connection,
+        set,
+        ArchiveSqlOrigin::PrivateOutput,
+    )
+    .unwrap();
+    let proofs = sources.authenticate(&budget).unwrap();
+    let mut validator = RetainedValidator::new(&proofs, &budget).unwrap();
+    let first_summary = validator
+        .validate(&first.connection, ArchiveSqlOrigin::PrivateOutput, &walk)
+        .unwrap();
+    let (second_walk, unused_set, _) = collect(
+        &second.connection,
+        RetainedLayout::Catalog,
+        &second.project,
+        ArchiveSqlOrigin::PrivateOutput,
+        &budget,
+    )
+    .unwrap()
+    .into_parts();
+    drop(unused_set);
+    let second_summary = validator
+        .validate(
+            &second.connection,
+            ArchiveSqlOrigin::PrivateOutput,
+            &second_walk,
+        )
+        .unwrap();
+    validator
+        .verify_final(&second.connection, ArchiveSqlOrigin::PrivateOutput)
+        .unwrap();
+    assert_ne!(first_summary.project_id, second_summary.project_id);
+    assert_eq!((first_summary.snapshots, second_summary.snapshots), (5, 5));
+    assert_eq!(
+        (
+            first_summary.lineage_proof_rows,
+            second_summary.lineage_proof_rows
+        ),
+        (1, 1)
+    );
+    assert_eq!(budget.usage().file_bytes, 0);
+    assert_eq!(
+        [
+            retained_rows(&first.connection),
+            retained_rows(&second.connection)
+        ],
+        original
+    );
+    let (other, _) = self::budget(InspectionLimits::default());
+    assert!(
+        matches!(RetainedValidator::new(&proofs, &other), Err(StoreError::Invalid(message))
+        if message.contains("cannot change its cumulative inspection governor"))
+    );
+    assert_eq!(other.usage(), Default::default());
+}
+
+#[test]
+fn osar_v1_walk_never_queries_lineage_but_v2_still_requires_its_tables() {
+    let fixture = Fixture::new(None);
+    fixture.connection.execute_batch("DROP TABLE archive_copies; DROP TABLE archive_project_lineage; DROP TABLE archive_copy_proof_operations; DROP TABLE archive_copy_proofs;").unwrap();
+    let before = retained_rows(&fixture.connection);
+    let (budget, _) = budget(InspectionLimits::default());
+    let (walk, set, _) = collect(
+        &fixture.connection,
+        RetainedLayout::Osar { version: 1 },
+        &fixture.project,
+        ArchiveSqlOrigin::Input,
+        &budget,
+    )
+    .unwrap()
+    .into_parts();
+    let sources = RegisteredProjectionSources::open_collected_from(
+        Path::new("never-opened-v1-root"),
+        &fixture.connection,
+        set,
+        ArchiveSqlOrigin::Input,
+    )
+    .unwrap();
+    let proofs = sources.authenticate(&budget).unwrap();
+    let mut validator = RetainedValidator::new(&proofs, &budget).unwrap();
+    let summary = validator
+        .validate(&fixture.connection, ArchiveSqlOrigin::Input, &walk)
+        .unwrap();
+    assert_eq!((summary.snapshots, summary.lineage_proof_rows), (4, 0));
+    for version in [0, 3] {
+        assert!(
+            matches!(collect(&fixture.connection, RetainedLayout::Osar { version }, &fixture.project,
+            ArchiveSqlOrigin::Input, &budget), Err(StoreError::Invalid(message))
+            if message == "Unsupported retained closure archive version")
+        );
+    }
+    let Err(StoreError::ArchiveSql(error)) = collect(
+        &fixture.connection,
+        RetainedLayout::Osar { version: 2 },
+        &fixture.project,
+        ArchiveSqlOrigin::Input,
+        &budget,
+    ) else {
+        panic!("v2 silently skipped missing lineage")
+    };
+    assert_eq!(error.origin(), ArchiveSqlOrigin::Input);
+    assert_eq!(retained_rows(&fixture.connection), before);
+}
+
+#[test]
+fn retained_first_walk_is_exact_and_a_refused_validator_cannot_be_reused() {
+    let fixture = Fixture::new(None);
+    let (budget, _) = budget(InspectionLimits::default());
+    let (walk, set, _) = collect(
+        &fixture.connection,
+        RetainedLayout::Catalog,
+        &fixture.project,
+        ArchiveSqlOrigin::PrivateOutput,
+        &budget,
+    )
+    .unwrap()
+    .into_parts();
+    let sources = RegisteredProjectionSources::open_collected_from(
+        Path::new("never-opened-no-takes"),
+        &fixture.connection,
+        set,
+        ArchiveSqlOrigin::PrivateOutput,
+    )
+    .unwrap();
+    let proofs = sources.authenticate(&budget).unwrap();
+    let mut validator = RetainedValidator::new(&proofs, &budget).unwrap();
+    fixture
+        .connection
+        .execute(
+            "UPDATE projects SET payload=json_set(payload,'$.name','Different but valid')",
+            [],
+        )
+        .unwrap();
+    let before = retained_rows(&fixture.connection);
+    assert!(
+        matches!(validator.validate(&fixture.connection, ArchiveSqlOrigin::PrivateOutput, &walk),
+        Err(StoreError::Invalid(message)) if message == "Retained closure changed between its source collection and semantic passes")
+    );
+    assert!(
+        matches!(validator.validate(&fixture.connection, ArchiveSqlOrigin::PrivateOutput, &walk),
+        Err(StoreError::Invalid(message)) if message == "Retained closure validator already failed")
+    );
+    assert!(
+        matches!(validator.verify_final(&fixture.connection, ArchiveSqlOrigin::PrivateOutput),
+        Err(StoreError::Invalid(message)) if message == "Retained closure validator already failed")
+    );
+    assert_eq!(retained_rows(&fixture.connection), before);
+}
+
+#[test]
+fn a_retained_walk_cannot_rebind_its_first_pass_to_another_governor() {
+    let fixture = Fixture::new(None);
+    let (opening, _) = budget(InspectionLimits::default());
+    let (walk, _, _) = collect(
+        &fixture.connection,
+        RetainedLayout::Catalog,
+        &fixture.project,
+        ArchiveSqlOrigin::PrivateOutput,
+        &opening,
+    )
+    .unwrap()
+    .into_parts();
+    let (other, _) = budget(InspectionLimits::default());
+    let sources = RegisteredProjectionSources::open_collected_from(
+        Path::new("never-opened-empty-set"),
+        &fixture.connection,
+        RegisteredSourceSet::new(&other),
+        ArchiveSqlOrigin::PrivateOutput,
+    )
+    .unwrap();
+    let proofs = sources.authenticate(&other).unwrap();
+    let mut validator = RetainedValidator::new(&proofs, &other).unwrap();
+    let before = other.usage();
+    assert!(
+        matches!(validator.validate(&fixture.connection, ArchiveSqlOrigin::PrivateOutput, &walk),
+        Err(StoreError::Invalid(message)) if message.contains("cannot change its cumulative inspection governor"))
+    );
+    assert_eq!(other.usage(), before);
+}
+
+#[test]
+fn namespace_link_checks_do_not_accidentally_visit_a_prior_namespace_memo() {
+    let fixture = Fixture::new(None);
+    let (budget, _) = budget(InspectionLimits::default());
+    let (walk, set, _) = collect(
+        &fixture.connection,
+        RetainedLayout::Catalog,
+        &fixture.project,
+        ArchiveSqlOrigin::PrivateOutput,
+        &budget,
+    )
+    .unwrap()
+    .into_parts();
+    let sources = RegisteredProjectionSources::open_collected_from(
+        Path::new("never-opened-empty-memo"),
+        &fixture.connection,
+        set,
+        ArchiveSqlOrigin::PrivateOutput,
+    )
+    .unwrap();
+    let proofs = sources.authenticate(&budget).unwrap();
+    let mut validator = RetainedValidator::new(&proofs, &budget).unwrap();
+    // Synthetic private-state bookkeeping control, not a source-authenticated
+    // binding: invalid bytes make any accidental prior-namespace lookup fail.
+    validator
+        .bindings
+        .insert("prior-namespace-only".into(), vec![0]);
+    validator.encountered.insert("prior-namespace-only".into());
+    let summary = validator
+        .validate(&fixture.connection, ArchiveSqlOrigin::PrivateOutput, &walk)
+        .unwrap();
+    assert_eq!(summary.distinct_bindings, 0);
+    assert_eq!(validator.bindings["prior-namespace-only"], vec![0]);
+}
+
+#[test]
+fn exact_binding_memo_refuses_a_changed_same_id_before_any_new_source_proof() {
+    let fixture = Fixture::new(None);
+    let (budget, _) = budget(InspectionLimits::default());
+    let sources = RegisteredProjectionSources::open_collected_from(
+        Path::new("never-opened-memo-source"),
+        &fixture.connection,
+        RegisteredSourceSet::new(&budget),
+        ArchiveSqlOrigin::PrivateOutput,
+    )
+    .unwrap();
+    let proofs = sources.authenticate(&budget).unwrap();
+    let mut validator = RetainedValidator::new(&proofs, &budget).unwrap();
+    let binding: PerformanceProjectionBinding = serde_json::from_value(serde_json::json!({
+        "id":"memo-projection","version":1,"source":{"takeId":"memo-source","manifestSha256":"a".repeat(64),"streamId":"audio"},
+        "review":{"version":1,"canonicalJson":"retained exact bytes","reviewSha256":"b".repeat(64)},
+        "lanes":[{"source":1,"trackId":"memo-track","instrument":"keys","originalNotes":[{"noteId":"memo-note","identitySha256":"c".repeat(64),"values":{"pitch":60,"start_tick":0,"duration_ticks":1,"velocity16":65535}}]}]
+    })).unwrap();
+    // Seed only the private memo, explicitly not an authenticated source. This
+    // isolates byte equality from the independently required full proof path.
+    let bytes = serde_json::to_vec(&binding).unwrap();
+    validator.bindings.insert(binding.id.clone(), bytes.clone());
+    validator.binding(&binding).unwrap();
+    let mut changed = binding.clone();
+    changed.lanes[0].original_notes[0].values.pitch = 61;
+    assert!(
+        matches!(validator.binding(&changed), Err(StoreError::Invalid(message))
+        if message == "Retained snapshots reuse a projection identity with different original binding")
+    );
+    assert_eq!(validator.bindings[&binding.id], bytes);
+    let mut fresh = binding;
+    fresh.id = "never-authenticated-new-binding".into();
+    assert!(
+        validator.binding(&fresh).is_err(),
+        "memo seeding must not authenticate a new identity"
+    );
+}
+
+#[test]
+fn explicit_origin_preserves_an_actual_sqlite_fault_and_reports_late_stop_separately() {
+    let directory = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../.runtime/retained-reuse-notadb")
+        .join(uuid::Uuid::new_v4().to_string());
+    std::fs::create_dir_all(&directory).unwrap();
+    let path = directory.join("private.sqlite3");
+    std::fs::write(&path, [0xa5; 4096]).unwrap();
+    let connection = Connection::open(&path).unwrap();
+    for sql_origin in [
+        ArchiveSqlOrigin::Input,
+        ArchiveSqlOrigin::PrivateOutput,
+        ArchiveSqlOrigin::LiveCatalog,
+    ] {
+        let (budget, stop) = budget(InspectionLimits::default());
+        let actual = connection
+            .query_row("SELECT name FROM sqlite_schema", [], |row| {
+                row.get::<_, String>(0)
+            })
+            .unwrap_err();
+        assert_eq!(
+            actual.sqlite_error().unwrap().extended_code & 0xff,
+            rusqlite::ffi::SQLITE_NOTADB
+        );
+        stop.store(true, Ordering::Release);
+        let result: Result<()> = preserve(
+            &budget,
+            origin(sql_origin, Err(StoreError::Database(actual))),
+        );
+        let Err(StoreError::ArchiveSql(error)) = result else {
+            panic!("actual SQL fault was erased by a stop")
+        };
+        assert_eq!(error.origin(), sql_origin);
+        assert_eq!(
+            error.catalog_sqlite_error_code().is_some(),
+            sql_origin == ArchiveSqlOrigin::LiveCatalog
+        );
+        assert!(matches!(
+            budget.checkpoint(),
+            Err(RecordingError::InspectionCancelled)
+        ));
+        assert!(matches!(
+            preserve(&budget, Ok(())),
+            Err(StoreError::Recording(RecordingError::InspectionCancelled))
+        ));
+    }
+    let (budget, _) = budget(InspectionLimits::default());
+    let Err(StoreError::ArchiveSql(error)) = collect(
+        &connection,
+        RetainedLayout::Osar { version: 1 },
+        "isolated-project",
+        ArchiveSqlOrigin::Input,
+        &budget,
+    ) else {
+        panic!("collector lost private NOTADB origin")
+    };
+    assert_eq!(error.origin(), ArchiveSqlOrigin::Input);
+    drop(connection);
+    assert_eq!(std::fs::read(&path).unwrap(), [0xa5; 4096]);
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn actual_ordinary_audio_remains_a_nonperformance_role_and_final_source_change_refuses() {
+    use omniusong_core::{
+        contracts::{ClockDomainId, ClockEpochId, HostTimestamp, TakeId},
+        native::{TakeClip, TakeRange, TakeReference, TimelinePosition},
+    };
+    use omniusong_recording::{
+        CHUNK_VERSION, ChunkHeader, ChunkKind, HostClock, JOURNAL_VERSION, Journal, PcmEncoding,
+        PcmFormat, PcmLayout, SealedJournal, SourceRange, StreamDescriptor, StreamKind,
+        TakeDescriptor,
+    };
+    use std::{fs, io::Write};
+    let directory = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../.runtime/retained-reuse-audio")
+        .join(uuid::Uuid::new_v4().to_string());
+    fs::create_dir_all(&directory).unwrap();
+    let directory = fs::canonicalize(directory).unwrap();
+    let original = directory.join("original.sqlite3");
+    let descriptor = TakeDescriptor {
+        version: JOURNAL_VERSION,
+        take_id: TakeId("ordinary-audio-original".into()),
+        streams: vec![StreamDescriptor {
+            stream_id: "audio".into(),
+            segment_id: "segment".into(),
+            source_id: "synthetic".into(),
+            source_name: "Device-free original".into(),
+            source_connection_generation: 1,
+            host_clock: HostClock {
+                domain: ClockDomainId("host".into()),
+                epoch: ClockEpochId("boot".into()),
+                ticks_per_second_numerator: 1000,
+                ticks_per_second_denominator: 1,
+            },
+            kind: StreamKind::Audio {
+                format: PcmFormat {
+                    sample_rate: 48_000,
+                    channels: 1,
+                    encoding: PcmEncoding::S16Le,
+                    layout: PcmLayout::Interleaved,
+                },
+                audio_epoch: ClockEpochId("audio".into()),
+            },
+            initial_source_position: 0,
+        }],
+        provenance: Default::default(),
+    };
+    let stamp = HostTimestamp {
+        domain: ClockDomainId("host".into()),
+        epoch: ClockEpochId("boot".into()),
+        ticks: 1,
+    };
+    let mut journal = Journal::create(&original, &descriptor).unwrap();
+    journal
+        .append(
+            &ChunkHeader {
+                version: CHUNK_VERSION,
+                take_id: descriptor.take_id.clone(),
+                stream_id: "audio".into(),
+                segment_id: "segment".into(),
+                sequence: 0,
+                range: SourceRange::AudioFrames { start: 0, count: 1 },
+                interpretation: descriptor.streams[0].kind.clone(),
+                observed_start: stamp.clone(),
+                observed_end: stamp,
+                clock_anchors: vec![],
+                kind: ChunkKind::Content,
+            },
+            &[1, 2],
+        )
+        .unwrap();
+    drop(journal);
+    let mut journal = Journal::open(&original).unwrap();
+    journal.seal_recovered("retained-reuse-recovery").unwrap();
+    drop(journal);
+    let source = SealedJournal::open(&original).unwrap();
+    let original_bytes = fs::read(&original).unwrap();
+    let mut store = crate::NativeStore::open(directory.join("owned-store")).unwrap();
+    let object = store.ingest_take(&source).unwrap();
+    let reference = TakeReference {
+        take_id: object.take_id.clone(),
+        manifest_sha256: object.manifest_sha256.clone(),
+        stream_id: "audio".into(),
+    };
+    let mut document = ProjectDocument::new("Ordinary audio source role")
+        .unwrap()
+        .upgrade_native()
+        .unwrap();
+    document
+        .append_take_clip(
+            "ordinary-originals",
+            "Original audio",
+            TakeClip {
+                id: "ordinary-clip".into(),
+                source: reference.clone(),
+                range: TakeRange::AudioFrames { start: 0, count: 1 },
+                position: TimelinePosition {
+                    frame: 0,
+                    sample_rate: 48_000,
+                },
+                fades: None,
+                edit_source: None,
+            },
+        )
+        .unwrap();
+    let document = store.create(&document).unwrap();
+    let owned = crate::takes::object_path(store.root(), &object.object_sha256).unwrap();
+    let owned_bytes = fs::read(&owned).unwrap();
+    let before = retained_rows(&store.connection);
+    let (budget, _) = budget(InspectionLimits::default());
+    CatalogTransaction::deferred(&store.connection, &budget)
+        .unwrap()
+        .run(|tx| {
+            let (walk, set, _) = collect(
+                tx,
+                RetainedLayout::Catalog,
+                document.id(),
+                ArchiveSqlOrigin::LiveCatalog,
+                &budget,
+            )?
+            .into_parts();
+            let sources = RegisteredProjectionSources::open_collected_from(
+                store.root(),
+                tx,
+                set,
+                ArchiveSqlOrigin::LiveCatalog,
+            )?;
+            let proofs = sources.authenticate(&budget)?;
+            assert!(
+                matches!(proofs.performance(&reference), Err(StoreError::Invalid(message))
+            if message == "Take has no held performance authentication")
+            );
+            let (held, path) = proofs.original(&reference)?;
+            assert_eq!(held, &object);
+            assert_eq!(path, owned.as_path());
+            let mut validator = RetainedValidator::new(&proofs, &budget)?;
+            assert_eq!(
+                validator
+                    .validate(tx, ArchiveSqlOrigin::LiveCatalog, &walk)?
+                    .distinct_bindings,
+                0
+            );
+            validator.verify_final(tx, ArchiveSqlOrigin::LiveCatalog)?;
+            assert_eq!(fs::read(&owned).unwrap(), owned_bytes);
+            fs::OpenOptions::new()
+                .append(true)
+                .open(&owned)
+                .unwrap()
+                .write_all(&[0x7f])
+                .unwrap();
+            let deliberate_mutation = fs::read(&owned).unwrap();
+            assert!(
+                matches!(validator.verify_final(tx, ArchiveSqlOrigin::LiveCatalog),
+            Err(StoreError::Invalid(message)) if message == "Registered source length changed")
+            );
+            assert_eq!(fs::read(&owned).unwrap(), deliberate_mutation);
+            tx.rollback()?;
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(retained_rows(&store.connection), before);
+    assert_eq!(fs::read(&original).unwrap(), original_bytes);
+    assert_eq!(
+        fs::read(&owned).unwrap(),
+        [owned_bytes.as_slice(), &[0x7f]].concat()
+    );
+    drop(store);
+    drop(source);
+    fs::remove_dir_all(directory).unwrap();
+}

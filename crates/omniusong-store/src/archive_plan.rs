@@ -17,6 +17,18 @@ pub(crate) const REUSABLE_TABLES: &[&str] = &[
 
 /// Fixed application-owned definitions; never execute a catalog's SQL text.
 pub(crate) fn open_catalog(stage: &Path) -> Result<Connection> {
+    open_catalog_in(stage, None)
+}
+pub(crate) fn open_catalog_bounded(
+    stage: &Path,
+    budget: &omniusong_recording::InspectionBudget,
+) -> Result<Connection> {
+    open_catalog_in(stage, Some(budget))
+}
+fn open_catalog_in(
+    stage: &Path,
+    budget: Option<&omniusong_recording::InspectionBudget>,
+) -> Result<Connection> {
     let path = stage.join("planned-catalog.sqlite3");
     let reservation = OpenOptions::new()
         .write(true)
@@ -30,10 +42,21 @@ pub(crate) fn open_catalog(stage: &Path) -> Result<Connection> {
         )?;
         // This disposable database is never reopened as a completed plan after
         // failure. The main-file bound does not cover filesystem/temp overhead.
-        connection.execute_batch("PRAGMA page_size=4096; PRAGMA max_page_count=131072;
+        connection.execute_batch(
+            "PRAGMA page_size=4096; PRAGMA max_page_count=131072;
             PRAGMA journal_mode=OFF; PRAGMA synchronous=OFF; PRAGMA cache_size=-2048;
-            PRAGMA temp_store=FILE; PRAGMA mmap_size=0; PRAGMA trusted_schema=OFF;
-            CREATE TABLE projects(id TEXT PRIMARY KEY NOT NULL,payload TEXT NOT NULL,revision INTEGER NOT NULL,cursor INTEGER NOT NULL);
+            PRAGMA temp_store=FILE; PRAGMA mmap_size=0; PRAGMA trusted_schema=OFF;",
+        )?;
+        let mut progress = budget
+            .map(|budget| {
+                crate::archive_governed::PrivateSql::new(
+                    &connection,
+                    budget,
+                    crate::ArchiveSqlOrigin::PrivateOutput,
+                )
+            })
+            .transpose()?;
+        connection.execute_batch("CREATE TABLE projects(id TEXT PRIMARY KEY NOT NULL,payload TEXT NOT NULL,revision INTEGER NOT NULL,cursor INTEGER NOT NULL);
             CREATE TABLE edits(project_id TEXT NOT NULL,sequence INTEGER NOT NULL,before_json TEXT NOT NULL,after_json TEXT NOT NULL,PRIMARY KEY(project_id,sequence));
             CREATE TABLE operations(operation_id TEXT PRIMARY KEY NOT NULL,project_id TEXT NOT NULL,request_json TEXT NOT NULL,request_sha256 TEXT NOT NULL,previous_revision INTEGER NOT NULL,committed_revision INTEGER NOT NULL,result_json TEXT NOT NULL,result_sha256 TEXT NOT NULL);
             CREATE TABLE imports(project_id TEXT PRIMARY KEY NOT NULL,source_sha256 TEXT NOT NULL,original_json BLOB NOT NULL);
@@ -45,6 +68,10 @@ pub(crate) fn open_catalog(stage: &Path) -> Result<Connection> {
         for (_, sql) in crate::archive_copy::LINEAGE_TABLES {
             connection.execute_batch(sql)?;
         }
+        if let Some(progress) = &mut progress {
+            progress.detach()?;
+        }
+        drop(progress);
         Ok(connection)
     })())
 }

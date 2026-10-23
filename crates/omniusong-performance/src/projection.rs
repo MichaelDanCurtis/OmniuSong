@@ -355,6 +355,12 @@ struct ControlChunk {
     records: Vec<LocalRecord>,
 }
 
+fn finish<T>(budget: &InspectionBudget, result: Result<T>) -> Result<T> {
+    let value = result?;
+    budget.checkpoint()?;
+    Ok(value)
+}
+
 /// A borrowed, source-authenticated view under the reader's single cumulative
 /// governor. It cannot be cloned, deserialized or constructed from a claimed
 /// inspection. Each interpretation still rederives its actual control events.
@@ -424,8 +430,7 @@ impl<'a> AuthenticatedPerformance<'a> {
             held.verify_unchanged()?;
             Ok(held)
         })();
-        budget.checkpoint()?;
-        result
+        finish(budget, result)
     }
 
     pub fn source_pin(&self) -> &PerformanceProjectionSourcePin {
@@ -442,8 +447,7 @@ impl<'a> AuthenticatedPerformance<'a> {
         let budget = self.budget();
         budget.checkpoint()?;
         let unchanged = self.reader.verify_source_identity();
-        budget.checkpoint()?;
-        unchanged
+        finish(budget, unchanged)
     }
 
     pub fn project(
@@ -597,8 +601,7 @@ impl<'a> AuthenticatedPerformance<'a> {
             self.verify_unchanged()?;
             Ok(review)
         })();
-        budget.checkpoint()?;
-        result
+        finish(budget, result)
     }
 }
 
@@ -617,6 +620,5 @@ pub fn project_sealed_performance_bounded(
         request.validate()?;
         AuthenticatedPerformance::open(reader)?.project(request)
     })();
-    budget.checkpoint()?;
-    result
+    finish(budget, result)
 }

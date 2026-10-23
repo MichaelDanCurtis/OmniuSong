@@ -1,9 +1,9 @@
-//! Live-catalog source/publication/history closure diagnostic only.
-//! The caller holds its real CatalogTransaction::deferred and retained-file
-//! lease throughout. This grants no private-archive SQL error-domain, schema,
-//! index, export, restore, or publication authority.
+//! Reusable source/publication/history closure walks. The caller owns the
+//! consistent SQL scope, cumulative governor and retained-file lease. Collected
+//! metadata and summaries grant no archive admission or publication authority.
 use crate::{
     Result, StoreError, archive,
+    archive_boundary::{self as boundary, ArchiveSqlOrigin},
     archive_operation::ArchiveOperation,
     checksum, projection_publication,
     projection_sources::{ProjectionProofs, RegisteredProjectionSources, RegisteredSourceSet},
@@ -33,6 +33,23 @@ const MAX_PROOF_BYTES: usize = MAX_NATIVE_PROJECT_BYTES + 32 * 1024;
 const MAX_PROOF_MAPPINGS: u64 = 100_000;
 const MAX_MAPPINGS: u64 = 1_000_000;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RetainedLayout {
+    Catalog,
+    Osar { version: u32 },
+}
+impl RetainedLayout {
+    fn validate(self) -> Result<()> {
+        require(
+            !matches!(self, Self::Osar { version } if version != 1 && version != 2),
+            "Unsupported retained closure archive version",
+        )
+    }
+    fn has_lineage(self) -> bool {
+        !matches!(self, Self::Osar { version: 1 })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RetainedProjectionClosureInspection {
     pub version: u32,
@@ -50,14 +67,31 @@ fn require(ok: bool, message: &str) -> Result<()> {
     if ok { Ok(()) } else { Err(invalid(message)) }
 }
 fn finish<T>(budget: &InspectionBudget, result: Result<T>) -> Result<T> {
-    // Only a real live catalog is accepted by this entry point. Preserve its
-    // actual fatal domain even if cancellation arrives after SQLite failed.
-    if matches!(&result,Err(StoreError::Database(error)) if error.sqlite_error().is_some_and(|c| matches!(c.extended_code & 0xff,10|11|26)))
-    {
+    // Handle provenance must be attached before this finalizer. Nested live
+    // fatal/rollback authority survives sticky stops; private SQL stays local.
+    if result.as_ref().err().is_some_and(|error| {
+        error.catalog_connection_unusable()
+            || error
+                .catalog_sqlite_error_code()
+                .is_some_and(|code| matches!(code & 0xff, 10 | 11 | 26))
+    }) {
         return result;
     }
     budget.checkpoint()?;
     result
+}
+fn origin<T>(origin: ArchiveSqlOrigin, result: Result<T>) -> Result<T> {
+    match origin {
+        ArchiveSqlOrigin::Input => boundary::input(result),
+        ArchiveSqlOrigin::PrivateOutput => boundary::output(result),
+        ArchiveSqlOrigin::LiveCatalog => boundary::live(result),
+    }
+}
+fn preserve<T>(budget: &InspectionBudget, result: Result<T>) -> Result<T> {
+    result.and_then(|value| {
+        budget.checkpoint()?;
+        Ok(value)
+    })
 }
 fn step(budget: &InspectionBudget) -> Result<()> {
     // Prepaid before advancing rows or materializing their CASE-bounded fixed
@@ -139,6 +173,26 @@ struct WalkResult {
     metadata: u64,
     sha256: String,
 }
+/// The exact first metadata walk, bound to one namespace/layout/governor.
+/// No source proof or persistent admission authority is carried here.
+pub(crate) struct RetainedWalk<'b> {
+    first: WalkResult,
+    project: String,
+    layout: RetainedLayout,
+    budget: &'b InspectionBudget,
+}
+pub(crate) struct CollectedClosure<'b> {
+    retained: RetainedWalk<'b>,
+    sources: RegisteredSourceSet<'b>,
+    assets: BTreeSet<String>,
+}
+impl<'b> CollectedClosure<'b> {
+    pub(crate) fn into_parts(
+        self,
+    ) -> (RetainedWalk<'b>, RegisteredSourceSet<'b>, BTreeSet<String>) {
+        (self.retained, self.sources, self.assets)
+    }
+}
 struct Scan<'b> {
     budget: &'b InspectionBudget,
     metadata: u64,
@@ -191,6 +245,7 @@ trait Visitor {
     fn forward(
         &mut self,
         _connection: &Connection,
+        _layout: RetainedLayout,
         _before: &ProjectDocument,
         _after: &ProjectDocument,
     ) -> Result<()> {
@@ -234,37 +289,20 @@ impl Visitor for Collect<'_> {
         Ok(())
     }
 }
-struct ValidateClosure<'p, 'a> {
+pub(crate) struct RetainedValidator<'p, 'a> {
     proofs: &'p ProjectionProofs<'a>,
     budget: &'a InspectionBudget,
     bindings: BTreeMap<String, Vec<u8>>,
     memo_bytes: u64,
+    encountered: BTreeSet<String>,
+    failed: bool,
 }
-impl Visitor for ValidateClosure<'_, '_> {
+impl Visitor for RetainedValidator<'_, '_> {
     fn document(&mut self, document: &ProjectDocument) -> Result<()> {
         self.proofs.validate_document_geometry(document)?;
         if let Some(registry) = document.performance_projections()? {
             for binding in registry.entries {
-                let bytes = encode(&binding, MAX_NATIVE_PROJECT_BYTES, self.budget)?;
-                if let Some(previous) = self.bindings.get(&binding.id) {
-                    require(
-                        previous == &bytes,
-                        "Retained snapshots reuse a projection identity with different original binding",
-                    )?;
-                } else {
-                    self.budget.visit_groups(1)?;
-                    archive::add(
-                        &mut self.memo_bytes,
-                        bytes.len() as u64,
-                        archive::ARCHIVE_METADATA_BYTES,
-                        "binding memo bytes",
-                    )?;
-                    self.proofs
-                        .performance(&binding.source)?
-                        .validate_binding(&binding)?;
-                    self.budget.charge_work(binding.id.len() as u64 + 1024)?;
-                    self.bindings.insert(binding.id, bytes);
-                }
+                self.binding(&binding)?;
             }
         }
         self.budget.checkpoint()?;
@@ -273,10 +311,25 @@ impl Visitor for ValidateClosure<'_, '_> {
     fn forward(
         &mut self,
         connection: &Connection,
+        layout: RetainedLayout,
         before: &ProjectDocument,
         after: &ProjectDocument,
     ) -> Result<()> {
-        projection_publication::validate_forward_transition(connection, before, after, self.budget)
+        if matches!(layout, RetainedLayout::Osar { version: 1 }) {
+            projection_publication::validate_forward_transition_archive_v1(
+                connection,
+                before,
+                after,
+                self.budget,
+            )
+        } else {
+            projection_publication::validate_forward_transition(
+                connection,
+                before,
+                after,
+                self.budget,
+            )
+        }
     }
     fn operation(
         &mut self,
@@ -318,6 +371,7 @@ fn count(
 }
 fn walk(
     connection: &Connection,
+    layout: RetainedLayout,
     project: &str,
     budget: &InspectionBudget,
     visitor: &mut impl Visitor,
@@ -404,7 +458,7 @@ fn walk(
         );
         scan.document(&before_doc, visitor)?;
         scan.document(&after_doc, visitor)?;
-        visitor.forward(connection, &before_doc, &after_doc)?;
+        visitor.forward(connection, layout, &before_doc, &after_doc)?;
     }
     require(seen == history, "Retained history changed during its scan")?;
     drop(rows);
@@ -483,7 +537,11 @@ fn walk(
     )?;
     drop(rows);
     drop(statement);
-    let proofs = walk_lineage(connection, project, revision, &mut scan, visitor)?;
+    let proofs = if layout.has_lineage() {
+        walk_lineage(connection, project, revision, &mut scan, visitor)?
+    } else {
+        0
+    };
     budget.charge_work(64)?;
     Ok(WalkResult {
         snapshots: scan.snapshots,
@@ -823,11 +881,13 @@ fn walk_mappings(
 
 fn validate_links(
     connection: &Connection,
+    layout: RetainedLayout,
     project: &str,
-    validator: &ValidateClosure<'_, '_>,
+    validator: &RetainedValidator<'_, '_>,
 ) -> Result<()> {
     let budget = validator.budget;
-    for (id, bytes) in &validator.bindings {
+    for id in &validator.encountered {
+        let bytes = &validator.bindings[id];
         budget.charge_work((bytes.len() as u64).saturating_mul(32) + 4096)?;
         let binding: PerformanceProjectionBinding =
             serde_json::from_slice(bytes).map_err(invalid)?;
@@ -854,10 +914,35 @@ fn validate_links(
             intent.project_id.0 == project && intent.projection_id == *id,
             "Retained binding publication belongs to a different live namespace",
         )?;
-        let receipt = projection_publication::recorded_commit_with_budget(
-            connection, &intent, &request, budget,
-        )?
-        .ok_or_else(|| invalid("Retained binding publication receipt is absent"))?;
+        let receipt = if matches!(layout, RetainedLayout::Osar { version: 1 }) {
+            // Strict OSAR v1 has no copy-admission table. The complete walk
+            // above already checked these exact operation cells, canonical
+            // identity/revision/hash and request shape in this same snapshot.
+            // Reuse typed initial-result checks without weakening the live
+            // catalog reader's mandatory copy-operation collision guard.
+            step(budget)?;
+            let (result, result_sha):(Option<String>,Option<String>)=connection.query_row(
+                "SELECT CASE WHEN octet_length(result_json)<=?3 THEN result_json END,CASE WHEN octet_length(result_sha256)=64 THEN result_sha256 END FROM operations WHERE operation_id=?1 AND project_id=?2",
+                params![operation.0,project,MAX_NATIVE_PROJECT_BYTES as i64],|row|Ok((row.get(0)?,row.get(1)?)))?;
+            let result = optional_text(result)?;
+            require(
+                result.len() == result_length,
+                "Retained publication result length changed",
+            )?;
+            let document = ProjectDocument::from_json(result.as_bytes())?;
+            projection_publication::validate_publication_result(
+                &intent,
+                &request,
+                &document,
+                &optional_text(result_sha)?,
+                budget,
+            )?
+        } else {
+            projection_publication::recorded_commit_with_budget(
+                connection, &intent, &request, budget,
+            )?
+            .ok_or_else(|| invalid("Retained binding publication receipt is absent"))?
+        };
         require(
             receipt.projection_id == *id
                 && receipt.review_sha256 == binding.review.review_sha256
@@ -894,9 +979,179 @@ fn authenticate_assets(
     Ok(())
 }
 
-/// Source-semantic diagnostic for the actual live catalog only. The caller must
-/// retain its catalog transaction/lease across this whole operation; a summary
-/// is not a reusable source proof or permission to activate an archive.
+fn check_namespace(
+    connection: &Connection,
+    layout: RetainedLayout,
+    project_id: &str,
+    sql_origin: ArchiveSqlOrigin,
+    budget: &InspectionBudget,
+) -> Result<()> {
+    budget.checkpoint()?;
+    layout.validate()?;
+    require(
+        sql_origin != ArchiveSqlOrigin::LiveCatalog || !connection.is_autocommit(),
+        "Retained closure inspection requires its live catalog transaction",
+    )?;
+    require(
+        project_id.len() <= 96,
+        "Retained closure project identity exceeds its byte bound",
+    )?;
+    budget.charge_work(project_id.len() as u64 + 4096)?;
+    ProjectId(project_id.into()).validate().map_err(invalid)
+}
+
+/// Collect the exact namespace once and authenticate its ordinary asset bytes.
+/// It does not open originals, install SQL hooks, or grant source authority.
+/// Private caller-owned plans may be idle; actual live catalogs require a TX.
+pub(crate) fn collect<'b>(
+    connection: &Connection,
+    layout: RetainedLayout,
+    project_id: &str,
+    sql_origin: ArchiveSqlOrigin,
+    budget: &'b InspectionBudget,
+) -> Result<CollectedClosure<'b>> {
+    let result = (|| {
+        check_namespace(connection, layout, project_id, sql_origin, budget)?;
+        let mut collect = Collect {
+            set: RegisteredSourceSet::new(budget),
+            takes: BTreeSet::new(),
+            assets: BTreeSet::new(),
+            budget,
+        };
+        let first = walk(connection, layout, project_id, budget, &mut collect)?;
+        authenticate_assets(connection, &collect.assets, budget)?;
+        budget.charge_work(project_id.len() as u64 + 128)?;
+        Ok(CollectedClosure {
+            retained: RetainedWalk {
+                first,
+                project: project_id.into(),
+                layout,
+                budget,
+            },
+            sources: collect.set,
+            assets: collect.assets,
+        })
+    })();
+    preserve(budget, origin(sql_origin, result))
+}
+
+impl<'p, 'a> RetainedValidator<'p, 'a> {
+    pub(crate) fn new(
+        proofs: &'p ProjectionProofs<'a>,
+        budget: &'a InspectionBudget,
+    ) -> Result<Self> {
+        require(
+            proofs.uses_governor(budget),
+            "Retained closure validation cannot change its cumulative inspection governor",
+        )?;
+        budget.checkpoint()?;
+        Ok(Self {
+            proofs,
+            budget,
+            bindings: BTreeMap::new(),
+            memo_bytes: 0,
+            encountered: BTreeSet::new(),
+            failed: false,
+        })
+    }
+    fn completed<T>(&mut self, sql_origin: ArchiveSqlOrigin, result: Result<T>) -> Result<T> {
+        let result = preserve(self.budget, origin(sql_origin, result));
+        self.failed |= result.is_err();
+        result
+    }
+    fn binding(&mut self, binding: &PerformanceProjectionBinding) -> Result<()> {
+        let bytes = encode(binding, MAX_NATIVE_PROJECT_BYTES, self.budget)?;
+        self.budget.charge_work(binding.id.len() as u64 + 1024)?;
+        self.encountered.insert(binding.id.clone());
+        if let Some(previous) = self.bindings.get(&binding.id) {
+            require(
+                previous == &bytes,
+                "Retained snapshots reuse a projection identity with different original binding",
+            )?;
+        } else {
+            self.budget.visit_groups(1)?;
+            archive::add(
+                &mut self.memo_bytes,
+                bytes.len() as u64,
+                archive::ARCHIVE_METADATA_BYTES,
+                "binding memo bytes",
+            )?;
+            self.proofs
+                .performance(&binding.source)?
+                .validate_binding(binding)?;
+            self.budget.charge_work(binding.id.len() as u64 + 1024)?;
+            self.bindings.insert(binding.id.clone(), bytes);
+        }
+        Ok(())
+    }
+    /// Every namespace has its own first walk; one validator retains exact
+    /// original bindings across all namespaces without repeating source proof.
+    pub(crate) fn validate(
+        &mut self,
+        connection: &Connection,
+        sql_origin: ArchiveSqlOrigin,
+        retained: &RetainedWalk<'_>,
+    ) -> Result<RetainedProjectionClosureInspection> {
+        let result = (|| {
+            require(!self.failed, "Retained closure validator already failed")?;
+            require(
+                self.budget.shares_governor(retained.budget),
+                "Retained closure validation cannot change its cumulative inspection governor",
+            )?;
+            check_namespace(
+                connection,
+                retained.layout,
+                &retained.project,
+                sql_origin,
+                self.budget,
+            )?;
+            self.encountered.clear();
+            let second = walk(
+                connection,
+                retained.layout,
+                &retained.project,
+                self.budget,
+                self,
+            )?;
+            require(
+                retained.first == second,
+                "Retained closure changed between its source collection and semantic passes",
+            )?;
+            validate_links(connection, retained.layout, &retained.project, self)?;
+            self.proofs.verify_unchanged()?;
+            self.budget
+                .charge_work(retained.project.len() as u64 + 128)?;
+            Ok(RetainedProjectionClosureInspection {
+                version: 1,
+                project_id: retained.project.clone(),
+                snapshots: second.snapshots,
+                history_rows: second.history,
+                operation_rows: second.operations,
+                lineage_proof_rows: second.proofs,
+                distinct_bindings: self.encountered.len() as u64,
+            })
+        })();
+        self.completed(sql_origin, result)
+    }
+    /// Check registrations at the caller's actual final handle plus every held
+    /// original path/reader. This does not install or adopt any pathname.
+    pub(crate) fn verify_final(
+        &mut self,
+        connection: &Connection,
+        sql_origin: ArchiveSqlOrigin,
+    ) -> Result<()> {
+        let result = (|| {
+            require(!self.failed, "Retained closure validator already failed")?;
+            self.budget.checkpoint()?;
+            self.proofs
+                .verify_registrations_from(connection, sql_origin)?;
+            self.proofs.verify_unchanged()
+        })();
+        self.completed(sql_origin, result)
+    }
+}
+
+/// Preserve the existing live-catalog diagnostic using the reusable passes.
 pub(crate) fn inspect(
     connection: &Connection,
     root: &Path,
@@ -904,54 +1159,27 @@ pub(crate) fn inspect(
     budget: &InspectionBudget,
 ) -> Result<RetainedProjectionClosureInspection> {
     let result = (|| {
-        budget.checkpoint()?;
-        require(
-            !connection.is_autocommit(),
-            "Retained closure inspection requires its live catalog transaction",
-        )?;
-        require(
-            project_id.len() <= 96,
-            "Retained closure project identity exceeds its byte bound",
-        )?;
-        budget.charge_work(project_id.len() as u64 + 4096)?;
-        ProjectId(project_id.into()).validate().map_err(invalid)?;
-        let mut collect = Collect {
-            set: RegisteredSourceSet::new(budget),
-            takes: BTreeSet::new(),
-            assets: BTreeSet::new(),
+        let collected = collect(
+            connection,
+            RetainedLayout::Catalog,
+            project_id,
+            ArchiveSqlOrigin::LiveCatalog,
             budget,
-        };
-        let first = walk(connection, project_id, budget, &mut collect)?;
-        authenticate_assets(connection, &collect.assets, budget)?;
-        let sources = RegisteredProjectionSources::open_collected(root, connection, collect.set)?;
+        )?;
+        let (retained, set, _) = collected.into_parts();
+        let sources = RegisteredProjectionSources::open_collected_from(
+            root,
+            connection,
+            set,
+            ArchiveSqlOrigin::LiveCatalog,
+        )?;
         let proofs = sources.authenticate(budget)?;
-        let mut validator = ValidateClosure {
-            proofs: &proofs,
-            budget,
-            bindings: BTreeMap::new(),
-            memo_bytes: 0,
-        };
-        let second = walk(connection, project_id, budget, &mut validator)?;
-        require(
-            first == second,
-            "Retained closure changed between its source collection and semantic passes",
-        )?;
-        validate_links(connection, project_id, &validator)?;
-        proofs.verify_registrations(connection)?;
-        proofs.verify_unchanged()?;
-        budget.checkpoint()?;
-        budget.charge_work(project_id.len() as u64 + 128)?;
-        Ok(RetainedProjectionClosureInspection {
-            version: 1,
-            project_id: project_id.into(),
-            snapshots: second.snapshots,
-            history_rows: second.history,
-            operation_rows: second.operations,
-            lineage_proof_rows: second.proofs,
-            distinct_bindings: validator.bindings.len() as u64,
-        })
+        let mut validator = RetainedValidator::new(&proofs, budget)?;
+        let result = validator.validate(connection, ArchiveSqlOrigin::LiveCatalog, &retained)?;
+        validator.verify_final(connection, ArchiveSqlOrigin::LiveCatalog)?;
+        Ok(result)
     })();
-    finish(budget, result)
+    finish(budget, origin(ArchiveSqlOrigin::LiveCatalog, result))
 }
 
 #[cfg(test)]

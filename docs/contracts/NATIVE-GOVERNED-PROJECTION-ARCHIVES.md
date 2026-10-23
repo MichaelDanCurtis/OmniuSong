@@ -1,0 +1,43 @@
+# Governed performance-aware OSAR routes
+
+This backend stage adds the complete bounded API family together: `NativeStore::export_archive_bounded_outcome`, `restore_archive_bounded_outcome`, and `restore_archive_as_copy_bounded_outcome`. Each takes a borrowed `InspectionBudget` supplied by its caller. They support retained schema-3 performance projections without changing catalog schema 6, musical schemas, OSAR v2 output, or strict OSAR v1 read compatibility. No inference, playback or source adoption occurs.
+
+The existing ordinary archive APIs retain their legacy behavior and nonempty projection guards. Native/session dispatch has not switched to these new APIs. Reader/list/attachment admission and native completion-warning transport are separate work. This contract selectively extends the [postimage contract](NATIVE-ARCHIVE-POSTIMAGES.md); it does not claim a new package or native UI acceptance.
+
+## One held source context
+
+Metadata walkers first inventory untrusted current documents, both history sides, operation requests/results, import references and associated copy ancestry. A claimed projection, its JSON/hash or a copied receipt cannot authenticate a recording. Separate namespace walks retain their own first-pass fingerprints. Each later interpretation must match its namespace's first pass under the same governor.
+
+Restore acquires a private no-overwrite byte image and its observed SHA before parsing it. Copy additionally matches the requested whole-file SHA. Neither route reopens the caller's input pathname for installation. Acquired bytes still require strict schema, stored checksums, index/totals, structural chunks and semantic source validation; the acquired hash is not a claim of historic consistency during concurrent modification.
+
+Both restore modes reconstruct structural bytes privately, prepare an independent fixed-schema catalog plan and freeze expected rows before any live SQL mutation or final-path placement. They install originals without overwrite and tentatively register exact manifest/object metadata in the actual catalog transaction. Only then is a held registered-source owner opened at the destination's owned paths. There is no staged semantic performance proof reused as destination authority.
+
+The owner holds source readers, opening identities and exact registrations through final publication. A borrowed proof context authenticates the collected performance sources; ordinary audio references keep their own role and are not forced through the six-stream performance format. One retained validator reuses an exact binding memo across input, planned and final namespaces while still checking each namespace's own contents, geometry, publication links, forward history and copy lineage. A namespace subset need not contain unrelated bindings from an earlier namespace.
+
+Export holds its actual source transaction and source owner while preparing output from original bytes. Output and read-only catalog connections explicitly close before linking the finished archive. The held original owner/proofs remain alive through that link fence. Both restores retain the destination owner/proofs through their sole catalog commit fence.
+
+Immediately before the final link/commit, the routes recheck held source identity and final owned-path identity. Final registrations, retained closure, assets and exact expected SQL postimages are also verified before publication. A matching manifest or identical bytes at a replacement inode cannot stand in for the original held file. These checks assume cooperative ownership and trusted ordinary directories; they do not promise immunity to malicious mutation after the final check or hard power-loss correctness.
+
+## Complete postimages and replay
+
+The existing full thirteen-table baseline and independent planned overlay remain mandatory for both restores. Export expectations come from source rows/constants/original buffers before output insertion, including a separately prepaid source-lineage expectation pass. Expected values never come from the applied destination. A same-count valid replacement, changed unrelated asset/registration, unplanned local row, altered copy mapping or schema change refuses before commit. Content-addressed originals placed before a later refusal can remain as unregistered orphans; failed staging remains diagnostic evidence. A SQL rollback does not mean no filesystem effects occurred.
+
+Copy remaps only owned project/operation identities. Projection operation IDs derive from the destination project, and inherited/new immutable copy proofs retain exact typed mappings and historical results. Opaque user metadata remains opaque. Original take bytes, manifests, source pins, review digests, binding digests and note identities are preserved.
+
+An exact recorded copy is checked before acquiring the input or allocating fresh IDs. Once the stored proof is canonical and matches the requested operation, archive pin and destination, context records `RecordedReplay` immediately. Current owned-source usability must still pass before returning a successful historical receipt. A missing original or later quota failure can therefore produce a refusal with that known historical fact. It never falls through to a fresh copy; later human edits remain current, while the receipt retains its original result. An invalid/mismatched stored proof proves no prior commitment.
+
+## Governor and errors
+
+One borrowed sticky governor accounts for acquisition, metadata, walks, source authentication, interpretation, plans, postimages and SQL progress. It is not reset between namespaces or replaced by a fresh budget for a later pass. Reusing a budget across calls retains its accumulated usage. Large metadata scans query bounded identities and raw lengths first, prepay the current pass's work, then execute a separately bounded payload query. Reading lengths and payload in one SQLite row would materialize too early. Repeated lineage/hash/copy passes prepay again.
+
+Compiled default ceilings include 512 MiB maximum observed file size, 1 GiB cumulative credited work, 262,144 physical rows, 4,194,304 row visits, 524,288 chunk visits, 2,097,152 record visits, 65,536 groups and 32,000,000 VM steps. Callers may lower these ceilings, not raise them. The separate full-value plan and digest spool each retain a 512 MiB main-file ceiling and their static-layout/field/key/observation caps. Filesystem overhead, journals, temporary SQLite allocations and retained failed stages are outside those main-file ceilings. These routes may safely refuse material accepted by legacy ordinary routes. They do not guarantee a hard wall-clock deadline or a bound on every internal SQLite allocation, transaction-control step or filesystem stall.
+
+Live-catalog and disposable input/output SQL origins remain distinct. Scoped live progress hooks detach before transaction control; only the scope's known own interrupt can become its typed governor stop. The disposable postimage spool similarly tracks its own hook when translating its private interrupt. Other private physical errors cannot retire the reusable live catalog.
+
+`ArchiveFailure` retains the operation error it receives, phase/path/hash/placement context, and a separate optional sticky `governor_stop`. Governed store, postimage and performance finalizers preserve received errors instead of replacing them with a later stop. The recording layer's existing shared finalizer still gives its governor precedence, so this is not a universal guarantee of retaining lower-level errors already replaced before reaching these boundaries. Successful commit/durable-link completion has no later cancellable finalizer. Private cleanup failures remain warnings on the completed outcome.
+
+## Qualification boundaries
+
+Use actual device-free performance writers for both performance profiles, recovered originals and real publication; keep a separate ordinary audio original. Exercise strict OSAR v1 and v2, identity restore, two copy generations, re-export, hidden/pruned results and proof-only ancestry. Verify exact logical catalogs and original bytes, remapped IDs, independent binding semantics, fault rollback, exact replay, typed stops and same-store reuse. Internal final-boundary replacement tests supplement public real-route integration tests. Synthetic memo and injected error controls are not evidence of real performance authentication by themselves.
+
+This stage does not qualify native UI, installed-binary workflow, recording devices, listening, long recording capacity, physical latency, plugins, inference, MIDI 2/MPE hardware, installers, Windows or full workstation release acceptance. The complete goal and milestone 2 remain open.

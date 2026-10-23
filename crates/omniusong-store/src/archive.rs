@@ -39,7 +39,7 @@ const MAX_OPERATIONS: u64 = 100_000;
 const MAX_OBJECTS: usize = 4096;
 const MAX_MANIFEST_BYTES: usize = 512 * 1024;
 
-const TABLES: &[(&str, &str)] = &[
+pub(super) const TABLES: &[(&str, &str)] = &[
     (
         "archive_meta",
         "CREATE TABLE archive_meta(id INTEGER PRIMARY KEY CHECK(id=1),project_id TEXT NOT NULL,metadata_bytes INTEGER NOT NULL,asset_bytes INTEGER NOT NULL,take_bytes INTEGER NOT NULL,edit_count INTEGER NOT NULL,operation_count INTEGER NOT NULL,import_count INTEGER NOT NULL,asset_count INTEGER NOT NULL,take_count INTEGER NOT NULL,chunk_count INTEGER NOT NULL,index_sha256 TEXT NOT NULL)",
@@ -206,6 +206,11 @@ impl Bundle {
     }
     pub(super) fn references(&mut self, document: &ProjectDocument) -> Result<()> {
         super::projection_boundary::reject_unverified_projection(document)?;
+        self.references_untrusted(document)
+    }
+    /// Metadata inventory only. Bounded archive routes must authenticate the
+    /// complete retained closure against held originals before publication.
+    pub(super) fn references_untrusted(&mut self, document: &ProjectDocument) -> Result<()> {
         self.assets.extend(document.referenced_assets()?);
         self.takes.extend(document.referenced_takes()?);
         ensure(
@@ -234,12 +239,12 @@ pub(super) enum Destination<'a> {
     PlanCatalog(&'a Connection),
 }
 impl Destination<'_> {
-    fn connection(&self) -> &Connection {
+    pub(super) fn connection(&self) -> &Connection {
         match self {
             Self::ArchiveExpected(c, _) | Self::Store(c) | Self::PlanCatalog(c) => c,
         }
     }
-    fn sql<T>(&self, result: rusqlite::Result<T>) -> Result<T> {
+    pub(super) fn sql<T>(&self, result: rusqlite::Result<T>) -> Result<T> {
         result.map_err(|error| {
             sql_error(
                 match self {
@@ -252,7 +257,7 @@ impl Destination<'_> {
             )
         })
     }
-    fn expect(&self, table: &str, cells: &[SqlCell<'_>]) -> Result<()> {
+    pub(super) fn expect(&self, table: &str, cells: &[SqlCell<'_>]) -> Result<()> {
         if let Self::ArchiveExpected(_, expected) = self {
             expected.expect_insert(table, cells, false)?;
         }
@@ -829,7 +834,7 @@ pub(super) fn register_take(
         params![object.take_id.0,object.manifest_sha256,object.object_sha256,object.byte_length as i64,manifest])?;
     Ok(())
 }
-fn account_take(bundle: &mut Bundle, object: &TakeObject, manifest: &str) -> Result<()> {
+pub(super) fn account_take(bundle: &mut Bundle, object: &TakeObject, manifest: &str) -> Result<()> {
     bundle.metadata(manifest.len() + object.take_id.0.len() + 136)?;
     add(
         &mut bundle.totals.take_count,
@@ -856,7 +861,7 @@ fn account_take(bundle: &mut Bundle, object: &TakeObject, manifest: &str) -> Res
     );
     Ok(())
 }
-fn account_asset(bundle: &mut Bundle, id: &str, payload: &[u8]) -> Result<()> {
+pub(super) fn account_asset(bundle: &mut Bundle, id: &str, payload: &[u8]) -> Result<()> {
     bundle.metadata(id.len() + 72)?;
     add(
         &mut bundle.totals.asset_count,
@@ -992,7 +997,7 @@ fn export_objects(
     Ok(())
 }
 
-fn insert_meta(
+pub(super) fn insert_meta(
     connection: &Connection,
     bundle: &Bundle,
     expected: &PostimageLedger<'_>,
@@ -1038,7 +1043,7 @@ fn insert_meta(
 
 /// Derive lineage expectations solely from the consistent source snapshot.
 /// No value in this function comes from the private output being checked.
-fn expect_export_lineage(
+pub(super) fn expect_export_lineage(
     source: &Connection,
     project_id: &str,
     expected: &PostimageLedger<'_>,
@@ -1493,7 +1498,7 @@ pub(super) fn restore_object_files(
     Ok(())
 }
 
-fn collision_checks(
+pub(super) fn collision_checks(
     destination: &Connection,
     archive: &Connection,
     project_id: &str,
