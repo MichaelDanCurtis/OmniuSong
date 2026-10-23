@@ -5,6 +5,8 @@ mod active_projection_edits;
 mod archive;
 mod archive_copy;
 mod archive_operation;
+mod archive_projection;
+pub use archive_projection::RetainedProjectionClosureInspection;
 mod captures;
 mod evidence_archive;
 mod evidence_failure;

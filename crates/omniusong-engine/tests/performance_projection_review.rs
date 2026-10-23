@@ -1,5 +1,7 @@
 //! Actual device-free renderer/writer evidence, authenticated recovered sealing,
 //! and public bounded projection. No native normal-seal permit is manufactured.
+#[path = "performance_projection_review/archive_closure_review.rs"]
+mod archive_closure_review;
 #[path = "performance_projection_review/binding_review.rs"]
 mod binding_review;
 #[path = "performance_projection_review/publication_review.rs"]

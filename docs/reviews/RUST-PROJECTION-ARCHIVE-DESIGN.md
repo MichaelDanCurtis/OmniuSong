@@ -10,7 +10,7 @@ Keep OSAR v2 and existing strict v1 reads. Current project IDs, native take/stre
 
 Coordinator decision for the later typed restore route: choose final-path authentication after content-addressed object installation, consistent with the existing retained-orphan failure contract. Failed admission may retain diagnosed unregistered objects and staging; it must leave no committed project/history/operation authority. Hold final-path proofs through exact expected-postimage, registration, asset and identity checks before the sole commit. This decision is not an activation or a new orphan-cleanup action.
 
-The first implementation step currently covers the role-aware streamed `RegisteredSourceSet` and canonical `ArchiveOperation` parser/remapper with collision checks. It does not yet implement the complete streamed snapshot validator, binding memo, private-input error domain or typed archive completion/cleanup outcome. Public nonempty projection guards remain closed. Implement those remaining shared semantics before activating the three routes together.
+The first preparation gate covered the role-aware streamed `RegisteredSourceSet` and canonical `ArchiveOperation` parser/remapper with collision checks. The later [retained source-closure contract](../contracts/NATIVE-RETAINED-PROJECTION-CLOSURE.md) adds the live-catalog streamed snapshot validator and exact binding memo as a separate qualification scope. Private-input error isolation, typed archive completion/cleanup outcomes, installed-path authentication and expected destination postimages remain required. Public nonempty projection guards remain closed until the three routes are activated together.
 
 ## Small private interfaces
 

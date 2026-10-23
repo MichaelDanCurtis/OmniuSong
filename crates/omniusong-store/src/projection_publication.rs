@@ -94,21 +94,24 @@ fn initial_tracks_match(
 
 /// Bounded catalog consistency only. A coherent catalog may describe false
 /// music; this compact result cannot activate or authenticate a project.
-fn recorded_commit_with_budget(
+pub(crate) fn recorded_commit_with_budget(
     connection: &Connection,
     intent: &ProjectionPublication,
     request: &str,
     budget: &InspectionBudget,
 ) -> Result<Option<ProjectionCommitReceipt>> {
     budget.checkpoint()?;
-    let lengths:Option<(i64,i64)>=connection.query_row("SELECT octet_length(request_json),octet_length(result_json) FROM operations WHERE operation_id=?1",[&intent.operation_id.0],|r|Ok((r.get(0)?,r.get(1)?))).optional()?;
-    if let Some((request_len, result_len)) = lengths {
+    let lengths:Option<(i64,i64,i64)>=connection.query_row("SELECT octet_length(request_json),octet_length(result_json),octet_length(project_id) FROM operations WHERE operation_id=?1",[&intent.operation_id.0],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional()?;
+    if let Some((request_len, result_len, project_len)) = lengths {
         if !(0..=omniusong_core::contracts::WORKER_MAX_BYTES as i64).contains(&request_len)
             || !(0..=omniusong_core::native::MAX_NATIVE_PROJECT_BYTES as i64).contains(&result_len)
+            || !(1..=96).contains(&project_len)
         {
             return Err(invalid("Recorded publication exceeds metadata bounds"));
         }
-        budget.charge_work((request_len as u64 + result_len as u64).saturating_mul(64) + 4096)?;
+        budget.charge_work(
+            (request_len as u64 + result_len as u64 + project_len as u64).saturating_mul(64) + 4096,
+        )?;
     }
     let Some(stored) = read_operation_metadata(
         connection,
@@ -121,14 +124,41 @@ fn recorded_commit_with_budget(
         return Ok(None);
     };
     let result_sha256:Option<String>=connection.query_row("SELECT CASE WHEN octet_length(result_sha256)=64 THEN result_sha256 END FROM operations WHERE operation_id=?1",[&intent.operation_id.0],|r|r.get(0))?;
-    let canonical_result_sha = checksum(&stored.document.to_json()?);
-    let result_sha256 = result_sha256
-        .filter(|sha| *sha == canonical_result_sha)
-        .ok_or_else(|| {
-            invalid("Recorded publication result is not its exact canonical snapshot")
-        })?;
-    let registry = stored
-        .document
+    let result_sha256 = result_sha256.ok_or_else(|| {
+        invalid("Recorded publication result is not its exact canonical snapshot")
+    })?;
+    let receipt =
+        validate_publication_result(intent, request, &stored.document, &result_sha256, budget)?;
+    Ok(Some(receipt))
+}
+
+/// Bounded metadata consistency only, never source or archive admission. The
+/// caller prepays the raw request/result before decoding and holds its governor
+/// through this check. A result without a retained preimage must still preserve
+/// the exact initial muted lanes and final immutable append.
+pub(crate) fn validate_publication_result(
+    intent: &ProjectionPublication,
+    request: &str,
+    document: &ProjectDocument,
+    result_sha256: &str,
+    budget: &InspectionBudget,
+) -> Result<ProjectionCommitReceipt> {
+    budget.checkpoint()?;
+    if request.len() > omniusong_core::contracts::WORKER_MAX_BYTES
+        || intent.canonical_json()? != request
+        || document.id() != intent.project_id.0
+        || intent.expected_revision.checked_add(1) != Some(document.revision())
+    {
+        return Err(invalid(
+            "Recorded publication identity/revision or canonical request differs",
+        ));
+    }
+    if checksum(&document.to_json()?) != result_sha256 {
+        return Err(invalid(
+            "Recorded publication result is not its exact canonical snapshot",
+        ));
+    }
+    let registry = document
         .performance_projections()?
         .ok_or_else(|| invalid("Recorded projection registry is missing"))?;
     let binding = registry
@@ -145,11 +175,11 @@ fn recorded_commit_with_budget(
         serde_json::from_str(&binding.review.canonical_json).map_err(|e| invalid(e.to_string()))?;
     if review.request != intent.request
         || review.review_sha256 != intent.expected_review_sha256
-        || stored.document.tempo().to_bits() != intent.request.tempo_bits
+        || document.tempo().to_bits() != intent.request.tempo_bits
     {
         return Err(invalid("Recorded projection request/review differs"));
     }
-    initial_tracks_match(&stored.document, binding, intent)?;
+    initial_tracks_match(document, binding, intent)?;
     let note_count = binding
         .lanes
         .iter()
@@ -161,9 +191,9 @@ fn recorded_commit_with_budget(
         project_id: intent.project_id.clone(),
         projection_id: intent.projection_id.clone(),
         previous_revision: intent.expected_revision,
-        committed_revision: stored.document.revision(),
+        committed_revision: document.revision(),
         request_sha256: checksum(request.as_bytes()),
-        result_sha256,
+        result_sha256: result_sha256.into(),
         review_sha256: intent.expected_review_sha256.clone(),
         source: binding.source.clone(),
         lane_count: binding.lanes.len() as u32,
@@ -171,10 +201,35 @@ fn recorded_commit_with_budget(
         replayed: true,
     };
     receipt.validate()?;
-    Ok(Some(receipt))
+    budget.checkpoint()?;
+    Ok(receipt)
 }
 
 impl NativeStore {
+    /// Read-only source/publication/history closure for a retained live project.
+    /// Counts grant no archive, adoption or current playback authority. This
+    /// does not validate an OSAR file's schema, indexes or complete row closure.
+    pub fn inspect_retained_projection_closure(
+        &self,
+        project_id: &str,
+        budget: &InspectionBudget,
+    ) -> Result<crate::RetainedProjectionClosureInspection> {
+        use omniusong_core::contracts::{ProjectId, Validate};
+        if project_id.len() > 96 {
+            return Err(invalid("Project identity exceeds its limit"));
+        }
+        ProjectId(project_id.into())
+            .validate()
+            .map_err(|error| invalid(error.to_string()))?;
+        budget.checkpoint()?;
+        let _files = crate::retained_file_coordination::writer(&self.root)?;
+        CatalogTransaction::deferred(&self.connection, budget)?.run(|tx| {
+            let result = crate::archive_projection::inspect(tx, &self.root, project_id, budget)?;
+            tx.rollback()?;
+            Ok(result)
+        })
+    }
+
     /// Exact recorded commitment, even when current originals are unavailable.
     /// This returns no historical or current playable ProjectDocument.
     pub fn projection_publication_receipt(
@@ -301,11 +356,15 @@ pub(crate) fn validate_forward_transition(
         &omniusong_core::contracts::ProjectId(before.id().into()),
         &binding.id,
     )?;
-    let request_length: i64 = connection.query_row(
-        "SELECT octet_length(request_json) FROM operations WHERE operation_id=?1",
-        [&op.0],
-        |r| r.get(0),
-    )?;
+    let request_length: Option<i64> = connection
+        .query_row(
+            "SELECT octet_length(request_json) FROM operations WHERE operation_id=?1",
+            [&op.0],
+            |r| r.get(0),
+        )
+        .optional()?;
+    let request_length = request_length
+        .ok_or_else(|| invalid("Stored projection history has no publication request"))?;
     if !(0..=omniusong_core::contracts::WORKER_MAX_BYTES as i64).contains(&request_length) {
         return Err(invalid("Projection history request exceeds wire bounds"));
     }
