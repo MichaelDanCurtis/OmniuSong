@@ -1,4 +1,6 @@
 //! Bounded session storage service. UI callers only submit/poll nonblocking channels.
+mod capture_attachments;
+pub use capture_attachments::*;
 mod evidence_jobs;
 mod performance_intents;
 mod performance_source_actions;
@@ -156,8 +158,7 @@ pub enum Command {
         intent: ProjectEditIntent,
     },
     AttachCapture {
-        journal_path: PathBuf,
-        publication: omniusong_store::TakePublication,
+        request: Box<CaptureAttachmentRequest>,
     },
     SavePerformanceIntent {
         expected_revision: Option<u64>,
@@ -511,15 +512,7 @@ impl Command {
                 }
             }
             Self::Open { project_id } => id(project_id),
-            Self::AttachCapture {
-                journal_path,
-                publication,
-            } => {
-                path(journal_path)?;
-                publication
-                    .validate()
-                    .map_err(|e| ServiceError::rejected(e.to_string()))
-            }
+            Self::AttachCapture { request } => request.validate(),
             Self::ImportLegacy { path: p } | Self::InspectArchive { path: p } => path(p),
             Self::Edit { intent } => {
                 intent
@@ -596,6 +589,7 @@ pub struct Request {
 }
 #[derive(Debug)]
 pub enum Reply {
+    CaptureAttachment(Box<CaptureAttachmentReply>),
     ProjectArchive(Box<ProjectArchiveReply>),
     EvidenceJobOutcome(Box<EvidenceJobReply>),
     RetainedEvidenceInspected(Box<omniusong_store::EvidenceArchiveInspection>),
@@ -633,6 +627,9 @@ impl Reply {
             return matches;
         }
         match (self, command) {
+            (Self::CaptureAttachment(reply), Command::AttachCapture { request }) => {
+                reply.validate_for(request).is_ok()
+            }
             (Self::ProjectArchive(reply), Command::RunProjectArchive { request }) => {
                 reply.validate_for(request).is_ok()
             }
@@ -698,7 +695,8 @@ impl Reply {
     fn matches(&self, kind: CommandKind) -> bool {
         matches!(
             (self, kind),
-            (Self::ProjectArchive(_), CommandKind::RunProjectArchive)
+            (Self::CaptureAttachment(_), CommandKind::AttachCapture)
+                | (Self::ProjectArchive(_), CommandKind::RunProjectArchive)
                 | (
                     Self::EvidenceJobOutcome(_),
                     CommandKind::RunEvidenceJob | CommandKind::ReconcileEvidenceJob
@@ -719,7 +717,6 @@ impl Reply {
                         | CommandKind::Open
                         | CommandKind::ImportLegacy
                         | CommandKind::Edit
-                        | CommandKind::AttachCapture
                         | CommandKind::AttachPerformance
                         | CommandKind::RestoreCopy
                 )
@@ -778,6 +775,9 @@ impl Reply {
     }
 }
 fn terminal_storage_failure(result: &Result<Reply, ServiceError>) -> Option<ServiceError> {
+    if let Ok(Reply::CaptureAttachment(reply)) = result {
+        return reply.retirement_error();
+    }
     if let Ok(Reply::ProjectArchive(reply)) = result {
         return reply.retirement_error();
     }
@@ -1230,11 +1230,24 @@ impl SessionService {
         match self.responses.try_recv() {
             Ok(mut completion) => {
                 let mut invalid_archive_body = false;
+                let mut invalid_capture_body = false;
                 let mut archive_retirement = None;
                 let valid = self.pending.as_ref().is_some_and(|request| {
                     request.id == completion.id
                         && request.command.kind() == completion.kind
                         && match &completion.result {
+                            Ok(Reply::CaptureAttachment(reply)) => {
+                                if let Command::AttachCapture { request } = &request.command {
+                                    if !reply.matches_request_reference(request) {
+                                        return false;
+                                    }
+                                    archive_retirement = reply.retirement_error();
+                                    invalid_capture_body = reply.validate_for(request).is_err();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
                             Ok(Reply::ProjectArchive(reply)) => {
                                 if let Command::RunProjectArchive { request } = &request.command {
                                     if !reply.matches_request_reference(request) {
@@ -1268,7 +1281,16 @@ impl SessionService {
                         outcome_unknown: true,
                     });
                 }
-                self.retry = if completion.result.is_err() && request.command.retry_safe() {
+                if invalid_capture_body {
+                    completion.result = Err(ServiceError {
+                        kind: FailureKind::Protocol,
+                        message: "Recording reply matched this exact request but its result was invalid; retry the retained operation explicitly before making a new attachment choice.".into(),
+                        outcome_unknown: true,
+                    });
+                }
+                let capture_unconfirmed = matches!(&completion.result,
+                    Ok(Reply::CaptureAttachment(reply)) if reply.failure_error().is_some());
+                self.retry = if (completion.result.is_err() || capture_unconfirmed) && request.command.retry_safe() {
                     Some(request.command)
                 } else {
                     None
@@ -1649,24 +1671,7 @@ impl Backend for NativeBackend {
                 };
                 self.document(document, replayed)
             }
-            Command::AttachCapture {
-                journal_path,
-                publication,
-            } => {
-                let receipt = self
-                    .store()?
-                    .attach_capture(journal_path, publication)
-                    .map_err(work)?;
-                let replayed = receipt.replayed;
-                let document = if replayed {
-                    self.store()?
-                        .load(&publication.project_id.0)
-                        .map_err(work)?
-                } else {
-                    receipt.document
-                };
-                self.document(document, replayed)
-            }
+            Command::AttachCapture { request } => self.attach_capture_compact(request),
             Command::SavePerformanceIntent {
                 expected_revision,
                 intent,
@@ -1792,6 +1797,7 @@ impl Backend for NativeBackend {
                         | Command::AttachPerformanceSource { .. }
                         | Command::RunEvidenceJob { .. }
                         | Command::RunProjectArchive { .. }
+                        | Command::AttachCapture { .. }
                 )
                 && !matches!(
                     error.kind,

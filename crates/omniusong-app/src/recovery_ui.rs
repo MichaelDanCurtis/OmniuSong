@@ -5,9 +5,9 @@ use omniusong_core::{
     contracts::{OperationId, ProjectId, TakeId, TrackId},
     native::{TakeClip, TakeRange, TakeReference, TimelinePosition},
 };
-use omniusong_session::{CaptureInspection, CaptureRecoveryReceipt, CaptureStageScan, Command};
+use omniusong_session::{CaptureAttachmentRequest, CaptureInspection, CaptureRecoveryReceipt, CaptureStageScan, Command};
 use omniusong_store::{CaptureAudio, CaptureStageState, TakePublication};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 const MAX_RELEASED_ATTACHMENTS: usize = 8;
 
@@ -42,6 +42,7 @@ pub(super) enum RecoveryAction {
     },
     ChooseAttachment(Box<AttachmentChoice>),
     Attach {
+        origin_root: PathBuf,
         journal_path: PathBuf,
         publication: Box<TakePublication>,
     },
@@ -64,11 +65,16 @@ impl RecoveryAction {
                 operation_id: operation_id.clone(),
             },
             Self::Attach {
+                origin_root,
                 journal_path,
                 publication,
             } => Command::AttachCapture {
-                journal_path: journal_path.clone(),
-                publication: publication.as_ref().clone(),
+                request: Box::new(CaptureAttachmentRequest {
+                    version: 1,
+                    origin_root: origin_root.clone(),
+                    journal_path: journal_path.clone(),
+                    publication: publication.as_ref().clone(),
+                }),
             },
             Self::ChooseAttachment(_) => {
                 return Err("Choose a saved session revision before attaching".into());
@@ -233,6 +239,7 @@ impl RecoveryUi {
         choice: &AttachmentChoice,
         project_id: &str,
         revision: u64,
+        origin_root: &Path,
     ) -> Result<RecoveryAction, String> {
         if self.attach_retry.is_some() {
             return Err("An earlier attachment is unresolved. Retry that exact request, or explicitly release a known rejected choice first.".into());
@@ -271,11 +278,14 @@ impl RecoveryUi {
                 fades: None,
             },
         };
-        publication.validate().map_err(|error| error.to_string())?;
+        CaptureAttachmentRequest { version: 1, origin_root: origin_root.to_owned(),
+            journal_path: choice.journal_path.clone(), publication: publication.clone()
+        }.validate().map_err(|error| error.message)?;
         self.attach_evidence = Some(choice.evidence.clone());
         self.attach_suspended = false;
         self.attach_known_rejected = false;
         Ok(RecoveryAction::Attach {
+            origin_root: origin_root.to_owned(),
             journal_path: choice.journal_path.clone(),
             publication: Box::new(publication),
         })
@@ -728,6 +738,7 @@ fn attachment_details(
     let RecoveryAction::Attach {
         journal_path,
         publication,
+        ..
     } = action
     else {
         return;
@@ -958,7 +969,7 @@ mod tests {
             panic!()
         };
         let action = recovery
-            .prepare_attachment(&choice, "target-project", 7)
+            .prepare_attachment(&choice, "target-project", 7, Path::new("/synthetic/studio"))
             .unwrap();
         let Command::AttachCapture { publication, .. } = action.command().unwrap() else {
             panic!()
@@ -1065,7 +1076,7 @@ mod tests {
             panic!()
         };
         let action = recovery
-            .prepare_attachment(&choice, "target-project", 7)
+            .prepare_attachment(&choice, "target-project", 7, Path::new("/synthetic/studio"))
             .unwrap();
         let operation_id = operation(&action);
         recovery.started(&action);
@@ -1139,7 +1150,7 @@ mod tests {
             panic!()
         };
         let old = recovery
-            .prepare_attachment(&choice, "target-project", 7)
+            .prepare_attachment(&choice, "target-project", 7, Path::new("/synthetic/studio"))
             .unwrap();
         recovery.started(&old);
         recovery.failed(&old);
@@ -1169,7 +1180,7 @@ mod tests {
             panic!()
         };
         let next = recovery
-            .prepare_attachment(&choice, "target-project", 8)
+            .prepare_attachment(&choice, "target-project", 8, Path::new("/synthetic/studio"))
             .unwrap();
         let Command::AttachCapture { publication, .. } = next.command().unwrap() else {
             panic!()
