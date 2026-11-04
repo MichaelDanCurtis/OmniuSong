@@ -1,0 +1,92 @@
+# Native audio engine: first playback and solo-capture boundary
+
+Adopted design for the next native implementation slice, October 20, 2026. Implementation review and actual evidence are tracked separately in [RUST-AUDIO-ENGINE-INITIAL.md](../reviews/RUST-AUDIO-ENGINE-INITIAL.md). The full [goal](../GOAL.md) and [release acceptance](../RELEASE-ACCEPTANCE.md) remain mandatory. A bounded first playback renderer is not the final streaming arrangement engine.
+
+## Ownership and first supported behavior
+
+The app starts its bundled executable with `--audio-worker` through the existing private Unix launcher and `WorkerRole::Engine`. Launch nonce, session/sequence validation, framing limits and honest authentication limits remain those of [NATIVE-IPC.md](NATIVE-IPC.md). The UI does not own a `cpal::Stream`, SQLite journal, blocking socket read, child wait or DSP allocation. A non-realtime client supervisor owns the child and IPC; one pending UI request is the initial admission limit. Busy rejects before admission. Terminal replies are retained; expendable status can be coalesced.
+
+The engine control thread owns device selection, stream creation/control/destruction, prepared PCM and capture state. A separate writer thread alone owns the recording `Journal`. The audio callbacks own only their fixed data-path state and SPSC endpoint. The app's storage worker alone publishes a sealed source into the main project using the existing take registry and an explicit stable publication operation. Captured, committed, sealed, ingested and published are distinct states.
+
+The first backend is pinned CPAL 0.18.2 with default features disabled on macOS/CoreAudio, plus rtrb 0.4.0 for in-process SPSC exchange. CPAL exposes device/configuration queries and independent streams; rtrb allocates its fixed buffer at construction and rejects full writes without overwriting retained data. Their availability does not prove application callback safety. [CPAL API](https://docs.rs/cpal/0.18.2/cpal/), [rtrb API](https://docs.rs/rtrb/0.4.0/rtrb/)
+
+The first playback slice prepares saved schema-1 built-in notes and supported WAV assets, plus supported schema-2 sealed audio clips, before starting output. It must identify unsupported active material and reject the complete play request rather than omit music silently. Expression, plugins, unknown instruments/codecs, and raw-event-only clips require an implementation or an explicit rejection. Muted material can be excluded according to the saved musical mute state. Playing is read-only and never changes originals or converts raw events into estimated editable notes.
+
+The first capture slice is solo input recording: no simultaneous playback, overdub, input monitoring, automatic microphone start or implicit loopback device. The user selects/observes the input and explicitly starts capture. Starting capture while playback is active, or vice versa, rejects or requires an explicit stop transition. New device sessions use fresh epochs and take identities.
+
+## Initial bounds and allocation policy
+
+| Boundary | Decision |
+|---|---|
+| UI pending request | One admitted request; reject busy before sending |
+| JSON control | Dedicated `omniusong.engine-control.v1` / `omniusong.engine-reply.v1` envelope profile, 64 KiB ceiling, inventory serialized below 48 KiB; no inline PCM or whole project |
+| Playback preparation | At most 120 seconds and 64 MiB of retained preparation PCM; reject oversized/rate-expanded arrangements before allocating |
+| Capture duration | No 120-second or 64-MiB whole-take cap; bounded streaming journal |
+| Capture packet | `AudioPacket`: 256 frames × at most 8 channels, inline float32, source frame and nanosecond timestamps; `Copy` |
+| Capture transfer | 256 preallocated SPSC slots; no overwrite and no producer wait; callback bound 16,384 frames |
+| Journal write | Audio chunks at most 1 MiB; aggregate off callback with the existing 250-ms target, which is not a durability deadline |
+| Device stop / writer completion | Off callback and off UI; 2-second callback-lifetime acknowledgment wait after stop/drop; 15-second total supervisor exchange deadline and 20-second worker parent-contact watchdog |
+
+Preparation limits apply before callback activation. Every frame×channel×sample-byte calculation and signed timeline conversion is checked. The resident preparation budget must account for simultaneously retained decoded buffers and output/intermediate PCM; it is not a claim that the entire process RSS is 64 MiB. Do not decode each track to a full-duration buffer and retain all of them. Stream source chunks or one bounded asset at a time into the prepared output where possible. The preparation rejection must identify the applicable limit; it must not shorten the requested arrangement to fit.
+
+The renderer validates WAV chunk boundaries, size/padding, encoding, channel layout, rates, finite float samples and declared source ranges before activation. It validates sealed source identity/manifest and source frame ranges through the existing readers. Fades and trims use original source coordinates; negative arrangement positions may crop only the portion before the chosen playback origin. That cropping is not permission to move or rewrite the original clip. Rate conversion must be explicit and deterministic outside the callback; unsupported conversions reject. All saved gain/mute/clip semantics supported by the first renderer must have fixture coverage.
+
+## Callback contract
+
+The application-owned callback hot path may copy/convert samples, update fixed counters, fill output and perform bounded ring operations. It must not allocate or deallocate, format/log errors, access files/SQLite/IPC, acquire blocking locks, wait, spawn, drop a last shared owner, invoke model/plugin control code, or perform unbounded preparation. Error callbacks may run on a realtime path too: latch a fixed error code/flag and let control generate text.
+
+The initial dependency audit found a variable-buffer input resize and allocation-capacity cleanup defect in unmodified coreaudio-rs 0.14.2 beneath CPAL. The coordinator selected a narrow vendored repair with fixed 16,384-frame input storage, checked 16-MiB setup ceiling, an original allocation owner retained until control-side cleanup, and a zero-byte/zero-frame unknown-loss sentinel on native failure. Allocation alignment must also satisfy typed sample views. Live-capture acceptance requires pinned source and regression evidence for the actual repair; application callback allocation tests alone are insufficient. See [the precise review findings](../reviews/RUST-AUDIO-ENGINE-INITIAL.md#pinned-native-dependency-findings).
+
+Prepare arrays and queue storage before stream activation. The callback packet type must be `Copy`; failed pushes return fixed owned packets without dynamic destructors. The output callback reads prepared immutable PCM and fills every requested output sample, including silence after the prepared end. Variable callback lengths are split into bounded packet pieces; negotiated buffer size is not an assumption that every callback is exactly that size. A malformed channel-divisibility/configuration condition fails visibly without out-of-bounds access or buffer growth.
+
+Callback-owned buffers, prepared PCM and ring endpoints must outlive all callback uses. Destroy them only after the stream has stopped and producer/callback lifetime has ended. An `Arc` kept by control is useful only if it prevents the callback from becoming the final deallocator. The pinned adapter's own internal behavior is audited separately from application callback allocation tests.
+
+## Exact capture continuity and overload
+
+Each delivered input callback advances a monotonic **source frame** counter for all complete observed frames, including frames that cannot enter the transfer queue. Packet source positions never depend on successful pushes. PCM accepted by the queue remains immutable; the writer validates sequence/range/channel consistency before append.
+
+The first queue-full event latches a terminal capture fault outside the full queue and retains the first affected source frame. Fixed atomics retain total observed frames, rejected-frame count and fault state. Control requests stream stop promptly; any final callbacks before quiescence still advance the observed extent and are either retained or counted as loss. Once the producer is proven gone, the writer drains accepted packets in order and inserts exact `TransferOverflow` gaps wherever source positions skip and for a known trailing rejected range. It must not infer that an empty queue means the producer has stopped, overwrite old packets, or fill missing original data with successful silence.
+
+`CaptureJournal` validates each complete packet before changing pending bytes or range state, aggregates accepted PCM on its writer thread, and checks predicted accumulated gap units against the ingress dropped-frame total before appending any final gap. A missing accepted packet is an incomplete drain, not evidence of transfer loss. The final snapshot loads the producer-destruction acknowledgment with acquire ordering before final counters. Only after successful pause/drop and destruction of both the input producer and error-handler closure may the control thread request the final drain.
+
+Capture callback start timestamps must not regress within the stream epoch. A strict backwards start latches an invalid-clock fault while complete delivered frames remain accounted; normal sealing is forbidden. The comparison is against the preceding observed start, not the inferred end of its buffer, because small estimate overlap is not itself a calibrated-clock failure. The reducer also rejects backwards packet-start or gap observations before mutation. Coalescing must not hide backwards observations by clamping a fabricated endpoint.
+
+Transfer overflow has an exact application-observed extent. A device xrun/disconnect, invalid timestamp, sample-rate change or callback failure may have an **unknown** missing physical duration. Such faults cannot be repaired by trusting only the count of callbacks that arrived. Stop the stream and preserve unsealed evidence for explicit interrupted-prefix recovery; do not normal-seal a supposedly contiguous complete take. Exact known gap records may still be appended before retaining the unfinished journal.
+
+## Stop, finish and worker loss
+
+The required normal transition is:
+
+`Capturing -> FinishRequested -> StreamStopped -> ProducerDestroyed -> RingDrained -> FinalTailVerified -> Sealed -> Published`
+
+Only explicit Finish may enter normal sealing. Stop/cancel, parent/IPC loss, fatal device fault, writer failure or forced child termination must retain the unfinished original and report the recovery path. An explicit finish that encounters an unknown-tail fault becomes an unsealed/interrupted result. A finish result is not successful until the manifest exists; project publication is a separate transaction and may fail while leaving that sealed original available for retry.
+
+CPAL's macOS `Stream` owns an `Arc<Mutex<StreamInner>>`, while its monitor threads may upgrade a weak reference. The pinned `Stream::drop` body signals monitor readiness; it does not expose a callback-join API. `pause` delegates to the underlying audio-unit stop. Therefore neither an empty queue nor simply returning from the public stream-handle drop is by itself the chosen proof that the producer is gone. [Pinned CPAL stream source](https://raw.githubusercontent.com/RustAudio/cpal/v0.18.2/src/host/coreaudio/macos/mod.rs)
+
+The implementation must couple successful control-side stop/drop with a callback-owned producer destruction acknowledgment. Final totals use acquire/release ordering after that acknowledgment; only then can the writer perform its last drain and seal. An active-callback count sampled at zero is insufficient while a new callback can still begin. The stop/error path must have a bounded supervisory outcome: failure to establish quiescence retains the journal unsealed. Do not attempt to force sealing merely to produce a terminal success response. Stream destruction and child kill/reap happen on control/supervisor threads.
+
+A failed pause or callback-destruction timeout retires the entire worker generation. It must not admit another device session while the prior callback lifetime is unproven. On a failed input/output pause, ownership is deliberately retained until bounded process exit so a destructor cannot retry an unproven stop and free callback state. The worker sends its known fault where possible and exits without relying on normal cleanup or sealing; the supervisor preserves both an already queued successful completion and a later terminal error. That error may wait behind the one-slot normal reply on the supervisor thread, but cannot be silently dropped. An unrequested heartbeat error also retires the worker before another status can replace its one-shot device cause with idle. The exact error is delivered once through the same terminal path; it is not discarded merely because no user request was pending.
+
+Prepared output reaching the render cursor's end is not proof the device has presented that tail. Timed output callbacks retain the predicted last-sample presentation endpoint and publish render completion; control stops only after a subsequent callback clock reaches that endpoint. This uses CPAL's native timing estimate and is not a physical loopback latency measurement. Explicit Stop may intentionally interrupt playback.
+
+Parent loss stops playback and, for this first capture implementation, stops input without the general engine grace period continuing microphone capture. The explicit capture amendment in [NATIVE-PROTOCOLS.md](NATIVE-PROTOCOLS.md) supersedes the earlier automatic-finalization wording. The worker may drain known accepted data, but it does not normal-seal merely because IPC closed. Killing the process can lose an uncommitted tail; journal recovery must retain the unknown-tail distinction. The supervisor reports failure, never silently restarts capture, and retains path/take identity as soon as received in Capturing/Status. A crash during StartCapture before its first reply can leave a capture directory whose exact identity never reached the parent; the [retained-capture workflow](NATIVE-CAPTURE-RECOVERY.md) now provides bounded discovery and explicit checked prefix recovery for supported stages. It never automatically resumes input or attaches a source; malformed/incomplete stages remain retained diagnostics. Actual current native UI qualification remains separate.
+
+## Devices, clocks and permissions
+
+Enumerate and display device IDs/names, direction, chosen sample format, channels, rate and requested/actual buffer information. Select a real input endpoint for capture; CPAL can otherwise create a loopback aggregate for an output-only device, which is outside this slice. Do not create aggregates or change the system default device. CPAL's configuration can request a physical sample-rate/format change, so the selected configuration must be visible and must not be described as having no device side effects. [Pinned CPAL device source](https://raw.githubusercontent.com/RustAudio/cpal/v0.18.2/src/host/coreaudio/macos/device.rs)
+
+Every stream has a separate epoch. Capture's original frame zero is a source coordinate, not a calibrated arrangement time. CPAL distinguishes callback and capture timestamps; the pinned Mac backend derives capture/playback timing using host time and reported device/buffer latency. Preserve the actual observed timestamp domain and conversion policy, but do not invent calibrated `ClockAnchor` values, cross-stream phase alignment or latency compensation. [Input timestamps](https://docs.rs/cpal/0.18.2/cpal/struct.InputStreamTimestamp.html)
+
+Microphone permission belongs to the explicit capture flow and the bundled app/worker identity; no UI refresh, enumeration, startup or test may silently begin recording. The coordinator owns actual OS/device qualification. Windows remains unsupported by the current private process transport until its named-pipe ACL/identity and backend implementation are separately qualified.
+
+The current `Devices` reply exposes native names and IDs; playback/capture status exposes rate, channel count, source/render frame count, peak, xrun count and early capture identity. Actual hardware buffer frames/latency are not yet exposed by this API. Native capture format is retained in take provenance. Buffer/configuration observability remains a qualification gap; these counters cannot establish the under-10-ms target.
+
+## Publication and durable retry
+
+`AttachCapture` is a storage-worker operation using a stable `TakePublication` identity and expected revision. Authenticated replay is checked before the stage path is accessed. If an exact registered original already exists, its immutable file/manifest and clip reference are verified and reused even if the stage disappeared. Otherwise the sealed stage is verified and durably ingested before a separate project-publication transaction. Revision conflict retains the registered original. Replaying an already completed attachment returns the latest saved project to the app, so retry cannot replace later edits with an older receipt snapshot. No new successful recording is inferred from a stage filename or unknown tail.
+
+## Independent evidence gates
+
+Before device testing, the independent suite must check zero application hot-path allocations/deallocations, variable callback lengths, exact float/integer conversion, queue-full and final trailing gaps, producer-destruction acknowledgment, abort versus explicit finish, EOF/crash behavior, strict source/decoder bounds, saved musical timing/fades, and rejection of unsupported active material. Allocation fixtures measure only the exercised Rust path; they do not prove every platform callback or native driver behavior.
+
+After those gates, record the actual executable/source hashes, selected devices/configurations, audible output, explicit input permission/capture, stop/finalize/publish/reopen and original archive retention. Under-10-ms software response, thirty minutes without dropouts, calibrated duplex alignment, overload under inference, native MIDI/MPE, plugins and Windows each require their own later measurement. None follows from a tone, a sealed synthetic journal or a passing unit-test suite.

@@ -1,0 +1,295 @@
+{
+  "version": 1,
+  "observedAtUtc": "2026-10-22T07:37:05.871737+00:00",
+  "scope": "Pinned source and documentation investigation for a potential OmniuSong UI framework; no runtime qualification.",
+  "upstream": {
+    "repository": "https://github.com/longbridge/nsh",
+    "commit": "dc458b4ffb0916546b3ee7dd391d466a1a6e9815",
+    "workspaceVersion": "0.2.0",
+    "repositoryCreatedAtUtc": "2026-10-14T14:59:36Z",
+    "latestObservedRelease": "v0.2.0",
+    "releasePublishedAtUtc": "2026-10-22T03:29:35Z",
+    "releasePeeledCommit": "669b62b11449b2ab787b7c82649a392cbff25b8f",
+    "inspectedCommitsAheadOfRelease": 7,
+    "backendOrCargoManifestChangesSinceRelease": false
+  },
+  "download": {
+    "observedAtUtc": "2026-10-22T07:27:03.851333+00:00",
+    "repository": "https://github.com/longbridge/nsh",
+    "commit": "dc458b4ffb0916546b3ee7dd391d466a1a6e9815",
+    "archiveBytes": 6592709,
+    "archiveSha256": "486382473ab0671f3ca5af27d567d14016d7ff535874598958dee386436b5cbc",
+    "archiveEntries": 1698,
+    "uncompressedBytes": 23348186,
+    "selectedTextFiles": 1297,
+    "selectedTextBytes": 20601780,
+    "executedUpstreamCode": false
+  },
+  "upstreamSourceFingerprints": [
+    {
+      "path": "Cargo.toml",
+      "byteLength": 14132,
+      "sha256": "6047565820e4c0a2f6845ca8403a492e1bfb1102ab637e9c6d830f884130763c"
+    },
+    {
+      "path": "rust-toolchain.toml",
+      "byteLength": 216,
+      "sha256": "2621c6abe1f37e10afdec13bb974ae920a5de538367504725d2e20792ea79029"
+    },
+    {
+      "path": "LICENSE-APACHE",
+      "byteLength": 10297,
+      "sha256": "ec75427ad955e3c740f22e7dc3f6db6fc5b2cc1d9135c2af91cece8dd47a2d38"
+    },
+    {
+      "path": "crates/nsh-core/src/lib.rs",
+      "byteLength": 3713,
+      "sha256": "a2bf5e66b2d36d09128677fbe50461721c74828aa32298128081d21ce2364837"
+    },
+    {
+      "path": "crates/nsh-core/src/ui/mod.rs",
+      "byteLength": 17354,
+      "sha256": "3a1bfc905c3835ccd91339109edac6520833b9f06c6109588ec3ccd6a45fca3c"
+    },
+    {
+      "path": "crates/nsh-core/src/ui/host.rs",
+      "byteLength": 65107,
+      "sha256": "ca531e202ae03d9dfbce6a9de35959708fb3eef9ec613fbadcce906a34320572"
+    },
+    {
+      "path": "crates/nsh-core/src/ui/ambient.rs",
+      "byteLength": 26685,
+      "sha256": "29e72cf38d99e88f2a1f5cfbca069e81a7d2176079437668b9d11d0b2807edea"
+    },
+    {
+      "path": "crates/nsh-engine/Cargo.toml",
+      "byteLength": 1842,
+      "sha256": "9a8d4579a6a19b201f1de8493ceeff18fe4a4d32161911366957380600db4279"
+    },
+    {
+      "path": "crates/nsh-platform-macos/Cargo.toml",
+      "byteLength": 1501,
+      "sha256": "7512104eafbccf021a8806c245d452eda969a09d7fb7a619a640ce3d0721c0a1"
+    },
+    {
+      "path": "crates/nsh-platform-windows/Cargo.toml",
+      "byteLength": 1507,
+      "sha256": "03091a020755e956e77b59fab368135b9f9094b816f35e5b67c3cd67789a10b3"
+    },
+    {
+      "path": "crates/nsh-platform-macos/src/lib.rs",
+      "byteLength": 1980,
+      "sha256": "bde79eb835e1319fc8b4bd324ef7b35c90a8800d1e6ae8d789fb486606233bb3"
+    },
+    {
+      "path": "crates/nsh-platform-windows/src/lib.rs",
+      "byteLength": 2137,
+      "sha256": "818655ac867b70a05adf47a52f43718d38cb5d0bb265fd28d66640e24f9b16fe"
+    },
+    {
+      "path": "crates/nsh-platform-macos/src/keymap.rs",
+      "byteLength": 7382,
+      "sha256": "2f3e4e6d04186726682fc2f2e28072aa87a3f5bacfd6f3b401a557bbd0a08e02"
+    },
+    {
+      "path": "crates/nsh-platform-macos/src/access.rs",
+      "byteLength": 27110,
+      "sha256": "5bafcc7cb9aa39c5d931f5c0fa5fef547b3d32ee6bcb1b38212cd7f1915c0b25"
+    },
+    {
+      "path": "crates/nsh-platform-macos/src/app.rs",
+      "byteLength": 24853,
+      "sha256": "68b127569647174351a48434ee6e11bbcd351633295c75c3002cf625fa0c66ce"
+    },
+    {
+      "path": "crates/nsh-platform-macos/src/view.rs",
+      "byteLength": 48845,
+      "sha256": "17ea929e1e8078458873dd4a170f5cf5cbeda1b154e91dc75c1420d3a4abdf53"
+    },
+    {
+      "path": "crates/nsh-platform-macos/src/native.rs",
+      "byteLength": 58157,
+      "sha256": "078030d766215fa7a220924d8af7e71f54eeb9755c843a6ab0e72526384b9d1b"
+    },
+    {
+      "path": "crates/nsh-platform-windows/src/input.rs",
+      "byteLength": 81307,
+      "sha256": "55c705f219fc6b8d19bbf2049f8b8d8eaf8439a235c23589bdeeabaa0d6e0e97"
+    },
+    {
+      "path": "crates/nsh-platform-windows/src/window.rs",
+      "byteLength": 35476,
+      "sha256": "84b85a4d05b9194198b647a7244f4dbeec4323df9a85ff6475f73c3ffec46ce3"
+    },
+    {
+      "path": "crates/nsh-platform-windows/src/access.rs",
+      "byteLength": 37357,
+      "sha256": "47b9fa41f47293270dfe1100c4d3c796473abc9e032eda1940ff3d7a2609c57e"
+    },
+    {
+      "path": "crates/nsh-platform-windows/src/access/uia.rs",
+      "byteLength": 37051,
+      "sha256": "9b37dace78dd3ec658728ff71c73b61d79da7e7852dbaa573a8588d02769ea9c"
+    },
+    {
+      "path": "crates/nsh-platform-windows/src/app.rs",
+      "byteLength": 15689,
+      "sha256": "e1c3dfac8e7cc34c9cf7c464b6ded8112ea8468a21ae61ab4520a8f3eea6cb69"
+    },
+    {
+      "path": "crates/nsh-platform-windows/src/native.rs",
+      "byteLength": 30314,
+      "sha256": "6f00f6e07d740759ce3657fa33f5d7159cd11075e1309e7ae1577f30f025b316"
+    },
+    {
+      "path": "crates/nsh-cli/src/rust_app.rs",
+      "byteLength": 125251,
+      "sha256": "da67104b0b60a7120409ae1ee7255f51e5a7093efbe2a6493fe14505664743e8"
+    },
+    {
+      "path": "examples/gallery-rs/native/Cargo.toml",
+      "byteLength": 664,
+      "sha256": "cf03a90d5e05294151d2bf527f59042e48f3c873d091f89cd9be7271ee0550cf"
+    },
+    {
+      "path": "examples/gallery-rs/native/src/demos/canvas.rs",
+      "byteLength": 40179,
+      "sha256": "cb4282d43d7a7330de1bcacbd252d5ef1ddab39584d7afb4b68a3956386557dd"
+    },
+    {
+      "path": "examples/gallery-rs/App.test.tsx",
+      "byteLength": 669,
+      "sha256": "7aaa088af8ed0749b5dda6bb90e7c8746db0735d0706b7475ff0b38e1d8bc27e"
+    },
+    {
+      "path": "examples/gallery-rs/canvas.test.tsx",
+      "byteLength": 932,
+      "sha256": "99c603e9c4a1e3fe61d298801b5f9f382a209215af336b609755bcc0e93054dc"
+    },
+    {
+      "path": ".github/workflows/rust-app.yml",
+      "byteLength": 8152,
+      "sha256": "e793f191392633e379fd6284e73cadbadcf70b44cae0cc97262a3fb234dcaa7d"
+    },
+    {
+      "path": ".github/workflows/windows.yml",
+      "byteLength": 3969,
+      "sha256": "9182f7700ad00a1b45af4769a8f0f9445a8f17f19196bed2adf14470c6fd8241"
+    },
+    {
+      "path": "docs/dev/windows.md",
+      "byteLength": 33050,
+      "sha256": "099245b28187723d0ce93f9b6f0b4775bb19f25c625e8b3db558fe175dd0bb6e"
+    },
+    {
+      "path": "docs/dev/macos.md",
+      "byteLength": 36981,
+      "sha256": "f3003ce1f91ecc04ad36f5b3447bd8a8626305566402e816195cecf0e69c224e"
+    },
+    {
+      "path": "docs/dev/canvas.md",
+      "byteLength": 6441,
+      "sha256": "31a587e0032659615128554238315a34e37d0e14090ddca8adf142f10cf465dc"
+    },
+    {
+      "path": "docs/dev/compatibility.md",
+      "byteLength": 15799,
+      "sha256": "0307638db496f5ea70fd6c996ae5839336c54e370ed495b8fb06d860eb6a02bd"
+    }
+  ],
+  "metadataEvidence": [
+    {
+      "path": ".runtime/nsh-research/source.json",
+      "byteLength": 435,
+      "sha256": "279476164591f88ff99c2efdd2105692f18c7277ea6f6a7eeaa3fe8264d23c24"
+    },
+    {
+      "path": ".runtime/nsh-research/repository.json",
+      "byteLength": 6789,
+      "sha256": "6411e478d03bbe6eb604bff1beec11183cea69c84010adfe79381fd666905a69"
+    },
+    {
+      "path": ".runtime/nsh-research/release.json",
+      "byteLength": 44649,
+      "sha256": "779e31a6ddab45ee4864efc61d55f229b87d4759ef1a00bf35793c104051829b"
+    },
+    {
+      "path": ".runtime/nsh-research/commit.json",
+      "byteLength": 109874,
+      "sha256": "c3042e2f99bc6a647f11697f66072115188dd7cbf8e880956d4cc13ccd99f959"
+    },
+    {
+      "path": ".runtime/nsh-research/release-comparison.json",
+      "byteLength": 266075,
+      "sha256": "462e4e77ce92829b8480ca218d23277db3c773785ace274a882d1efd0d5b7f7a"
+    }
+  ],
+  "findings": [
+    {
+      "area": "Rust-only runtime",
+      "state": "supported by feature-gated source and gallery; actual graph/binary not built here",
+      "requirement": "default-features=false; verify no JS/QuickJS in the actual resolved app"
+    },
+    {
+      "area": "custom canvas",
+      "state": "public Rust API and gallery example inspected; music density/performance unmeasured"
+    },
+    {
+      "area": "native platforms",
+      "state": "AppKit/CoreText on Mac; Win32/Direct2D/DirectWrite on Windows; no platform run here"
+    },
+    {
+      "area": "held musical keys",
+      "state": "public desktop shortcut path is down-only; a native adapter or extension is required for full releases/focus handling"
+    },
+    {
+      "area": "macOS accessibility",
+      "state": "backend explicitly does not expose custom accessibilityActions; no generic activation/increment forwarding overrides found in source search"
+    },
+    {
+      "area": "Windows accessibility",
+      "state": "UIA/action dispatch exists; RangeValue.SetValue emits one increment/decrement rather than an exact requested target"
+    },
+    {
+      "area": "guarded close",
+      "state": "no general application close-veto hook found in standalone runners; propose owned native AppView host"
+    },
+    {
+      "area": "native plugin surfaces",
+      "state": "generic NSView/HWND hooks exist; VST3/CLAP and cross-process window behavior unqualified"
+    },
+    {
+      "area": "CI",
+      "state": "workflow definitions include Mac/Windows/Linux graph checks and Windows real-window tests; live Actions success not inspected"
+    },
+    {
+      "area": "license/toolchain",
+      "state": "root Apache-2.0; transitive asset/dependency audit and exact MSRV not established"
+    }
+  ],
+  "decision": {
+    "status": "candidate shortlisted; no production adoption",
+    "recommendation": "isolated Rust-only native prototype with owned lifecycle/input adapter and explicit musical/AX/performance/Windows gates",
+    "currentFramework": "egui/eframe 0.37.0 remains selected",
+    "prototypeImplemented": false,
+    "dynamicTsxSelected": false
+  },
+  "executionBoundary": {
+    "upstreamCodeExecuted": false,
+    "nshCompiled": false,
+    "nshLaunched": false,
+    "nshTestsRun": false,
+    "installerExecuted": false,
+    "newNativeDeviceStreamsOpened": false,
+    "productionFrameworkOrDependencyChanged": false,
+    "production150SourceFingerprintsStillExact": true,
+    "installedNativeExecutableStillExact": {
+      "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+      "byteLength": 20483792,
+      "sha256": "c46a0b7585d21eb94add1750e16900d8690f0b5c6525f217b6affeaaaf5588e2"
+    },
+    "recordingNativeAcceptanceAdvanced": false,
+    "fullGoalComplete": false
+  },
+  "document": "docs/research/RUST-UI.md#nsh-evaluation"
+}

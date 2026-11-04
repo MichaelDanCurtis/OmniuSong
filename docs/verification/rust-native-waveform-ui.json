@@ -1,0 +1,483 @@
+{
+  "format": "omniusong.native-waveform-ui-verification",
+  "version": 1,
+  "recordedAtUtc": "2026-10-21T00:49:25.092912+00:00",
+  "completed": true,
+  "scope": "Bounded actual corrected9b2fb28 Mac original-source waveform view, saved/original/local overlays, exact selection/draft isolation, available Hide during output, natural output completion/Stop, process exit/restart/reprepare. Not complete workstation release acceptance.",
+  "packagedBinary": {
+    "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+    "sha256": "9b2fb28c5342bd1c272d8e7a495741fdc4bbdd77fbf43c61f64362ba93eca4a0",
+    "byteLength": 87964192
+  },
+  "sourceGate": {
+    "path": "docs/verification/rust-native-waveform-tests.json",
+    "sha256": "606642b3414d97e5a09640d1e57c3ced9384120dc929f4eba6e3c962d6f759f4",
+    "byteLength": 29639
+  },
+  "sourceProject": {
+    "id": "811b10bd-b767-41db-997e-bd9b449aabee",
+    "revision": 17
+  },
+  "restoredProject": {
+    "id": "0394063f-f5d8-45af-b2d5-fc20b47efe3e",
+    "revision": 18
+  },
+  "actualUiSteps": [
+    {
+      "name": "corrected-launch",
+      "stem": "01-corrected-launch"
+    },
+    {
+      "name": "corrected-drive-access-check",
+      "stem": "02-corrected-drive-access-check"
+    },
+    {
+      "name": "corrected-legacy-authenticated",
+      "stem": "03-corrected-legacy-authenticated"
+    },
+    {
+      "name": "corrected-legacy-full-lane",
+      "stem": "04-corrected-legacy-full-lane"
+    },
+    {
+      "name": "legacy-local-default-end-preview",
+      "stem": "05-legacy-local-default-end-preview"
+    },
+    {
+      "name": "hide-keeps-unsaved-legacy-draft",
+      "stem": "06-hide-keeps-unsaved-legacy-draft"
+    },
+    {
+      "name": "show-reuses-current-draft-only-as-preview",
+      "stem": "07-show-reuses-current-draft-only-as-preview"
+    },
+    {
+      "name": "native-first-original-domain",
+      "stem": "08-native-first-original-domain"
+    },
+    {
+      "name": "native-pointer-keyboard-local-window-preview",
+      "stem": "09-native-pointer-keyboard-local-window-preview"
+    },
+    {
+      "name": "native-real-pointer-keyboard-window-preview",
+      "stem": "10-native-real-pointer-keyboard-window-preview"
+    },
+    {
+      "name": "native-three-distinct-overlays",
+      "stem": "11-native-three-distinct-overlays"
+    },
+    {
+      "name": "invalid-local-window-saved-overlay-fallback",
+      "stem": "12-invalid-local-window-saved-overlay-fallback"
+    },
+    {
+      "name": "dirty-navigation-modal-retains-waveform-and-draft",
+      "stem": "13-dirty-navigation-modal-retains-waveform-and-draft"
+    },
+    {
+      "name": "cancel-navigation-keeps-invalid-draft",
+      "stem": "14-cancel-navigation-keeps-invalid-draft"
+    },
+    {
+      "name": "raw-events-clear-audio-waveform",
+      "stem": "15-raw-events-clear-audio-waveform"
+    },
+    {
+      "name": "native-second-requires-explicit-show",
+      "stem": "16-native-second-requires-explicit-show"
+    },
+    {
+      "name": "native-second-exact-saved-and-original",
+      "stem": "17-native-second-exact-saved-and-original"
+    },
+    {
+      "name": "copy-project-clears-old-waveform",
+      "stem": "18-copy-project-clears-old-waveform"
+    },
+    {
+      "name": "copy-project-explicit-source-view",
+      "stem": "19-copy-project-explicit-source-view"
+    },
+    {
+      "name": "playback-disables-edits-keeps-hide-available",
+      "stem": "20-playback-disables-edits-keeps-hide-available"
+    },
+    {
+      "name": "hide-during-saved-output",
+      "stem": "21-hide-during-saved-output"
+    },
+    {
+      "name": "stopped-without-opening-input",
+      "stem": "22-stopped-without-opening-input"
+    },
+    {
+      "name": "copy-source-ready-before-restart",
+      "stem": "23-copy-source-ready-before-restart"
+    },
+    {
+      "name": "restart-copy-r18-source-reprepared",
+      "stem": "24-restart-copy-r18-source-reprepared"
+    },
+    {
+      "name": "restart-source-r17-full-lane-ready",
+      "stem": "25-restart-source-r17-full-lane-ready"
+    }
+  ],
+  "observedCapabilities": [
+    "Explicit source Show and Hide; no automatic preparation on selection",
+    "Legacy actual WAV domain0..24000 and renderer-rounded saved/original source windows, exact saved Number text retained",
+    "Use-default trim-end previews declared0.5s/source24000 without publication; Hide/Show preserves the dirty draft",
+    "Native full source100..24100 separate from saved1100..10100, original6100..18100 and signed arrangement placement",
+    "Genuine coordinate-focused keyboard source start3000 then6000-frame local view with100/200 fades and placement-960; three independently labeled line styles visible",
+    "Invalid draft text disables direct Save and keeps valid saved/original outlines; Cancel navigation retains it; explicit Discard clears it",
+    "Raw event track has no audio overview; exact second clip requires Show and keeps its separate saved/original settings",
+    "Restored-project selection clears the old view and requires explicit Show for its own project/revision",
+    "While output reports playing25600frames, edits are disabled and Hide remains enabled",
+    "Next Hide proof observes natural completion47000frames/48k/stereo/0reportedxruns; Stop follows",
+    "Both processes exit; same executable reopens copyr18 and sourcer17, each freshly authenticating source"
+  ],
+  "output": {
+    "device": "MacBook Pro Speakers",
+    "sampleRate": 48000,
+    "channels": 2,
+    "observedPlayingFrames": 25600,
+    "completedFrames": 47000,
+    "reportedXruns": 0,
+    "hideEnabledWhilePlaying": true,
+    "hideCompletionSnapshotAlreadyPlaybackFinished": true,
+    "hideActionTimingRelativeToNaturalEndNotMeasured": true,
+    "stopObserved": true,
+    "listeningOrPhysicalLatencyClaim": false
+  },
+  "correctedLaneFullyVisible": true,
+  "layoutInitialAttempt": {
+    "binarySha256": "1b70766857d573cdb0b9067334864d4ecfb80e47c23e9969c11cea5e23431d17",
+    "accepted": false,
+    "reason": "Nested viewport clipped lower lane; corrected full-row minimum verified in final04/11 screenshots and fresh geometry test"
+  },
+  "keyboardAttemptDisposition": "Step09 AX-focused typing did not change source start; only the succeeding step10 coordinate-focused keyboard entry is the genuine keyboard pass. No saved publication occurred.",
+  "softwareOnlyCoverage": [
+    "preparation cancel/late completion/credit and malformed/disconnect races",
+    "32-channel WAV/16-channel native, gaps/unknown tails, huge absolute origins/gaps",
+    "legacy declared/decoded-duration mismatch and unsupported/corrupt/oversize source cases",
+    "stalled OS reads and sealed initial scan are not interruptible; sustained audio/preparation coexistence remains unqualified"
+  ],
+  "preservation": {
+    "path": "docs/verification/rust-native-waveform-preservation.json",
+    "sha256": "248af4e44beef01396efcf661c50359301fa4323bc61e70ead3a7a340bd3011c",
+    "byteLength": 2652
+  },
+  "independentBinAudit": {
+    "path": ".runtime/rust-waveform-ui/independent-bin-audit.json",
+    "sha256": "7e1b9eafe227ae5bc8246ad71a59f19e93bcb8f5111edfb7e9abe8f72738f454",
+    "byteLength": 2792
+  },
+  "nativeInputOpened": false,
+  "humanPerformanceRecorded": false,
+  "modelInference": false,
+  "newProjectsOrCatalogEdits": false,
+  "archivesChanged": false,
+  "artifacts": [
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/01-corrected-launch.png",
+      "sha256": "7a97b1a21d40813e821b8a09ffbd5d3f56e94b517e7aaa7546ba59d326e625b8",
+      "byteLength": 52044
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/01-corrected-launch.txt",
+      "sha256": "d1d9b23fe351c89109ac94f5dfb5be43915dc173d2c1d0cf4622b19835fa080b",
+      "byteLength": 795
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/02-corrected-drive-access-check.png",
+      "sha256": "d47c4194e11fbb56a7081e90198dad2bf99e86cbeac011d26f88fc2df4949e6c",
+      "byteLength": 142687
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/02-corrected-drive-access-check.txt",
+      "sha256": "a872159e22cd6fb7534094df6a572730747c44a9d5aeff5d1b9efc45ba7dc38e",
+      "byteLength": 4971
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/03-corrected-legacy-authenticated.png",
+      "sha256": "b6995c21dc05666e61d53bf99eab90824eb18c03e51e5b9df615e6e9f81fcde8",
+      "byteLength": 252254
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/03-corrected-legacy-authenticated.txt",
+      "sha256": "24bbcc27286a7e5000a835fafc3816894b147a5635dfb88426d818912f48c61c",
+      "byteLength": 8896
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/04-corrected-legacy-full-lane.png",
+      "sha256": "265a33aa1274d34f1af2c66831d5c2f8da10382ca9d3f7d6144b6a35650d533f",
+      "byteLength": 258366
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/04-corrected-legacy-full-lane.txt",
+      "sha256": "24bbcc27286a7e5000a835fafc3816894b147a5635dfb88426d818912f48c61c",
+      "byteLength": 8896
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/05-legacy-local-default-end-preview.png",
+      "sha256": "36187219f3ee28d9b3bae4cfd835c269ed9b9c6ba63a005219c66e643a15efff",
+      "byteLength": 255583
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/05-legacy-local-default-end-preview.txt",
+      "sha256": "27ac3e88234c9a016bdc143feada8fee0118eb6582f746d81143a9cf5356aa4c",
+      "byteLength": 9460
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/06-hide-keeps-unsaved-legacy-draft.png",
+      "sha256": "53f40566b3581409744381c96d175e360d7039e8cf7e515664ff8cc45a893ab5",
+      "byteLength": 223486
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/06-hide-keeps-unsaved-legacy-draft.txt",
+      "sha256": "39a2341550ab6eea0d45e3d29f23eb2f5cb2e612f5990a0e72f19f4bf254bf5a",
+      "byteLength": 8000
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/07-show-reuses-current-draft-only-as-preview.png",
+      "sha256": "0f185965e67ce185ef7536fe918341f52ad07906e82ff781d0671d6f9f65a4d5",
+      "byteLength": 258160
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/07-show-reuses-current-draft-only-as-preview.txt",
+      "sha256": "d4267de043ea64b15ad817dfc346c9d4bf3de9169f6b61f71c4d95d93ea7553f",
+      "byteLength": 9250
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/08-native-first-original-domain.png",
+      "sha256": "eca3b283a7628c130f0bba7a6515496e2ca25e170e430bf0c4d9bff65a39acd6",
+      "byteLength": 245766
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/08-native-first-original-domain.txt",
+      "sha256": "e85df2edee3360f655f0ca4668e9ddb95187fb19f70f1fb5d1eff8919a07a92a",
+      "byteLength": 8941
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/09-native-pointer-keyboard-local-window-preview.png",
+      "sha256": "9cfebc7c47f80e19da43b24dd47f61740de68efd595a60a3211419913e4b1e9c",
+      "byteLength": 249661
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/09-native-pointer-keyboard-local-window-preview.txt",
+      "sha256": "75d6367f6c18861190112586664604e37ead8c205a9522afc728fcb40a34daad",
+      "byteLength": 9334
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/10-native-real-pointer-keyboard-window-preview.png",
+      "sha256": "b91fe596627e192c42d6c36576c0d5dd9f0afadca4ffa7f524de0c4adf169e52",
+      "byteLength": 249682
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/10-native-real-pointer-keyboard-window-preview.txt",
+      "sha256": "97c5cae98efd1e5077b5d4d0182f6a0b3ce6b2d5d085579459b8b5f411783bcb",
+      "byteLength": 9333
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/11-native-three-distinct-overlays.png",
+      "sha256": "65456e322f3038f592f4f54c20b5b672e770760739b885c1373c7de71b3f295b",
+      "byteLength": 252499
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/11-native-three-distinct-overlays.txt",
+      "sha256": "e85f1e1d1821975609df975e4a7d8501ac6a36a0a095012ce340f1859ba65741",
+      "byteLength": 9288
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/12-invalid-local-window-saved-overlay-fallback.png",
+      "sha256": "e4af127fea5fdfa0e274d9aa0911d296512ae412456e6ef5f17252a4121a000d",
+      "byteLength": 256525
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/12-invalid-local-window-saved-overlay-fallback.txt",
+      "sha256": "757202ee6684e0376c01d12ce66e413e8ee9971f6305c2302f5fa7b8a498b59f",
+      "byteLength": 9354
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/13-dirty-navigation-modal-retains-waveform-and-draft.png",
+      "sha256": "6a2c8f4ee91d0b57c7a8299660cfc6204362f1bbd7f4648dab3777342deae623",
+      "byteLength": 225558
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/13-dirty-navigation-modal-retains-waveform-and-draft.txt",
+      "sha256": "ea05ed105daf61b96885ca7d6d5ed5cce98bb7193052ab92eab7954dc8fc50cf",
+      "byteLength": 9514
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/14-cancel-navigation-keeps-invalid-draft.png",
+      "sha256": "843227ee96e5a57a06897699e791a4e0849cbfa73d6ffaf17ecdf805fc11f467",
+      "byteLength": 255078
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/14-cancel-navigation-keeps-invalid-draft.txt",
+      "sha256": "514e5f5a305b4a6d091a62bfad62d1d8f2ff6f0da9c8e6e39fa48074a57a7176",
+      "byteLength": 9268
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/15-raw-events-clear-audio-waveform.png",
+      "sha256": "a4b23655d335d5f577afe1c843e6c1c960e56ff618ec2e6752ddb8841c077c0a",
+      "byteLength": 185097
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/15-raw-events-clear-audio-waveform.txt",
+      "sha256": "3d90f9a58145ac023758563369abe90012992e5dc1ccfdc8a7646876a34a50df",
+      "byteLength": 6114
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/16-native-second-requires-explicit-show.png",
+      "sha256": "e7ad4e69c4adde026e9b32d50cf71aff78b17d12506cb9ce3e7370f1cff65f50",
+      "byteLength": 220144
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/16-native-second-requires-explicit-show.txt",
+      "sha256": "05b2639fda832e756c3aec3db8ce3d51927c96bad76669a919ee81b2f0d1cda6",
+      "byteLength": 7925
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/17-native-second-exact-saved-and-original.png",
+      "sha256": "bb7d7c3da799efdb76600956b7212f8468f8e13e42d9b2bf1d9e8446259545b9",
+      "byteLength": 245768
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/17-native-second-exact-saved-and-original.txt",
+      "sha256": "dd3cca7239a28ffb7b3989f25a80e951eb3b6c84a4752d03970f7466d40b08c1",
+      "byteLength": 8938
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/18-copy-project-clears-old-waveform.png",
+      "sha256": "fa57c123af26e5167ba1b49afeecb8f3bfd192bdbc0395d107c2f0a3d726156e",
+      "byteLength": 175320
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/18-copy-project-clears-old-waveform.txt",
+      "sha256": "e599eb3ceff268cad5fb4b48a80243b0f14db9b5703260aa22947c7185d7ebee",
+      "byteLength": 5913
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/19-copy-project-explicit-source-view.png",
+      "sha256": "fe90019e7130a7dfcf8cc1c906d68fcf0eee8a3588805448180c4179b1c6c0c3",
+      "byteLength": 244879
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/19-copy-project-explicit-source-view.txt",
+      "sha256": "ea2ff34d46b37c7950a8acd3c799c428d6a844ba0de02b6a2f921100ae24a22e",
+      "byteLength": 8933
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/20-playback-disables-edits-keeps-hide-available.png",
+      "sha256": "fc8223b02f5ce8fb3db66e146fa93e4f3ff00ce9c244a075182ba4416bfe95d1",
+      "byteLength": 202545
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/20-playback-disables-edits-keeps-hide-available.txt",
+      "sha256": "3ac237945ca0916bdf595cda83c66db58f998cce26ef6e0cc495098408cfc551",
+      "byteLength": 9430
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/21-hide-during-saved-output.png",
+      "sha256": "55abbe9c3f878d88f8df40a5c95b0cce1e2dd496841196fd07f2277b5c41c993",
+      "byteLength": 222711
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/21-hide-during-saved-output.txt",
+      "sha256": "6f24fd266e6e3aad15330d93a8268cee0aacd1f19653387aa843666c85214b70",
+      "byteLength": 8068
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/22-stopped-without-opening-input.png",
+      "sha256": "fb00ff8711d7e209450d870d2d68693893802098574419551354f5ab595b1436",
+      "byteLength": 219061
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/22-stopped-without-opening-input.txt",
+      "sha256": "d5d49df8145ca54e92c26f6b7bfe2d2741971a7c6bc36ab047192f8fef15a4f6",
+      "byteLength": 7914
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/23-copy-source-ready-before-restart.png",
+      "sha256": "30401eddb76bb8a5bc887c652c0d8af8b8ce6f99fb59825fa90fd8a53e68f094",
+      "byteLength": 244373
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/23-copy-source-ready-before-restart.txt",
+      "sha256": "5d8f6c08e03309c8900ee3e76376fedb65a03ac72f3f7cb016e2af76fe7cff04",
+      "byteLength": 8923
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/24-restart-copy-r18-source-reprepared.png",
+      "sha256": "5e9c30304f3e1fabb05a1c11534d5f3b45c6aac870cdedb50719eb0bb552ffb9",
+      "byteLength": 244292
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/24-restart-copy-r18-source-reprepared.txt",
+      "sha256": "ea2ff34d46b37c7950a8acd3c799c428d6a844ba0de02b6a2f921100ae24a22e",
+      "byteLength": 8933
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/25-restart-source-r17-full-lane-ready.png",
+      "sha256": "0242d34ba6059e7c0297dcb338456fd0f4387806a5c22459468de27a62217752",
+      "byteLength": 244010
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/25-restart-source-r17-full-lane-ready.txt",
+      "sha256": "e85df2edee3360f655f0ca4668e9ddb95187fb19f70f1fb5d1eff8919a07a92a",
+      "byteLength": 8941
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-ui/ui-steps.json",
+      "sha256": "ac6dd11cfe275891381c1081e3a611fb60de33f5d65539ebfc5130c6c71b7738",
+      "byteLength": 2767
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/offline-waveforms-final.json",
+      "sha256": "5456cf22948e053fcf0a04b4efe7fa575a86d35fbf5d93c1fd1d96398aab6622",
+      "byteLength": 673101
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/independent-bin-audit.json",
+      "sha256": "7e1b9eafe227ae5bc8246ad71a59f19e93bcb8f5111edfb7e9abe8f72738f454",
+      "byteLength": 2792
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/audit_waveforms.py",
+      "sha256": "292ebe7a80cf9390022e953061a98f5595cbc77305c4915b0811ed75f78f9cab",
+      "byteLength": 6059
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/final-process-exit.json",
+      "sha256": "61a91dde735c4ba84a0b5113fa9de05b20ecff994ad19e63c1b9ffd35214adb4",
+      "byteLength": 248
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/receipt.py",
+      "sha256": "76e7943242b23b9e1c0010c18d32ec39ec0b857077e8fe2964a87295c7f16837",
+      "byteLength": 9366
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/corrected-launch-sample.txt",
+      "sha256": "66e53f16a570c6291d50c9d7937d0363ab66b62ec954b982ca4a4bf50b9db6ed",
+      "byteLength": 361026
+    },
+    {
+      "path": "docs/verification/rust-native-waveform-preservation.json",
+      "sha256": "248af4e44beef01396efcf661c50359301fa4323bc61e70ead3a7a340bd3011c",
+      "byteLength": 2652
+    },
+    {
+      "path": "docs/verification/rust-native-waveform.png",
+      "sha256": "65456e322f3038f592f4f54c20b5b672e770760739b885c1373c7de71b3f295b",
+      "byteLength": 252499
+    }
+  ],
+  "remaining": [
+    "Waveform dragging/zoom and arrangement manipulation",
+    "Complete recording, monitoring, metronome/count-in, overdub/compensation and sustained coexistence",
+    "Actual hardware/listening/latency, MIDI2/MPE transports/Clip Files, plugins, native inference, installers and Windows acceptance"
+  ]
+}

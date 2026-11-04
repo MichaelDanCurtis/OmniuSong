@@ -1,0 +1,647 @@
+{
+  "atUtc": "2026-10-22T15:08:42.843521+00:00",
+  "passedScopedNativeReview": true,
+  "scope": "Corrected6ab792 installed native read-only retained-performance inspection, notice association, guarded drafts, output/Stop, deliberate schema5-to6 migration and exact normal-exit/restart preservation. This is not a fresh recording or whole-workstation release acceptance.",
+  "sourcePacket": {
+    "path": "docs/verification/rust-native-inspection-reuse-tests.json",
+    "sha256": "5836b562288809443f24d263b798a6cef8385d63767f0b4504e5d074e2b5072a",
+    "byteLength": 87248
+  },
+  "package": {
+    "atUtc": "2026-10-22T14:56:37.534548+00:00",
+    "beforeBinary": {
+      "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+      "sha256": "7473e06646fcbbe3556b0687c38a0e5b601bda57c9768a1b349a36fd247f4041",
+      "byteLength": 20637664
+    },
+    "preservedPreviousBinary": {
+      "path": "dist/OmniuSong Native.previous-20261022T075637.app/Contents/MacOS/OmniuSongNative",
+      "sha256": "7473e06646fcbbe3556b0687c38a0e5b601bda57c9768a1b349a36fd247f4041",
+      "byteLength": 20637664
+    },
+    "binary": {
+      "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+      "sha256": "6ab792d6e908b2d577d17232ee4405668a3f3e5730174f7d3fa807466bd50166",
+      "byteLength": 21571440
+    },
+    "cargoExecutable": {
+      "path": "target/release/omniusong-app",
+      "sha256": "8f461324ca03bbecb7ae629add26713c86c39ff99eaab5531780d7896de3a71f",
+      "byteLength": 21697440
+    },
+    "selectedArtifact": {
+      "path": ".runtime/native-builds/cargo-release.RbN4JN.selected.json",
+      "sha256": "62244d09a957cadd4022f8dc70246220249d5e460a6570aabd353f56b9c49c82",
+      "byteLength": 755
+    },
+    "ownedArtifacts": [
+      {
+        "name": "omniusong_core",
+        "profile": {
+          "opt_level": "3",
+          "debuginfo": 0,
+          "debug_assertions": false,
+          "overflow_checks": true,
+          "test": false
+        },
+        "features": [],
+        "receipt": {
+          "path": ".runtime/native-builds/cargo-release.RbN4JN.owned-1.json",
+          "sha256": "6cb9bdb1158a5c36a46651a5f1168f1d73802e76557268383d1720e51b71b3bc",
+          "byteLength": 824
+        }
+      },
+      {
+        "name": "omniusong_recording",
+        "profile": {
+          "opt_level": "3",
+          "debuginfo": 0,
+          "debug_assertions": false,
+          "overflow_checks": true,
+          "test": false
+        },
+        "features": [],
+        "receipt": {
+          "path": ".runtime/native-builds/cargo-release.RbN4JN.owned-2.json",
+          "sha256": "a1654cbd7ecfacc434e096eb4bc8317bd0f7f8955e7762c88a82ba834fa92007",
+          "byteLength": 854
+        }
+      },
+      {
+        "name": "omniusong_store",
+        "profile": {
+          "opt_level": "3",
+          "debuginfo": 0,
+          "debug_assertions": false,
+          "overflow_checks": true,
+          "test": false
+        },
+        "features": [],
+        "receipt": {
+          "path": ".runtime/native-builds/cargo-release.RbN4JN.owned-3.json",
+          "sha256": "0e7c0bf18a076096c1d7795369cd575e501dcf682e29ec0d812880a1f1ec075d",
+          "byteLength": 830
+        }
+      },
+      {
+        "name": "omniusong_ipc",
+        "profile": {
+          "opt_level": "3",
+          "debuginfo": 0,
+          "debug_assertions": false,
+          "overflow_checks": true,
+          "test": false
+        },
+        "features": [],
+        "receipt": {
+          "path": ".runtime/native-builds/cargo-release.RbN4JN.owned-4.json",
+          "sha256": "5cdda48e75bb17cf511871ec466570a872600aa56c619616da1559a8c48af7cd",
+          "byteLength": 818
+        }
+      },
+      {
+        "name": "omniusong_engine",
+        "profile": {
+          "opt_level": "3",
+          "debuginfo": 0,
+          "debug_assertions": false,
+          "overflow_checks": true,
+          "test": false
+        },
+        "features": [],
+        "receipt": {
+          "path": ".runtime/native-builds/cargo-release.RbN4JN.owned-5.json",
+          "sha256": "a1cd0b16f4cc88cada0603500085c18d0dc46e9c67f4e33220ddc8f8ff0c05ac",
+          "byteLength": 836
+        }
+      },
+      {
+        "name": "omniusong_session",
+        "profile": {
+          "opt_level": "3",
+          "debuginfo": 0,
+          "debug_assertions": false,
+          "overflow_checks": true,
+          "test": false
+        },
+        "features": [
+          "default"
+        ],
+        "receipt": {
+          "path": ".runtime/native-builds/cargo-release.RbN4JN.owned-6.json",
+          "sha256": "e8af99d3f3295726833a41be117b4602832e485b31c3e9f1a59855487492829b",
+          "byteLength": 852
+        }
+      },
+      {
+        "name": "omniusong-app",
+        "profile": {
+          "opt_level": "3",
+          "debuginfo": 0,
+          "debug_assertions": false,
+          "overflow_checks": true,
+          "test": false
+        },
+        "features": [],
+        "receipt": {
+          "path": ".runtime/native-builds/cargo-release.RbN4JN.owned-7.json",
+          "sha256": "62244d09a957cadd4022f8dc70246220249d5e460a6570aabd353f56b9c49c82",
+          "byteLength": 755
+        }
+      }
+    ],
+    "codeIdentity": {
+      "method": "All bytes before signature blob match after normalizing only __LINKEDIT vmsize/filesize and LC_CODE_SIGNATURE datasize; original executables untouched.",
+      "sha256": "9d577286eb1465bb47e6f2f21de9e13252269a4b899f4e5ba8a6863582e89965",
+      "byteLength": 21529072,
+      "cargoSignature": [
+        21529072,
+        168368
+      ],
+      "bundleSignature": [
+        21529072,
+        42368
+      ],
+      "normalizedFieldRanges": [
+        [
+          1712,
+          8
+        ],
+        [
+          1728,
+          8
+        ],
+        [
+          3612,
+          4
+        ]
+      ]
+    },
+    "codesignVerified": true,
+    "profile": "release",
+    "optLevel": "3",
+    "overflowChecks": true,
+    "log": {
+      "path": ".runtime/rust-inspection-reuse/package.log",
+      "sha256": "eedacbdc13a29f9e9e203cc0d6d1749cece82d24769f173de556597a78ef1d33",
+      "byteLength": 751
+    }
+  },
+  "checks": {
+    "startupNoAutomaticScan": {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/02-studio-opened.ax.txt",
+      "sha256": "836a67129bf9aa14110f8c72bac199220541aed1a681ed635f91250694206ba1",
+      "byteLength": 7868
+    },
+    "explicitScanWithMetadataDraft": {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/03-metadata-draft-and-explicit-scan.ax.txt",
+      "sha256": "6abb4e468684d20e9865a90e8b57dc7a020e357f2a593d8a753db33f210bd716",
+      "byteLength": 11549
+    },
+    "long106NativeReview": {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/06-long-106-exact-evidence.ax.txt",
+      "sha256": "35c983949369101a283c3b8e7d1699637e74711fc97c7ec532a347d72a5bd21f",
+      "byteLength": 17405
+    },
+    "newSelectionDoesNotInheritReview": {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/07-new-selection-before-122-review.ax.txt",
+      "sha256": "fa6924177567ae898702391f614deefec056bcb70f5e0e855f11cb3d3d817815",
+      "byteLength": 12679
+    },
+    "long122NativeReview": {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/09-long-122-review-complete.ax.txt",
+      "sha256": "ff45ff1caee71a0cd9e86aa6e8acf7a7556b8c2cd57d2af684b4d0d522e496d5",
+      "byteLength": 16720
+    },
+    "sidecarRefusedWithoutRepair": {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/10-sidecar-refusal.ax.txt",
+      "sha256": "5c9796eb0793126d07ed8c4634463a2cb00d21007ce8d1628541def9c33c791b",
+      "byteLength": 12781
+    },
+    "noticeKeepsItsOriginal": {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/11-error-keeps-original-after-selection.ax.txt",
+      "sha256": "c8c9bb1eb87e45069b2ec07acfd216facdab03b34c081674dc714e4386a842ca",
+      "byteLength": 13319
+    },
+    "compactPendingPreviousSelection": {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/13-compact-pending-previous-selection.ax.txt",
+      "sha256": "37186f53a6e5bed6251d6495f99d95cc9249f3a403b7e984b14200d30973c725",
+      "byteLength": 13491
+    },
+    "actualTypedCancellation": {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/14-compact-cancel-requested.ax.txt",
+      "sha256": "7c7e4e74047aaf1b0e477a15e5a368e50f09d2cf37760d1ab6fe5655e057c839",
+      "byteLength": 12744
+    },
+    "healthyLaterReview": {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/15-healthy-source-after-cancel.ax.txt",
+      "sha256": "d2e24337c7d1c1874844fdd7c89c10f92b1c8c840e27d571e81d436a87ca4697",
+      "byteLength": 18400
+    },
+    "noteCloseGuard": {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/16-note-draft-close-guard.ax.txt",
+      "sha256": "9f78b3323d1ed47d14086b844b1b2ab725b646a20175afa60deb0ecd5b6e2e4c",
+      "byteLength": 18666
+    },
+    "clipDraftSurvivesRequestRefreshAndRead": {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/18-failed-source-review-clip-draft.ax.txt",
+      "sha256": "00f91550c8f147c4a5e9243fb42dc86312036a12edba43b32aa3db989b447c90",
+      "byteLength": 18009
+    },
+    "clipCloseGuard": {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/19-clip-draft-close-guard.ax.txt",
+      "sha256": "b029184a405a42f87a9d5ef4cda3bce7d06c0a1ec8ab8213e8dfb5f1958b9b26",
+      "byteLength": 18359
+    },
+    "nonzeroSavedOutput": {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/20-native-saved-output-started.ax.txt",
+      "sha256": "bfc7f8e5a08a69c9ee345f4c7ff11c5349b9157080fa4787760760736b8de2d5",
+      "byteLength": 16746
+    },
+    "savedOutputCompletion": {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/21-native-saved-output-complete.ax.txt",
+      "sha256": "32a5bf1c246fcf03b65dcb8df7d1310d7b80fcc92d26d32898731f10a203f793",
+      "byteLength": 16241
+    },
+    "activeLiveOutputBeforeStop": {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/23-live-output-before-stop.ax.txt",
+      "sha256": "a94473f9c9b41fb800fec43953a0b2c833514d4f739254fdf794524b58d8e3ed",
+      "byteLength": 19745
+    },
+    "actualLiveStop": {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/24-live-output-stopped.ax.txt",
+      "sha256": "68be7974780c617f03335b242d51d1eab9003e9d7871c6d6f363ec8309c6df8c",
+      "byteLength": 16089
+    },
+    "restartNoAutomaticScanOrRecording": {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/26-restart-no-source-scan.ax.txt",
+      "sha256": "836a67129bf9aa14110f8c72bac199220541aed1a681ed635f91250694206ba1",
+      "byteLength": 7868
+    },
+    "clipReopensUnchanged": {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/27-reopened-saved-clip.ax.txt",
+      "sha256": "dbd04eb615d392ff4e0f7cd7eab9d2e1bea05da0fc04cba2daec08df6331cd23",
+      "byteLength": 12739
+    },
+    "noteReopensUnchanged": {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/28-reopened-saved-note.ax.txt",
+      "sha256": "83a99f73878ee238fe982edc402a37982b7bb36547be8c712f14c55fc8f27205",
+      "byteLength": 12314
+    }
+  },
+  "artifacts": [
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/01-startup.ax.txt",
+      "sha256": "d1d9b23fe351c89109ac94f5dfb5be43915dc173d2c1d0cf4622b19835fa080b",
+      "byteLength": 795
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/01-startup.jpg",
+      "sha256": "42d8adc48f3175ac7245c907daea451d81e90c1047729671a5a7e1bfe5d98260",
+      "byteLength": 52052
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/02-studio-opened.ax.txt",
+      "sha256": "836a67129bf9aa14110f8c72bac199220541aed1a681ed635f91250694206ba1",
+      "byteLength": 7868
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/02-studio-opened.jpg",
+      "sha256": "5d03336b21adc86dab538765d2ddc58447f909f3f0f991e60569292d334302c4",
+      "byteLength": 183918
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/03-metadata-draft-and-explicit-scan.ax.txt",
+      "sha256": "6abb4e468684d20e9865a90e8b57dc7a020e357f2a593d8a753db33f210bd716",
+      "byteLength": 11549
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/03-metadata-draft-and-explicit-scan.jpg",
+      "sha256": "3bd98d78d1ac42be9b03466c2f913de6077ef70508e792d62a97d8c15df34978",
+      "byteLength": 281721
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/04-long-106-inspection-started.ax.txt",
+      "sha256": "b965428f4e0cc833002b5ee4fa79db6fbdfbbe2eed2437e145d22e3b45fbfb83",
+      "byteLength": 13832
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/04-long-106-inspection-started.jpg",
+      "sha256": "c9e0789f2d32e38c2682466f8611ed7439f68694f79ca6703aed0884b6f9ddf5",
+      "byteLength": 313891
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/05-long-106-review-complete.ax.txt",
+      "sha256": "2434fdaa117080003b8ac67e7b60998cd5cc6c6b64bd497ab1d838321421528d",
+      "byteLength": 15332
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/05-long-106-review-complete.jpg",
+      "sha256": "c8b3b4891d5c70fc72d5caba98da9b2a0cac22427326153f24b6e3f63a5f5406",
+      "byteLength": 321075
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/06-long-106-exact-evidence.ax.txt",
+      "sha256": "35c983949369101a283c3b8e7d1699637e74711fc97c7ec532a347d72a5bd21f",
+      "byteLength": 17405
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/06-long-106-exact-evidence.jpg",
+      "sha256": "5f28e57db60397982542948c7b91a39d156ba6d56822cae992cffea579b390e6",
+      "byteLength": 321164
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/07-new-selection-before-122-review.ax.txt",
+      "sha256": "fa6924177567ae898702391f614deefec056bcb70f5e0e855f11cb3d3d817815",
+      "byteLength": 12679
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/07-new-selection-before-122-review.jpg",
+      "sha256": "dce9541d1f54d8fc4d0c1ffdd49ffe888292d29b344ab0d53fb27c58ba97ab52",
+      "byteLength": 316200
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/08-long-122-inspection-started.ax.txt",
+      "sha256": "41c778e7aa683dca523e1d8142985da91124bdba8ac5ad317a326335264f861a",
+      "byteLength": 13411
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/08-long-122-inspection-started.jpg",
+      "sha256": "b508f26855c9ca2324fb8d67996bafcfa59a7758f12b3de2cb91af785f83bb91",
+      "byteLength": 315985
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/09-long-122-review-complete.ax.txt",
+      "sha256": "ff45ff1caee71a0cd9e86aa6e8acf7a7556b8c2cd57d2af684b4d0d522e496d5",
+      "byteLength": 16720
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/09-long-122-review-complete.jpg",
+      "sha256": "f911ef1a2e05ab6655ce6dd861eba06b352d145a04b477dfac20bed1c438bc95",
+      "byteLength": 320348
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/10-sidecar-refusal.ax.txt",
+      "sha256": "5c9796eb0793126d07ed8c4634463a2cb00d21007ce8d1628541def9c33c791b",
+      "byteLength": 12781
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/10-sidecar-refusal.jpg",
+      "sha256": "98f670a83e80fff5f40f758e04dbe98f2dbed62915c55c6fdb2d3bbe46a07d35",
+      "byteLength": 320959
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/11-error-keeps-original-after-selection.ax.txt",
+      "sha256": "c8c9bb1eb87e45069b2ec07acfd216facdab03b34c081674dc714e4386a842ca",
+      "byteLength": 13319
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/11-error-keeps-original-after-selection.jpg",
+      "sha256": "fe40cdf922a6066618c6c883bef5807afdd3a69bb23c9174513b77008af8031f",
+      "byteLength": 321792
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/12-note-draft-compact-before-cancel.ax.txt",
+      "sha256": "269f41bc8551a0d24016cd75635b85525d747e8111cd5aba510c66069d681e61",
+      "byteLength": 12820
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/12-note-draft-compact-before-cancel.jpg",
+      "sha256": "80030ac73f9fe144c2be89114639baf4cbbfe654a1ddb1c2977e6f17f1e2bc53",
+      "byteLength": 310621
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/13-compact-pending-previous-selection.ax.txt",
+      "sha256": "37186f53a6e5bed6251d6495f99d95cc9249f3a403b7e984b14200d30973c725",
+      "byteLength": 13491
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/13-compact-pending-previous-selection.jpg",
+      "sha256": "2cab66b4d6520c7ad7c3c46acd6ed2a50c398b49edc8b850b7961c54bf27c8fe",
+      "byteLength": 300666
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/14-compact-cancel-requested.ax.txt",
+      "sha256": "7c7e4e74047aaf1b0e477a15e5a368e50f09d2cf37760d1ab6fe5655e057c839",
+      "byteLength": 12744
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/14-compact-cancel-requested.jpg",
+      "sha256": "6e71d6764a46765acb97c84f42e4a78e2f7577fe94810a2545eae6fa4677da65",
+      "byteLength": 304794
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/15-healthy-source-after-cancel.ax.txt",
+      "sha256": "d2e24337c7d1c1874844fdd7c89c10f92b1c8c840e27d571e81d436a87ca4697",
+      "byteLength": 18400
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/15-healthy-source-after-cancel.jpg",
+      "sha256": "19a376cdcc255fdbf71d09bf22f22567f8e3423f0a7c95417face2beb6493dc4",
+      "byteLength": 319633
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/16-note-draft-close-guard.ax.txt",
+      "sha256": "9f78b3323d1ed47d14086b844b1b2ab725b646a20175afa60deb0ecd5b6e2e4c",
+      "byteLength": 18666
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/16-note-draft-close-guard.jpg",
+      "sha256": "41030cb865bfad47b9502c9c1089a65996b5491fea7697dcbc54bf8ac4f66f7f",
+      "byteLength": 273829
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/17-clip-draft-during-source-read.ax.txt",
+      "sha256": "48d07d8c4d46174217ee6e3062d08d256f67aa980653ad71329198004ae7c243",
+      "byteLength": 14970
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/17-clip-draft-during-source-read.jpg",
+      "sha256": "9d9141d41cf62f030005b3ddb7e50106fd46d31fe2707adc1f71e1ee0aa40136",
+      "byteLength": 304056
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/18-failed-source-review-clip-draft.ax.txt",
+      "sha256": "00f91550c8f147c4a5e9243fb42dc86312036a12edba43b32aa3db989b447c90",
+      "byteLength": 18009
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/18-failed-source-review-clip-draft.jpg",
+      "sha256": "7f1ce44a532cab677b303751a397cb3b9b871c369a3c429672861507c3b075ae",
+      "byteLength": 328551
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/19-clip-draft-close-guard.ax.txt",
+      "sha256": "b029184a405a42f87a9d5ef4cda3bce7d06c0a1ec8ab8213e8dfb5f1958b9b26",
+      "byteLength": 18359
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/19-clip-draft-close-guard.jpg",
+      "sha256": "bcd35b41f304e8cd7d780ce418c0db1304f6df7ff62de8f8e7fd49c378bf2b12",
+      "byteLength": 278486
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/20-native-saved-output-started.ax.txt",
+      "sha256": "bfc7f8e5a08a69c9ee345f4c7ff11c5349b9157080fa4787760760736b8de2d5",
+      "byteLength": 16746
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/20-native-saved-output-started.jpg",
+      "sha256": "a7dfab69030a0f12c052c5b18295ac2e0ba5f33dde5649132c70c2bfcbedae54",
+      "byteLength": 297606
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/21-native-saved-output-complete.ax.txt",
+      "sha256": "32a5bf1c246fcf03b65dcb8df7d1310d7b80fcc92d26d32898731f10a203f793",
+      "byteLength": 16241
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/21-native-saved-output-complete.jpg",
+      "sha256": "0f3f8f5966d1a79c6b7917e3176fc50446eae2c039a2d462cd43c4a038f5a030",
+      "byteLength": 312992
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/22-live-output-state.ax.txt",
+      "sha256": "f1e6b2a18b665c77383016766fc837d456b2e5759dc17d731fc9cf78f022bded",
+      "byteLength": 19742
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/22-live-output-state.jpg",
+      "sha256": "dce777d7e70e5a054867de7640001e0e41d13e3fee805d5010f825c8636ecee6",
+      "byteLength": 263806
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/23-live-output-before-stop.ax.txt",
+      "sha256": "a94473f9c9b41fb800fec43953a0b2c833514d4f739254fdf794524b58d8e3ed",
+      "byteLength": 19745
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/23-live-output-before-stop.jpg",
+      "sha256": "bbd4ce58a163e3b456e872f1913c80fc59071cfaac0073d62872d71fd5b65067",
+      "byteLength": 264180
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/24-live-output-stopped.ax.txt",
+      "sha256": "68be7974780c617f03335b242d51d1eab9003e9d7871c6d6f363ec8309c6df8c",
+      "byteLength": 16089
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/24-live-output-stopped.jpg",
+      "sha256": "ee7f4b514d619f17d547f42677c9c35b728e0bfda33f52a1c84554053f9253c9",
+      "byteLength": 309193
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/25-before-normal-close.ax.txt",
+      "sha256": "68be7974780c617f03335b242d51d1eab9003e9d7871c6d6f363ec8309c6df8c",
+      "byteLength": 16089
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/25-before-normal-close.jpg",
+      "sha256": "de7f9bc4b3295dc550c4c82a920c1d27dcf56564f81f534aac935b77a22c0acb",
+      "byteLength": 309196
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/26-restart-no-source-scan.ax.txt",
+      "sha256": "836a67129bf9aa14110f8c72bac199220541aed1a681ed635f91250694206ba1",
+      "byteLength": 7868
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/26-restart-no-source-scan.jpg",
+      "sha256": "2b0f38559ba112bb10f22e532c42cdb9ff7fad0e0e2527f107f9a58601cd0a64",
+      "byteLength": 184500
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/27-reopened-saved-clip.ax.txt",
+      "sha256": "dbd04eb615d392ff4e0f7cd7eab9d2e1bea05da0fc04cba2daec08df6331cd23",
+      "byteLength": 12739
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/27-reopened-saved-clip.jpg",
+      "sha256": "d3cd223c4f0c04e45622b1fd7c4b9657e34381b3e0b1befe0feb992bf79f72e4",
+      "byteLength": 275108
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/28-reopened-saved-note.ax.txt",
+      "sha256": "83a99f73878ee238fe982edc402a37982b7bb36547be8c712f14c55fc8f27205",
+      "byteLength": 12314
+    },
+    {
+      "path": ".runtime/rust-inspection-reuse/native-20261022/28-reopened-saved-note.jpg",
+      "sha256": "287955f064dd97e32530b0fb9dc57fd453538ad9b666e1cac76cddc2104e05ca",
+      "byteLength": 284047
+    }
+  ],
+  "migration": {
+    "from": 5,
+    "to": 6,
+    "allOldTablesAnd403RowsExact": true,
+    "projectIds22Exact": true,
+    "protectedFiles80Exact": true,
+    "addedEmptyTables": [
+      "performance_source_actions",
+      "performance_source_reviews"
+    ],
+    "physicalCatalogChangedOnlyAtIntentionalMigration": true,
+    "snapshots": [
+      {
+        "path": ".runtime/rust-seal-native/source-ui-after-restart.json",
+        "sha256": "0bfa07adcd789200334c2919644e96a4b3dac434adfc4e8a5dd9c385113bde10",
+        "byteLength": 50926
+      },
+      {
+        "path": ".runtime/rust-seal-native/inspection-reuse-after-migration.json",
+        "sha256": "6e84955de6d5698b52aa385275f315667ea71ceb46ef6698131561dee0fd726c",
+        "byteLength": 51310
+      },
+      {
+        "path": ".runtime/rust-seal-native/inspection-reuse-after-close.json",
+        "sha256": "bb2ef776c5d77c43916332cc83ca090f59e4cf3eefc4a44b94d55ea8913c2473",
+        "byteLength": 51310
+      },
+      {
+        "path": ".runtime/rust-seal-native/inspection-reuse-after-restart.json",
+        "sha256": "4aab932827a43164bcc9fcf2f81b92d3cca0b92d0e349779ccd76afb6c0bc2c3",
+        "byteLength": 51310
+      }
+    ]
+  },
+  "normalExitAndRestart": {
+    "atUtc": "2026-10-22T15:07:27.193876+00:00",
+    "previousProcessesConfirmedAbsent": [
+      52408,
+      53381
+    ],
+    "currentProcesses": [
+      "64356     1 S          00:50 /Volumes/Main External/Development/OmniuSong/dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+      "64358 64356 S          00:50 /Volumes/Main External/Development/OmniuSong/dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative --audio-worker"
+    ],
+    "sameSchema6TablesIdsFilesCatalogBinaryAfterNormalCloseAndRestart": {
+      "tables": true,
+      "projectIds": true,
+      "files": true,
+      "catalogFile": true,
+      "binary": true
+    },
+    "schema": 6
+  },
+  "operatorRollback": {
+    "complete": true,
+    "manifestSha256": "1c071a6e0dccaa18e477f3fd1f0c0e8e0686be90874787d090ce135444b1e7e2",
+    "directory": "backups/native-schema5-before-migration-20261022T144111Z",
+    "schema": 5,
+    "fileCount": 86,
+    "payloadBytes": 386045156
+  },
+  "independentReview": "Separate read-only GPT-6.1 Sol reviewer verified source,189input/log hashes,7Cargo artifacts/normalizedMachO/signature,backup/migration and selected actual AX/JPEG evidence. Root completed and checked final exit/restart.",
+  "attemptsAndLimits": [
+    "Native live C4 pulse lookup found the control disabled while the background window lacked focus. No key pulse was sent in this packet; Raise/titlebar activation attempts did not change that state. Active live Stop still passed; saved phrase independently produced nonzero output and completed.",
+    "Close succeeded normally; the subsequent AX read returned procNotFound. Actual process inventory confirmed both52408/53381 gone before explicit restart.",
+    "Output meters/frame counters are not listening, physical latency, input or dropout instrumentation. No microphone or native input, including loopback, was opened.",
+    "Native260px pane is qualified; outer-window minimum size, native dark theme and OS display/DPI remain pending.",
+    "Failed-seal source54 was successfully inspected with stateRecording/no manifest, not recovered or repaired.",
+    "Normal generic completeness remains distinct from conservative semantic unknown tail.",
+    "Native backend source-recovery/attachment/OSRE controls, adoption/editable projection,30minute capacity,MIDI2/MPE,models/plugins,installers and Windows remain incomplete."
+  ],
+  "noNewProjectsRecordingOrSourceActions": true,
+  "noOriginalOrDraftSavedByInspection": true
+}

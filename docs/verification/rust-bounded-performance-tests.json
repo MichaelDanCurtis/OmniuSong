@@ -1,0 +1,2042 @@
+{
+  "version": 1,
+  "recordedAtUtc": "2026-10-21T06:15:45.090831+00:00",
+  "scope": "Bounded retained-performance discovery/inspection, announced-scope and Panic source corrections, immutable retirement diagnostics and final response delivery. Not full recording acceptance.",
+  "sourceAccepted": true,
+  "tests": {
+    "passed": 811,
+    "failed": 0,
+    "ignored": 5,
+    "resultGroups": 61,
+    "ignoredScope": "Existing subprocess/manual helpers plus explicit manual storage-cost profiler."
+  },
+  "sourceGate": {
+    "path": ".runtime/rust-bounded-inspection/gate3-run.json",
+    "sha256": "4d4101fc93f13ca79ae5e690934056afdc72c00075ee2f6f993f58f02eacc6c8",
+    "byteLength": 29348
+  },
+  "commands": [
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exitCode": 0,
+      "seconds": 0.5730516249896027,
+      "log": {
+        "path": ".runtime/rust-bounded-inspection/gate3-fmt.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "byteLength": 0
+      }
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--workspace",
+        "--all-features",
+        "--locked"
+      ],
+      "exitCode": 0,
+      "seconds": 82.14788499998394,
+      "log": {
+        "path": ".runtime/rust-bounded-inspection/gate3-workspace.log",
+        "sha256": "56d89a4dde6d22f69f1ec8d613f9988b4994a80758b9689d45fa47b1eff09259",
+        "byteLength": 90827
+      }
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--all-features",
+        "--locked",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exitCode": 0,
+      "seconds": 7.570509875018615,
+      "log": {
+        "path": ".runtime/rust-bounded-inspection/gate3-clippy.log",
+        "sha256": "038b655f98e7f9cdc31c923416f91db0e6f193180c4fdba451b0c57d17a2c465",
+        "byteLength": 392
+      }
+    },
+    {
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--locked"
+      ],
+      "exitCode": 0,
+      "seconds": 9.185088708996773,
+      "log": {
+        "path": ".runtime/rust-bounded-inspection/gate3-build.log",
+        "sha256": "0db8d57233c5741d96c725d5575d474757c1a455f1713884d6f54caeea3d558a",
+        "byteLength": 392
+      }
+    }
+  ],
+  "sourceSnapshots": [
+    {
+      "path": ".cargo/config.toml",
+      "sha256": "a64c48300486b9bd06dd77b2ab72ebb53b18dc6a475be4546a26c8d9bb67963e",
+      "byteLength": 17
+    },
+    {
+      "path": "Cargo.lock",
+      "sha256": "4a5aa1da5277621bc1011f11ad65381514fc7cb5d692b0fa823056dbdd6dacf2",
+      "byteLength": 102884
+    },
+    {
+      "path": "Cargo.toml",
+      "sha256": "4fd20d1ab60aad00fcc869fb25e719f6e9101a1c9aa128181083e5898f5e644d",
+      "byteLength": 1503
+    },
+    {
+      "path": "crates/omniusong-app/Cargo.toml",
+      "sha256": "7e536ae6eed90852dffe03a0ff97184c8038c5a976f25eec78f7955e34bdcc8b",
+      "byteLength": 472
+    },
+    {
+      "path": "crates/omniusong-app/src/arrangement_integration_review.rs",
+      "sha256": "dbc4b90e1b2f545d44a1e0cc9e36d4783ede0b48221bd89c73e4505eea8d22d5",
+      "byteLength": 33062
+    },
+    {
+      "path": "crates/omniusong-app/src/arrangement_math.rs",
+      "sha256": "8fbf3ea7f5f2cb0d0235e88ad1819eb34311a6d734cb2ad5fbaf657bd01ad175",
+      "byteLength": 33599
+    },
+    {
+      "path": "crates/omniusong-app/src/arrangement_types.rs",
+      "sha256": "3621121f275aabe34702304c5b63e2616828e945cb446fec89675a7cdccb37f2",
+      "byteLength": 1441
+    },
+    {
+      "path": "crates/omniusong-app/src/arrangement_ui.rs",
+      "sha256": "395d424bb9a685f39c56325dbc9f17b4829e3307a9ee030594478cfb2f8c4296",
+      "byteLength": 81687
+    },
+    {
+      "path": "crates/omniusong-app/src/audio_ui.rs",
+      "sha256": "9a9f48966f0b7187bf81fae7bc6f220a6b3577cff9a6108f69297bd481001692",
+      "byteLength": 64109
+    },
+    {
+      "path": "crates/omniusong-app/src/clip_editor_integration_review.rs",
+      "sha256": "50cd7183b4622ee719fa6d65f2f89fe32fc333caad6a4e09ff41dc68b7493950",
+      "byteLength": 52869
+    },
+    {
+      "path": "crates/omniusong-app/src/clip_ui.rs",
+      "sha256": "541abd26f8cd54fe25e59db370bfb4dcd0860aba0b6d02e4e5d52d46e2d36fbe",
+      "byteLength": 67669
+    },
+    {
+      "path": "crates/omniusong-app/src/live_ui.rs",
+      "sha256": "6193dc78864e42aa411b2dd413b425287b8fe0c05f25f00d1e5ad147d96206b9",
+      "byteLength": 67735
+    },
+    {
+      "path": "crates/omniusong-app/src/main.rs",
+      "sha256": "336c99c36744c5191bcb6698759aa22f41a2962c4ccb76297ad429121ec84ea4",
+      "byteLength": 170305
+    },
+    {
+      "path": "crates/omniusong-app/src/note_editor_review.rs",
+      "sha256": "98bdd9694a259efe290d51d705b0155c5002b419ac73d6c605d6567652d8c445",
+      "byteLength": 28959
+    },
+    {
+      "path": "crates/omniusong-app/src/note_ui.rs",
+      "sha256": "8995f53679f5d8445b72425b1aabeff4c17e94181b5ca72977d9d13581d6c3ab",
+      "byteLength": 39094
+    },
+    {
+      "path": "crates/omniusong-app/src/performance_ui.rs",
+      "sha256": "a9c23dafeb744208b4816cd3d296fd6251a758745fa4b80773e26a409e39c2f9",
+      "byteLength": 58229
+    },
+    {
+      "path": "crates/omniusong-app/src/recovery_ui.rs",
+      "sha256": "201082b9ac305ee29fef085e483b2e47459234fcaa6f53a67409eb84005b565c",
+      "byteLength": 46799
+    },
+    {
+      "path": "crates/omniusong-app/src/waveform_ui.rs",
+      "sha256": "0eafc0d039557c5a95bfce25d740ae6c6bde420cc13b31526a3fe4bcafc605ae",
+      "byteLength": 75084
+    },
+    {
+      "path": "crates/omniusong-core/Cargo.toml",
+      "sha256": "b2e07cb138f58d96a003c4f597dee58972508ade8aad0273f9790608a1c0ff62",
+      "byteLength": 228
+    },
+    {
+      "path": "crates/omniusong-core/src/clip_edit.rs",
+      "sha256": "ce627e0890c7d6646408cfc26431bc8cd1d67b14ed7f17ca9cc138aa06d4465d",
+      "byteLength": 28265
+    },
+    {
+      "path": "crates/omniusong-core/src/clip_edit_types.rs",
+      "sha256": "ebf2308bab7461d44cd7d1382f5d34d7478f8ee790741924aebfd10805537779",
+      "byteLength": 13719
+    },
+    {
+      "path": "crates/omniusong-core/src/contracts.rs",
+      "sha256": "d85cc881c898ddd12a705cafcc725eabdb45659ea3afdf370a880daa77c8a885",
+      "byteLength": 70633
+    },
+    {
+      "path": "crates/omniusong-core/src/lib.rs",
+      "sha256": "a139b56ea86f9ec3d2a4b73e76d35eb6e6311bbbfb550a81c767204e744e2295",
+      "byteLength": 28845
+    },
+    {
+      "path": "crates/omniusong-core/src/native.rs",
+      "sha256": "faffd4bd036ce397e8ba9705e180c0f0255505dbff9ee3d7ff565500f18529f5",
+      "byteLength": 31553
+    },
+    {
+      "path": "crates/omniusong-core/src/note_edit.rs",
+      "sha256": "49aeb5437fe3aeadcc287f5546457f9f40ff94476d494178ecf3663d26247e2d",
+      "byteLength": 19547
+    },
+    {
+      "path": "crates/omniusong-core/src/note_edit_types.rs",
+      "sha256": "2c6887dd198234e3ebf6c29871380881b0028dfd5e3063c7803d36ff1fb9656b",
+      "byteLength": 7602
+    },
+    {
+      "path": "crates/omniusong-core/tests/note_edit_review.rs",
+      "sha256": "9f65284815e1cd01bd477900dda9624be8608d1ec0dea0c4502d7ea7530f532d",
+      "byteLength": 17425
+    },
+    {
+      "path": "crates/omniusong-engine/Cargo.toml",
+      "sha256": "e142789bee311e0463f36616ac1ae6530759bd9e2dc841a63d24400793347ded",
+      "byteLength": 535
+    },
+    {
+      "path": "crates/omniusong-engine/examples/qualify_bounded_performance.rs",
+      "sha256": "7b89a598bddd39124485f09b04e292fe18165bb703feb872975c505d0883099d",
+      "byteLength": 3432
+    },
+    {
+      "path": "crates/omniusong-engine/examples/qualify_live_bus.rs",
+      "sha256": "d984089f2ae46b69be7bec2f46c0d429048f1ae51026b395d4fda50d0b0ec711",
+      "byteLength": 13398
+    },
+    {
+      "path": "crates/omniusong-engine/examples/qualify_native_performance.rs",
+      "sha256": "7e8c269478830e3fa47a220053ae38c8c7619eb4e66cb4db2de1a0aa20ccd075",
+      "byteLength": 16140
+    },
+    {
+      "path": "crates/omniusong-engine/examples/qualify_note_editor_render.rs",
+      "sha256": "e0a4209d9595ddb3be5f9cc5bd797fde8052764495c6a9804fa44362fa2af504",
+      "byteLength": 21863
+    },
+    {
+      "path": "crates/omniusong-engine/examples/qualify_performance_finish.rs",
+      "sha256": "de0d3a2637bce675283348d24c0c49ad3b6e719056ce4060cca97c75f0253dae",
+      "byteLength": 18323
+    },
+    {
+      "path": "crates/omniusong-engine/examples/qualify_performance_tap.rs",
+      "sha256": "7004650451ce3490f0abf0bc9536a152d32ab68d49ef9ed1827836ce18fd2bfa",
+      "byteLength": 25243
+    },
+    {
+      "path": "crates/omniusong-engine/examples/qualify_performance_writer.rs",
+      "sha256": "605186606ef00651fa11a47e07fcdc8e99b9d61b7054f8f0e31e70c04fc9349f",
+      "byteLength": 38100
+    },
+    {
+      "path": "crates/omniusong-engine/examples/qualify_sealed_performance.rs",
+      "sha256": "9bdcf3c00782b92c98d4c5d9ad6e993410ce295ba4e18319a86ef96be1fdaa7e",
+      "byteLength": 4193
+    },
+    {
+      "path": "crates/omniusong-engine/examples/qualify_software_bus.rs",
+      "sha256": "de8114c1261b0427fa8bce073ee2686ecd79f4bff9de692ea4b5a378ef34b692",
+      "byteLength": 9433
+    },
+    {
+      "path": "crates/omniusong-engine/examples/qualify_waveform.rs",
+      "sha256": "00fad12efe5fd5f7083cc8cdd301c64f78749cccdb786da4bda9ddcb5661a981",
+      "byteLength": 11919
+    },
+    {
+      "path": "crates/omniusong-engine/src/capture.rs",
+      "sha256": "f7f3fa854a10adf336ef399f2088637b33746da4aba1ff89b0a7983e1b059004",
+      "byteLength": 14188
+    },
+    {
+      "path": "crates/omniusong-engine/src/lib.rs",
+      "sha256": "f90d211a811f8c2926358b1b12341dbf2eb35e7611bd2f00f85eac84a775f1b0",
+      "byteLength": 3265
+    },
+    {
+      "path": "crates/omniusong-engine/src/live.rs",
+      "sha256": "93b76db41f703ac9ac4e626488f20805b18cc13e7565a5f1ab966cc6edfe9bd9",
+      "byteLength": 74648
+    },
+    {
+      "path": "crates/omniusong-engine/src/live_supervisor.rs",
+      "sha256": "613bae29cc64568b3472b226613c627d3e75a9c70f4e6c6f2fe03b0f3b00f9ef",
+      "byteLength": 65406
+    },
+    {
+      "path": "crates/omniusong-engine/src/live_types.rs",
+      "sha256": "2ee93b6d15f159467e6a59c01bb065f9cbf2fa5e50b13f216f4154cbc359dfdf",
+      "byteLength": 18256
+    },
+    {
+      "path": "crates/omniusong-engine/src/performance_records.rs",
+      "sha256": "cd00a1befd5387e4e2fab7e5b84c68e6c40ae10672a577b7841ecc0d488ea57f",
+      "byteLength": 54968
+    },
+    {
+      "path": "crates/omniusong-engine/src/performance_session.rs",
+      "sha256": "15ec9627d5fc61e1cb9d2cffa28af258af65950647a2140eb0b3ac6caa977524",
+      "byteLength": 85068
+    },
+    {
+      "path": "crates/omniusong-engine/src/performance_tap.rs",
+      "sha256": "3c3ef126006c863db37e1f9ecda5a792354df2ecbf03025592d7f4d009f0a0be",
+      "byteLength": 49597
+    },
+    {
+      "path": "crates/omniusong-engine/src/performance_types.rs",
+      "sha256": "dbd4f713cdcc5bfc742d070964186c2815a7ae2c2b363f3cd07a8400a9f69daa",
+      "byteLength": 11759
+    },
+    {
+      "path": "crates/omniusong-engine/src/performance_writer.rs",
+      "sha256": "1f8a83ed75b32c6110e687b549c60d827db86b03cf5a48de3003e806d5879df1",
+      "byteLength": 79572
+    },
+    {
+      "path": "crates/omniusong-engine/src/performance_writer/seal_cost_tests.rs",
+      "sha256": "84c590297219020d18a9ecb322bac739093312b1ccdcd0701c5dc7be6b36b451",
+      "byteLength": 16274
+    },
+    {
+      "path": "crates/omniusong-engine/src/realtime.rs",
+      "sha256": "bc9c8b36f1242e226810569e4b896aea92f4a117efa9dff08bdfed43325bf8fe",
+      "byteLength": 14528
+    },
+    {
+      "path": "crates/omniusong-engine/src/render.rs",
+      "sha256": "cbae2f4b3244ce70f34400984549c9fd55c8836d12ee14832e0294b5f0e3d623",
+      "byteLength": 21641
+    },
+    {
+      "path": "crates/omniusong-engine/src/transport.rs",
+      "sha256": "f8bd0e8a2b73b7019a77107de2d81d85a29d3d9d253f1ac68349e5ea3ee873f9",
+      "byteLength": 44864
+    },
+    {
+      "path": "crates/omniusong-engine/src/waveform.rs",
+      "sha256": "ceade19714b5131a2daf69dc613ee56803abcb4d9f83d2a12c01dae6577ee2ac",
+      "byteLength": 52624
+    },
+    {
+      "path": "crates/omniusong-engine/src/waveform_types.rs",
+      "sha256": "1b683f30256ef2ed8f9284b5dfbb2a201b7bf390fb6d642fd293c2203cbefc3c",
+      "byteLength": 19483
+    },
+    {
+      "path": "crates/omniusong-engine/src/worker.rs",
+      "sha256": "86412c610f3d4a3d90a66001015ca587e95d034519fa5834fcc3bc803898333b",
+      "byteLength": 71469
+    },
+    {
+      "path": "crates/omniusong-engine/tests/clip_render_review.rs",
+      "sha256": "0a85809ecd710c219bb61353dcc2221a38e86b6a41fe0b6bcb9efebb918081cd",
+      "byteLength": 28578
+    },
+    {
+      "path": "crates/omniusong-engine/tests/engine_process_review.rs",
+      "sha256": "31161f660b3fa760b2faf4a5aa2b403f8c0af2df33ef5c60d4ca6293dbf91db3",
+      "byteLength": 13501
+    },
+    {
+      "path": "crates/omniusong-engine/tests/engine_review.rs",
+      "sha256": "6f57e4dc66b705e5a9279e820cdd611f87534334f691cf31b954dcfb669593d9",
+      "byteLength": 28719
+    },
+    {
+      "path": "crates/omniusong-engine/tests/live_process_review.rs",
+      "sha256": "6b94aeef2b99295055b35fabe7f52f692b4966f94c1b32e216c05e0731e9a499",
+      "byteLength": 25807
+    },
+    {
+      "path": "crates/omniusong-engine/tests/live_review.rs",
+      "sha256": "72ea33e7311259026117a8e238c1e13295c0dea1cfe47fc5431f894e2c16b224",
+      "byteLength": 26488
+    },
+    {
+      "path": "crates/omniusong-engine/tests/panic_progress_review.rs",
+      "sha256": "468d3744bf6ad38a0b67e526905db850ff784e4ada5e33310399b823950c28ae",
+      "byteLength": 7661
+    },
+    {
+      "path": "crates/omniusong-engine/tests/performance_bounded.rs",
+      "sha256": "ee58723c84d4e0ec2c03ca61e7f6cbe288a0e321f7405bb89d7377497fc62ac7",
+      "byteLength": 12007
+    },
+    {
+      "path": "crates/omniusong-engine/tests/performance_finish_codec.rs",
+      "sha256": "8050de8433de9dabf859e96f18fb7403899a8356c13e379708af7129fc31d3ce",
+      "byteLength": 23595
+    },
+    {
+      "path": "crates/omniusong-engine/tests/performance_finish_render.rs",
+      "sha256": "ffef8e99b8f43fc382907c3f31a72d08fc738b459d4d4ab37769c7f200df3226",
+      "byteLength": 13898
+    },
+    {
+      "path": "crates/omniusong-engine/tests/performance_finish_review.rs",
+      "sha256": "e9e9be7ef2b98d908f84fb5820397970a1d3bcaac19193414cb0da789dfee271",
+      "byteLength": 27252
+    },
+    {
+      "path": "crates/omniusong-engine/tests/performance_playback_lifecycle_review.rs",
+      "sha256": "c705c49339cb6faaadb32f8b1124873f2ee36db4022c0ead4723855237700be4",
+      "byteLength": 16133
+    },
+    {
+      "path": "crates/omniusong-engine/tests/performance_recording_review.rs",
+      "sha256": "2fc60a68500eaf0cec031f359691cde44997bcef51d5d2c7166d0e9911699552",
+      "byteLength": 29273
+    },
+    {
+      "path": "crates/omniusong-engine/tests/performance_writer_review.rs",
+      "sha256": "28b6461064d1c74f25470185cb9888a19c2933cead43459be4d50be09d568717",
+      "byteLength": 37140
+    },
+    {
+      "path": "crates/omniusong-ipc/Cargo.toml",
+      "sha256": "d31a056573f76d139ce83dda60161009cc118eade4c282af99b9fda9318a8e1e",
+      "byteLength": 263
+    },
+    {
+      "path": "crates/omniusong-ipc/src/lib.rs",
+      "sha256": "cd8b4fb53dc68fbb24d9a8b9c817d2967cd8981733669aa3f4e7a958a754c498",
+      "byteLength": 11768
+    },
+    {
+      "path": "crates/omniusong-ipc/src/unix.rs",
+      "sha256": "1944638a1590569fd4e9cb4fa3e78437a824f5e1b17633cbb4c489c765d11edc",
+      "byteLength": 19942
+    },
+    {
+      "path": "crates/omniusong-ipc/tests/framing.rs",
+      "sha256": "84de874795dd450acd385993735e08a1bea88ec709312c76573ec6c87ccb8062",
+      "byteLength": 9311
+    },
+    {
+      "path": "crates/omniusong-ipc/tests/process_transport.rs",
+      "sha256": "a1db74eab0dd54c7047777fa164a05cff1b7ba859969cae90d7e100abd20a0b0",
+      "byteLength": 9322
+    },
+    {
+      "path": "crates/omniusong-ipc/tests/review_regressions.rs",
+      "sha256": "3fae358ea71efa1d464b14fe73a3888fdb9a8592ba38c6db029c86751322d127",
+      "byteLength": 15640
+    },
+    {
+      "path": "crates/omniusong-recording/Cargo.toml",
+      "sha256": "79d9f1be7bbe85b1c57a7c8aebfbc40279e714c9f3fd496d7d684d7ec30d91fb",
+      "byteLength": 341
+    },
+    {
+      "path": "crates/omniusong-recording/src/budget.rs",
+      "sha256": "c52f61680551bd76285bb5786ed2e45f8f6c148e12b36c89f3a5614360b31462",
+      "byteLength": 13025
+    },
+    {
+      "path": "crates/omniusong-recording/src/inspection.rs",
+      "sha256": "2fb77b915757ab12cfb9df997cd54e742836a9c0fd2d7f361b810424efd26f86",
+      "byteLength": 30695
+    },
+    {
+      "path": "crates/omniusong-recording/src/journal.rs",
+      "sha256": "14dc7ab87c3392cdb5e4e15a8f3289ca756481aa4e8ddd80865f6c4cc5e309a1",
+      "byteLength": 62466
+    },
+    {
+      "path": "crates/omniusong-recording/src/lib.rs",
+      "sha256": "04f18130ee4eac99c195da3b4f8ded82e3119c57dcc44ed120eee888cb57ea7d",
+      "byteLength": 469
+    },
+    {
+      "path": "crates/omniusong-recording/src/snapshot.rs",
+      "sha256": "683822ae22fa3ecbe4e38378d2084fd44699e4cd4880ad473212800b6427f7ab",
+      "byteLength": 16398
+    },
+    {
+      "path": "crates/omniusong-recording/src/snapshot_tests.rs",
+      "sha256": "a9c078e85a0cd9ba8d1098b20a70bd47f4bd0ee20824c2467a4d64c6fb66fc28",
+      "byteLength": 15133
+    },
+    {
+      "path": "crates/omniusong-recording/src/tests.rs",
+      "sha256": "d982cada2b309632533e8e76dab4daac7b9b9c49f0087e540c5ac57449ac11a0",
+      "byteLength": 20406
+    },
+    {
+      "path": "crates/omniusong-recording/src/types.rs",
+      "sha256": "9665d67e07b9b81681fe54023483be23d78352e6d999f27abe8b253acf3676ac",
+      "byteLength": 25990
+    },
+    {
+      "path": "crates/omniusong-recording/tests/append_group.rs",
+      "sha256": "8f6235ae3e67a6a9667eafad678cc7f619103748400dc353fa112a046b116c95",
+      "byteLength": 16877
+    },
+    {
+      "path": "crates/omniusong-recording/tests/append_group_process.rs",
+      "sha256": "7afdcbe66fc77cce779cd6bb37d8c5b7bbc77c7d58ae59066fcb9ed66f14290b",
+      "byteLength": 13623
+    },
+    {
+      "path": "crates/omniusong-recording/tests/bounded_inspection_review.rs",
+      "sha256": "205f759e6dd8cd988ac8f4589fd29e063fe83604b647b0bfea5b4809fdee77dd",
+      "byteLength": 16446
+    },
+    {
+      "path": "crates/omniusong-recording/tests/capture_inspection.rs",
+      "sha256": "57973408677867adbbe01e26820f7f37e959ba17f9368a899a8d0eaaae644157",
+      "byteLength": 5957
+    },
+    {
+      "path": "crates/omniusong-recording/tests/capture_inspection_review.rs",
+      "sha256": "c88f80993dbbe5ac62e52784c1badda0efdb5dc44fcf1851bb07c0d169bb251f",
+      "byteLength": 9765
+    },
+    {
+      "path": "crates/omniusong-recording/tests/complete_prefix.rs",
+      "sha256": "85f2233f7fd863ee74c2c284159371bb11cd4ab31412a3298af8502dbee42a47",
+      "byteLength": 20044
+    },
+    {
+      "path": "crates/omniusong-recording/tests/complete_prefix_independent.rs",
+      "sha256": "9f2343e184aa463bba90a7343a5243c48081167fc4ff78064d5e66ae37702297",
+      "byteLength": 19849
+    },
+    {
+      "path": "crates/omniusong-recording/tests/inspection_budget_owner.rs",
+      "sha256": "0f7cd5141e640ac2ce4525420a7ab162f4cd787a1d371116fd9077e064adb3e0",
+      "byteLength": 7679
+    },
+    {
+      "path": "crates/omniusong-recording/tests/review_regressions.rs",
+      "sha256": "c564b14b78846f098cd2c03f2903279e9121b661c0423f05ae0e27876e0a69a3",
+      "byteLength": 26985
+    },
+    {
+      "path": "crates/omniusong-recording/tests/selected_prefix.rs",
+      "sha256": "1500665b5a7a04fb9e8eb1ac87c5bf78f7d7ce08cebed6dbb5e49c80eaf5d44b",
+      "byteLength": 14243
+    },
+    {
+      "path": "crates/omniusong-recording/tests/snapshot_review.rs",
+      "sha256": "8a8ac2d7b4ccd5977968cff469b229e51c57a5e76b2161b44cc64161c50482f0",
+      "byteLength": 11017
+    },
+    {
+      "path": "crates/omniusong-session/Cargo.toml",
+      "sha256": "93f72bb042c9fb73e3b69f23bab1c35fc6786214611023c1a78ecb6bc7e2ff28",
+      "byteLength": 430
+    },
+    {
+      "path": "crates/omniusong-session/src/lib.rs",
+      "sha256": "86fdd0b267788f16439117f1674846303ad7397eaad9f26c91e70fc5bad31afd",
+      "byteLength": 51784
+    },
+    {
+      "path": "crates/omniusong-session/src/performance_intents.rs",
+      "sha256": "9a3e0ef9df0e8992c6338f2b8bfe6c80cc0b0ca6959e883ea7ef1d1a3ce98789",
+      "byteLength": 47577
+    },
+    {
+      "path": "crates/omniusong-session/src/performance_sources.rs",
+      "sha256": "97fb2fe28226326ce1d40fc7b543dc53ce358d22070415f009cb2dfeb2f9bf4c",
+      "byteLength": 25977
+    },
+    {
+      "path": "crates/omniusong-session/tests/capture_recovery_service.rs",
+      "sha256": "2b800c601f65f7c0f729056ff9957a7a18980b69d4d31c1e74f8c352e8407163",
+      "byteLength": 13019
+    },
+    {
+      "path": "crates/omniusong-session/tests/capture_service.rs",
+      "sha256": "963484d16523dfa5c71b3a122cf061f257a788fd4c6fc323eed88c54c83805b4",
+      "byteLength": 5409
+    },
+    {
+      "path": "crates/omniusong-session/tests/clip_edit_service.rs",
+      "sha256": "4d7b2a9fe3d2492ba0f40ae35e399532a8e5b9b9a0888023c9f5585c1d16f62a",
+      "byteLength": 9048
+    },
+    {
+      "path": "crates/omniusong-session/tests/note_edit_service.rs",
+      "sha256": "e0f9921ca24d3232865f06acb65c3a1a1cb325c7328b004f8816bf58412523e5",
+      "byteLength": 17466
+    },
+    {
+      "path": "crates/omniusong-session/tests/service_review.rs",
+      "sha256": "ec73b47d0b9d0494bbcb33d2a234e9f7f4b01c4e9c61b18081a3e3f556d1bef6",
+      "byteLength": 24926
+    },
+    {
+      "path": "crates/omniusong-store/Cargo.toml",
+      "sha256": "0a5abc88a9424cda754ab6b7d34e607fc45e999ce2a23dde3266cda57dda6e1b",
+      "byteLength": 346
+    },
+    {
+      "path": "crates/omniusong-store/examples/prepare_capture_recovery_ui.rs",
+      "sha256": "4a5795fb61d104921021d18dd549e073ecfd3030af1d078364f0aebae6eb84ec",
+      "byteLength": 16920
+    },
+    {
+      "path": "crates/omniusong-store/examples/prepare_clip_editor_ui.rs",
+      "sha256": "3e012f6c692da7aa9e777da5784b2ce8e397ebd0d1c6cbbea9a1f0ecf6946422",
+      "byteLength": 27631
+    },
+    {
+      "path": "crates/omniusong-store/examples/prepare_native_audio_fixture.rs",
+      "sha256": "f4b794ede52f1316f20f8609424c60b96b5aff1e8114eaf35fbeba003e056db4",
+      "byteLength": 2303
+    },
+    {
+      "path": "crates/omniusong-store/examples/prepare_native_ui_fixture.rs",
+      "sha256": "d9bbb827354a86844ed75633e6d26344cc7a8a69e31abe6021080457b34391d2",
+      "byteLength": 9015
+    },
+    {
+      "path": "crates/omniusong-store/examples/prepare_note_editor_ui.rs",
+      "sha256": "a7dbc60273c0ed6635898004c92dabd228da7e59b33ec74539c33e874a43b166",
+      "byteLength": 16943
+    },
+    {
+      "path": "crates/omniusong-store/examples/qualify_archive_copy.rs",
+      "sha256": "28c2845334b0b380d3c36a254b9e1278e4b6e51a93bfca26ca04ee71c0d1bfee",
+      "byteLength": 10278
+    },
+    {
+      "path": "crates/omniusong-store/examples/qualify_capture_recovery.rs",
+      "sha256": "b5867ace00471f9ba83a2370639914d8e7bcfb741df139c3cec9aa49261720d3",
+      "byteLength": 9444
+    },
+    {
+      "path": "crates/omniusong-store/examples/qualify_legacy.rs",
+      "sha256": "83d6aea6aa30c9f94ebbdc13bf8284afc4de646496736a7419a1fc6e242316a1",
+      "byteLength": 4284
+    },
+    {
+      "path": "crates/omniusong-store/examples/qualify_native_archive.rs",
+      "sha256": "b0a7a1502d6d7f2b4a191875ec4eb10bd67397725bde341db8eff8e73a95a778",
+      "byteLength": 13244
+    },
+    {
+      "path": "crates/omniusong-store/examples/qualify_note_edit.rs",
+      "sha256": "47c2272e99e146501c3ee22568b660bbf5ed7860620a43a294ac25f98ca43619",
+      "byteLength": 16648
+    },
+    {
+      "path": "crates/omniusong-store/examples/recover_disconnected_preview.rs",
+      "sha256": "b26f8c8479df6168ffc88f58682034aa0b241b1e4d22fcb008051b7ae9101c00",
+      "byteLength": 13922
+    },
+    {
+      "path": "crates/omniusong-store/src/archive.rs",
+      "sha256": "6dbfcbe66a5d1a7e48880920ff10da5334e237508f377b06b2fd5b0a047d1980",
+      "byteLength": 69912
+    },
+    {
+      "path": "crates/omniusong-store/src/archive_copy.rs",
+      "sha256": "ee948957a4d6bceccfd8a15d7e6ac9f253612754668e6e031b80c3378d559c1d",
+      "byteLength": 52903
+    },
+    {
+      "path": "crates/omniusong-store/src/captures.rs",
+      "sha256": "fc57ebd772ee7bd27256638ce9ae9ce14c5262a206f1cee272a7471e9a4a40c6",
+      "byteLength": 15639
+    },
+    {
+      "path": "crates/omniusong-store/src/lib.rs",
+      "sha256": "3b6c342df306e75b7e6299b64d54ae26180691eb145fb4bab11c5e9e6aac8ab3",
+      "byteLength": 36006
+    },
+    {
+      "path": "crates/omniusong-store/src/operations.rs",
+      "sha256": "2f4eca5482487303a59583b7d51d3a87ab162dd0e8a8221cf5eb509a05c9dc4e",
+      "byteLength": 13046
+    },
+    {
+      "path": "crates/omniusong-store/src/performance_attachment_check.rs",
+      "sha256": "9e48e6a50e50f0f2e28059a01edde830635ad0db1d0193e06ee6c0f102b15498",
+      "byteLength": 13422
+    },
+    {
+      "path": "crates/omniusong-store/src/performance_intents.rs",
+      "sha256": "d8cfc422707caefe8be7001e71e64714b46c6a7d641d0e9ace2a5791cde29d07",
+      "byteLength": 13212
+    },
+    {
+      "path": "crates/omniusong-store/src/reader.rs",
+      "sha256": "054d3ffc02dfbdbbd166ace59c0f80346b6417c06a39cf15c1387ba5b5ee0ce6",
+      "byteLength": 5195
+    },
+    {
+      "path": "crates/omniusong-store/src/reader_tests.rs",
+      "sha256": "1117e948940ccda4b6c7cc390c44b0509c8df39003900843d444675a0cfd3346",
+      "byteLength": 22917
+    },
+    {
+      "path": "crates/omniusong-store/src/takes.rs",
+      "sha256": "0f27783f6156fbdfe1767f12b83e1ef620fb0e6dd5e465ddb30e2b2cd344c412",
+      "byteLength": 30229
+    },
+    {
+      "path": "crates/omniusong-store/tests/archive_copy_review.rs",
+      "sha256": "a7657113f1cdf540f54745793819e284634d595862ac9a0202646ff8f915a237",
+      "byteLength": 37945
+    },
+    {
+      "path": "crates/omniusong-store/tests/archive_review.rs",
+      "sha256": "7b4b811ee419d31dc0cd0be64834b2ab908e1f2785cd091e702f2118d361da6d",
+      "byteLength": 18572
+    },
+    {
+      "path": "crates/omniusong-store/tests/capture_attachment.rs",
+      "sha256": "35f0802b19752773c0785854f63098ffa0607d802d2bfcc9ddb54604d174b8ad",
+      "byteLength": 7350
+    },
+    {
+      "path": "crates/omniusong-store/tests/capture_recovery.rs",
+      "sha256": "72968c1a13c7e307643e6f59e59f80ea8aa451e0f23ea3ba633d5ff0cfae1297",
+      "byteLength": 10376
+    },
+    {
+      "path": "crates/omniusong-store/tests/capture_recovery_review.rs",
+      "sha256": "82f579583ec0efad29b73971b520c8a8c5662dc89c5660fc3dab309ff3a886fc",
+      "byteLength": 17444
+    },
+    {
+      "path": "crates/omniusong-store/tests/clip_edit_review.rs",
+      "sha256": "355e75462fed9cf7a4a7d2187fc58eb8e6fde9cacea92922c6cae0895c2751d2",
+      "byteLength": 46492
+    },
+    {
+      "path": "crates/omniusong-store/tests/clip_range_rejection_review.rs",
+      "sha256": "63c6200dad06a2eb7c687a603a213e04f9174ae856440ee7750bb602624dc7f0",
+      "byteLength": 19691
+    },
+    {
+      "path": "crates/omniusong-store/tests/existing_open.rs",
+      "sha256": "7817a27a70e43c61073458f75e1460a6a393f5b3b2cffa7281f9ac2a85e6d773",
+      "byteLength": 2966
+    },
+    {
+      "path": "crates/omniusong-store/tests/note_edit.rs",
+      "sha256": "2678a8fa3c8a69bd15fdf300e38f33f40df57e562df1c253cd43d63faf4ef32f",
+      "byteLength": 14471
+    },
+    {
+      "path": "crates/omniusong-store/tests/note_edit_review.rs",
+      "sha256": "fee8592c513bec3b5da7d35909961bd50cd1697fdcc3d7814b6a81a3921506c8",
+      "byteLength": 21398
+    },
+    {
+      "path": "crates/omniusong-store/tests/operation_review.rs",
+      "sha256": "e34cfbb64662fc6f02e54b26c2d5527fbca50745e8f6d7666f7764a7537d501e",
+      "byteLength": 22022
+    },
+    {
+      "path": "crates/omniusong-store/tests/performance_intent_review.rs",
+      "sha256": "951f83569d69e3fb07ee53b0df3e0f4c6ac32971478a6d27aa42f08f1ec9d6f5",
+      "byteLength": 4493
+    },
+    {
+      "path": "crates/omniusong-store/tests/review_regressions.rs",
+      "sha256": "43fa472f76fcd8f31ec2c9d46c463f410290aa4d2cf13408c8e83704200b2402",
+      "byteLength": 15313
+    },
+    {
+      "path": "crates/omniusong-store/tests/session_edit.rs",
+      "sha256": "1c1208315c0982bad6b9a2068fbe8736d924be34884a74e965c16e914c34aad1",
+      "byteLength": 4498
+    },
+    {
+      "path": "crates/omniusong-store/tests/take_review.rs",
+      "sha256": "b28e81550559e3e610b16a35a154eea5e862f3b85050950c0ae4dbfd534b4ca6",
+      "byteLength": 26677
+    },
+    {
+      "path": "docs/contracts/BOUNDED-PERFORMANCE-INSPECTION.md",
+      "sha256": "fc5b5bf46f6dfdf81c7c83b515e7a9385b60767ce221c8731414db46f55d87de",
+      "byteLength": 8152
+    },
+    {
+      "path": "docs/contracts/NATIVE-PERFORMANCE-FINISH.md",
+      "sha256": "d5b0fce20f0cfbcfefc1b23bab1d5827581b51eff967e9ee50bb0173382ba756",
+      "byteLength": 13072
+    },
+    {
+      "path": "docs/contracts/NATIVE-PERFORMANCE-PROGRESS.md",
+      "sha256": "90bdd9aa123699614e56a59094409338d7ed49a8e02c0a1f6cfe4322c963cc62",
+      "byteLength": 3478
+    },
+    {
+      "path": "docs/contracts/NATIVE-PERFORMANCE-SESSION.md",
+      "sha256": "a87e9819d3150d5904ffd72aa0ef3f48690871f7414371de3a485de220377ea5",
+      "byteLength": 8316
+    },
+    {
+      "path": "docs/contracts/NATIVE-PERFORMANCE-UI.md",
+      "sha256": "93692faa037017e660516e1e613296eb0b8210b2efcf7768fd2626ad04c352cd",
+      "byteLength": 10005
+    },
+    {
+      "path": "docs/contracts/NATIVE-PERFORMANCE-WRITER.md",
+      "sha256": "81b9037b8ec94c35b6bd00ae715c06290e81ce483d230b9efdc8eb2bde109ea1",
+      "byteLength": 27782
+    },
+    {
+      "path": "scripts/build-native-mac.sh",
+      "sha256": "16736db094bf02a9f3f9dba85cb9dec52f380a93621417fe092418f21ec9d367",
+      "byteLength": 1923
+    }
+  ],
+  "inspectionReceipts": [
+    {
+      "receipt": {
+        "path": ".runtime/rust-bounded-inspection/actual-capture.json",
+        "sha256": "ddeb298c0362c375f7db0e6ce2a0d103a3f5b3ed3a370a621bda209454733975",
+        "byteLength": 26618
+      },
+      "source": "/Volumes/Main External/Development/OmniuSong/.runtime/native-studio/captures/eae59f5fc32a4d91b27408f509c3c761/take.sqlite3",
+      "reader": "capture",
+      "seconds": 2.693927542,
+      "limits": {
+        "max_chunk_visits": 524288,
+        "max_file_bytes": 536870912,
+        "max_groups": 65536,
+        "max_physical_rows": 262144,
+        "max_record_visits": 2097152,
+        "max_row_visits": 4194304,
+        "max_vm_steps": 32000000,
+        "max_work_bytes": 1073741824
+      },
+      "usage": {
+        "chunk_visits": 6928,
+        "file_bytes": 7495680,
+        "groups": 36,
+        "physical_rows": 1761,
+        "record_visits": 12422,
+        "row_visits": 153630,
+        "vm_steps": 674880,
+        "work_bytes": 102033666
+      },
+      "fileBytes": 7495680,
+      "descriptorSha256": "cb3955e35857d57a535331f46c915baab8f59fc225fd14b534acf0aebc493829",
+      "journalSha256": "d2bb820d41127048071b3d0a250d2658d3e87f8483a4eb84556b165f933319d7",
+      "originalRowsSha256": "19c24122f5fd29e70cc3655b1643d15984f45546df6d23804740651f37d1cdbd",
+      "checkpoint": {
+        "audio_end": 432128,
+        "chunks": [
+          {
+            "sequence": 840,
+            "sha256": "789cc11390fd7f089117b796499be3c1095d58bc92787e37702f69ffd4a80fd0",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 875,
+            "sha256": "605b17bdcc8c18a79bdb56369346d62957b24b5e8909fee4463acbc3767c07c2",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 841,
+            "sha256": "1f6b5765b7b010f514bd42d1faa1bd3e62d35ba147abdf6a983be354e21964e4",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 876,
+            "sha256": "a00782c2d6ff19ff0b6a484f174532a178345f6f92ae7b82e2ae5bd1b2a91ab1",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 842,
+            "sha256": "e6cecf52065a445bfce6cc1079d08285eedd9dc578d639132a13933402e09f24",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 877,
+            "sha256": "fc328db561a2ee5339fcc53cd1d59c6b9e0bfbe06d6ca2378ae9593c1c973ded",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 843,
+            "sha256": "ac655b48a372ecc5f02cecf77dd488c5cadc4bcb8348721de944f9d34a0dbda2",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 878,
+            "sha256": "a8ced15a65954b15343d379bf734e3d4c065e059030b9547ddbbae7fc50442d6",
+            "stream_id": "control"
+          }
+        ],
+        "first_callback_index": 841,
+        "group_sequence": 36,
+        "last_callback_index": 844,
+        "prefixes": [
+          {
+            "gap_chunks": 0,
+            "gap_units": 0,
+            "next_sequence": 844,
+            "recorded_units": 432128,
+            "source_end": {
+              "end": 432128,
+              "unit": "audio_frames"
+            },
+            "stream_id": "audio"
+          },
+          {
+            "gap_chunks": 0,
+            "gap_units": 0,
+            "next_sequence": 1,
+            "recorded_units": 1,
+            "source_end": {
+              "end": 1,
+              "unit": "events"
+            },
+            "stream_id": "gui-1"
+          },
+          {
+            "gap_chunks": 0,
+            "gap_units": 0,
+            "next_sequence": 1,
+            "recorded_units": 1,
+            "source_end": {
+              "end": 1,
+              "unit": "events"
+            },
+            "stream_id": "gui-2"
+          },
+          {
+            "gap_chunks": 0,
+            "gap_units": 0,
+            "next_sequence": 0,
+            "recorded_units": 0,
+            "source_end": {
+              "end": 0,
+              "unit": "events"
+            },
+            "stream_id": "gui-3"
+          },
+          {
+            "gap_chunks": 0,
+            "gap_units": 0,
+            "next_sequence": 6,
+            "recorded_units": 6,
+            "source_end": {
+              "end": 6,
+              "unit": "events"
+            },
+            "stream_id": "gui-4"
+          },
+          {
+            "gap_chunks": 0,
+            "gap_units": 0,
+            "next_sequence": 880,
+            "recorded_units": 1774,
+            "source_end": {
+              "end": 1774,
+              "unit": "events"
+            },
+            "stream_id": "control"
+          }
+        ],
+        "previous_checkpoint_sha256": "664aa7d5d1429af6bd98457365d822f5948d2fc5228bf02a921c615fe773a16d",
+        "scope_after": {
+          "panic_generation": 1,
+          "session_id": [
+            234,
+            229,
+            159,
+            95,
+            195,
+            42,
+            77,
+            145,
+            178,
+            116,
+            8,
+            245,
+            9,
+            195,
+            199,
+            97
+          ],
+          "worker_generation": [
+            76,
+            139,
+            151,
+            47,
+            111,
+            22,
+            69,
+            51,
+            182,
+            6,
+            112,
+            151,
+            208,
+            251,
+            197,
+            168
+          ]
+        }
+      },
+      "checkpointSha256": "d83ba39602b8a502b2a370b638aff4666d785177f2ccff892b222fbb76d673d1",
+      "unknownTail": true,
+      "problem": null,
+      "sourceBytesUnchanged": true,
+      "directoryNamesUnchanged": true
+    },
+    {
+      "receipt": {
+        "path": ".runtime/rust-bounded-inspection/actual-owned-sealed.json",
+        "sha256": "a68b3f84f4bb1abd60e2aa023ededae503706acd62644fb9f9c47729b182e7a4",
+        "byteLength": 26667
+      },
+      "source": "/Volumes/Main External/Development/OmniuSong/.runtime/native-studio/takes/b8a6c62ec5116c0730a3dca2f7ab6b69e237e22d2d2c9efe52b177fbc17b8a87.sqlite3",
+      "reader": "sealed",
+      "seconds": 6.181999167,
+      "limits": {
+        "max_chunk_visits": 524288,
+        "max_file_bytes": 536870912,
+        "max_groups": 65536,
+        "max_physical_rows": 262144,
+        "max_record_visits": 2097152,
+        "max_row_visits": 4194304,
+        "max_vm_steps": 32000000,
+        "max_work_bytes": 1073741824
+      },
+      "usage": {
+        "chunk_visits": 15588,
+        "file_bytes": 7495680,
+        "groups": 36,
+        "physical_rows": 1761,
+        "record_visits": 21332,
+        "row_visits": 331252,
+        "vm_steps": 1448351,
+        "work_bytes": 214843800
+      },
+      "fileBytes": 7495680,
+      "descriptorSha256": "cb3955e35857d57a535331f46c915baab8f59fc225fd14b534acf0aebc493829",
+      "journalSha256": "b8a6c62ec5116c0730a3dca2f7ab6b69e237e22d2d2c9efe52b177fbc17b8a87",
+      "originalRowsSha256": "19c24122f5fd29e70cc3655b1643d15984f45546df6d23804740651f37d1cdbd",
+      "checkpoint": {
+        "audio_end": 432128,
+        "chunks": [
+          {
+            "sequence": 840,
+            "sha256": "789cc11390fd7f089117b796499be3c1095d58bc92787e37702f69ffd4a80fd0",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 875,
+            "sha256": "605b17bdcc8c18a79bdb56369346d62957b24b5e8909fee4463acbc3767c07c2",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 841,
+            "sha256": "1f6b5765b7b010f514bd42d1faa1bd3e62d35ba147abdf6a983be354e21964e4",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 876,
+            "sha256": "a00782c2d6ff19ff0b6a484f174532a178345f6f92ae7b82e2ae5bd1b2a91ab1",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 842,
+            "sha256": "e6cecf52065a445bfce6cc1079d08285eedd9dc578d639132a13933402e09f24",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 877,
+            "sha256": "fc328db561a2ee5339fcc53cd1d59c6b9e0bfbe06d6ca2378ae9593c1c973ded",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 843,
+            "sha256": "ac655b48a372ecc5f02cecf77dd488c5cadc4bcb8348721de944f9d34a0dbda2",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 878,
+            "sha256": "a8ced15a65954b15343d379bf734e3d4c065e059030b9547ddbbae7fc50442d6",
+            "stream_id": "control"
+          }
+        ],
+        "first_callback_index": 841,
+        "group_sequence": 36,
+        "last_callback_index": 844,
+        "prefixes": [
+          {
+            "gap_chunks": 0,
+            "gap_units": 0,
+            "next_sequence": 844,
+            "recorded_units": 432128,
+            "source_end": {
+              "end": 432128,
+              "unit": "audio_frames"
+            },
+            "stream_id": "audio"
+          },
+          {
+            "gap_chunks": 0,
+            "gap_units": 0,
+            "next_sequence": 1,
+            "recorded_units": 1,
+            "source_end": {
+              "end": 1,
+              "unit": "events"
+            },
+            "stream_id": "gui-1"
+          },
+          {
+            "gap_chunks": 0,
+            "gap_units": 0,
+            "next_sequence": 1,
+            "recorded_units": 1,
+            "source_end": {
+              "end": 1,
+              "unit": "events"
+            },
+            "stream_id": "gui-2"
+          },
+          {
+            "gap_chunks": 0,
+            "gap_units": 0,
+            "next_sequence": 0,
+            "recorded_units": 0,
+            "source_end": {
+              "end": 0,
+              "unit": "events"
+            },
+            "stream_id": "gui-3"
+          },
+          {
+            "gap_chunks": 0,
+            "gap_units": 0,
+            "next_sequence": 6,
+            "recorded_units": 6,
+            "source_end": {
+              "end": 6,
+              "unit": "events"
+            },
+            "stream_id": "gui-4"
+          },
+          {
+            "gap_chunks": 0,
+            "gap_units": 0,
+            "next_sequence": 880,
+            "recorded_units": 1774,
+            "source_end": {
+              "end": 1774,
+              "unit": "events"
+            },
+            "stream_id": "control"
+          }
+        ],
+        "previous_checkpoint_sha256": "664aa7d5d1429af6bd98457365d822f5948d2fc5228bf02a921c615fe773a16d",
+        "scope_after": {
+          "panic_generation": 1,
+          "session_id": [
+            234,
+            229,
+            159,
+            95,
+            195,
+            42,
+            77,
+            145,
+            178,
+            116,
+            8,
+            245,
+            9,
+            195,
+            199,
+            97
+          ],
+          "worker_generation": [
+            76,
+            139,
+            151,
+            47,
+            111,
+            22,
+            69,
+            51,
+            182,
+            6,
+            112,
+            151,
+            208,
+            251,
+            197,
+            168
+          ]
+        }
+      },
+      "checkpointSha256": "d83ba39602b8a502b2a370b638aff4666d785177f2ccff892b222fbb76d673d1",
+      "unknownTail": true,
+      "problem": null,
+      "sourceBytesUnchanged": true,
+      "directoryNamesUnchanged": true
+    },
+    {
+      "receipt": {
+        "path": ".runtime/rust-bounded-inspection/failed-retained-capture.json",
+        "sha256": "d94f6db31b5a701507293b5f30d34fc74c376d4a473a9c6a41eaedb4fa6dbd34",
+        "byteLength": 21846
+      },
+      "source": "/Volumes/Main External/Development/OmniuSong/.runtime/native-studio/captures/0aa3960d43aa4fadbe4ad91b92959cdb/take.sqlite3",
+      "reader": "capture",
+      "seconds": 2.6133729580000002,
+      "limits": {
+        "max_chunk_visits": 524288,
+        "max_file_bytes": 536870912,
+        "max_groups": 65536,
+        "max_physical_rows": 262144,
+        "max_record_visits": 2097152,
+        "max_row_visits": 4194304,
+        "max_vm_steps": 32000000,
+        "max_work_bytes": 1073741824
+      },
+      "usage": {
+        "chunk_visits": 4508,
+        "file_bytes": 9703424,
+        "groups": 46,
+        "physical_rows": 2282,
+        "record_visits": 11449,
+        "row_visits": 136437,
+        "vm_steps": 601291,
+        "work_bytes": 88895917
+      },
+      "fileBytes": 9703424,
+      "descriptorSha256": "7cde5d76c0530e73d7f3a13db5604a056553da508651776aef352938dbf67973",
+      "journalSha256": "5d071ff2c5b4de2dabfc1624fdfdc39d1c4a3902ddabe6cf63ca361f8ec048af",
+      "originalRowsSha256": "84d911a8d597d5d118f500eed812e677311b75c4bc607a9fd9c4c33d9fe74224",
+      "checkpoint": {
+        "audio_end": 565248,
+        "chunks": [
+          {
+            "sequence": 1080,
+            "sha256": "080426bdcf1d22bf3de82e1a05dda27e6f1f3e8809d883eb2352f6ded4af8427",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 1125,
+            "sha256": "8bb435210d2a49a39c09c5ea14e3fc18ad67d2d875dfa3f5b18976f7284a80b1",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 1081,
+            "sha256": "7b6d0d17c2e97cd3590fd84d4da61efb353c967890045bd8e50b8182b7970c9c",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 1126,
+            "sha256": "257a2bab387d73a4175f18dcab17d09d6fce9bd16da6bf6472e005029ccd0dcd",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 1082,
+            "sha256": "7590672ad0f00c87461325c7d1393399ce5833551c8852ea7f1263474d254750",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 1127,
+            "sha256": "a2b441e9fac49bdd998fc561bde6c281347e675dd1647398c3b845bf9af44413",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 1083,
+            "sha256": "6f02a96153c6a6e8b450464cd4db4802c738b218eb434df1be052acb63a42c95",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 1128,
+            "sha256": "2143b6cbccf6410fae0a0bff7520b9e238ac437cda3ec0304620859cb23e84c2",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 1084,
+            "sha256": "1a374c6249d316c903a13e62b4426093b8701f4a9aab1b446b97c3eb78503c31",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 1129,
+            "sha256": "6c541e5cfa949f4155bdf876c5e7d1cf5fa52bcb668857ad8539cfba406ea892",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 1085,
+            "sha256": "9cb3bca21c847fb8f6a8890bf79db8556eed7059b670f1480332af3aa2dc6896",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 1130,
+            "sha256": "e968c1d1e89ae0e0485b051f5ff94aaa315ffd686ccda605342be4cf12cf73ae",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 1086,
+            "sha256": "9bf363dc57c9d2f24200dfc770600f9f799521985669133d549662773934c40e",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 1131,
+            "sha256": "9f824fe43741c91803b3381ae5b0032272ebe81f38d746956d25640f9d8918af",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 1087,
+            "sha256": "6031c1ac8326c35e593ae14fd2a315a5d5ed347583e91e8f417f486375d24850",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 1132,
+            "sha256": "0afdbe3b0f6295d79ce754901f6f152a1b83067745298362b9b6ea8755d3c3d0",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 1088,
+            "sha256": "2823e63f6b74f3fbfdf7f5767540534f2887188c7d084a6619a4a0982311bef6",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 1133,
+            "sha256": "52bc5b98ffedd503a87145fe59ab17a246b2ab8e2edd183d1adb4ab0d39757b2",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 1089,
+            "sha256": "d41733bb7130eab55d3c8b31220e3d736c6c7e2dff565d5e689c57141d8b3ee1",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 1134,
+            "sha256": "91a75e74d6c8ce946dc07f87727e1492bce4120085c7619ee784fcf8c9a8d638",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 1090,
+            "sha256": "2ab59b87baaaa5cab3f7ba63ea66bcee121eedd9d1c2e8e80bfdaa28386b633f",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 1135,
+            "sha256": "6c209f6eb12835e6bc03c25361d33a0396754d6a04c8cf7226859f757fcb7ef7",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 1091,
+            "sha256": "1c08fc30b4d49fda588cc1748a5a3649a4a8a96fad780a3b2460d3cbf5ea3cb2",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 1136,
+            "sha256": "39320269247a85196ae7a04384460db5c0cbedd6d24be2452c81060e8277f46a",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 1092,
+            "sha256": "8c73a7e94e0fa613a1e2c1bb5b13a25bcf6598904287115fe3579959ba21da91",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 1137,
+            "sha256": "0fe83d475151218995b7bbfb1d9ca91b65458c20f9f7b2bfdcb6e9ef0683082e",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 1093,
+            "sha256": "06994cf75f019cb1bb40860c2c19dc81fde318ca626f81ca388056b63deabcff",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 1138,
+            "sha256": "8e838c9824c33bc6f1d5499989cf3f656db2b22d70bb4b999ccd37f9fc6f1cfc",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 1094,
+            "sha256": "442f55c108bf86a37914ca8a1fd7d1736fe33e96a01bb768cac2968e5ee9381a",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 1139,
+            "sha256": "404d1b946c74f0408bfe3cfdb724e7d05758fd87bee903d3e6f9f3b5ab498c9d",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 1095,
+            "sha256": "6f25fffce30312e3781755cc8f1fa89f8fe01ed01e6f01d19bb3c39594f014d2",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 1140,
+            "sha256": "507b0064c37f8e6c779de07d40e2f99520cd1634136c38927af539cad3410884",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 1096,
+            "sha256": "3bf0796d2e72569e0a65ce00b8e0b13c393f7ed0875b08ef502a0d25be16bdac",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 1141,
+            "sha256": "b5440f00f0123c28f1dac72257be4c7fd69038b035c6c67e2b60a996bde62579",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 1097,
+            "sha256": "d1bfb9acf516118edb87d6fc7a042a4a8dc94aadde452dd29ef7fa0462982c42",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 1142,
+            "sha256": "8823665d27eeb18ff5628d815c7650cdb57eef2b5fbfe6648b8765ddd76d47b0",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 1098,
+            "sha256": "d57c5067b87cd0cf989794cab301c894320dfa95972439c80e37054152355622",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 1143,
+            "sha256": "c984deadcd428f0b311264a615607cbcde7b3fc41b1b8a031cb272dd7fe5f88b",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 1099,
+            "sha256": "76fa0339ce229f1f5bb7b721264818ba71bab41270b778e99a6b65ea5a4ae75f",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 1144,
+            "sha256": "1141d44816bdcbfc8cb0c4c508ba73a1794b48540a09456f3f980c4196de57d4",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 1100,
+            "sha256": "b6e44bae6bafe71bc7a55ed6e8bc8374f1deff0a9b44a23e7313a00bb6b60ed3",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 1145,
+            "sha256": "42bf845aab924b3fd1eb3dfb73cd3ac67579ac4754b31902e95677cdc5c34149",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 1101,
+            "sha256": "ea5f1c212578149dcfa60626aba6084a42484a7c00fcc1513712e991937d5b9c",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 1146,
+            "sha256": "6df0ad27da8702451901fad94cc2798cdd21bb00f729f2887bda13928cc46670",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 1102,
+            "sha256": "d06cd27dfdda4c1f7ae9375dad46745620709cfbc4bb690c92c46e9b499039e9",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 1147,
+            "sha256": "afc564521f251c2735ccc3cac19a1d1c4fe65c7f55967ad4518a8baf7855ea81",
+            "stream_id": "control"
+          },
+          {
+            "sequence": 1103,
+            "sha256": "727a1fb1813bc3520638125b0c99d20a93b02dc8d4359995defa47957c9261ad",
+            "stream_id": "audio"
+          },
+          {
+            "sequence": 1148,
+            "sha256": "88ed1cccd644c8b40a848b97c01628958ba693a3e39225b401314e6350a5f4c8",
+            "stream_id": "control"
+          }
+        ],
+        "first_callback_index": 1081,
+        "group_sequence": 46,
+        "last_callback_index": 1104,
+        "prefixes": [
+          {
+            "gap_chunks": 0,
+            "gap_units": 0,
+            "next_sequence": 1104,
+            "recorded_units": 565248,
+            "source_end": {
+              "end": 565248,
+              "unit": "audio_frames"
+            },
+            "stream_id": "audio"
+          },
+          {
+            "gap_chunks": 0,
+            "gap_units": 0,
+            "next_sequence": 0,
+            "recorded_units": 0,
+            "source_end": {
+              "end": 0,
+              "unit": "events"
+            },
+            "stream_id": "gui-1"
+          },
+          {
+            "gap_chunks": 0,
+            "gap_units": 0,
+            "next_sequence": 0,
+            "recorded_units": 0,
+            "source_end": {
+              "end": 0,
+              "unit": "events"
+            },
+            "stream_id": "gui-2"
+          },
+          {
+            "gap_chunks": 0,
+            "gap_units": 0,
+            "next_sequence": 0,
+            "recorded_units": 0,
+            "source_end": {
+              "end": 0,
+              "unit": "events"
+            },
+            "stream_id": "gui-3"
+          },
+          {
+            "gap_chunks": 0,
+            "gap_units": 0,
+            "next_sequence": 0,
+            "recorded_units": 0,
+            "source_end": {
+              "end": 0,
+              "unit": "events"
+            },
+            "stream_id": "gui-4"
+          },
+          {
+            "gap_chunks": 0,
+            "gap_units": 0,
+            "next_sequence": 1150,
+            "recorded_units": 2299,
+            "source_end": {
+              "end": 2299,
+              "unit": "events"
+            },
+            "stream_id": "control"
+          }
+        ],
+        "previous_checkpoint_sha256": "5541e37721438512d053cbeb5cf7027756af9e2a6567e69c9dc5d621b4497bb8",
+        "scope_after": {
+          "panic_generation": 1,
+          "session_id": [
+            10,
+            163,
+            150,
+            13,
+            67,
+            170,
+            79,
+            173,
+            190,
+            74,
+            217,
+            27,
+            146,
+            149,
+            156,
+            219
+          ],
+          "worker_generation": [
+            78,
+            212,
+            105,
+            152,
+            215,
+            162,
+            75,
+            15,
+            174,
+            162,
+            17,
+            84,
+            127,
+            82,
+            64,
+            31
+          ]
+        }
+      },
+      "checkpointSha256": "2c29b3799a7a4d4ed1fad61d9c72dcb4a92691b0bfdb57f478d8ee05ecfc4dbb",
+      "unknownTail": true,
+      "problem": null,
+      "sourceBytesUnchanged": true,
+      "directoryNamesUnchanged": true
+    }
+  ],
+  "sealCostProfiles": [
+    {
+      "receipt": {
+        "path": ".runtime/rust-bounded-inspection/seal-cost-small.json",
+        "sha256": "bea111173d4c1f05bac878d17b25f69a9b61c3a46551748e94a3822e707c7532",
+        "byteLength": 4933
+      },
+      "source": "/Volumes/Main External/Development/OmniuSong/.runtime/native-studio/captures/eae59f5fc32a4d91b27408f509c3c761/take.sqlite3",
+      "counts": {
+        "callbacks": 844,
+        "chunks": 1732,
+        "clone_rows_after_seal": {
+          "chunks": 1732,
+          "interruptions": 0,
+          "recovery_index": 0,
+          "sealed_manifests": 1,
+          "sqlite_schema": 20,
+          "sqlite_sequence": 1,
+          "stream_prefix": 6,
+          "take_meta": 1
+        },
+        "copy_group_byte_limit": 8388608,
+        "copy_group_member_limit": 64,
+        "copy_groups": 28,
+        "frames": 432128,
+        "sample_rate": 48000,
+        "source_rows": {
+          "chunks": 1732,
+          "interruptions": 0,
+          "recovery_index": 0,
+          "sealed_manifests": 1,
+          "sqlite_schema": 20,
+          "sqlite_sequence": 1,
+          "stream_prefix": 6,
+          "take_meta": 1
+        }
+      },
+      "identities": {
+        "checkpoint_sha256": "d83ba39602b8a502b2a370b638aff4666d785177f2ccff892b222fbb76d673d1",
+        "chunk_index_sha256": "330e38019ef0599439b370918f95624e335c31c80dd009af53cf13997e80ed35",
+        "clone_after_seal": {
+          "byte_length": 7495680,
+          "sha256": "a888d0842ee47c76e678355d9ba4fb67a22da889a9a72c478c8f196a15cefc19"
+        },
+        "clone_before_seal": {
+          "byte_length": 7487488,
+          "sha256": "08cf5b365a5014db7356f641133999d7c257afb80a31bdef06124505a0e9870e"
+        },
+        "complete_prefix_sha256": "6c959c4a08ecd8f60c495c99450f0ed4557155a8f8f7896a51b4cce4904e70ec",
+        "descriptor_sha256": "cb3955e35857d57a535331f46c915baab8f59fc225fd14b534acf0aebc493829",
+        "finish": {
+          "callback_index": 844,
+          "cut_frame": 432128,
+          "fence": {
+            "accepted_sequence": 39,
+            "id": [
+              31,
+              156,
+              122,
+              20,
+              137,
+              237,
+              64,
+              55,
+              139,
+              17,
+              7,
+              98,
+              150,
+              224,
+              158,
+              179
+            ],
+            "scope": {
+              "panic_generation": 1,
+              "session_id": [
+                234,
+                229,
+                159,
+                95,
+                195,
+                42,
+                77,
+                145,
+                178,
+                116,
+                8,
+                245,
+                9,
+                195,
+                199,
+                97
+              ],
+              "worker_generation": [
+                76,
+                139,
+                151,
+                47,
+                111,
+                22,
+                69,
+                51,
+                182,
+                6,
+                112,
+                151,
+                208,
+                251,
+                197,
+                168
+              ]
+            }
+          },
+          "policy": "cut_at_complete_callback_end",
+          "release_tails_cut": 0,
+          "voices_cut": 1
+        },
+        "manifest_sha256": "a5676d4fb5fc4658e4d23023acaddf7d9eddee4e1f739e2a3ea57431d4d11422",
+        "original_rows_sha256": "19c24122f5fd29e70cc3655b1643d15984f45546df6d23804740651f37d1cdbd",
+        "source_after": {
+          "byte_length": 7495680,
+          "sha256": "d2bb820d41127048071b3d0a250d2658d3e87f8483a4eb84556b165f933319d7"
+        },
+        "source_before": {
+          "byte_length": 7495680,
+          "sha256": "d2bb820d41127048071b3d0a250d2658d3e87f8483a4eb84556b165f933319d7"
+        },
+        "source_directory_names": [
+          "take.sqlite3",
+          "take.sqlite3.owner.lock"
+        ]
+      },
+      "phases": {
+        "complete_prefix": {
+          "nanoseconds": 689718292,
+          "seconds": 0.689718292
+        },
+        "copying_excluded": {
+          "nanoseconds": 931476375,
+          "seconds": 0.931476375
+        },
+        "held_view_semantic_scan": {
+          "nanoseconds": 938445042,
+          "seconds": 0.938445042
+        },
+        "inspect_owned": {
+          "nanoseconds": 944111125,
+          "seconds": 0.944111125
+        },
+        "native_work_equivalent_total": {
+          "nanoseconds": 6573176584,
+          "seconds": 6.5731765840000005
+        },
+        "seal_complete_prefix": {
+          "nanoseconds": 4000902125,
+          "seconds": 4.000902125
+        },
+        "source_open_excluded": {
+          "nanoseconds": 1771276417,
+          "seconds": 1.7712764170000002
+        },
+        "source_semantic_preflight_excluded": {
+          "nanoseconds": 1007733375,
+          "seconds": 1.007733375
+        }
+      },
+      "originalUnchanged": true,
+      "nativeAuthorityMinted": false,
+      "deviceOpened": false,
+      "limitations": "Software authentication/storage work only. Source open, preflight, copying and final comparisons are excluded from four-phase total. This is neither native retirement proof nor physical durability/latency qualification. Original source is unchanged; the fresh clone is intentionally normal-sealed by the public trusted-storage API and retained. Failure may retain a partial clone/reserved receipt; no cleanup deletes evidence."
+    },
+    {
+      "receipt": {
+        "path": ".runtime/rust-bounded-inspection/seal-cost-large.json",
+        "sha256": "6998c648f85d863f2e8394e1614b5ea4786cb2fdaa495feef079a1a2aff1df1a",
+        "byteLength": 4960
+      },
+      "source": "/Volumes/Main External/Development/OmniuSong/.runtime/native-studio/captures/9d9e0eada2a14f6586a57ea88405f021/take.sqlite3",
+      "counts": {
+        "callbacks": 1673,
+        "chunks": 3422,
+        "clone_rows_after_seal": {
+          "chunks": 3422,
+          "interruptions": 0,
+          "recovery_index": 0,
+          "sealed_manifests": 1,
+          "sqlite_schema": 20,
+          "sqlite_sequence": 1,
+          "stream_prefix": 6,
+          "take_meta": 1
+        },
+        "copy_group_byte_limit": 8388608,
+        "copy_group_member_limit": 64,
+        "copy_groups": 54,
+        "frames": 856576,
+        "sample_rate": 48000,
+        "source_rows": {
+          "chunks": 3422,
+          "interruptions": 0,
+          "recovery_index": 0,
+          "sealed_manifests": 0,
+          "sqlite_schema": 20,
+          "sqlite_sequence": 1,
+          "stream_prefix": 6,
+          "take_meta": 1
+        }
+      },
+      "identities": {
+        "checkpoint_sha256": "ee629994071aef439a354ca778e347f3ad844aeb25e6ff4a321bfb6583268def",
+        "chunk_index_sha256": "2d89c14e2f63adbe4748fb94c28f2920b1a40942f258c5af323e8abde14277d5",
+        "clone_after_seal": {
+          "byte_length": 14725120,
+          "sha256": "f00ff68ca3d0c52fbfc87badfbb77d8db2cb96f912b6169c9e6b55d487e31eba"
+        },
+        "clone_before_seal": {
+          "byte_length": 14716928,
+          "sha256": "e8b89843cb5d6ee24a2819aeb629e5b3afc0ea5010c506210552c175aafcb2b9"
+        },
+        "complete_prefix_sha256": "5ee9c5d248e400f534b0d71f9943d53989abc1495157117036f6ebeeae498615",
+        "descriptor_sha256": "168948940dec09969bbe7964de798e031ffa913c56e075c5a11f00e0bbf2bcb9",
+        "finish": {
+          "callback_index": 1673,
+          "cut_frame": 856576,
+          "fence": {
+            "accepted_sequence": 73,
+            "id": [
+              120,
+              197,
+              94,
+              97,
+              51,
+              57,
+              73,
+              85,
+              189,
+              9,
+              150,
+              100,
+              223,
+              227,
+              215,
+              30
+            ],
+            "scope": {
+              "panic_generation": 1,
+              "session_id": [
+                157,
+                158,
+                14,
+                173,
+                162,
+                161,
+                79,
+                101,
+                134,
+                165,
+                126,
+                168,
+                132,
+                5,
+                240,
+                33
+              ],
+              "worker_generation": [
+                142,
+                118,
+                196,
+                242,
+                63,
+                147,
+                78,
+                23,
+                143,
+                3,
+                52,
+                152,
+                74,
+                160,
+                7,
+                117
+              ]
+            }
+          },
+          "policy": "cut_at_complete_callback_end",
+          "release_tails_cut": 1,
+          "voices_cut": 2
+        },
+        "manifest_sha256": "5adeaff4597f7a0764542cc24bf4772269fd0988943fe683001a53f1e1d206c1",
+        "original_rows_sha256": "5734408f9d6f6afcf6902b1266dd32cacdf135758b70c7d0b4a619e0cd9ffc33",
+        "source_after": {
+          "byte_length": 14716928,
+          "sha256": "d94a8986ebfa149546d0b5c244117fe969d6a31fae1e5f33913684452729bcaf"
+        },
+        "source_before": {
+          "byte_length": 14716928,
+          "sha256": "d94a8986ebfa149546d0b5c244117fe969d6a31fae1e5f33913684452729bcaf"
+        },
+        "source_directory_names": [
+          "take.sqlite3",
+          "take.sqlite3-journal",
+          "take.sqlite3.owner.lock"
+        ]
+      },
+      "phases": {
+        "complete_prefix": {
+          "nanoseconds": 1407988375,
+          "seconds": 1.407988375
+        },
+        "copying_excluded": {
+          "nanoseconds": 1640025750,
+          "seconds": 1.64002575
+        },
+        "held_view_semantic_scan": {
+          "nanoseconds": 1840603709,
+          "seconds": 1.840603709
+        },
+        "inspect_owned": {
+          "nanoseconds": 1778630208,
+          "seconds": 1.778630208
+        },
+        "native_work_equivalent_total": {
+          "nanoseconds": 12795799251,
+          "seconds": 12.795799251
+        },
+        "seal_complete_prefix": {
+          "nanoseconds": 7768576959,
+          "seconds": 7.768576959
+        },
+        "source_open_excluded": {
+          "nanoseconds": 1761391208,
+          "seconds": 1.761391208
+        },
+        "source_semantic_preflight_excluded": {
+          "nanoseconds": 1838373875,
+          "seconds": 1.838373875
+        }
+      },
+      "originalUnchanged": true,
+      "nativeAuthorityMinted": false,
+      "deviceOpened": false,
+      "limitations": "Software authentication/storage work only. Source open, preflight, copying and final comparisons are excluded from four-phase total. This is neither native retirement proof nor physical durability/latency qualification. Original source is unchanged; the fresh clone is intentionally normal-sealed by the public trusted-storage API and retained. Failure may retain a partial clone/reserved receipt; no cleanup deletes evidence."
+    }
+  ],
+  "nativeCurrentBinary": {
+    "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+    "sha256": "ffc90e34130702ba9bf5615ec9a9a8cc834266d2653d1334ad0dcc4301ac7188",
+    "byteLength": 94012048
+  },
+  "nativeCurrentPackageGate": {
+    "path": ".runtime/rust-bounded-inspection/gate2-run.json",
+    "sha256": "7bf024ef8603ba11ace842229e96123543408ef73bbede78a1ae26ec06f063e4",
+    "byteLength": 29141
+  },
+  "diagnosticPackageBuilt": false,
+  "diagnosticNativeRun": false,
+  "sourceRecoveryUiImplemented": false,
+  "goalStatusObserved": "paused",
+  "nativeInputOpened": false,
+  "personalRecordingsUploaded": false,
+  "fullGoalComplete": false,
+  "milestone2Complete": false,
+  "earlierBoundedUiReceipt": {
+    "path": "docs/verification/rust-native-recorded-output-ui.json",
+    "sha256": "777700b99b1defd0a5e31f6fa6f4c7d1247e1fc6a7af6f59178157fb3f33f3be",
+    "byteLength": 9570
+  },
+  "nativeFailures": [
+    {
+      "path": ".runtime/rust-bounded-inspection/native-regression.json",
+      "sha256": "b16b68008612fa842e3b8e090b384d887ba818c21208bcf09d4f381f1f7b3a79",
+      "byteLength": 1321
+    },
+    {
+      "path": ".runtime/rust-bounded-inspection/finish-failure-source.json",
+      "sha256": "aac5496134d2775d03714aece35cbfb7a8c4ecc498cb2080bc969a767e196784",
+      "byteLength": 3665
+    }
+  ],
+  "nativeFailedReviewKeptLocally": true,
+  "nativeAppExited": true,
+  "preservation": {
+    "path": "docs/verification/rust-bounded-performance-preservation.json",
+    "byteLength": 3749,
+    "sha256": "4ca6a67b052c9e33b1d20d0473ade63171caf3d8dc906cd875cae541508dcba0"
+  },
+  "nextWork": [
+    "After goal Resume, package diagnostic source and observe exact native retirement on a fresh software-output take.",
+    "Qualify a measured sealing strategy without weakening original authentication or private normal-seal authority.",
+    "Complete corrected same-generation playback, then repeat explicit attachment/history/archive/restart.",
+    "Complete performance-aware recovery controls and editable-note projection, then remaining milestone-2 and release requirements."
+  ],
+  "limits": [
+    "The 12.795799-second trusted-storage profile exceeds the unchanged ten-second deadline but does not prove the actual native retirement cause.",
+    "VM/work budgets bound service work; stalled filesystem calls are not forcibly cancellable and these limits are not wall-time guarantees.",
+    "Source inspection APIs mint no recovery, attachment, resume or normal-seal authority.",
+    "Source acceptance does not qualify native input, listening, physical/software latency, thirty-minute stability, MIDI 2/MPE, inference, plugins, installers or Windows.",
+    "The longer failed source retains a rollback journal and has not passed the new bounded reader, which refuses sidecars. The trusted cost helper uses the existing unbounded read-only reader; neither this measurement nor the sidecar header authorizes recovery or removal."
+  ],
+  "reviews": [
+    {
+      "path": "docs/reviews/RUST-BOUNDED-PERFORMANCE-INSPECTION-REVIEW.md",
+      "sha256": "8f7b1285add2f0dc5a2c1e3966907961c47db92481d0160e42d79c4d11957c42",
+      "byteLength": 25460
+    },
+    {
+      "path": "docs/reviews/RUST-PANIC-PROGRESS-REVIEW.md",
+      "sha256": "2076fa7b9876c323afd9988099ddc0149737748103772ce06b9b87ac478e2aeb",
+      "byteLength": 6520
+    },
+    {
+      "path": "docs/reviews/RUST-PERFORMANCE-RETIREMENT-REVIEW.md",
+      "sha256": "2e272354fdffefb757625b85070de82695c40293dddb28f2ef2a9bb849e8818c",
+      "byteLength": 12113
+    },
+    {
+      "path": "docs/reviews/RUST-RECORDING-SEAL-COST.md",
+      "sha256": "7af2124e5c50a319d04b36b5268ca92d42209f97e6fa627ccf421fb7b15f8bfd",
+      "byteLength": 6042
+    }
+  ],
+  "retainedFailedSealSidecars": [
+    {
+      "path": ".runtime/native-studio/captures/9d9e0eada2a14f6586a57ea88405f021/take.sqlite3-journal",
+      "byteLength": 16928,
+      "sha256": "8d14f3889fd97e5ecefcd858cc1590d68fa08eb148f13cceb40c662930dcf306"
+    }
+  ]
+}

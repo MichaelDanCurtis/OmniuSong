@@ -1,0 +1,91 @@
+{
+  "format": "omniusong.native-clip-editor-preservation",
+  "version": 1,
+  "recordedAtUtc": "2026-10-21T00:05:21.082947+00:00",
+  "baseline": {
+    "path": ".runtime/rust-clip-ui/before-clip-store.json",
+    "sha256": "31fa138f0eacae66b5d46850fa17d6e1da139bfcdea21c0db5e333c0bdb157b2",
+    "byteLength": 13942
+  },
+  "afterFixture": {
+    "path": ".runtime/rust-clip-ui/after-fixture-store.json",
+    "sha256": "e2b2ab229324ce5b8ed15032dee34be4360f244c5a51910ca6bd375432ccb273",
+    "byteLength": 15147
+  },
+  "afterWalkthrough": {
+    "path": ".runtime/rust-clip-ui/after-ui-before-restart-store.json",
+    "sha256": "b0abaa443db903cdd5d77303d270d4970960d2c7e84a00e3dd950c3d27a521e7",
+    "byteLength": 20587
+  },
+  "afterRestartOutput": {
+    "path": ".runtime/rust-clip-ui/after-restart-output-store.json",
+    "sha256": "f8a2c4bb993e0d6fa59b53561355189066f75b349f44f1a63136f9c07e0be05c",
+    "byteLength": 20587
+  },
+  "priorTwelveProjectsAndClosureExact": true,
+  "baselineRowsRetainedExactlyInEveryTable": 137,
+  "nativeProjectsBefore": 12,
+  "nativeProjectsAfter": 14,
+  "allowedNewProjectIds": [
+    "811b10bd-b767-41db-997e-bd9b449aabee",
+    "0394063f-f5d8-45af-b2d5-fc20b47efe3e"
+  ],
+  "onlyEditedProjects": [
+    "811b10bd-b767-41db-997e-bd9b449aabee",
+    "0394063f-f5d8-45af-b2d5-fc20b47efe3e"
+  ],
+  "sourceFixtureFinalRevision": 17,
+  "restoredCopyFinalRevision": 18,
+  "ownedOriginalTakesExact": [
+    {
+      "path": ".runtime/native-studio/takes/679914498bf02ced1570f8b58ba441eb1f958e8dec54d2931a4eab9f3657ff6b.sqlite3",
+      "sha256": "679914498bf02ced1570f8b58ba441eb1f958e8dec54d2931a4eab9f3657ff6b",
+      "byteLength": 40960
+    },
+    {
+      "path": ".runtime/native-studio/takes/8460ff93703afb9c89ac7359e45761e9605fb1a1ae029aa8dc068398e11bd897.sqlite3",
+      "sha256": "8460ff93703afb9c89ac7359e45761e9605fb1a1ae029aa8dc068398e11bd897",
+      "byteLength": 917504
+    },
+    {
+      "path": ".runtime/native-studio/takes/e654b488b83a63d9323615e5b725dafbb8565ac901621c12954c1885ee428430.sqlite3",
+      "sha256": "e654b488b83a63d9323615e5b725dafbb8565ac901621c12954c1885ee428430",
+      "byteLength": 139264
+    }
+  ],
+  "newSyntheticTakeExact": {
+    "byteLength": 143360,
+    "manifestSha256": "a67cf62812a012d572f6f4b732c6514a7bf19be555782b8644e4f7669e1a1850",
+    "path": "/Volumes/Main External/Development/OmniuSong/.runtime/native-studio/takes/c4a46085f862202de98388f925984e45906c20123752b345bf92464b0b683900.sqlite3",
+    "sha256": "c4a46085f862202de98388f925984e45906c20123752b345bf92464b0b683900",
+    "takeId": "22c253fb-77dc-43e8-9481-10c043f6f1c7"
+  },
+  "originalPrototypeFilesExact": 30,
+  "originalPrototypeManifest": {
+    "path": "docs/verification/rust-migration-baseline.json",
+    "sha256": "1169fdd5337f98798b0dbd6fb2b87c69ff5f8ab6759ad7454f4c587e3b25536e",
+    "byteLength": 7170
+  },
+  "completeAudit": {
+    "path": ".runtime/rust-clip-ui/committed-audit.json",
+    "sha256": "2aa442d5d81a026e9094a8475b07059a1481519e648cc1fb2ef9c911f0c3b803",
+    "byteLength": 2418
+  },
+  "sourceSnapshot": {
+    "path": ".runtime/rust-clip-ui/saved-r17.json",
+    "sha256": "9519d7144c3c954a0f438f1b1480d2b67b948011a41b34e40914c53025fca15f",
+    "byteLength": 5987
+  },
+  "reopenedCopySnapshot": {
+    "path": ".runtime/rust-clip-ui/copy-r18.json",
+    "sha256": "4ab5310eafcef0715a765c9e26f3d9980c1e9194f343fc12067ab856d60e3ca2",
+    "byteLength": 5983
+  },
+  "restartAndOutputEveryCatalogTableUnchanged": true,
+  "integrityAndForeignKeysPassed": true,
+  "nativeInputOpened": false,
+  "limits": [
+    "Synthetic fixture and local metadata/source-byte comparisons; no physical input, power-loss durability or Windows acceptance.",
+    "The old drive-disconnect loss remains accurately documented; this audit does not reconstruct missing historic rows."
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "format": "omniusong.native-capture-recovery-preservation",
+  "version": 1,
+  "recordedAtUtc": "2026-10-20T21:08:35.869566+00:00",
+  "baselineSnapshot": ".runtime/rust-audio/final-bus-store",
+  "unchangedLiveProjectCount": 8,
+  "unchangedLiveProjectIds": [
+    "2df3b9be-9c77-4560-9c45-7be5385d503d",
+    "4ae2dba8-10de-46bb-92af-03895d24d83b",
+    "79407467-b1f2-41e8-a7d2-42326dd43204",
+    "aa3c40ed-277a-4b37-8bf0-101842d3de28",
+    "b50ee3d5-ca2d-4d5f-b5af-c9a6ab9955ae",
+    "eb9b8562-4e5d-47c6-adae-e9194fcab668",
+    "42692e4a-b172-4071-b447-093210b282cc",
+    "7be445dd-580e-432a-b5ff-0c80fcb99324"
+  ],
+  "projectHistoryOperationImportAndLineageRowsExact": true,
+  "existingRegistryAssetsAndProofRowsExact": true,
+  "allLiveTakeFilesMatchContentHashes": true,
+  "prototypeFilesUnchanged": 30,
+  "retainedDamagedAndInitialRecoveryCandidateExact": true,
+  "integrityAndForeignKeysPassed": true,
+  "captureRecoveryQualificationUsesIsolatedStoreOnly": true,
+  "liveCapturesDirectoryPresent": false
+}

@@ -1,0 +1,82 @@
+Window: "OmniuSong — Native Studio", App: OmniuSong Native.
+0 standard window OmniuSong — Native Studio, Secondary Actions: Raise
+	1 container
+		2 unknown
+			3 text (settable) omniuSong
+			4 text (settable) NATIVE STUDIO · FOUNDATION
+			5 button (disabled) ▶ Play
+			6 button (disabled) ● Record
+			7 text (settable) Audio engine pending
+		8 unknown
+			9 text (settable) Archive inspection failed; staging=/Volumes/Main External/Development/OmniuSong/.runtime/native-studio/.omniusong-archive-inspect-7be090e9-7193-4a0f-bf53-0e90aacb2acc.partial: file is not a database
+			10 text (settable) Work is running in the background. If the app closes, it may already have saved; reopening lets you inspect the result.
+			11 button Refresh sessions
+			12 button Retry last action
+			13 button Close window
+			14 text (settable) Native audio / MIDI / plugins / model execution are not connected in this build.
+		15 unknown
+			16 text (settable) Your sessions
+			17 text (settable) New session name
+			18 text field (settable) New session name, Value: My native session
+			19 button Create session
+			20 toggle button (settable, boolean) Recovery archive second generation, Value: on
+			21 text (settable) 1 tracks · 0 notes · r4
+			22 toggle button (settable, boolean) Recovery archive UI verified, Value: off
+			23 text (settable) 1 tracks · 0 notes · r3
+			24 toggle button (settable, boolean) Recovered · Native archive restored copy, Value: off
+			25 text (settable) 1 tracks · 0 notes · r0
+			26 toggle button (settable, boolean) Native UI verified song, Value: off
+			27 text (settable) 2 tracks · 0 notes · r5
+			28 toggle button (settable, boolean) Aria piano · local model preview, Value: off
+			29 text (settable) 2 tracks · 33 notes · r0
+			30 toggle button (settable, boolean) Synthetic native recording inspection, Value: off
+			31 text (settable) 1 tracks · 0 notes · r5
+			32 text (settable) Bring your work
+			33 text (settable) Legacy projects are read-only sources.
+			34 text (settable) Legacy source project
+			35 pop up button (settable) Legacy source project, Value: Aria piano · local model preview
+			36 text (settable) 2 tracks · separate native copy
+			37 button Import selected project
+			38 button Back up and restore
+			39 text (settable) New backup path
+			40 text field (settable) New backup path, Value: /Volumes/Main External/Development/OmniuSong/.runtime/rust-migration/disconnect-ui-copy.omniusong-native
+			41 button Create backup
+			42 text (settable) Choose a new file. Existing files are never overwritten.
+			43 text (settable) Backup to inspect
+			44 text field (settable) Backup to inspect, Value: /Volumes/Main External/Development/OmniuSong/.runtime/rust-migration/disconnect-ui-malformed.omniusong-native
+			45 button Inspect backup
+			46 text (settable) Restoring creates a separate session and preserves the backup and existing sessions.
+			47 button Storage locations
+		48 splitter (settable, float) Resize panel, Value: 0.1875
+		49 unknown
+			50 text (settable) Session
+			51 text field (settable) Session name, Value: Recovery archive second generation
+			52 text (settable) BPM
+			53 text field (settable) Tempo in BPM, Value: 122.5
+			54 button (disabled) Save changes
+			55 button (disabled) Discard edits
+			56 button Undo saved change
+			57 button Redo saved change
+			58 text (settable) Saved
+			59 text (settable) Schema 2 · revision 4 · 4 bars · 960 ticks/beat
+			60 text (settable) Recovered snapshot · earlier edit history is incomplete
+			61 text (settable) This session starts new edit history. The source checkpoint and recovery evidence are retained in the project.
+			62 button Imported original preserved
+			63 toggle button (settable, boolean) Synthetic sealed original · inspection only, Value: on
+			64 text (settable) Recording · unmuted
+			65 text (settable) Sealed original recordings
+			66 text (settable) 1 declared clip(s) · read-only arrangement
+			67 text (settable) Playback, waveform display and capture are unavailable in this build.
+			68 text (settable) Clip 1 · synthetic-four-frame-clip
+			69 text (settable) Source take 4a47ad70-0d4c-4c50-a692-1144c808f91a · stream synthetic-stereo
+			70 text (settable) Source window: audio frames 100–104 · 4 frames
+			71 text (settable) Placement: frame -48000 at 48000 Hz (-1.000 s)
+			72 text (settable) Audio fades: 1 frames in · 1 frames out
+			73 text (settable) Sealed manifest: 03eff69da5c7bbcaa4027974703acb4917e9253d13f086c515d25c79624ec766
+			74 button Model and performance integration
+	75 close button
+	76 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	77 minimize button
+	78 text OmniuSong — Native Studio
+79 menu bar
+	80 OmniuSong — Native Studio

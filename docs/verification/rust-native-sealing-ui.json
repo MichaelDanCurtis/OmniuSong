@@ -1,0 +1,775 @@
+{
+  "version": 1,
+  "atUtc": "2026-10-22T08:28:33.092848+00:00",
+  "accepted": true,
+  "scope": "Bounded actual Mac c46a synthetic output recording, normal sealing, explicit attachment, same-worker playback/Stop, history, complete assigned-project archive/restore and same-binary restart/full restored playback. Full workstation and milestone2 remain incomplete.",
+  "goalStatusObserved": "active after explicit user goal-card Resume",
+  "previousGoalTurnClassification": "progress: NSH source investigation and local documentation commit1412c4e; current turn advances native recording acceptance.",
+  "binary": {
+    "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+    "sha256": "c46a0b7585d21eb94add1750e16900d8690f0b5c6525f217b6affeaaaf5588e2",
+    "byteLength": 20483792
+  },
+  "sourceEvidence": {
+    "reviewedCodeCommit": "4763653",
+    "packageBuiltBeforeThatCommit": true,
+    "packageReceipt": {
+      "path": ".runtime/rust-seal-fix/release-package.json",
+      "sha256": "1947ef2a54a3dd7151944ebe23bc59d771f7146e144d9e665143c4f7c7dbee26",
+      "byteLength": 5580
+    },
+    "sourceTests": {
+      "path": "docs/verification/rust-native-sealing-tests.json",
+      "sha256": "0c857cec23081a386543ca01c46c85af2418e0f27a97566aea65dd0c5c84648e",
+      "byteLength": 70954
+    },
+    "all150ProductionGateFingerprintsStillExact": true,
+    "debugAndReleaseWorkspaceTests": {
+      "passedEach": 820,
+      "failedEach": 0,
+      "ignoredEach": 5,
+      "resultGroupsEach": 62
+    },
+    "freshRustSourceChangeOrRetestThisNativePacket": false
+  },
+  "nativeRecordings": [
+    {
+      "stageId": "b77df831ddf94776b195def1acf5d07d",
+      "before": {
+        "path": ".runtime/native-studio/captures/b77df831ddf94776b195def1acf5d07d/take.sqlite3",
+        "sha256": "169c33e00db54ce016cb35809b14a430a69a92aa776a78cc95e2b9ed15cd6c89",
+        "byteLength": 100458496
+      },
+      "state": "sealed",
+      "descriptorSha256": "b32dd882044d36eb7cbfb6eab17f6b9fb7c2f9fce99f126878e57ec4ed291ca1",
+      "manifestSha256": "a246ae7fcb2160e668771fda3a05ac23e24e777f2d9a84a17645fe612ec261ef",
+      "normalManifest": true,
+      "nativeOperation": "native-finish:adda9b73d31967b347a3a5ccdbb2a1f194ef06bab4211d166e455a949bb3ad61",
+      "nativeOperationRecomputed": true,
+      "originalRowsSha256": "2b7fe5082bf711b5d107a6c2e0c4eb698ef4ced8e948efa366dfc2213777bbbc",
+      "chunkIndexSha256": "ee21481729a15d404d7fa33e73cfbcb2dec9a60a12e46ccb6d2de2cfb20d711a",
+      "chunks": 23434,
+      "callbacks": 11466,
+      "frames": 5870592,
+      "seconds": 122.304,
+      "finish": {
+        "callback_index": 11466,
+        "cut_frame": 5870592,
+        "fence": {
+          "accepted_sequence": 108,
+          "id": [
+            210,
+            245,
+            31,
+            67,
+            215,
+            196,
+            70,
+            0,
+            190,
+            155,
+            217,
+            22,
+            209,
+            247,
+            166,
+            245
+          ],
+          "scope": {
+            "panic_generation": 5,
+            "session_id": [
+              183,
+              125,
+              248,
+              49,
+              221,
+              249,
+              71,
+              118,
+              177,
+              149,
+              222,
+              241,
+              172,
+              245,
+              208,
+              125
+            ],
+            "worker_generation": [
+              35,
+              58,
+              147,
+              16,
+              247,
+              125,
+              66,
+              43,
+              178,
+              123,
+              90,
+              105,
+              165,
+              105,
+              78,
+              139
+            ]
+          }
+        },
+        "policy": "cut_at_complete_callback_end",
+        "release_tails_cut": 0,
+        "voices_cut": 0
+      },
+      "checkpointCount": 478,
+      "finalCheckpointSha256": "957586f4a322209a922fc4ba6df915dd0219f6e745c8a9be78e8356c0436cc47",
+      "allCheckpointsMembersSixPrefixesVerified": true,
+      "allChunkDigestsAndEnvelopeContextsVerified": true,
+      "pcm": {
+        "encoding": "F32LE",
+        "channels": 2,
+        "sampleRate": 48000,
+        "bytes": 46964736,
+        "samples": 11741184,
+        "allFinite": true,
+        "nonzeroSamples": 224032,
+        "peakAbs": 0.11985450983047485,
+        "payloadSha256": "d12edfaa7cbd57df06c224b8b5d7afe4abf9af1ef27890d271d6af2575d6ff68",
+        "firstNonzeroFrame": 3419137,
+        "lastNonzeroFrame": 4385231
+      },
+      "appliedEvents": {
+        "gui-2:note_on": 9,
+        "gui-2:note_off": 9,
+        "gui-3:note_on": 3,
+        "gui-3:note_off": 3
+      },
+      "panicAndOtherClears": [
+        {
+          "frame": 3978752,
+          "reason": {
+            "Panic": {
+              "next_generation": 2
+            }
+          },
+          "scope": {
+            "panic_generation": 1,
+            "session_id": [
+              183,
+              125,
+              248,
+              49,
+              221,
+              249,
+              71,
+              118,
+              177,
+              149,
+              222,
+              241,
+              172,
+              245,
+              208,
+              125
+            ],
+            "worker_generation": [
+              35,
+              58,
+              147,
+              16,
+              247,
+              125,
+              66,
+              43,
+              178,
+              123,
+              90,
+              105,
+              165,
+              105,
+              78,
+              139
+            ]
+          }
+        },
+        {
+          "frame": 4051968,
+          "reason": {
+            "Panic": {
+              "next_generation": 3
+            }
+          },
+          "scope": {
+            "panic_generation": 2,
+            "session_id": [
+              183,
+              125,
+              248,
+              49,
+              221,
+              249,
+              71,
+              118,
+              177,
+              149,
+              222,
+              241,
+              172,
+              245,
+              208,
+              125
+            ],
+            "worker_generation": [
+              35,
+              58,
+              147,
+              16,
+              247,
+              125,
+              66,
+              43,
+              178,
+              123,
+              90,
+              105,
+              165,
+              105,
+              78,
+              139
+            ]
+          }
+        },
+        {
+          "frame": 4451328,
+          "reason": {
+            "Panic": {
+              "next_generation": 4
+            }
+          },
+          "scope": {
+            "panic_generation": 3,
+            "session_id": [
+              183,
+              125,
+              248,
+              49,
+              221,
+              249,
+              71,
+              118,
+              177,
+              149,
+              222,
+              241,
+              172,
+              245,
+              208,
+              125
+            ],
+            "worker_generation": [
+              35,
+              58,
+              147,
+              16,
+              247,
+              125,
+              66,
+              43,
+              178,
+              123,
+              90,
+              105,
+              165,
+              105,
+              78,
+              139
+            ]
+          }
+        },
+        {
+          "frame": 4519424,
+          "reason": {
+            "Panic": {
+              "next_generation": 5
+            }
+          },
+          "scope": {
+            "panic_generation": 4,
+            "session_id": [
+              183,
+              125,
+              248,
+              49,
+              221,
+              249,
+              71,
+              118,
+              177,
+              149,
+              222,
+              241,
+              172,
+              245,
+              208,
+              125
+            ],
+            "worker_generation": [
+              35,
+              58,
+              147,
+              16,
+              247,
+              125,
+              66,
+              43,
+              178,
+              123,
+              90,
+              105,
+              165,
+              105,
+              78,
+              139
+            ]
+          }
+        }
+      ],
+      "sourceFaultCount": 0,
+      "sourceLossCount": null,
+      "sourceLossLimit": "No source-loss counter exists in this stored codec. Fault-bearing End/clear was checked; parent transport losses are not inferable from PCM or durable events."
+    },
+    {
+      "stageId": "330dadc5d344489f819abebd4ebe693b",
+      "before": {
+        "path": ".runtime/native-studio/captures/330dadc5d344489f819abebd4ebe693b/take.sqlite3",
+        "sha256": "b4b7771e0cde7e7bb2d386cae8e8d23a959bfc22bad9204e80787b7fb75432cb",
+        "byteLength": 87166976
+      },
+      "state": "sealed",
+      "descriptorSha256": "665040e010aadbcf6f84ede193db8fef1afa2c6147ac0b7192e08417fe40d1e9",
+      "manifestSha256": "151107a89f0461a92bd076812038aae33828c347a7f23ac9d7e3790351613b84",
+      "normalManifest": true,
+      "nativeOperation": "native-finish:5d94227627366f26fb8fbe0227a7f85fb0c1da60224b76490119496b48c292b0",
+      "nativeOperationRecomputed": true,
+      "originalRowsSha256": "7f1294a63e0e0c77f6d49463fab568e3924c9371553266be551f539469c585bb",
+      "chunkIndexSha256": "923ce7fa9283ff31b61922ed2c954ca48a91b3f9d37c7b809a2001afc41c6491",
+      "chunks": 20323,
+      "callbacks": 9950,
+      "frames": 5094400,
+      "seconds": 106.13333333333334,
+      "finish": {
+        "callback_index": 9950,
+        "cut_frame": 5094400,
+        "fence": {
+          "accepted_sequence": 83,
+          "id": [
+            220,
+            146,
+            238,
+            196,
+            100,
+            123,
+            74,
+            154,
+            153,
+            72,
+            221,
+            168,
+            23,
+            220,
+            9,
+            152
+          ],
+          "scope": {
+            "panic_generation": 3,
+            "session_id": [
+              51,
+              13,
+              173,
+              197,
+              211,
+              68,
+              72,
+              159,
+              129,
+              154,
+              190,
+              189,
+              78,
+              190,
+              105,
+              59
+            ],
+            "worker_generation": [
+              35,
+              58,
+              147,
+              16,
+              247,
+              125,
+              66,
+              43,
+              178,
+              123,
+              90,
+              105,
+              165,
+              105,
+              78,
+              139
+            ]
+          }
+        },
+        "policy": "cut_at_complete_callback_end",
+        "release_tails_cut": 0,
+        "voices_cut": 0
+      },
+      "checkpointCount": 415,
+      "finalCheckpointSha256": "ae843f13922129ded02d008092d150fd6f615532c0e3029bc6da7864a63b7cbb",
+      "allCheckpointsMembersSixPrefixesVerified": true,
+      "allChunkDigestsAndEnvelopeContextsVerified": true,
+      "pcm": {
+        "encoding": "F32LE",
+        "channels": 2,
+        "sampleRate": 48000,
+        "bytes": 40755200,
+        "samples": 10188800,
+        "allFinite": true,
+        "nonzeroSamples": 1737008,
+        "peakAbs": 0.22263532876968384,
+        "payloadSha256": "b774ace888603918a57e86ff4dd1ef213db2da59150b31f7e70e5a551f8c35d3",
+        "firstNonzeroFrame": 1553409,
+        "lastNonzeroFrame": 2422271
+      },
+      "appliedEvents": {
+        "gui-1:sustain": 1,
+        "gui-2:sustain": 1,
+        "gui-2:note_on": 2,
+        "gui-2:note_off": 2,
+        "gui-4:pulse": 2
+      },
+      "panicAndOtherClears": [
+        {
+          "frame": 2422272,
+          "reason": {
+            "Panic": {
+              "next_generation": 2
+            }
+          },
+          "scope": {
+            "panic_generation": 1,
+            "session_id": [
+              51,
+              13,
+              173,
+              197,
+              211,
+              68,
+              72,
+              159,
+              129,
+              154,
+              190,
+              189,
+              78,
+              190,
+              105,
+              59
+            ],
+            "worker_generation": [
+              35,
+              58,
+              147,
+              16,
+              247,
+              125,
+              66,
+              43,
+              178,
+              123,
+              90,
+              105,
+              165,
+              105,
+              78,
+              139
+            ]
+          }
+        },
+        {
+          "frame": 4063232,
+          "reason": {
+            "Panic": {
+              "next_generation": 3
+            }
+          },
+          "scope": {
+            "panic_generation": 2,
+            "session_id": [
+              51,
+              13,
+              173,
+              197,
+              211,
+              68,
+              72,
+              159,
+              129,
+              154,
+              190,
+              189,
+              78,
+              190,
+              105,
+              59
+            ],
+            "worker_generation": [
+              35,
+              58,
+              147,
+              16,
+              247,
+              125,
+              66,
+              43,
+              178,
+              123,
+              90,
+              105,
+              165,
+              105,
+              78,
+              139
+            ]
+          }
+        }
+      ],
+      "sourceFaultCount": 0,
+      "sourceLossCount": null,
+      "sourceLossLimit": "No source-loss counter exists in this stored codec. Fault-bearing End/clear was checked; parent transport losses are not inferable from PCM or durable events."
+    }
+  ],
+  "sourceProject": {
+    "id": "6b9171bf-1ee8-4699-a29c-d196a98d444f",
+    "revision": 4,
+    "cursor": 2,
+    "payloadSha256": "62c64f3f0c48cdb1eeef659e5d0120d30a1742004088873fb1b80aee1290177a",
+    "historyRows": 2,
+    "operationRows": 4
+  },
+  "restoredProject": {
+    "id": "4934f4ae-8209-48e5-8309-06d37d725328",
+    "revision": 5,
+    "cursor": 3,
+    "payloadSha256": "c478d98b199afd6fdecbcf3ca7c716eeb81073f395d52a9eae46a65b3afa9650",
+    "historyRows": 3,
+    "operationRows": 5
+  },
+  "history": {
+    "attached": {
+      "path": ".runtime/rust-seal-native/project-attached.json",
+      "sha256": "446b9b3ab5e19a5f1971b1cc43ef29017de30ce6e6de91acc33ffc6dac7b3c02",
+      "byteLength": 1630
+    },
+    "undo": {
+      "path": ".runtime/rust-seal-native/project-undo.json",
+      "sha256": "ca5a4debc288d4050b153aa0a96203ac2e5c48d68641c33e033373267d3916d7",
+      "byteLength": 772
+    },
+    "redo": {
+      "path": ".runtime/rust-seal-native/project-redo.json",
+      "sha256": "62c64f3f0c48cdb1eeef659e5d0120d30a1742004088873fb1b80aee1290177a",
+      "byteLength": 1630
+    },
+    "exactAttachedTracksRestored": true
+  },
+  "sameWorkerPlayback": {
+    "mainPid": 3370,
+    "workerPid": 26316,
+    "sameWorkerRetainedAcrossRecordingsAndPlayback": true,
+    "observedPlayingFrames": 1747456,
+    "sampleRate": 48000,
+    "channels": 2,
+    "observedPeak": 0.106,
+    "reportedXruns": 0,
+    "explicitStopSucceeded": true
+  },
+  "archive": {
+    "archive": {
+      "path": ".runtime/rust-seal-native/optimized-recording-complete.osar",
+      "sha256": "d92b4627789e8c206590fb79cb342ce28d43087974a91e5413577e7ff5161646",
+      "byteLength": 87425024
+    },
+    "archiveFileChunksVerified": 84,
+    "fullArchivedTakeBytesExact": true,
+    "allAssignedStageAndOwnedTablesExact": {
+      "sqlite_schema": 20,
+      "chunks": 20323,
+      "interruptions": 0,
+      "recovery_index": 0,
+      "sealed_manifests": 1,
+      "sqlite_sequence": 1,
+      "stream_prefix": 6,
+      "take_meta": 1
+    },
+    "ownedOriginal": {
+      "path": ".runtime/native-studio/takes/c202f2ac923e44de719dff0e3739b60c3f0def8a7880b5c275a67b3e4b56fb75.sqlite3",
+      "sha256": "c202f2ac923e44de719dff0e3739b60c3f0def8a7880b5c275a67b3e4b56fb75",
+      "byteLength": 87166976
+    },
+    "sourceDocumentHistoryOperationsExactInArchive": true,
+    "rootIdOnlyCopiedDocumentsAndOperations": true,
+    "operationMappingsVerified": 4,
+    "copyProofSha256": "ab654c7e6e10842c43d6c2da94bb1f75516cb7d8052a89846ac6cd310023cde7",
+    "onlyPostcopyEdit": "explicit session rename at revision 5"
+  },
+  "restart": {
+    "processEvidence": {
+      "path": ".runtime/rust-seal-native/restart-processes.json",
+      "sha256": "023008fe15381c73cee3bc21d92a7f8ca8c88bf7f8baefbfddd6860e171a4eb3",
+      "byteLength": 633
+    },
+    "sourceReopenedRevision": 4,
+    "restoredCopyReopenedRevision": 5,
+    "newMainPid": 41367,
+    "newWorkerPid": 41369,
+    "sameBinary": true,
+    "newDrivePromptNeeded": false,
+    "restoredPlayingFramesObserved": 2077184,
+    "restoredNonzeroPeakObserved": 0.106,
+    "restoredPlaybackFinishedFrames": 5094400,
+    "reportedXruns": 0,
+    "explicitStopSucceeded": true,
+    "fullArrangementFitBeats": [
+      -22.996,
+      206.96
+    ],
+    "catalogAndOriginalBytesUnchangedByRestartPlaybackStopAndViewport": true
+  },
+  "independentSourceAudit": {
+    "path": ".runtime/rust-seal-native/source-audit.json",
+    "sha256": "236a3dbba1965a7cacb285e6f8671ebe8a4658696e13217c6eb4b08c0135f5dc",
+    "byteLength": 66423
+  },
+  "independentSourceAuditScript": {
+    "path": ".runtime/rust-seal-native/source-audit.py",
+    "sha256": "5ada578c4d836c03a7feb31e699af611824e1ba821c433941dfec77cfe90d64c",
+    "byteLength": 33976
+  },
+  "independentArchiveAudit": {
+    "path": ".runtime/rust-seal-native/archive-audit.json",
+    "sha256": "3ba8726a60f921641aeeb6a2fa02ec0d14b64832ffd2b14d14c998471b5078fd",
+    "byteLength": 12471
+  },
+  "independentArchiveAuditScript": {
+    "path": ".runtime/rust-seal-native/archive-audit.py",
+    "sha256": "48a612c7a560e88d85fc92dddf9e63bb4c52673f40949e928862b1e214d7a354",
+    "byteLength": 28812
+  },
+  "uiEvidence": [
+    {
+      "path": ".runtime/rust-seal-native/01-long-finish.txt",
+      "sha256": "3d0655e3d33b15246732aed8dcb7fc58decb7d0ef00877738d1ec346cfe13c1a",
+      "byteLength": 1201
+    },
+    {
+      "path": ".runtime/rust-seal-native/02-held-voices.txt",
+      "sha256": "e751899ad8d5a06683f1b164c8714a3727ccd883cc8933212dda7ccc87eb1273",
+      "byteLength": 3352
+    },
+    {
+      "path": ".runtime/rust-seal-native/03-music-finish.txt",
+      "sha256": "5ff0bbff06fe6c0115af9642d6de2c82af3505195f5d3b5a4a282812b01de2a2",
+      "byteLength": 9310
+    },
+    {
+      "path": ".runtime/rust-seal-native/04-same-worker-play.txt",
+      "sha256": "893b96a1ca3b31e3b1948c366a738c996a85f5113cd01e6d47010f2ae9dca13e",
+      "byteLength": 9061
+    },
+    {
+      "path": ".runtime/rust-seal-native/05-restored-copy.txt",
+      "sha256": "23aac4243340e012c0bf1be51d8f8ea8afe11bf28237fb437c6622bb492c775e",
+      "byteLength": 9690
+    },
+    {
+      "path": ".runtime/rust-seal-native/06-reopened-source.txt",
+      "sha256": "c51a406903fcbb48e3429994c044785336e99a2656160f68efe121229a589d6c",
+      "byteLength": 8721
+    },
+    {
+      "path": ".runtime/rust-seal-native/07-restored-play.txt",
+      "sha256": "edecbf6185a3734bf29bc71cbe0e7ac31082dca3c57c2a17dafe230325c97436",
+      "byteLength": 9202
+    },
+    {
+      "path": ".runtime/rust-seal-native/08-restored-completion.txt",
+      "sha256": "0ac7c93521f1e833dc5d225b5a5ed07e4e5a26cea0ceb873be0687b1f6a327d1",
+      "byteLength": 9558
+    },
+    {
+      "path": ".runtime/rust-seal-native/09-final-studio.txt",
+      "sha256": "6e8dc6c4918e39b24fb2d395f692cb507b16d282733437ca818381ec8a01e581",
+      "byteLength": 8693
+    },
+    {
+      "path": ".runtime/rust-seal-native/01-long-finish.png",
+      "sha256": "b1c75399f0575f6f5e665e8390ed212be9a6aface1c68ad54ff880adb765b0c6",
+      "byteLength": 202588
+    },
+    {
+      "path": ".runtime/rust-seal-native/02-held-voices.png",
+      "sha256": "43a2a31ac9aa6332c9f7b1fc9a264d2e6bc6b427169a27fd0f2ad689d0ce667e",
+      "byteLength": 235791
+    },
+    {
+      "path": ".runtime/rust-seal-native/03-music-finish.png",
+      "sha256": "f047f053f57bc49a028060252b0fc10e8982b5b5c8b34705a8dd77ecfd202c95",
+      "byteLength": 202476
+    },
+    {
+      "path": ".runtime/rust-seal-native/04-same-worker-play.png",
+      "sha256": "8e19d04ef105080ac9710d3c07425640b070802073d95be0ea297678222f46f9",
+      "byteLength": 195304
+    },
+    {
+      "path": ".runtime/rust-seal-native/05-restored-copy.png",
+      "sha256": "b9415d918566ab5ff3a112ac746caf4130c72d558b85d27f2b467624abb18b3b",
+      "byteLength": 242384
+    },
+    {
+      "path": ".runtime/rust-seal-native/07-restored-play.png",
+      "sha256": "9be297bf36913a1ce27c34656badb5c0450191cfe01ce8de3c860d9fdd678a8e",
+      "byteLength": 200172
+    },
+    {
+      "path": ".runtime/rust-seal-native/08-restored-completion.png",
+      "sha256": "36b6fe1f9483639c9507ecb5e94ad89548ee42a0a7b2edf6c1c94bc777a64aa4",
+      "byteLength": 232668
+    },
+    {
+      "path": ".runtime/rust-seal-native/09-final-studio.png",
+      "sha256": "ec6aabee5b394a6d1071bb3aed4bb0a81047c1970d1180c8776bfcae409d4cf3",
+      "byteLength": 224584
+    }
+  ],
+  "preservation": {
+    "path": "docs/verification/rust-native-sealing-ui-preservation.json",
+    "sha256": "e24f9f8e5728a46e462a1934fab78f7fc450cb5736a175290d67e78b42b8a5d0",
+    "byteLength": 1690
+  },
+  "limits": [
+    "Both new originals contain nonzero finite procedural PCM and recorded input events. Neither is human singing or AI inference.",
+    "Both new Finish records cut zero voices/tails; focus-loss Panic already cleared voices. Current-build held-voice Finish is not separately requalified by these two runs; retain the earlier named nine-second proof and source tests at their own boundaries.",
+    "Two locally staged events were visibly discarded during the second run after focus cleanup. Parent/source transport loss counters remain unavailable, not zero; durable frames do not prove every attempted GUI event was retained.",
+    "Computer-control actions were sometimes rejected after UI/app changes. Actual event claims derive from audited original records, not attempted tool actions. The 02-held-voices filename records an observation attempt; its snapshot shows already-cleared voices.",
+    "The 122.304-second first take was explicitly kept local and unassigned. It and local recording-intent histories are outside this assigned-project archive closure and remain retained separately.",
+    "Stale saving/Stop-request copy remains visible around Recording/Sealed phases; the authenticated result and explicit attachment are authoritative. Phase-aware copy correction remains UX work.",
+    "The ten-second seal timeout is unchanged. These two native durations and isolated profiles do not establish scalable thirty-minute sealing/capacity. Retained inspection ceilings, playback120seconds/64MiB, native input/listening/latency, long-run and Windows remain separate.",
+    "Performance-aware source recovery/ledger/export, editable projections, monitoring/count-in/overdub/compensation, MIDI2/MPE, inference, plugins, choir and installers remain unfinished. NSH remains research-only."
+  ],
+  "nativeInputOpened": false,
+  "listeningAcceptance": false,
+  "physicalLatencyAcceptance": false,
+  "thirtyMinuteAcceptance": false,
+  "milestone2Complete": false,
+  "fullGoalComplete": false
+}

@@ -1,0 +1,23 @@
+# Sealed-source inspection correction review
+
+The actual `7473e066…` native source-review walkthrough found a real 1 GiB work refusal on the retained 106-second normal recording and a notice that could appear under a different selected original. The [partial native receipt](../verification/rust-native-source-review-walkthrough.json) retains those failures alongside successful explicit scan, short/failed review, guarded drafts, native cancellation, sidecar refusal, output/Stop and restart checks. It does not pass the corrected build or thirty-minute capacity.
+
+## Proof retained while removing redundant work
+
+The recording implementation returns its internally authenticated selected report together with the verified manifest, then reuses it inside the same read transaction. Normal seals still check exact chunk cardinality and every durable stream prefix, including empty streams. Recovered seals still authenticate their interruption and selected index. Physical SHA and the complete original-row digest remain independent complete passes. The semantic inspector still authenticates/rereads chunks and checks clock, event, checkpoint, Finish and finite PCM invariants.
+
+The engine moves an already owned chunk into its group rather than copying the payload. The per-ordinal early return still reaches the outer sticky governor checkpoint. Every finite-F32 traversal now charges its payload before walking it; read/hash credit is not reused as PCM validation credit. No ceiling, journal/profile format or lifetime authority changes.
+
+Six recording regression groups compare independent direct-scan oracles and exact original/physical identities, reject forged prefix fields and extra/missing/reordered/corrupt originals, retain recovered opaque tails and preserve sticky refusal. A separate engine test proves repeated exact PCM charges, pre-traversal WorkBytes refusal and NaN rejection with adequate credit. Headless real-egui accessibility tests prove source-bound notices and exact cancellation while selection changes, without releasing credit early or overwriting the previous review.
+
+The independent reviewer read the integrated code, recomputed full-original hashes with a separate SQL-value encoding oracle on isolated copies, hashed stored manifest/checkpoint bytes directly and matched their six-stream prefixes and actual Finish records. It found no remaining source blocker. Historical Prepared admission already excludes diagnostic usage/review hashes; old exact review bytes remain immutable.
+
+## Distinct evidence boundaries
+
+The optimized source inspector passed isolated copies of the retained 106.133333- and 122.304-second recordings with 843,220,760 and 973,333,149 cumulative work bytes under the unchanged 1,073,741,824-byte ceiling. Generic normal-report `unknown_tail=false` remains distinct from conservative semantic `unknown_tail=true`. Neither is relabelled as complete capture of every possible GUI event.
+
+The [source gate](../verification/rust-native-inspection-reuse-tests.json) supplies actual final commands, log hashes, source fingerprints and example identity. The corrected installed **6ab792d6…** app now completes that [separate scoped native walkthrough](../verification/rust-native-inspection-reuse-ui.json): 106/122-second inspection, source-associated error/cancel notices, guarded metadata/note/clip drafts, output/Stop and exact normal exit/restart preservation. The live catalog intentionally migrated to schema 6 after its complete operator rollback was audited. All prior rows/IDs/originals remain exact; two empty ledger tables are the only logical additions. The native live C4 pulse was not sent because the background window remained focus-disabled; that limitation is retained separately from successful saved output and live Stop.
+
+The old native walkthrough preserved all 22 projects, 403 catalog rows, 80 protected files, catalog bytes and the installed binary exactly through normal close/restart. Independent artifact review matched 90 referenced hash/length records. Native compact-pane cancellation passed at 260 pixels; unsuccessful outer-window resize attempts and window zoom are not DPI acceptance. The [complete operator rollback](../OPERATOR-SCHEMA5-ROLLBACK.md) was separately audited before intentional live migration; it is not OSRE or an exercised restoration.
+
+Thirty-minute capacity still needs a bounded segmented/progressive design. Physical input, listening, native recovery/attachment/archive controls, display scaling, MIDI 2/MPE, plugins, inference, installers and Windows remain independent unfinished requirements.

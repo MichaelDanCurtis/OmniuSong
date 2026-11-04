@@ -1,0 +1,179 @@
+{
+  "format": "omniusong.native-disconnect-ui-verification",
+  "version": 1,
+  "recordedAtUtc": "2026-10-20T20:06:49.206574+00:00",
+  "scope": "Actual native Mac archive, paired editing/history and restart walkthrough on the 191-test source bundle; no physical audio/MIDI/model qualification.",
+  "sourceGate": "docs/verification/rust-native-disconnect-tests.json",
+  "binary": {
+    "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+    "sha256": "90e5250d942abb5d3d5d071bf46b32652aafe475e2508dc5fa6052359a19c7da",
+    "byteLength": 76838288
+  },
+  "actions": [
+    "Opened recovered revision-0 snapshot; observed explicit incomplete-history disclosure and sealed take inspector.",
+    "Exported the recovered session; inspected preliminary summary/fingerprint; restored a new session through the full Rust validator.",
+    "Saved name Recovery archive UI verified and tempo121.75 atomically at r1; one Undo r2 restored both values; Redo r3 restored both edits.",
+    "Exported that copy; inspected and restored a second generation; saved name Recovery archive second generation and tempo122.5 at r4.",
+    "Inspected own36-byte malformed archive; visible rejection left selected session intact; subsequent valid inspection succeeded.",
+    "Closed saved app through its UI; pgrep -fl OmniuSongNative exited1 with no output; relaunched the same bundle and reopened second generation r4/122.5 with recovery disclosure, source range/placement/fades intact."
+  ],
+  "originalFourProjects": [
+    {
+      "projectId": "2df3b9be-9c77-4560-9c45-7be5385d503d",
+      "revision": 5,
+      "cursor": 1,
+      "documentSha256": "48e1c791c6ad4534c4ffa7467a1471be0c82a2ba0c77cbc42b3d7b350ae7c466",
+      "retainedRowsExact": true
+    },
+    {
+      "projectId": "aa3c40ed-277a-4b37-8bf0-101842d3de28",
+      "revision": 0,
+      "cursor": 0,
+      "documentSha256": "c08015a43f6832eaa297dbe8a3e9e5481955801b96d3bba2a72ce2f0f5de9769",
+      "retainedRowsExact": true
+    },
+    {
+      "projectId": "b50ee3d5-ca2d-4d5f-b5af-c9a6ab9955ae",
+      "revision": 0,
+      "cursor": 0,
+      "documentSha256": "02a2ffe5bcc541ab5b87e7e10838edafd24c367e79b62949f890983d8bbe9fda",
+      "retainedRowsExact": true
+    },
+    {
+      "projectId": "eb9b8562-4e5d-47c6-adae-e9194fcab668",
+      "revision": 5,
+      "cursor": 3,
+      "documentSha256": "79cc13a356b7a532d26b01eb0d6027a97882a5b68886294402e984020432a873",
+      "retainedRowsExact": true
+    }
+  ],
+  "newCopies": [
+    {
+      "projectId": "4ae2dba8-10de-46bb-92af-03895d24d83b",
+      "name": "Recovery archive UI verified",
+      "tempo": 121.75,
+      "revision": 3,
+      "cursor": 1,
+      "retainedHistoryRows": 1,
+      "operationRows": 3,
+      "lineageProofs": 1,
+      "documentSha256": "934187aec07b3341f3ddbf5c4a37be9fba2ccb44af290051ce132481661e5ea1",
+      "sourceMusicAndRecoveryNoticeExact": true
+    },
+    {
+      "projectId": "79407467-b1f2-41e8-a7d2-42326dd43204",
+      "name": "Recovery archive second generation",
+      "tempo": 122.5,
+      "revision": 4,
+      "cursor": 2,
+      "retainedHistoryRows": 2,
+      "operationRows": 4,
+      "lineageProofs": 2,
+      "documentSha256": "75bf9ecb75fb30a631416e5b4b6d197563365df13eab41044084474c91ce101a",
+      "sourceMusicAndRecoveryNoticeExact": true
+    }
+  ],
+  "catalogCounts": {
+    "projects": 6,
+    "edits": 7,
+    "operations": 8,
+    "imports": 1,
+    "assets": 0,
+    "native_takes": 1,
+    "archive_copy_proofs": 2,
+    "archive_copy_proof_operations": 3,
+    "archive_project_lineage": 3,
+    "archive_copies": 2
+  },
+  "integrityAndForeignKeysPassed": true,
+  "embeddedSourceJsonAndCompletedArchiveExact": true,
+  "oldMissingOperationsNotAdmitted": true,
+  "originalTakeExact": true,
+  "retainedDamagedAndCandidateStoresUnchanged": true,
+  "originalPrototypeFilesUnchanged": 30,
+  "sourceSnapshotsUnchanged": 45,
+  "archives": [
+    {
+      "path": ".runtime/rust-migration/disconnect-ui-recovered.omniusong-native",
+      "sha256": "88900359e53ab28c0dc9485733b53ee688911bb340ab82bcbfce4100f8396424",
+      "byteLength": 495616,
+      "integrityPassed": true,
+      "formatVersion": 2,
+      "projectId": "b50ee3d5-ca2d-4d5f-b5af-c9a6ab9955ae",
+      "fullRustValidationPerformedByActualUIRestore": true
+    },
+    {
+      "path": ".runtime/rust-migration/disconnect-ui-copy.omniusong-native",
+      "sha256": "e5ec2e689ffdc11e8905d63024c5c578f59d48f56d25defb12f7595ebbcdb218",
+      "byteLength": 2580480,
+      "integrityPassed": true,
+      "formatVersion": 2,
+      "projectId": "4ae2dba8-10de-46bb-92af-03895d24d83b",
+      "fullRustValidationPerformedByActualUIRestore": true
+    }
+  ],
+  "malformedFixture": {
+    "path": ".runtime/rust-migration/disconnect-ui-malformed.omniusong-native",
+    "sha256": "c15ed0bbd0c444513f7905c37e90d4dab3b9f296da9f2bc394575d5f754ea38d",
+    "byteLength": 36
+  },
+  "artifacts": [
+    {
+      "path": "docs/verification/rust-native-disconnect-recovered-ax.txt",
+      "sha256": "008d41f294368ad11ff3c702119c6412ade4af375bfa2b23cf6dc3bfa61081df",
+      "byteLength": 3627
+    },
+    {
+      "path": "docs/verification/rust-native-disconnect-recovered.png",
+      "sha256": "3cc053a8dae89295abe725f25cff75fc3f3fd436b29984f8ffe6e70fced3f59c",
+      "byteLength": 146710
+    },
+    {
+      "path": "docs/verification/rust-native-disconnect-before-restart-ax.txt",
+      "sha256": "46ddd0148fc1acfa389a4c3d638a2460fc1e6dbf2097c0bd70e70055bae48a3f",
+      "byteLength": 4865
+    },
+    {
+      "path": "docs/verification/rust-native-disconnect-before-restart.png",
+      "sha256": "10f931cc26d312d068d5fc5392482cb8816d32bf9714446c9875962c766e665f",
+      "byteLength": 180365
+    },
+    {
+      "path": "docs/verification/rust-native-disconnect-malformed-ax.txt",
+      "sha256": "b981f3dd5bd1a56d02990a375e2b9f9b9ed7653bc344316c2f515c80ea1e4da5",
+      "byteLength": 4783
+    },
+    {
+      "path": "docs/verification/rust-native-disconnect-malformed.png",
+      "sha256": "449d1099b15190d6edaacb871dd9962970f5ed1bd2b05f332ccfbf3340d9ee53",
+      "byteLength": 183577
+    },
+    {
+      "path": "docs/verification/rust-native-disconnect-reopened-ax.txt",
+      "sha256": "8d7336f1cdd1d9200e9f39119ab694759f78d9623e2eff8d7745fee8deaad626",
+      "byteLength": 3876
+    },
+    {
+      "path": "docs/verification/rust-native-disconnect-reopened.png",
+      "sha256": "c2bf35a695b248b6fc40650fc0db37fa9cd9c961a30d7cfb7b03d6217cef360d",
+      "byteLength": 152365
+    }
+  ],
+  "limits": [
+    "The old session still lacks one historical row and three operation receipts; the recovered project is a fresh documented snapshot.",
+    "Gold recovery-warning text has low contrast on the observed light background; complete accessibility remains pending.",
+    "A completed ordinary archive-inspection error leaves stale background-work status text alongside the error; controls were enabled and a subsequent valid action cleared it.",
+    "No physical drive-unplug, power-loss, volume-enrollment, stalled-I/O cancellation or general automatic repair qualification.",
+    "Native playback/capture, waveform editing, expressive MIDI transport/MPE/ClipFiles, plugins, inference, choir, installers and Windows remain pending."
+  ],
+  "independentReview": {
+    "path": "docs/reviews/RUST-DISCONNECT-UI-FOLLOWUP.md",
+    "sha256": "28da5cc9ef3b4fa28c5f0e8ed0572f7ca83e8e9342a9e1f42bf7ea4ae277a6e4",
+    "byteLength": 12096
+  },
+  "verifier": {
+    "path": ".runtime/rust-migration/verify-disconnect-ui.py",
+    "sha256": "255ae36b97397d20949f0f2da96a9ce564325a1089cc0287a1e06f1d32dfa732",
+    "byteLength": 10039
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "atUtc": "2026-10-22T08:28:33.092281+00:00",
+  "passed": true,
+  "priorProjectsRetained": 20,
+  "priorCatalogRowsRetained": 372,
+  "priorFilesExact": 75,
+  "priorOwnedTakesExact": 5,
+  "currentProjects": 22,
+  "currentCatalogRows": 403,
+  "currentOwnedTakes": 6,
+  "addedProjects": [
+    "6b9171bf-1ee8-4699-a29c-d196a98d444f",
+    "4934f4ae-8209-48e5-8309-06d37d725328"
+  ],
+  "mutationScope": "Synthetic source session, two exact recording-intent histories, one explicitly attached original, Undo/Redo, one complete archive/restore-as-copy and explicit copy rename. Unassigned first take remains local. All earlier failed sources and rollback sidecars remain exact.",
+  "restartPlaybackStopChangedCatalogOrOriginals": false,
+  "before": {
+    "path": ".runtime/rust-seal-native/before.json",
+    "sha256": "dd078e222ffd007d09144e0c1afa748c99764738c9000444c9f220deb772e69a",
+    "byteLength": 47343
+  },
+  "afterClose": {
+    "path": ".runtime/rust-seal-native/after-close.json",
+    "sha256": "a23499b8c182df30d3f6df4ad5e10318a97700e430bbaf504e12f9c4f980880a",
+    "byteLength": 50926
+  },
+  "afterRestart": {
+    "path": ".runtime/rust-seal-native/after-restart.json",
+    "sha256": "15097c7e810697f461679061fc563dce04c3f2aa86ccf1c4d5932fdc73254df8",
+    "byteLength": 50926
+  },
+  "independentSourceAudit": {
+    "path": ".runtime/rust-seal-native/source-audit.json",
+    "sha256": "236a3dbba1965a7cacb285e6f8671ebe8a4658696e13217c6eb4b08c0135f5dc",
+    "byteLength": 66423
+  },
+  "independentArchiveAudit": {
+    "path": ".runtime/rust-seal-native/archive-audit.json",
+    "sha256": "3ba8726a60f921641aeeb6a2fa02ec0d14b64832ffd2b14d14c998471b5078fd",
+    "byteLength": 12471
+  }
+}

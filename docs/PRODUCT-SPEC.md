@@ -1,5 +1,7 @@
 # OmniuSong product specification
 
+October 20 production architecture amendment: the [complete release goal](GOAL.md) requires Rust throughout the native Mac/Windows application, including UI, audio, storage, MIDI, jobs, adapters and plugin hosting. MIDI 2.0 and MPE are mandatory end-to-end capabilities with independent acceptance. The web/Swift/Python paths described below are prototype/reference work. See the [adopted Rust architecture](RUST-ARCHITECTURE.md), [migration sequence](RUST-MIGRATION.md) and [release acceptance matrix](RELEASE-ACCEPTANCE.md) for current implementation decisions and evidence gates.
+
 Version 0.1 · October 15, 2026 · Mac first, Windows second
 
 ## The music experience

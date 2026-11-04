@@ -1,0 +1,365 @@
+//! Outcomes of ordinary project archives. Completion and private cleanup are
+//! separate: removing a temporary directory cannot undo a durable publication.
+use crate::{Result, StoreError};
+use std::{
+    fmt, fs, io,
+    path::{Path, PathBuf},
+};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArchiveAction {
+    Export,
+    Restore,
+    Copy,
+    Inspect,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArchivePhase {
+    NotStarted,
+    ObjectsPlacementAttempted,
+    ObjectsPlaced,
+    OutputLinkAttempted,
+    OutputLinked,
+    ExportDurable,
+    CatalogCommitAttempted,
+    CatalogCommitted,
+    RecordedReplay,
+    ReadOnlyCompleted,
+}
+
+/// Facts observed in this attempt, not an instruction to retry or repair it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArchiveContext {
+    pub action: ArchiveAction,
+    pub staging: Option<PathBuf>,
+    pub destination: PathBuf,
+    pub source: Option<PathBuf>,
+    pub operation_id: Option<String>,
+    /// Requested restore-copy pin, distinct from an observed input/output hash.
+    pub expected_archive_sha256: Option<String>,
+    pub archive_sha256: Option<String>,
+    /// Confirmed placements only. Zero does not prove no filesystem effects.
+    pub published_objects: usize,
+    pub phase: ArchivePhase,
+}
+impl ArchiveContext {
+    pub fn new(action: ArchiveAction, destination: &Path) -> Self {
+        Self {
+            action,
+            staging: None,
+            destination: destination.to_owned(),
+            source: None,
+            operation_id: None,
+            expected_archive_sha256: None,
+            archive_sha256: None,
+            published_objects: 0,
+            phase: ArchivePhase::NotStarted,
+        }
+    }
+    pub fn publication_uncertain(&self) -> bool {
+        matches!(
+            self.phase,
+            ArchivePhase::OutputLinkAttempted
+                | ArchivePhase::OutputLinked
+                | ArchivePhase::ExportDurable
+                | ArchivePhase::CatalogCommitAttempted
+                | ArchivePhase::CatalogCommitted
+        )
+    }
+}
+
+#[derive(Debug)]
+pub struct ArchiveFailure {
+    context: Box<ArchiveContext>,
+    operation: Box<StoreError>,
+    governor_stop: Option<Box<omniusong_recording::RecordingError>>,
+}
+impl ArchiveFailure {
+    pub fn new(context: ArchiveContext, error: StoreError) -> Self {
+        Self {
+            context: Box::new(context),
+            operation: Box::new(error),
+            governor_stop: None,
+        }
+    }
+    pub fn context(&self) -> &ArchiveContext {
+        &self.context
+    }
+    pub fn operation_error(&self) -> &StoreError {
+        &self.operation
+    }
+    /// A sticky inspection stop observed beside the original failure. This
+    /// never replaces a private/source SQL error or a live cleanup failure.
+    pub fn governor_stop(&self) -> Option<&omniusong_recording::RecordingError> {
+        self.governor_stop.as_deref()
+    }
+    pub(crate) fn with_governor_stop(
+        mut self,
+        stop: Option<omniusong_recording::RecordingError>,
+    ) -> Self {
+        self.governor_stop = stop.map(Box::new);
+        self
+    }
+    pub fn publication_uncertain(&self) -> bool {
+        self.context.publication_uncertain() || self.operation.archive_publication_uncertain()
+    }
+    pub fn catalog_sqlite_error_code(&self) -> Option<i32> {
+        self.operation.catalog_sqlite_error_code()
+    }
+    pub fn catalog_connection_unusable(&self) -> bool {
+        self.operation.catalog_connection_unusable()
+    }
+}
+impl fmt::Display for ArchiveFailure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Archive {:?} failed at {:?}: {}; destination={:?}; staging={:?}; source={:?}; operation={:?}; expected_archive_sha256={:?}; archive_sha256={:?}; confirmed_objects={}",
+            self.context.action,
+            self.context.phase,
+            self.operation,
+            self.context.destination,
+            self.context.staging,
+            self.context.source,
+            self.context.operation_id,
+            self.context.expected_archive_sha256,
+            self.context.archive_sha256,
+            self.context.published_objects
+        )?;
+        if let Some(stop) = &self.governor_stop {
+            write!(f, "; governor stop: {stop}")?;
+        }
+        Ok(())
+    }
+}
+impl std::error::Error for ArchiveFailure {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(self.operation.as_ref())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArchiveSqlOrigin {
+    Input,
+    PrivateOutput,
+    LiveCatalog,
+}
+
+/// SQLite provenance is explicit at the handle boundary, never inferred from
+/// its error message, phase or the fact that an archive operation is running.
+#[derive(Debug)]
+pub struct ArchiveSqlFailure {
+    origin: ArchiveSqlOrigin,
+    operation: Box<StoreError>,
+    cleanup: Option<SqlReadCleanup>,
+}
+#[derive(Debug)]
+enum SqlReadCleanup {
+    OperationIsClose,
+    Secondary(rusqlite::Error),
+}
+impl ArchiveSqlFailure {
+    pub fn new(origin: ArchiveSqlOrigin, error: rusqlite::Error) -> Self {
+        Self {
+            origin,
+            operation: Box::new(StoreError::Database(error)),
+            cleanup: None,
+        }
+    }
+    pub fn origin(&self) -> ArchiveSqlOrigin {
+        self.origin
+    }
+    pub fn operation_error(&self) -> &StoreError {
+        &self.operation
+    }
+    /// A close failure on the same explicitly tagged read handle. This never
+    /// replaces the operation's error or gives a private handle live authority.
+    pub fn cleanup_error(&self) -> Option<&rusqlite::Error> {
+        match (&self.cleanup, self.operation.as_ref()) {
+            (Some(SqlReadCleanup::Secondary(error)), _) => Some(error),
+            (Some(SqlReadCleanup::OperationIsClose), StoreError::Database(error)) => Some(error),
+            _ => None,
+        }
+    }
+    pub fn catalog_sqlite_error_code(&self) -> Option<i32> {
+        if self.origin != ArchiveSqlOrigin::LiveCatalog {
+            return None;
+        }
+        let primary = self.operation.catalog_sqlite_error_code();
+        let cleanup = self
+            .cleanup_error()
+            .and_then(|error| error.sqlite_error())
+            .map(|error| error.extended_code);
+        let fatal = |code: i32| matches!(code & 0xff, 10 | 11 | 26);
+        primary
+            .filter(|code| fatal(*code))
+            .or_else(|| cleanup.filter(|code| fatal(*code)))
+            .or(primary)
+            .or(cleanup)
+    }
+    pub fn catalog_connection_unusable(&self) -> bool {
+        self.origin == ArchiveSqlOrigin::LiveCatalog
+            && (self.cleanup.is_some() || self.operation.catalog_connection_unusable())
+    }
+}
+impl fmt::Display for ArchiveSqlFailure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if matches!(self.cleanup, Some(SqlReadCleanup::OperationIsClose)) {
+            return write!(
+                f,
+                "Archive {:?} SQLite read handle close: {}",
+                self.origin, self.operation
+            );
+        }
+        write!(f, "Archive {:?} SQLite: {}", self.origin, self.operation)?;
+        if let Some(SqlReadCleanup::Secondary(error)) = &self.cleanup {
+            write!(f, "; read handle close failed: {error}")?;
+        }
+        Ok(())
+    }
+}
+impl std::error::Error for ArchiveSqlFailure {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(self.operation.as_ref())
+    }
+}
+pub(crate) fn sql_error(origin: ArchiveSqlOrigin, error: rusqlite::Error) -> StoreError {
+    StoreError::ArchiveSql(Box::new(ArchiveSqlFailure::new(origin, error)))
+}
+/// The operation and close must both concern the same handle and origin.
+/// This is not a wrapper for arbitrary nested catalog transaction failures.
+pub(crate) fn sql_read_cleanup_error(
+    origin: ArchiveSqlOrigin,
+    operation: StoreError,
+    cleanup: rusqlite::Error,
+) -> StoreError {
+    StoreError::ArchiveSql(Box::new(ArchiveSqlFailure {
+        origin,
+        operation: Box::new(operation),
+        cleanup: Some(SqlReadCleanup::Secondary(cleanup)),
+    }))
+}
+pub(crate) fn sql_read_close_error(origin: ArchiveSqlOrigin, error: rusqlite::Error) -> StoreError {
+    StoreError::ArchiveSql(Box::new(ArchiveSqlFailure {
+        origin,
+        operation: Box::new(StoreError::Database(error)),
+        cleanup: Some(SqlReadCleanup::OperationIsClose),
+    }))
+}
+fn tag<T>(result: Result<T>, origin: ArchiveSqlOrigin) -> Result<T> {
+    result.map_err(|error| match error {
+        StoreError::Database(error) => sql_error(origin, error),
+        // Nested Catalog failures carry live rollback information; never hide
+        // it under a private-input tag. Mixed helpers tag each destination.
+        other => other,
+    })
+}
+pub(crate) fn input<T>(result: Result<T>) -> Result<T> {
+    tag(result, ArchiveSqlOrigin::Input)
+}
+pub(crate) fn output<T>(result: Result<T>) -> Result<T> {
+    tag(result, ArchiveSqlOrigin::PrivateOutput)
+}
+pub(crate) fn live<T>(result: Result<T>) -> Result<T> {
+    tag(result, ArchiveSqlOrigin::LiveCatalog)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArchiveCompletion {
+    ExportDurable,
+    CatalogCommitted,
+    RecordedReplay,
+    ReadOnlyCompleted,
+}
+#[derive(Debug)]
+pub struct ArchiveCleanupIssue {
+    pub path: PathBuf,
+    pub error: io::Error,
+}
+#[derive(Debug)]
+pub struct ArchiveOutcome<T> {
+    pub value: T,
+    pub completion: ArchiveCompletion,
+    /// Private temporary files only; never live catalog or rollback failures.
+    pub cleanup: Vec<ArchiveCleanupIssue>,
+}
+impl<T> ArchiveOutcome<T> {
+    pub fn new(value: T, completion: ArchiveCompletion) -> Self {
+        Self {
+            value,
+            completion,
+            cleanup: Vec::new(),
+        }
+    }
+    fn cleanup(&mut self, path: &Path, remove: impl FnOnce() -> io::Result<()>) {
+        #[cfg(test)]
+        let result = test_checkpoint(
+            TestEvent::PrivateCleanup,
+            &ArchiveContext::new(ArchiveAction::Inspect, path),
+        )
+        .and_then(|()| remove());
+        #[cfg(not(test))]
+        let result = remove();
+        if let Err(error) = result {
+            self.cleanup.push(ArchiveCleanupIssue {
+                path: path.to_owned(),
+                error,
+            });
+        }
+    }
+    pub(crate) fn cleanup_file(&mut self, path: &Path) {
+        self.cleanup(path, || fs::remove_file(path));
+    }
+    pub(crate) fn cleanup_empty_dir(&mut self, path: &Path) {
+        self.cleanup(path, || fs::remove_dir(path));
+    }
+    pub(crate) fn cleanup_tree(&mut self, path: &Path) {
+        self.cleanup(path, || fs::remove_dir_all(path));
+    }
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum TestEvent {
+    ExportSchema,
+    RestoreAcquired,
+    CopyPlanFrozen,
+    OutputLink,
+    ExportSync,
+    RestoreCommit,
+    CopyCommit,
+    PrivateCleanup,
+}
+#[cfg(test)]
+type TestHook = Box<dyn FnMut(TestEvent, &ArchiveContext) -> io::Result<()>>;
+#[cfg(test)]
+thread_local! { static TEST_HOOK: std::cell::RefCell<Option<TestHook>> = const { std::cell::RefCell::new(None) }; }
+#[cfg(test)]
+fn test_checkpoint(event: TestEvent, context: &ArchiveContext) -> io::Result<()> {
+    TEST_HOOK.with(|slot| {
+        slot.borrow_mut()
+            .as_mut()
+            .map_or(Ok(()), |hook| hook(event, context))
+    })
+}
+#[cfg(test)]
+pub(crate) fn checkpoint(event: TestEvent, context: &ArchiveContext) -> Result<()> {
+    test_checkpoint(event, context).map_err(StoreError::Io)
+}
+#[cfg(test)]
+pub(crate) fn with_test_hook<T>(hook: TestHook, operation: impl FnOnce() -> T) -> T {
+    struct Reset(Option<TestHook>);
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            TEST_HOOK.with(|slot| *slot.borrow_mut() = self.0.take());
+        }
+    }
+    let reset = Reset(TEST_HOOK.with(|slot| slot.replace(Some(hook))));
+    let result = operation();
+    drop(reset);
+    result
+}
+
+#[cfg(test)]
+mod tests;

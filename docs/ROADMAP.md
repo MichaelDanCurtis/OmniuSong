@@ -1,5 +1,7 @@
 # OmniuSong delivery roadmap
 
+October 20 update: the [native Rust migration sequence](RUST-MIGRATION.md) is now the active dependency order. The [complete goal](GOAL.md) preserves the full music/model/plugin scope and requires both MIDI 2.0 and MPE on native Mac and Windows. Stage descriptions below remain capability context; preview completion does not close native release gates. Follow the [release acceptance matrix](RELEASE-ACCEPTANCE.md).
+
 October 15, 2026. Sequence follows musical usefulness and architectural dependencies. Durations are planning ranges for a small focused engineering effort, not completion promises.
 
 ## Stage 0 Research and a playable foundation

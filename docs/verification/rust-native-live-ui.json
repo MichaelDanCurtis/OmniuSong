@@ -1,0 +1,811 @@
+{
+  "format": "omniusong.native-live-audition-ui-verification",
+  "version": 3,
+  "recordedAtUtc": "2026-10-20T22:41:48.545310+00:00",
+  "completed": true,
+  "binary": {
+    "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+    "sha256": "2dd08d500b22333a315b642a541e8a36d05c3cc5466863e58e31a7ad589d35bc",
+    "byteLength": 85048208
+  },
+  "studioOpened": true,
+  "nativeLiveOutputOpened": true,
+  "physicalMicrophoneOpened": false,
+  "nativeInputOpened": false,
+  "requiredNextChecks": [
+    "Integrate and qualify the native note-editor interface and draft/navigation/reconnect behavior.",
+    "Actual healthy window-focus-loss, IME/text-field/scaling coverage, physical controller/listening/latency/continuity and Windows remain separate acceptance."
+  ],
+  "earlierSeparateBinaryWalkthrough": "docs/verification/rust-native-capture-recovery-ui.json",
+  "initialLoadingObservation": {
+    "processId": 19533,
+    "loadingWindowVerified": true,
+    "observation": "Responsive native loading window; matched process sample shows omniusong-sessions -> SQLite openDatabase -> __open. A pending permission prompt or its outcome is not established by the stack. User had allowed the previous build; conditional prompt question for this new build remains pending.",
+    "binary": {
+      "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+      "sha256": "35822214bdc1e3b32ba019a2ad7ec9e32fe0c957bb507b4cbdd5eb1f217bf1e6",
+      "byteLength": 84357248
+    },
+    "artifacts": [
+      {
+        "path": ".runtime/rust-live-ui/opening.ax.txt",
+        "sha256": "d1d9b23fe351c89109ac94f5dfb5be43915dc173d2c1d0cf4622b19835fa080b",
+        "byteLength": 795
+      },
+      {
+        "path": ".runtime/rust-live-ui/opening.jpg",
+        "sha256": "0e8e2779ce29a7ee05fb3da684c91136d5fac05c708bf867c0c5b9261371315e",
+        "byteLength": 52634
+      },
+      {
+        "path": ".runtime/rust-live-ui/opening-worker.sample.txt",
+        "sha256": "7c1196391c6bd11e518cd044845f6e1abb46ff7f198424953bd55e9772ac41e3",
+        "byteLength": 399934
+      },
+      {
+        "path": ".runtime/rust-live-ui/pre-audition-store.json",
+        "sha256": "2148fe8279b41e8c5bbc62d3736984aa7944b130a0353e73c14464a38f911633",
+        "byteLength": 7365
+      }
+    ]
+  },
+  "completedWalkthroughs": [
+    {
+      "binary": {
+        "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+        "sha256": "35822214bdc1e3b32ba019a2ad7ec9e32fe0c957bb507b4cbdd5eb1f217bf1e6",
+        "byteLength": 84357248
+      },
+      "sourceCommit": "17e5395",
+      "processIds": [
+        19533,
+        26548
+      ],
+      "restartProcessIds": [
+        33017,
+        33019
+      ],
+      "disposition": "Actual output/control/restart walkthrough completed; overall live UI acceptance failed because armed computer keys plus a genuine pointer piano click caused spurious focus cleanup. Fixed source requires its own rebuilt-binary check.",
+      "projectId": "24a9d7b5-db89-41a2-a2c2-968c73c431e5",
+      "revision": 6,
+      "tempo": 113,
+      "sourceTakeId": "a57501ca-e552-478e-a667-ad08d243a94c",
+      "sourceFrames": [
+        0,
+        12000
+      ],
+      "placementFrame": 0,
+      "sampleRate": 48000,
+      "sealedManifestSha256": "62fc48bee083c42da5eccda25275d21498fbcaa9940dd8a6a09cc038ae967b39",
+      "output": "MacBook Pro Speakers; 48000 Hz stereo",
+      "savedPlayback": {
+        "finishedFrames": 12000,
+        "reportedXruns": 0,
+        "guardReleased": true
+      },
+      "observed": [
+        "Explicit output-only live start; parent/worker/callback progress visible",
+        "Computer-key press/release; source sustain and repeated same-pitch sustained voices; sustain off clears voices",
+        "Pointer-only sustained key works; All notes off clears voices and requires rearm",
+        "All sixteen named pad activations and thirteen named piano activations exercised; no claimed physical controller input",
+        "Computer pad mapping press/release works",
+        "Minimize causes silence, keyboard disarm and sustain off; restored window shows callback LeaseExpired fail-safe",
+        "Stop acknowledges and releases guard after lease fault; explicit fresh Start then healthy Stop succeeds",
+        "Close removes both GUI and audio processes; exact unchanged bundle restarts; same saved source/revision/manifest reopened; second clean close removes both processes"
+      ],
+      "failedCheck": "Enable computer keys + Keys sustain + pointer C4 click unexpectedly clears keyboard/sustain/voices via focus cleanup; retained in pointer-key-sustained-after-release artifacts.",
+      "unestablishedCheck": "Command-Tab did not establish window focus loss; no healthy focus-loss Panic pass is claimed from that attempt.",
+      "artifacts": [
+        {
+          "path": ".runtime/rust-live-ui/reopened-recording.ax.txt",
+          "sha256": "6da57fdc7aaad034276edb35743b96fcf4431ba9f8041b8fc5a30f7592c4d6f8",
+          "byteLength": 5462
+        },
+        {
+          "path": ".runtime/rust-live-ui/reopened-recording.jpg",
+          "sha256": "5fdefdbd9f424a779480611a63c18f845e3516744558891f21f4fffa8a0319e6",
+          "byteLength": 179974
+        },
+        {
+          "path": ".runtime/rust-live-ui/saved-playback.ax.txt",
+          "sha256": "a91d5c8456e966cf5615798934d9503fa0756e4da48235a17e11907f115529da",
+          "byteLength": 5814
+        },
+        {
+          "path": ".runtime/rust-live-ui/saved-playback.jpg",
+          "sha256": "3754c4121b55279085d7d93b5e56e099ee136d4828a1e1eb8be3b6b6ef86699b",
+          "byteLength": 157905
+        },
+        {
+          "path": ".runtime/rust-live-ui/saved-completed.ax.txt",
+          "sha256": "e4491249d5758961adf6814dab3271d6ce2a04561cc3ae3a35ee280bf8845f78",
+          "byteLength": 5605
+        },
+        {
+          "path": ".runtime/rust-live-ui/saved-completed.jpg",
+          "sha256": "b5deb505b76af0357737893d11668494e43d4aa5b147bc22fc72394e86234972",
+          "byteLength": 185503
+        },
+        {
+          "path": ".runtime/rust-live-ui/live-started.ax.txt",
+          "sha256": "b8f19ff7989e0c26a41841615e1ea69756dce743aaf7a9223b6629eebe50f187",
+          "byteLength": 8984
+        },
+        {
+          "path": ".runtime/rust-live-ui/live-started.jpg",
+          "sha256": "2db86c40a6b49e280994f060535cb8d0255688d8fd5477cdc86dfd1672003e2f",
+          "byteLength": 214053
+        },
+        {
+          "path": ".runtime/rust-live-ui/computer-key-release.ax.txt",
+          "sha256": "e32dfa1fc3cdccb4af47662dd0a7bef8acf5aa5ad39f83e820a051afdd123caa",
+          "byteLength": 9093
+        },
+        {
+          "path": ".runtime/rust-live-ui/computer-key-release.jpg",
+          "sha256": "a853488839985d9ea55dd487773668d1fb464f909279cb2aca23db47df2f9ae6",
+          "byteLength": 216224
+        },
+        {
+          "path": ".runtime/rust-live-ui/sustained-after-release.ax.txt",
+          "sha256": "d21ad5ff6ff1a3e8d147fbe933d841452e11bae2124b88609e4936e8b00c6d00",
+          "byteLength": 9095
+        },
+        {
+          "path": ".runtime/rust-live-ui/sustained-after-release.jpg",
+          "sha256": "bd938dc3830da3282ca93dbb80f37de557791d64708df56f5bdd7579c5a6e572",
+          "byteLength": 216439
+        },
+        {
+          "path": ".runtime/rust-live-ui/repeated-sustained-voices.ax.txt",
+          "sha256": "3449b3b8bfd9e4c2c9a2557499f90186bb57a411cf03f8882318b0a062079b40",
+          "byteLength": 9095
+        },
+        {
+          "path": ".runtime/rust-live-ui/sustain-off.ax.txt",
+          "sha256": "1dd620ec3f4e6f79357f1183127d551fc7426a11102408ae6e0d58139a29f909",
+          "byteLength": 9096
+        },
+        {
+          "path": ".runtime/rust-live-ui/pointer-key-sustained-after-release.ax.txt",
+          "sha256": "b8f19ff7989e0c26a41841615e1ea69756dce743aaf7a9223b6629eebe50f187",
+          "byteLength": 8984
+        },
+        {
+          "path": ".runtime/rust-live-ui/pointer-key-sustained-after-release.jpg",
+          "sha256": "ec5fa8294afe4b02bcd2cd83f81377448f7f957d1fe8f814c3f86665517f4fa7",
+          "byteLength": 214368
+        },
+        {
+          "path": ".runtime/rust-live-ui/pointer-only-key-after-release.ax.txt",
+          "sha256": "23641b2a0557828f89736e3c65920f4dae61285baf7550bc1ef4fe3e9b00c65c",
+          "byteLength": 8992
+        },
+        {
+          "path": ".runtime/rust-live-ui/pointer-only-key-after-release.jpg",
+          "sha256": "4ca6251bb82fcbbbf209fd907bd296bbc0efd8c8e2f9ea9af82f8d18aad2fe33",
+          "byteLength": 214941
+        },
+        {
+          "path": ".runtime/rust-live-ui/panic-cleared-pointer-sustain.ax.txt",
+          "sha256": "b8f19ff7989e0c26a41841615e1ea69756dce743aaf7a9223b6629eebe50f187",
+          "byteLength": 8984
+        },
+        {
+          "path": ".runtime/rust-live-ui/panic-cleared-pointer-sustain.jpg",
+          "sha256": "5af018ba7f125c65c08b4803d73a76b4e7346dc79241f5d290811b5693295ffe",
+          "byteLength": 214384
+        },
+        {
+          "path": ".runtime/rust-live-ui/computer-pad-press-release.ax.txt",
+          "sha256": "38730a29db618c7b1fe52bc9b7d61673b8c28a2081ba74683227989ee3a8724e",
+          "byteLength": 9093
+        },
+        {
+          "path": ".runtime/rust-live-ui/computer-pad-press-release.jpg",
+          "sha256": "d457b50188ae4dca60af2b005429881b5cbbb6c1454e29cabaf0eddc59436400",
+          "byteLength": 216602
+        },
+        {
+          "path": ".runtime/rust-live-ui/all-pad-activations-completed.ax.txt",
+          "sha256": "8c4a536953fcc6a446ae486f94e627de740e74c30eab76dead708f4942eb116b",
+          "byteLength": 9096
+        },
+        {
+          "path": ".runtime/rust-live-ui/all-pad-activations-completed.jpg",
+          "sha256": "cd9f9e277c5469cd440969ae118e12d645ffca4dd3aba741870c0c2d17d7f0aa",
+          "byteLength": 216764
+        },
+        {
+          "path": ".runtime/rust-live-ui/all-piano-activations-completed.ax.txt",
+          "sha256": "c16894f48e95f31270ee61fb72c8e295e2a8f155381851908bb66c756077c864",
+          "byteLength": 9050
+        },
+        {
+          "path": ".runtime/rust-live-ui/all-piano-activations-completed.jpg",
+          "sha256": "fce82976f43f3ad89bdaf09c6338d703b3a008d8c1831e0890f5547f262543d3",
+          "byteLength": 215056
+        },
+        {
+          "path": ".runtime/rust-live-ui/before-window-focus-loss.ax.txt",
+          "sha256": "ff0c5e25f1d26db316ab9bd2ccddb7d6a5e87a906944e845d540babdf29e12d9",
+          "byteLength": 9092
+        },
+        {
+          "path": ".runtime/rust-live-ui/before-window-focus-loss.jpg",
+          "sha256": "1230e642048a8a8b22620fddf47671e9b14a0c45a13eabe7a50a423c6ecc31c5",
+          "byteLength": 216332
+        },
+        {
+          "path": ".runtime/rust-live-ui/after-window-focus-loss.ax.txt",
+          "sha256": "c1be5bac454b1bab36705734f421a0bd3037cca784b02fbc5dd8a3c030db419a",
+          "byteLength": 9092
+        },
+        {
+          "path": ".runtime/rust-live-ui/after-window-focus-loss.jpg",
+          "sha256": "72c6acfaabee2d364bdae0d1abf48dd8a0fb1bcdd09b80126435ecf7c4f2be2f",
+          "byteLength": 216331
+        },
+        {
+          "path": ".runtime/rust-live-ui/after-minimize-focus-loss.ax.txt",
+          "sha256": "5d4093fcbba98732670995b75915302d703d1c7bb8f677f86071d5e842e76d92",
+          "byteLength": 9510
+        },
+        {
+          "path": ".runtime/rust-live-ui/after-minimize-focus-loss.jpg",
+          "sha256": "7047d2abdc3c03c895ce5e85a3f30ddb4b58f203dac2f3a1c3c5cee5da2b6fca",
+          "byteLength": 224094
+        },
+        {
+          "path": ".runtime/rust-live-ui/after-window-raise.ax.txt",
+          "sha256": "5d4093fcbba98732670995b75915302d703d1c7bb8f677f86071d5e842e76d92",
+          "byteLength": 9510
+        },
+        {
+          "path": ".runtime/rust-live-ui/after-window-raise.jpg",
+          "sha256": "2d1872b3b6d8e3f5d01d6e51749ecd10e12bb1e509bba192ec0fb81bb8bda04d",
+          "byteLength": 224395
+        },
+        {
+          "path": ".runtime/rust-live-ui/stopped-after-focus-lease.ax.txt",
+          "sha256": "17fa190476e59582ccf6c122c3a5b69d77ec178f7c1bdc46c4357a54c32a09a0",
+          "byteLength": 9039
+        },
+        {
+          "path": ".runtime/rust-live-ui/stopped-after-focus-lease.jpg",
+          "sha256": "bd17e9e3cf9f3da53c46ce03d7bd070905d7dc973b7d9961b26700943c987062",
+          "byteLength": 238784
+        },
+        {
+          "path": ".runtime/rust-live-ui/explicit-restart-after-lease-fault.ax.txt",
+          "sha256": "3215bceb5f36e56e462049c8a221455e1868f94a6627dbcf80e92a458acfce40",
+          "byteLength": 9274
+        },
+        {
+          "path": ".runtime/rust-live-ui/explicit-restart-after-lease-fault.jpg",
+          "sha256": "54e6ad87451afbf6289e1f546d4e6cffce2efc8e1533bc8dc78019a88549932b",
+          "byteLength": 206343
+        },
+        {
+          "path": ".runtime/rust-live-ui/healthy-stop-acknowledged.ax.txt",
+          "sha256": "eb0b0a9ea05f9c43e7c0d3e5e7bab99eaf71c4fabdc03597b6532e88ba18618f",
+          "byteLength": 5455
+        },
+        {
+          "path": ".runtime/rust-live-ui/healthy-stop-acknowledged.jpg",
+          "sha256": "b05aad9bc01fa212390d5fb2ac88ceb1f94a116fad8d5073ec35c363aac304d6",
+          "byteLength": 179740
+        },
+        {
+          "path": ".runtime/rust-live-ui/same-binary-restart-reopened.ax.txt",
+          "sha256": "521c793516d023084df6b610a5f845f36cbb93d50937381013a07da49eddb278",
+          "byteLength": 5110
+        },
+        {
+          "path": ".runtime/rust-live-ui/same-binary-restart-reopened.jpg",
+          "sha256": "23695877e45af3835719c5f5c3433edb7ba032d119c85b08014d4964c08ff8b8",
+          "byteLength": 183145
+        },
+        {
+          "path": ".runtime/rust-live-ui/same-binary-restart-source-exact.ax.txt",
+          "sha256": "6da57fdc7aaad034276edb35743b96fcf4431ba9f8041b8fc5a30f7592c4d6f8",
+          "byteLength": 5462
+        },
+        {
+          "path": ".runtime/rust-live-ui/same-binary-restart-source-exact.jpg",
+          "sha256": "a7ca381548efcfd1100086aa29b1adb74bc1ecd6384b9e1455c739b086cf74e8",
+          "byteLength": 179991
+        },
+        {
+          "path": ".runtime/rust-live-ui/pad-1-accessibility.ax.txt",
+          "sha256": "d51b3aaaf3e1f207e9cf2406ef2745bb47ce989afa4720ddf9984f3244bd6685",
+          "byteLength": 9096
+        },
+        {
+          "path": ".runtime/rust-live-ui/pad-10-accessibility.ax.txt",
+          "sha256": "6eda68df23de72293d804f5543c8db60f02526c7e9a468ecdb0e3355f213c800",
+          "byteLength": 9096
+        },
+        {
+          "path": ".runtime/rust-live-ui/pad-11-accessibility.ax.txt",
+          "sha256": "2e3198b6a5b0124b500f624d91e9a899b81f04f5538ebc102989496d4a540bb4",
+          "byteLength": 9096
+        },
+        {
+          "path": ".runtime/rust-live-ui/pad-12-accessibility.ax.txt",
+          "sha256": "7f2625a2914dfc8b2ce01fb29e4213129e0db262f6e1e5d3247a185eaa5de733",
+          "byteLength": 9096
+        },
+        {
+          "path": ".runtime/rust-live-ui/pad-13-accessibility.ax.txt",
+          "sha256": "3330022bbb84a64cd79e66f9834a5fe2338e2e1b7cb2ca52968f7fd9af6532f2",
+          "byteLength": 9096
+        },
+        {
+          "path": ".runtime/rust-live-ui/pad-14-accessibility.ax.txt",
+          "sha256": "7c85a2a232ed0cbce8fa10800b615577594e42d87120cdd7d01a9d74d4e76291",
+          "byteLength": 9096
+        },
+        {
+          "path": ".runtime/rust-live-ui/pad-15-accessibility.ax.txt",
+          "sha256": "0affc898151a66ec80bc493006b2f24cf78bd7d79f644d294410f461b887668d",
+          "byteLength": 9096
+        },
+        {
+          "path": ".runtime/rust-live-ui/pad-16-accessibility.ax.txt",
+          "sha256": "8c4a536953fcc6a446ae486f94e627de740e74c30eab76dead708f4942eb116b",
+          "byteLength": 9096
+        },
+        {
+          "path": ".runtime/rust-live-ui/pad-2-accessibility.ax.txt",
+          "sha256": "f79a1b7f7e71e092239c1f4994c2b878d4c158b9f1f139505e4577b2418ed584",
+          "byteLength": 9096
+        },
+        {
+          "path": ".runtime/rust-live-ui/pad-3-accessibility.ax.txt",
+          "sha256": "ec8c667b4e6f4be94b85fdc7d0d10c75617e950aafe7739e7562000a588c9ea0",
+          "byteLength": 9096
+        },
+        {
+          "path": ".runtime/rust-live-ui/pad-4-accessibility.ax.txt",
+          "sha256": "9f205ef03c94dc4757bbf80cb70f1851314e129dc0858a5988a1f602c92be264",
+          "byteLength": 9096
+        },
+        {
+          "path": ".runtime/rust-live-ui/pad-5-accessibility.ax.txt",
+          "sha256": "30be31277eeaa0589081cee4f87cd306906c635a88283fd730113d19d64b658f",
+          "byteLength": 9096
+        },
+        {
+          "path": ".runtime/rust-live-ui/pad-6-accessibility.ax.txt",
+          "sha256": "c53dba111e3dcc2e5d6164f071a944866054cf27d9a35e72a7a763d31fc021b7",
+          "byteLength": 9096
+        },
+        {
+          "path": ".runtime/rust-live-ui/pad-7-accessibility.ax.txt",
+          "sha256": "f0ed59356fc5e0502c2d5c3b0c3417cdc08e5f698e37b37853e309d371c1ae59",
+          "byteLength": 9096
+        },
+        {
+          "path": ".runtime/rust-live-ui/pad-8-accessibility.ax.txt",
+          "sha256": "0beb3b4d067af12dbce25841e0e660d0ebef770de94eb5f2a2ef133d0776f431",
+          "byteLength": 9096
+        },
+        {
+          "path": ".runtime/rust-live-ui/pad-9-accessibility.ax.txt",
+          "sha256": "10bc76b1d174a6ed9a012ea21dd24697a7726dbfe77cb7009677844593fcbed8",
+          "byteLength": 9096
+        }
+      ],
+      "limits": [
+        "No native input or physical microphone opened; no recorded performance or saved project edit",
+        "No captured physical sound, listening judgment, physical latency or thirty-minute continuity",
+        "Minimize exercised lease failure; it does not establish the healthy foreground-loss Panic route",
+        "Legacy cb64 recovery/archive walkthrough remains separate exact-binary evidence"
+      ]
+    },
+    {
+      "binary": {
+        "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+        "sha256": "2dd08d500b22333a315b642a541e8a36d05c3cc5466863e58e31a7ad589d35bc",
+        "byteLength": 85048208
+      },
+      "sourceGate": "docs/verification/rust-native-note-editing-tests.json",
+      "disposition": "Pass for corrected pointer performance-focus behavior and bounded native output/control/restart scope. Full workstation/release focus acceptance remains incomplete.",
+      "projectId": "24a9d7b5-db89-41a2-a2c2-968c73c431e5",
+      "revision": 6,
+      "tempo": 113,
+      "sourceTakeId": "a57501ca-e552-478e-a667-ad08d243a94c",
+      "sourceFrames": [
+        0,
+        12000
+      ],
+      "placementFrame": 0,
+      "sampleRate": 48000,
+      "sealedManifestSha256": "62fc48bee083c42da5eccda25275d21498fbcaa9940dd8a6a09cc038ae967b39",
+      "output": "MacBook Pro Speakers; 48000 Hz stereo",
+      "savedPlayback": {
+        "finishedFrames": 12000,
+        "reportedXruns": 0,
+        "guardReleased": true
+      },
+      "observed": [
+        "Explicit live output start; parent/worker/callback progress visible",
+        "Computer keys enabled + source sustain + genuine coordinate piano click at 43,281 retains armed focus/sustain and one voice after pointer release",
+        "Matching computer A adds second same-pitch sustained voice; sustain off clears both without disarm or fault",
+        "Unrelated patch popup clears sustained voice/sustain/computer arming through healthy Panic generation; no output lease failure",
+        "Computer pad mapping press/release; all sixteen accessible pad pulses retain computer arming",
+        "All thirteen accessible piano pulses retain computer arming",
+        "Unrelated velocity-control focus clears sustained voice/arming/sustain; subsequent A input does not play",
+        "All notes off clears active voice, sustain and keyboard arming; healthy Stop acknowledges and releases session guard",
+        "Both GUI and audio processes exit; exact binary remains unchanged; actual relaunch and original revision/source range/manifest reopening succeed"
+      ],
+      "artifacts": [
+        {
+          "path": ".runtime/rust-live-ui/fixed-after-unrelated-input.ax.txt",
+          "sha256": "d99a3b58198ce813eec0f415ee5a7fc33677d74b2d7b32fca966ec26d57d4ee7",
+          "byteLength": 8990
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-after-unrelated-input.jpg",
+          "sha256": "1123ffd6ff298940b20fc59fa90e7b4c709d1d81fc30120ca3b6fde29d9c0eab",
+          "byteLength": 214486
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-all-pads.ax.txt",
+          "sha256": "7b67a56bac4d514c905cc7ce7ca43fc35fa39b8a16fc54c4ee52f9d9ea9d38f8",
+          "byteLength": 9117
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-all-pads.jpg",
+          "sha256": "8feec1c504f3cebbfb364dcaf83aab202c48447efeb94ad09548ba02e6562b59",
+          "byteLength": 216676
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-all-piano-accessibility.ax.txt",
+          "sha256": "80d5ba59b0ad49bfda67dd71e88f27b20edecd15248fbd514606594fbb0a81d6",
+          "byteLength": 9099
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-all-piano.ax.txt",
+          "sha256": "80d5ba59b0ad49bfda67dd71e88f27b20edecd15248fbd514606594fbb0a81d6",
+          "byteLength": 9099
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-all-piano.jpg",
+          "sha256": "11134387dc601a7f0bf2f6569c0bfb1f53f5e189f81b4e881a537a9bdf51fcfb",
+          "byteLength": 216495
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-before-outside-focus.ax.txt",
+          "sha256": "950b0738e2f000d914e4be478a3c3afe6c2667267b107839c5a6558a365c28f9",
+          "byteLength": 9097
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-before-outside-focus.jpg",
+          "sha256": "0a02b64c0f0c49a6fd7bdab8539c3f7d5f5c944138cfa64166c001dc620e37dd",
+          "byteLength": 216380
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-before-panic.ax.txt",
+          "sha256": "0b8e98cef4aaf20aee3b83a83cdbbbe37b669d44114c3acb26569c88c808cb4f",
+          "byteLength": 9094
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-before-panic.jpg",
+          "sha256": "042e80733696f586f1ab47d7889f8f368acd9926ad48265c3bbc5f3985c02d97",
+          "byteLength": 216139
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-before-text-focus.ax.txt",
+          "sha256": "bc3c504a2b0ffd3365b8edb535b1e92b515ecfe6b728befaeb101a7eca53a21c",
+          "byteLength": 9093
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-before-text-focus.jpg",
+          "sha256": "71b18262a206ce9cd1ec98afd0bbe25f58acc36e2bb60759ee454afdd885b30d",
+          "byteLength": 216221
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-computer-pad.ax.txt",
+          "sha256": "95a3624139b839cc018e63725631c422037454445a4e5e863a79f39daf367ee2",
+          "byteLength": 9093
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-computer-pad.jpg",
+          "sha256": "87698d8c58869c6e18f1bdfd52dbea9bec99a5aec92292d5be8653affea92113",
+          "byteLength": 216562
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-healthy-stop.ax.txt",
+          "sha256": "eb0b0a9ea05f9c43e7c0d3e5e7bab99eaf71c4fabdc03597b6532e88ba18618f",
+          "byteLength": 5455
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-healthy-stop.jpg",
+          "sha256": "d5d613cb874548020f79b44ca0a044bec698a0ed0eebecdfecae73cfb701a5ff",
+          "byteLength": 180790
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-keys-armed.ax.txt",
+          "sha256": "b6cfed4de2bd64ed1c657e70de92cc6c53ef3fa260e49b7d767c86202e0069c3",
+          "byteLength": 9093
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-keys-armed.jpg",
+          "sha256": "b7faabb0972d73c100adc7d7f000b075b931e6130c33c6ae8d26fce3e620aa76",
+          "byteLength": 216207
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-live-started.ax.txt",
+          "sha256": "b8f19ff7989e0c26a41841615e1ea69756dce743aaf7a9223b6629eebe50f187",
+          "byteLength": 8984
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-live-started.jpg",
+          "sha256": "fc55c17dad2b7ef9f097ad4cdcb10952564f845bcfd5a35c62f4391ec5cd1672",
+          "byteLength": 214055
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-numeric-text-entry.ax.txt",
+          "sha256": "d1e94583c5f090579003f77221caa111d856822d8ef9e03b93ca28e1e878c781",
+          "byteLength": 9286
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-numeric-text-entry.jpg",
+          "sha256": "ead00e01d8208afc937172c159a60c944c8eaa103ab5c1416b8081ec6e24642f",
+          "byteLength": 214627
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-opening-worker.sample.txt",
+          "sha256": "9f3dce951689660c6f2ac3b1ef2447d4da0edd4d8c8e3fc4e1a684099eed23bc",
+          "byteLength": 249817
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-opening.ax.txt",
+          "sha256": "d1d9b23fe351c89109ac94f5dfb5be43915dc173d2c1d0cf4622b19835fa080b",
+          "byteLength": 795
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-opening.jpg",
+          "sha256": "7a97b1a21d40813e821b8a09ffbd5d3f56e94b517e7aaa7546ba59d326e625b8",
+          "byteLength": 52044
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-outside-popup-cleared.ax.txt",
+          "sha256": "9dc821ec5e8497be01afdfbfe061cdfe4be0467859b348f00707e54712a9d8fd",
+          "byteLength": 9258
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-outside-popup-cleared.jpg",
+          "sha256": "0db483defb4bf8d1659efea5c13c232e668d5751b12c0ca3d5d7c9268f9a6e49",
+          "byteLength": 215201
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-pad-1-accessibility.ax.txt",
+          "sha256": "7b14783a7186c8129d15f28989fd9669e53f28c163173ddb720b16f9513a29ba",
+          "byteLength": 9107
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-pad-10-accessibility.ax.txt",
+          "sha256": "56c1f9dd8c6b3d897260fa1d3d3159815d28af3179caab026bef730751b017b4",
+          "byteLength": 9108
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-pad-11-accessibility.ax.txt",
+          "sha256": "7524874996163a7b628fffdadd7ed929c6837026eecede83284cf73b6f7dd879",
+          "byteLength": 9107
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-pad-12-accessibility.ax.txt",
+          "sha256": "b48962e15fb29c879278c32ac40ccf0e2fe20eb3c4e82cca83cfe5ccf7df168f",
+          "byteLength": 9114
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-pad-13-accessibility.ax.txt",
+          "sha256": "21abf9946b51512d33031b9369036e49fe9b9187ea5bd08407fb7416309489df",
+          "byteLength": 9113
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-pad-14-accessibility.ax.txt",
+          "sha256": "9e907bbdb78f4c39aa3efa952117499889d6b28c55bc7a687827b0792e91ff03",
+          "byteLength": 9117
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-pad-15-accessibility.ax.txt",
+          "sha256": "2f2a0f1c7a9e87b2e786fd96a7cd64ae488aeb937d1c87bec1d910db26fcc165",
+          "byteLength": 9113
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-pad-16-accessibility.ax.txt",
+          "sha256": "7b67a56bac4d514c905cc7ce7ca43fc35fa39b8a16fc54c4ee52f9d9ea9d38f8",
+          "byteLength": 9117
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-pad-2-accessibility.ax.txt",
+          "sha256": "296e75566b8fe54c80836f9c4219e4b0cfe3e876f0278e6373b0b38363eaf3d1",
+          "byteLength": 9108
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-pad-3-accessibility.ax.txt",
+          "sha256": "25c6cb5586bce2d5de053358996d3b63d55b796e463f200bdc75b096d42db15e",
+          "byteLength": 9113
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-pad-4-accessibility.ax.txt",
+          "sha256": "7316fa013caa92360db02a8447e06e49202adae18fc4b61b526898f5ea94109c",
+          "byteLength": 9111
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-pad-5-accessibility.ax.txt",
+          "sha256": "2a07e73a328bc6c8b79a1751b2423f0ed7a0aedaf823b0856538cbb647d812ea",
+          "byteLength": 9107
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-pad-6-accessibility.ax.txt",
+          "sha256": "af48bbb667a59af34ea85996a43dc879bf40b41e69df0b59558bbe7513656aeb",
+          "byteLength": 9110
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-pad-7-accessibility.ax.txt",
+          "sha256": "b3191597291052e37ccf30c574390e783014569deb2167ba9d6b2b85c0b6306b",
+          "byteLength": 9110
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-pad-8-accessibility.ax.txt",
+          "sha256": "f0ca9b63c3f111954fe960e419709bdc6096a0ea289514015abc80c49aef750a",
+          "byteLength": 9111
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-pad-9-accessibility.ax.txt",
+          "sha256": "3254136837f517180d38d7e15779f173c5a8663159b27ad6a255f38c18964adf",
+          "byteLength": 9108
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-panic-cleared.ax.txt",
+          "sha256": "b8f19ff7989e0c26a41841615e1ea69756dce743aaf7a9223b6629eebe50f187",
+          "byteLength": 8984
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-panic-cleared.jpg",
+          "sha256": "00c420003b0783ec6233ef155eee99ddc239a202744eb83a3cde4ca8eea08cdc",
+          "byteLength": 214610
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-pointer-computer-overlap.ax.txt",
+          "sha256": "f473279a5d87f7c3f698462bdf75b7885db060acdef1958db637e3c1b53a626b",
+          "byteLength": 9095
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-pointer-computer-overlap.jpg",
+          "sha256": "e27485bf4f98c221eb75b52efc7e763b0ef0333826d23cb40a616fe3fd731d7d",
+          "byteLength": 216102
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-pointer-sustained.ax.txt",
+          "sha256": "6150cdd5382724ad7a3023c228c716c661f8dcc4361abcdd88a0c2d039cb1ced",
+          "byteLength": 9095
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-pointer-sustained.jpg",
+          "sha256": "54f97340daa895878a93535cfbeb69f7c08c774793a5e8b99b13369a70741736",
+          "byteLength": 216068
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-reopened.ax.txt",
+          "sha256": "521c793516d023084df6b610a5f845f36cbb93d50937381013a07da49eddb278",
+          "byteLength": 5110
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-reopened.jpg",
+          "sha256": "074767f4388cfbb7e0121daf850ea1489880dacc54d88dc8c929664995232885",
+          "byteLength": 183149
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-restart-source-exact.ax.txt",
+          "sha256": "6da57fdc7aaad034276edb35743b96fcf4431ba9f8041b8fc5a30f7592c4d6f8",
+          "byteLength": 5462
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-restart-source-exact.jpg",
+          "sha256": "9943d2f4dd8117c36b6b3a60b896f36c23756e960f6b828f953ca93c2949f06a",
+          "byteLength": 180559
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-restart-source.ax.txt",
+          "sha256": "521c793516d023084df6b610a5f845f36cbb93d50937381013a07da49eddb278",
+          "byteLength": 5110
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-restart-source.jpg",
+          "sha256": "84577412a4ae02cabd2d7b12633e7bff4f9409c36a2f74c7445d2c37ad009f4f",
+          "byteLength": 183812
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-saved-finished.ax.txt",
+          "sha256": "e4491249d5758961adf6814dab3271d6ce2a04561cc3ae3a35ee280bf8845f78",
+          "byteLength": 5605
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-saved-finished.jpg",
+          "sha256": "738bf1b55b4143c0f37e9d78d222a03204c379424199e8179b6a0ce656152f39",
+          "byteLength": 185491
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-saved-playback.ax.txt",
+          "sha256": "9eede5a70d8d114f17d48f37c3c0431de09455e9fca0a8bb5a872370fb2a2a05",
+          "byteLength": 5812
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-saved-playback.jpg",
+          "sha256": "3a70ef10a98072c1969236caf2958e98ee06eb9da02e01578513a9840b0fa82e",
+          "byteLength": 157910
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-source.ax.txt",
+          "sha256": "6da57fdc7aaad034276edb35743b96fcf4431ba9f8041b8fc5a30f7592c4d6f8",
+          "byteLength": 5462
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-source.jpg",
+          "sha256": "a7ca381548efcfd1100086aa29b1adb74bc1ecd6384b9e1455c739b086cf74e8",
+          "byteLength": 179991
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-sustain-enabled.ax.txt",
+          "sha256": "d0ed38f72e40afb2cd83ec4a0180a62fa0caf4420f621631a21cff5af71a3665",
+          "byteLength": 9094
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-sustain-enabled.jpg",
+          "sha256": "206c97a240514fde886618980dbf37a4b06728dc8c9df9c35364167c37350a81",
+          "byteLength": 215904
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-sustain-release.ax.txt",
+          "sha256": "8fe00e1c4338773673848fb6ce562c060383a9727d0fb80286e28bf8218bc181",
+          "byteLength": 9099
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-sustain-release.jpg",
+          "sha256": "2699def506975179cf935721cdc198b21352eb526d963f5d76dddc0cd20c9f14",
+          "byteLength": 216334
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-text-focus.ax.txt",
+          "sha256": "51ee69cf109d7078f9e7d0144320f0dab06e5dfa12c20f341c10da80ffc7e20a",
+          "byteLength": 9280
+        },
+        {
+          "path": ".runtime/rust-live-ui/fixed-text-focus.jpg",
+          "sha256": "5675d4cfb4d9bb2892f0f28203813e669b2b9fb7fff4ba234ade084831c2b83b",
+          "byteLength": 214403
+        }
+      ],
+      "limits": [
+        "No native input, personal recording, captured physical sound, listening judgment or latency measured.",
+        "Numeric control retained stepper AX role, so this is unrelated-control cleanup evidence, not complete native text-editor/IME acceptance.",
+        "Healthy window-focus-loss route remains separately unqualified in the native walkthrough; old minimize exercise proved lease failure.",
+        "No GUI note-editor controls or model inference are implied by the note backend being linked into this binary."
+      ]
+    }
+  ],
+  "currentBinary": {
+    "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+    "sha256": "2dd08d500b22333a315b642a541e8a36d05c3cc5466863e58e31a7ad589d35bc",
+    "byteLength": 85048208
+  },
+  "currentBinaryState": {
+    "processId": 34649,
+    "audioProcessId": 34758,
+    "studioOpened": true,
+    "observation": "Studio opened after the loading observation. No further prompt action was required by this walkthrough; the exact permission timing/cause is not inferred from the sample. The matched sample shows the session worker idle receiving commands, not blocked in SQLite open.",
+    "actualExitVerified": true,
+    "binaryUnchangedAcrossRestart": true,
+    "leftState": "Restarted studio idle on exact saved recording source. No saved edits or performances created.",
+    "restartProcessId": 36559,
+    "restartAudioProcessId": 36562,
+    "preservationAudit": "docs/verification/rust-native-live-preservation.json"
+  },
+  "completionScope": "Bounded native output-only live audition and pointer-focus correction walkthrough. Complete release accessibility/focus/IME/scaling and physical music qualification remain unfinished."
+}

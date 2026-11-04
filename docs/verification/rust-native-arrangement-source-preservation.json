@@ -1,0 +1,54 @@
+{
+  "format": "omniusong.native-arrangement-source-preservation",
+  "version": 1,
+  "recordedAtUtc": "2026-10-21T01:32:33.278653+00:00",
+  "scope": "Unchanged live store through source tests/build/package and initial exact-binary loading frame. No arrangement edit, archive, native playback or recording performed.",
+  "passed": true,
+  "projectCount": 14,
+  "tableCount": 10,
+  "exactRows": 220,
+  "wholeCatalogFileExact": true,
+  "immutableTakes": [
+    {
+      "path": ".runtime/native-studio/takes/679914498bf02ced1570f8b58ba441eb1f958e8dec54d2931a4eab9f3657ff6b.sqlite3",
+      "sha256": "679914498bf02ced1570f8b58ba441eb1f958e8dec54d2931a4eab9f3657ff6b",
+      "byteLength": 40960
+    },
+    {
+      "path": ".runtime/native-studio/takes/8460ff93703afb9c89ac7359e45761e9605fb1a1ae029aa8dc068398e11bd897.sqlite3",
+      "sha256": "8460ff93703afb9c89ac7359e45761e9605fb1a1ae029aa8dc068398e11bd897",
+      "byteLength": 917504
+    },
+    {
+      "path": ".runtime/native-studio/takes/e654b488b83a63d9323615e5b725dafbb8565ac901621c12954c1885ee428430.sqlite3",
+      "sha256": "e654b488b83a63d9323615e5b725dafbb8565ac901621c12954c1885ee428430",
+      "byteLength": 139264
+    },
+    {
+      "path": ".runtime/native-studio/takes/c4a46085f862202de98388f925984e45906c20123752b345bf92464b0b683900.sqlite3",
+      "sha256": "c4a46085f862202de98388f925984e45906c20123752b345bf92464b0b683900",
+      "byteLength": 143360
+    }
+  ],
+  "prototypeFilesExact": 30,
+  "before": {
+    "path": ".runtime/rust-arrangement-ui/before-store.json",
+    "sha256": "892f76c81afad84bf89898d82c563d02ff94cd3b067bab07599b7069d544d60e",
+    "byteLength": 20587
+  },
+  "afterSourceGate": {
+    "path": ".runtime/rust-arrangement-ui/after-source-gate-store.json",
+    "sha256": "64b4eaa7496df0f0fae5d0ea732da655c9fe9a55b39aa8e4ed4ee6fc26229e9a",
+    "byteLength": 20587
+  },
+  "afterInitialLaunch": {
+    "path": ".runtime/rust-arrangement-ui/after-initial-launch-store.json",
+    "sha256": "70c0130d2f5678177b7d9efb484d0e8d1e2f53d98e4f6d2c037b04d17af53ac4",
+    "byteLength": 20587
+  },
+  "sourceGate": {
+    "path": "docs/verification/rust-native-arrangement-tests.json",
+    "sha256": "eb97e9dca3648c5e62267867df0def52d337511c382f03411972839d75a99604",
+    "byteLength": 24491
+  }
+}

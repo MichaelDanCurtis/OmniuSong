@@ -1,0 +1,40 @@
+{
+  "format": "omniusong.native-live-preservation",
+  "version": 3,
+  "recordedAtUtc": "2026-10-20T22:42:11.007081+00:00",
+  "baselineSnapshot": ".runtime/rust-live-ui/pre-audition-store.json",
+  "baselineSnapshotSha256": "2148fe8279b41e8c5bbc62d3736984aa7944b130a0353e73c14464a38f911633",
+  "nativeProjectCount": 10,
+  "allTenTablesExact": true,
+  "catalogFileExact": true,
+  "catalogFile": {
+    "sha256": "69dcf28aaaf9401d49c31c7027a0097a2d5c563d4523abeff90585cbabba015a",
+    "byteLength": 6496256
+  },
+  "ownedImmutableTakes": [
+    {
+      "path": ".runtime/native-studio/takes/679914498bf02ced1570f8b58ba441eb1f958e8dec54d2931a4eab9f3657ff6b.sqlite3",
+      "sha256": "679914498bf02ced1570f8b58ba441eb1f958e8dec54d2931a4eab9f3657ff6b",
+      "byteLength": 40960
+    },
+    {
+      "path": ".runtime/native-studio/takes/8460ff93703afb9c89ac7359e45761e9605fb1a1ae029aa8dc068398e11bd897.sqlite3",
+      "sha256": "8460ff93703afb9c89ac7359e45761e9605fb1a1ae029aa8dc068398e11bd897",
+      "byteLength": 917504
+    },
+    {
+      "path": ".runtime/native-studio/takes/e654b488b83a63d9323615e5b725dafbb8565ac901621c12954c1885ee428430.sqlite3",
+      "sha256": "e654b488b83a63d9323615e5b725dafbb8565ac901621c12954c1885ee428430",
+      "byteLength": 139264
+    }
+  ],
+  "originalPrototypeFilesExact": 30,
+  "integrityAndForeignKeysPassed": true,
+  "nativeLiveAuditionExercised": true,
+  "nativeInputOpened": false,
+  "limits": [
+    "Audit covers both actual 358\u2026 and corrected 2dd\u2026 output-only walkthroughs, Stop and process restart/source reopening. No live catalog writes were requested.",
+    "All ten tables, catalog bytes, three immutable takes and all 30 prototype files remain exact.",
+    "The note-edit qualifier uses an isolated synthetic note-only store/archive; no audio asset, human recording or device qualification is implied."
+  ]
+}

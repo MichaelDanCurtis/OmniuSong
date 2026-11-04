@@ -1,0 +1,32 @@
+{
+  "format": "omniusong.performance-finish-preservation",
+  "version": 1,
+  "recordedAtUtc": "2026-10-21T03:27:51.511630+00:00",
+  "passed": true,
+  "before": {
+    "path": ".runtime/rust-performance-finish/before-live-store.json",
+    "sha256": "bebf994dd1d700e6702a8e98232fc8c4f4664be61ae2fadde55bed013ddb0545",
+    "byteLength": 29644
+  },
+  "after": {
+    "path": ".runtime/rust-performance-finish/after-final-gate-live-store.json",
+    "sha256": "b62365c56342abd7939cfc461f1320d52a7f9006f0e613b17d0d72cf814d582b",
+    "byteLength": 29644
+  },
+  "allCatalogTablesAndBytesExact": true,
+  "projectCount": 16,
+  "rows": 338,
+  "immutableTakesExact": 4,
+  "prototypeFilesExact": 30,
+  "prototypeSourceInventory": {
+    "path": "docs/verification/rust-migration-baseline.json",
+    "sha256": "1169fdd5337f98798b0dbd6fb2b87c69ff5f8ab6759ad7454f4c587e3b25536e",
+    "byteLength": 7170
+  },
+  "runningBundle": {
+    "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+    "sha256": "09789029f54d2d3c9fff0b94d22a3176afe483bc6b439a0cf703d151338f84ec",
+    "byteLength": 88334128
+  },
+  "scope": "Source and isolated synthetic fixture changes. No main catalog, original-take, prototype-file or installed-bundle mutation."
+}

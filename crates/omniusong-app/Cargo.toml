@@ -1,0 +1,20 @@
+[package]
+name = "omniusong-app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+omniusong-core.workspace = true
+omniusong-store.workspace = true
+omniusong-session.workspace = true
+omniusong-engine.workspace = true
+uuid.workspace = true
+serde_json.workspace = true
+eframe.workspace = true
+wgpu.workspace = true
+
+[dev-dependencies]
+sha2.workspace = true
+omniusong-session = { workspace = true, features = ["test-hooks"] }

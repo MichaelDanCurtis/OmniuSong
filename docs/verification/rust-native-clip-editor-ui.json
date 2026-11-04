@@ -1,0 +1,888 @@
+{
+  "format": "omniusong.native-clip-editor-ui-qualification",
+  "version": 1,
+  "recordedAtUtc": "2026-10-21T00:05:21.082947+00:00",
+  "completed": true,
+  "scope": "Bounded actual native Mac clip-inspector walkthrough using fresh synthetic legacy WAV/sealed-native audio and muted raw-UMP sources. Full milestone 2 and release goal remain incomplete.",
+  "packagedBinary": {
+    "path": "dist/OmniuSong Native.app/Contents/MacOS/OmniuSongNative",
+    "sha256": "216d8e1c3760242f13985a727629752a7d753e0b16477ab275899d2ed54f1155",
+    "byteLength": 87413920
+  },
+  "infoPlist": {
+    "path": "dist/OmniuSong Native.app/Contents/Info.plist",
+    "sha256": "1206796078276957cc3f5042561a9f2a5d26ce8a5c3d4682dc4e62127b4d2316",
+    "byteLength": 785
+  },
+  "sourceGate": {
+    "path": "docs/verification/rust-native-clip-editor-tests.json",
+    "sha256": "e853780cab35aa3eaebc8ca75324a310d4cf7e829fd8918fa3ce3fbeb27fd3d4",
+    "byteLength": 26373
+  },
+  "fixture": {
+    "path": ".runtime/rust-clip-ui/fixture.json",
+    "sha256": "c8b14a898a6ed2a70369a63c5f40fc95a81730c8e60aeb70b52042c6a6bd80f4",
+    "byteLength": 12668
+  },
+  "isolatedFixturePreflight": {
+    "path": ".runtime/rust-clip-ui/preflight-fixture.json",
+    "sha256": "d145b79ac2bb72b2661f9b7307cb630a1682de3c6d253b515600dd011e716b69",
+    "byteLength": 12741
+  },
+  "sourceProject": {
+    "id": "811b10bd-b767-41db-997e-bd9b449aabee",
+    "name": "SYNTHETIC clip editor walkthrough b679dcd3",
+    "baselineRevision": 5,
+    "finalRevision": 17
+  },
+  "restoredCopy": {
+    "id": "0394063f-f5d8-45af-b2d5-fc20b47efe3e",
+    "name": "SYNTHETIC clip editor · restored copy",
+    "initialRevision": 17,
+    "finalRevision": 18,
+    "rootIdentityOnlyBeforeExplicitRename": true
+  },
+  "checks": {
+    "exactLegacyUnicodeControlTrackIdentity": true,
+    "exactMultipleNativeClipSelection": true,
+    "invalidIntegerAndIncompleteNumberStayLocal": true,
+    "invalidSaveContinuationDoesNotPublish": true,
+    "dirtyCancelRetainsFields": true,
+    "dirtyDiscardContinuesWithoutPublication": true,
+    "saveAcknowledgementThenTrackContinuation": true,
+    "genuinePointerKeyboardPlacementInput": {
+      "field": "Clip start (ticks)",
+      "position": [
+        458,
+        433
+      ],
+      "keys": [
+        "super+a",
+        "typeText 321"
+      ],
+      "savedRevision": 6
+    },
+    "exactLegacyNumberSpellingAndKeepDefaultModes": true,
+    "nativeSignedFramesAndAtomicWindowFade": true,
+    "nativeNullOmissionAndExplicitZeroFadesDistinct": true,
+    "rangeRejectionAndSameOperationRetry": {
+      "operationId": "c0524ec7-6409-42f9-8493-2865a0f1b56e",
+      "expectedRevision": 6,
+      "requestedWindow": {
+        "start": 99,
+        "count": 9000
+      },
+      "authenticatedBounds": [
+        100,
+        24100
+      ],
+      "notPublished": true
+    },
+    "reviewThenExplicitCorrectedNewChoice": {
+      "savedRevision": 7,
+      "sourceStart": 1100,
+      "frameCount": 9000,
+      "placementFrame": -480,
+      "fadeInFrames": 480,
+      "fadeOutFrames": 960,
+      "curve": "equal_power"
+    },
+    "undoRedoPermanentOriginal": true,
+    "permanentNativeOriginalRestoresNull": true,
+    "legacyPermanentOriginalRestoresInitial123Placement": true,
+    "fullSourcesClocksOpaqueFieldsPreserved": true,
+    "rawEventOrdinalsReadOnly": true,
+    "lightThemeUnsavedStateVisible": true,
+    "expandedInspectorScrollsToActions": true,
+    "completeArchiveExportInspectCopy": true,
+    "verifiedBothProcessExitAndSameBinaryRestart": true,
+    "sourceAndCopyReopened": true
+  },
+  "archive": {
+    "path": ".runtime/rust-clip-ui/edited-session.omniusong-native",
+    "sha256": "c2070e9cfebfb03057ddd7dd482f26e6615cf13d9b6eab87b51aa34a6c6e3bd3",
+    "byteLength": 606208,
+    "historyRows": 14,
+    "operationRows": 15,
+    "assetCount": 1,
+    "takeCount": 1,
+    "fullOwnedTakeEmbeddedExactly": true,
+    "strictRestoreCompletedInActualApp": true,
+    "copyProof": {
+      "path": ".runtime/rust-clip-ui/copy-proof.json",
+      "sha256": "87e436c19a2e3de0b793c5de8e346ad89d616e3123a2b5b227886fde76ab0a45",
+      "byteLength": 4140
+    }
+  },
+  "committedStateAudit": {
+    "path": ".runtime/rust-clip-ui/committed-audit.json",
+    "sha256": "2aa442d5d81a026e9094a8475b07059a1481519e648cc1fb2ef9c911f0c3b803",
+    "byteLength": 2418
+  },
+  "preservation": {
+    "path": "docs/verification/rust-native-clip-editor-preservation.json",
+    "sha256": "c54253fcac8a35640858b764672cbdaddba00f43f0ea14d95689685e3ad5e2af",
+    "byteLength": 3801
+  },
+  "offlineRendering": {
+    "helper": {
+      "path": "target/debug/examples/qualify_note_editor_render",
+      "sha256": "bfac4b5ab9fa9077e69a6dcc356f91b309c15e52587d0cbcd225f5b3526cedb2",
+      "byteLength": 9398904
+    },
+    "helperIdentityRecordedAfterRuns": true,
+    "pipeline": "Existing device-free qualifier calls production render::prepare -> RenderCursor; its note-specific documentFacts reports clip changes as uninterpreted. The separate committed audit supplies exact clip postconditions. No production project mutation.",
+    "firstNativeSavedRevision7": {
+      "receipt": {
+        "path": ".runtime/rust-clip-ui/native-first-render.json",
+        "sha256": "eeea5a65aab064fd69a2cfb376656fe6ed8b73a1e1e9aa2e95357785de5b27c3",
+        "byteLength": 4358
+      },
+      "originalFrames": 24000,
+      "editedFrames": 24000,
+      "changedOverlapFrames": 11995,
+      "changedOverlapSamples": 23990,
+      "firstChangedFrame": 0
+    },
+    "finalSavedRevision17": {
+      "receipt": {
+        "path": ".runtime/rust-clip-ui/final-render.json",
+        "sha256": "cf6b7d617563ba56245fbc16dacecf17abe2af16fb2921e06f5bd20cae165d9b",
+        "byteLength": 4543
+      },
+      "originalFrames": 24000,
+      "editedFrames": 47000,
+      "changedOverlapFrames": 24000,
+      "editedOnlyFrames": 23000
+    },
+    "renderCatalogAndSourcesUnchanged": true,
+    "listeningQualified": false
+  },
+  "actualOutput": {
+    "projectRevision": 18,
+    "projectId": "0394063f-f5d8-45af-b2d5-fc20b47efe3e",
+    "device": "MacBook Pro Speakers",
+    "sampleRate": 48000,
+    "channels": 2,
+    "preparedFramesConsumed": 47000,
+    "reportedXruns": 0,
+    "normalWorkerPlaybackCompletion": true,
+    "explicitStopCompleted": true,
+    "nativeInputOpened": false,
+    "audibleCompletionOrQualityJudged": false,
+    "physicalLatencyMeasured": false
+  },
+  "processBoundary": {
+    "priorNoteEditorExitedBeforeReplacement": true,
+    "clipInitialPids": [
+      6498,
+      6539
+    ],
+    "afterClosePgrepExitCode": 1,
+    "afterCloseOutput": {
+      "path": ".runtime/rust-clip-ui/after-close-processes.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "byteLength": 0
+    },
+    "relaunchedProcesses": {
+      "path": ".runtime/rust-clip-ui/relaunched-processes.txt",
+      "sha256": "0552056dd66814a662e7c1b4519563b94367dd4851b0712a71deddcaeecda9fa",
+      "byteLength": 231
+    },
+    "sameExecutableHashAfterRestart": "216d8e1c3760242f13985a727629752a7d753e0b16477ab275899d2ed54f1155",
+    "codesignVerification": {
+      "path": ".runtime/rust-clip-ui/codesign-verify.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "byteLength": 0
+    },
+    "codesignDetails": {
+      "path": ".runtime/rust-clip-ui/codesign-details.log",
+      "sha256": "412fc0ace95c2a5ec6ddd0af2ce7c08b249746178b9e39c2ac1cafc37fb4a2f7",
+      "byteLength": 801
+    },
+    "drivePromptRequiredForThisBuild": false
+  },
+  "actualNativeDeviceOpened": true,
+  "nativeInputOpened": false,
+  "humanPerformanceRecorded": false,
+  "modelInference": false,
+  "screenshot": {
+    "path": "docs/verification/rust-native-clip-editor.png",
+    "sha256": "8c3e424b458e601ec202f7acf30d4471adc3e5c155b2775b1702f8522bcc1347",
+    "byteLength": 234001
+  },
+  "proofIndex": {
+    "path": ".runtime/rust-clip-ui/walkthrough-proof-index-complete.json",
+    "sha256": "80412016d197fee10629f35f3e2ec1e862b687c993c50c8f2da064d0548d4bd0",
+    "byteLength": 6253
+  },
+  "actionLog": {
+    "path": ".runtime/rust-clip-ui/walkthrough-actions-final.json",
+    "sha256": "575b7d73c406ec1305cca62faf435da50f7804d5305042bf19aef3202de935d6",
+    "byteLength": 7409
+  },
+  "artifacts": [
+    {
+      "path": ".runtime/rust-clip-ui/after-close-processes.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "byteLength": 0
+    },
+    {
+      "path": ".runtime/rust-clip-ui/after-fixture-store.json",
+      "sha256": "e2b2ab229324ce5b8ed15032dee34be4360f244c5a51910ca6bd375432ccb273",
+      "byteLength": 15147
+    },
+    {
+      "path": ".runtime/rust-clip-ui/after-restart-output-store.json",
+      "sha256": "f8a2c4bb993e0d6fa59b53561355189066f75b349f44f1a63136f9c07e0be05c",
+      "byteLength": 20587
+    },
+    {
+      "path": ".runtime/rust-clip-ui/after-ui-before-restart-store.json",
+      "sha256": "b0abaa443db903cdd5d77303d270d4970960d2c7e84a00e3dd950c3d27a521e7",
+      "byteLength": 20587
+    },
+    {
+      "path": ".runtime/rust-clip-ui/audit_walkthrough.py",
+      "sha256": "7adf4073bf3bb2528dcfc2f09db7905f0762022ff3fc1438eb4b06b3e307cf80",
+      "byteLength": 7681
+    },
+    {
+      "path": ".runtime/rust-clip-ui/before-clip-store.json",
+      "sha256": "31fa138f0eacae66b5d46850fa17d6e1da139bfcdea21c0db5e333c0bdb157b2",
+      "byteLength": 13942
+    },
+    {
+      "path": ".runtime/rust-clip-ui/catalog-after-clip-ui.sqlite3",
+      "sha256": "f18cfbb07e71d0ec1922bc949e65d48842a0ef221b2566f3b5bd80856f6a363f",
+      "byteLength": 7757824
+    },
+    {
+      "path": ".runtime/rust-clip-ui/clip-editor-ui-b581acf5-8b38-4f6d-9c75-06d1f284e00e/assets/789aa844e6d7e199245412b93942178caaa32034f8d3bd3ccd556d321ae5859d.wav",
+      "sha256": "789aa844e6d7e199245412b93942178caaa32034f8d3bd3ccd556d321ae5859d",
+      "byteLength": 96044
+    },
+    {
+      "path": ".runtime/rust-clip-ui/clip-editor-ui-b581acf5-8b38-4f6d-9c75-06d1f284e00e/baseline-project.json",
+      "sha256": "01eb675f45d8c5765668ed14aa49c0d44ef02d41feaeaecb87e33906cfa390c9",
+      "byteLength": 4622
+    },
+    {
+      "path": ".runtime/rust-clip-ui/clip-editor-ui-b581acf5-8b38-4f6d-9c75-06d1f284e00e/baseline.omniusong-native",
+      "sha256": "945f782230ae4b1329986e3c714b8e16562d7c741c33fa9eee2b12d072be6501",
+      "byteLength": 409600
+    },
+    {
+      "path": ".runtime/rust-clip-ui/clip-editor-ui-b581acf5-8b38-4f6d-9c75-06d1f284e00e/exact-legacy-import.json",
+      "sha256": "ce932a57a73861fd223ca9caf53d9cf419671aed55f3286fd3fdf7450b9a1a03",
+      "byteLength": 1998
+    },
+    {
+      "path": ".runtime/rust-clip-ui/clip-editor-ui-b581acf5-8b38-4f6d-9c75-06d1f284e00e/raw-ump-event-0.json",
+      "sha256": "dc6d1f0b27de6308eb31fd50d94d3a404214783e34116af9dc76f5667fed7b5c",
+      "byteLength": 547
+    },
+    {
+      "path": ".runtime/rust-clip-ui/clip-editor-ui-b581acf5-8b38-4f6d-9c75-06d1f284e00e/raw-ump-event-1.json",
+      "sha256": "bc3c3bde193492b6cd8107684bc962b2f5cfbf2ebe35d685f7334ee4eab37813",
+      "byteLength": 550
+    },
+    {
+      "path": ".runtime/rust-clip-ui/clip-editor-ui-b581acf5-8b38-4f6d-9c75-06d1f284e00e/raw-ump-event-2.json",
+      "sha256": "30758aab38afdd8f0758479366e3c42ad3cbbfcea53cb7a902e6e7a05cf09b1a",
+      "byteLength": 551
+    },
+    {
+      "path": ".runtime/rust-clip-ui/clip-editor-ui-b581acf5-8b38-4f6d-9c75-06d1f284e00e/raw-ump-event-3.json",
+      "sha256": "4197644c22de41a7ac32335b5ce77897f64fea8567711c6935dbcc0993a88301",
+      "byteLength": 551
+    },
+    {
+      "path": ".runtime/rust-clip-ui/clip-editor-ui-b581acf5-8b38-4f6d-9c75-06d1f284e00e/synthetic-original.sqlite3",
+      "sha256": "1e41a2bb055fd7a98ef3b7a209bd50f331ab9814ca3ddd255161f6e6052795ec",
+      "byteLength": 143360
+    },
+    {
+      "path": ".runtime/rust-clip-ui/clip-editor-ui-b581acf5-8b38-4f6d-9c75-06d1f284e00e/synthetic-original.sqlite3.owner.lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "byteLength": 0
+    },
+    {
+      "path": ".runtime/rust-clip-ui/clip-editor-ui-b581acf5-8b38-4f6d-9c75-06d1f284e00e/synthetic-pcm.f32le",
+      "sha256": "880b165224015568de17826ae86b9d0d6e71459a5b2c7d21eb1497f5c790e2d9",
+      "byteLength": 96000
+    },
+    {
+      "path": ".runtime/rust-clip-ui/clip-editor-ui-b581acf5-8b38-4f6d-9c75-06d1f284e00e/take-descriptor.json",
+      "sha256": "bac51720c1edc104df9f9939cfeb0c561b955a1b2bf404c08df46eb26d5c3483",
+      "byteLength": 1687
+    },
+    {
+      "path": ".runtime/rust-clip-ui/clip-editor-ui-b679dcd3-32db-4677-9b7a-8b74c6aaba4f/assets/789aa844e6d7e199245412b93942178caaa32034f8d3bd3ccd556d321ae5859d.wav",
+      "sha256": "789aa844e6d7e199245412b93942178caaa32034f8d3bd3ccd556d321ae5859d",
+      "byteLength": 96044
+    },
+    {
+      "path": ".runtime/rust-clip-ui/clip-editor-ui-b679dcd3-32db-4677-9b7a-8b74c6aaba4f/baseline-project.json",
+      "sha256": "909cdf85484119549da3b617e7d9e9fe839b783fffeb98433ceaa6ab8306ccab",
+      "byteLength": 4622
+    },
+    {
+      "path": ".runtime/rust-clip-ui/clip-editor-ui-b679dcd3-32db-4677-9b7a-8b74c6aaba4f/baseline.omniusong-native",
+      "sha256": "a112443d96598c8ac59109cb4b2ab4b9bbe669208752c1d7f12ab62387f0bac0",
+      "byteLength": 409600
+    },
+    {
+      "path": ".runtime/rust-clip-ui/clip-editor-ui-b679dcd3-32db-4677-9b7a-8b74c6aaba4f/exact-legacy-import.json",
+      "sha256": "a26b039e1f14a8fbbe376c20ae74723c8c2b1b90ecf4ae34ca5729b148e4accf",
+      "byteLength": 1998
+    },
+    {
+      "path": ".runtime/rust-clip-ui/clip-editor-ui-b679dcd3-32db-4677-9b7a-8b74c6aaba4f/raw-ump-event-0.json",
+      "sha256": "dc6d1f0b27de6308eb31fd50d94d3a404214783e34116af9dc76f5667fed7b5c",
+      "byteLength": 547
+    },
+    {
+      "path": ".runtime/rust-clip-ui/clip-editor-ui-b679dcd3-32db-4677-9b7a-8b74c6aaba4f/raw-ump-event-1.json",
+      "sha256": "bc3c3bde193492b6cd8107684bc962b2f5cfbf2ebe35d685f7334ee4eab37813",
+      "byteLength": 550
+    },
+    {
+      "path": ".runtime/rust-clip-ui/clip-editor-ui-b679dcd3-32db-4677-9b7a-8b74c6aaba4f/raw-ump-event-2.json",
+      "sha256": "30758aab38afdd8f0758479366e3c42ad3cbbfcea53cb7a902e6e7a05cf09b1a",
+      "byteLength": 551
+    },
+    {
+      "path": ".runtime/rust-clip-ui/clip-editor-ui-b679dcd3-32db-4677-9b7a-8b74c6aaba4f/raw-ump-event-3.json",
+      "sha256": "4197644c22de41a7ac32335b5ce77897f64fea8567711c6935dbcc0993a88301",
+      "byteLength": 551
+    },
+    {
+      "path": ".runtime/rust-clip-ui/clip-editor-ui-b679dcd3-32db-4677-9b7a-8b74c6aaba4f/synthetic-original.sqlite3",
+      "sha256": "a0ef9b24363ab676f23310436c122eb97cf7fc3114c58a57b4dcbe010ae9b481",
+      "byteLength": 143360
+    },
+    {
+      "path": ".runtime/rust-clip-ui/clip-editor-ui-b679dcd3-32db-4677-9b7a-8b74c6aaba4f/synthetic-original.sqlite3.owner.lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "byteLength": 0
+    },
+    {
+      "path": ".runtime/rust-clip-ui/clip-editor-ui-b679dcd3-32db-4677-9b7a-8b74c6aaba4f/synthetic-pcm.f32le",
+      "sha256": "880b165224015568de17826ae86b9d0d6e71459a5b2c7d21eb1497f5c790e2d9",
+      "byteLength": 96000
+    },
+    {
+      "path": ".runtime/rust-clip-ui/clip-editor-ui-b679dcd3-32db-4677-9b7a-8b74c6aaba4f/take-descriptor.json",
+      "sha256": "27fb6ce55155e0e9aa1a4b821fd57a85fd179bd8d4ddbd5a5006c7378fac8c1a",
+      "byteLength": 1687
+    },
+    {
+      "path": ".runtime/rust-clip-ui/codesign-details.log",
+      "sha256": "412fc0ace95c2a5ec6ddd0af2ce7c08b249746178b9e39c2ac1cafc37fb4a2f7",
+      "byteLength": 801
+    },
+    {
+      "path": ".runtime/rust-clip-ui/codesign-verify.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "byteLength": 0
+    },
+    {
+      "path": ".runtime/rust-clip-ui/committed-audit.json",
+      "sha256": "2aa442d5d81a026e9094a8475b07059a1481519e648cc1fb2ef9c911f0c3b803",
+      "byteLength": 2418
+    },
+    {
+      "path": ".runtime/rust-clip-ui/copy-identity.json",
+      "sha256": "a1f922085bceaf2409cd617f45d89ea8a8bb88df8066096d46bee5290647c469",
+      "byteLength": 104
+    },
+    {
+      "path": ".runtime/rust-clip-ui/copy-proof.json",
+      "sha256": "87e436c19a2e3de0b793c5de8e346ad89d616e3123a2b5b227886fde76ab0a45",
+      "byteLength": 4140
+    },
+    {
+      "path": ".runtime/rust-clip-ui/copy-r17.json",
+      "sha256": "19add88f65dabf4c6efb7bdf78a6f5579fbd852a8dbe93edcb1982d5bff5aa8c",
+      "byteLength": 5987
+    },
+    {
+      "path": ".runtime/rust-clip-ui/copy-r18.json",
+      "sha256": "4ab5310eafcef0715a765c9e26f3d9980c1e9194f343fc12067ab856d60e3ca2",
+      "byteLength": 5983
+    },
+    {
+      "path": ".runtime/rust-clip-ui/edited-session.omniusong-native",
+      "sha256": "c2070e9cfebfb03057ddd7dd482f26e6615cf13d9b6eab87b51aa34a6c6e3bd3",
+      "byteLength": 606208
+    },
+    {
+      "path": ".runtime/rust-clip-ui/final-render/edited.wav",
+      "sha256": "f007708ac3a00c0d198896e534988582b8231c066dd0aaaebb5422a83cb48ed8",
+      "byteLength": 376044
+    },
+    {
+      "path": ".runtime/rust-clip-ui/final-render/original.wav",
+      "sha256": "6ec9220ab4117bdd5ec676ed95894735264065dd0e1c5ed4ce6d1315baf14728",
+      "byteLength": 192044
+    },
+    {
+      "path": ".runtime/rust-clip-ui/final-render.json",
+      "sha256": "cf6b7d617563ba56245fbc16dacecf17abe2af16fb2921e06f5bd20cae165d9b",
+      "byteLength": 4543
+    },
+    {
+      "path": ".runtime/rust-clip-ui/final-render.log",
+      "sha256": "cf6b7d617563ba56245fbc16dacecf17abe2af16fb2921e06f5bd20cae165d9b",
+      "byteLength": 4543
+    },
+    {
+      "path": ".runtime/rust-clip-ui/fixture.json",
+      "sha256": "c8b14a898a6ed2a70369a63c5f40fc95a81730c8e60aeb70b52042c6a6bd80f4",
+      "byteLength": 12668
+    },
+    {
+      "path": ".runtime/rust-clip-ui/fixture.log",
+      "sha256": "7bb20b17fcde62c59cd59318edb5a362b2e12084387321d69e76aa6c556250a3",
+      "byteLength": 12961
+    },
+    {
+      "path": ".runtime/rust-clip-ui/native-first-render/edited.wav",
+      "sha256": "24722ff7ca1807e4a12e2f76d6fc09633611d0c3f279d88a089909f18f4b794b",
+      "byteLength": 192044
+    },
+    {
+      "path": ".runtime/rust-clip-ui/native-first-render/original.wav",
+      "sha256": "c89a7c80e7571b132eed5dc0537c2aebd6aaebe15e290eb513faf4f26044a16f",
+      "byteLength": 192044
+    },
+    {
+      "path": ".runtime/rust-clip-ui/native-first-render.json",
+      "sha256": "eeea5a65aab064fd69a2cfb376656fe6ed8b73a1e1e9aa2e95357785de5b27c3",
+      "byteLength": 4358
+    },
+    {
+      "path": ".runtime/rust-clip-ui/native-first-render.log",
+      "sha256": "eeea5a65aab064fd69a2cfb376656fe6ed8b73a1e1e9aa2e95357785de5b27c3",
+      "byteLength": 4358
+    },
+    {
+      "path": ".runtime/rust-clip-ui/preflight-fixture.json",
+      "sha256": "d145b79ac2bb72b2661f9b7307cb630a1682de3c6d253b515600dd011e716b69",
+      "byteLength": 12741
+    },
+    {
+      "path": ".runtime/rust-clip-ui/preflight-fixture.log",
+      "sha256": "0465641232b884fc98c80a4e4ad52c80ace7975ec74e7cc6240ed1e05b5bf2a4",
+      "byteLength": 13034
+    },
+    {
+      "path": ".runtime/rust-clip-ui/relaunched-processes.txt",
+      "sha256": "0552056dd66814a662e7c1b4519563b94367dd4851b0712a71deddcaeecda9fa",
+      "byteLength": 231
+    },
+    {
+      "path": ".runtime/rust-clip-ui/saved-r10.json",
+      "sha256": "2f37b4bda762ada9bd8172180578267a958f475c73d0946da39b35f20900dfc8",
+      "byteLength": 5374
+    },
+    {
+      "path": ".runtime/rust-clip-ui/saved-r11.json",
+      "sha256": "25e29f680f2e0a643f75cc1514c5946f25025d2308ce5dff2dcd8034385ab375",
+      "byteLength": 5347
+    },
+    {
+      "path": ".runtime/rust-clip-ui/saved-r12.json",
+      "sha256": "385c0e622bfb8cc7e155651b68c680058858aa4573f5bbcc0dd7825eb4111f39",
+      "byteLength": 5374
+    },
+    {
+      "path": ".runtime/rust-clip-ui/saved-r13.json",
+      "sha256": "49ce87ccfc9c723a17e256af8f3c43a4b3ce12368056f84f0db9b0250f1d137a",
+      "byteLength": 5487
+    },
+    {
+      "path": ".runtime/rust-clip-ui/saved-r14.json",
+      "sha256": "ae6e48aaf39371e359ab6a50a93d4d4bb3fd36f826ca45bbdb55410f4d6884d2",
+      "byteLength": 6024
+    },
+    {
+      "path": ".runtime/rust-clip-ui/saved-r15.json",
+      "sha256": "ed3c16447e99de20e58c09d49f15a78ee0603059385eca3ed3086f3b7dd7d3c7",
+      "byteLength": 5987
+    },
+    {
+      "path": ".runtime/rust-clip-ui/saved-r16.json",
+      "sha256": "04cd2d87f66c24bcbfd21b1e15f8b15f43540de288cd97e4d1d68b6589368cdd",
+      "byteLength": 6024
+    },
+    {
+      "path": ".runtime/rust-clip-ui/saved-r17.json",
+      "sha256": "9519d7144c3c954a0f438f1b1480d2b67b948011a41b34e40914c53025fca15f",
+      "byteLength": 5987
+    },
+    {
+      "path": ".runtime/rust-clip-ui/saved-r6.json",
+      "sha256": "adceb6695124320947620daae5d048be7c32128ae96763001e9cd915eb79db16",
+      "byteLength": 4957
+    },
+    {
+      "path": ".runtime/rust-clip-ui/saved-r7.json",
+      "sha256": "a1969d3fd2d13e5957e1d6f2e38ccb264f510aea7eabbc089d95f5e18bfdbc08",
+      "byteLength": 5486
+    },
+    {
+      "path": ".runtime/rust-clip-ui/saved-r8.json",
+      "sha256": "38eecbaa7a1214c524d9d3b4b19ca860d49b1282b16a9c4a37625b3ca23a3cb5",
+      "byteLength": 4957
+    },
+    {
+      "path": ".runtime/rust-clip-ui/saved-r9.json",
+      "sha256": "5799fd64c1c56b7df333a3d45f0fd1f5a02ba7ed73e1c710bb54d26d7395f0f6",
+      "byteLength": 5486
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-01-legacy-baseline.ax.txt",
+      "sha256": "9c6f869c85457d9fd75c4d9131b8871fb0e747704f4cb66df5638bdf7237af90",
+      "byteLength": 7560
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-01-legacy-baseline.png",
+      "sha256": "8f94fcf79451c9fcc1d62221769775a566fd52255c32ace497463bd862c49e99",
+      "byteLength": 204604
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-02-dirty-cancel-dialog.ax.txt",
+      "sha256": "accb05836d9142030134cd9c485447de37774c5bd9f1b5893228ca11c0acce4d",
+      "byteLength": 8043
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-02-dirty-cancel-dialog.png",
+      "sha256": "56d9fe35ec88a266cc32bf1bff2d8fb6f3851420941f6909c0f8b2a0ad460ce8",
+      "byteLength": 195621
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-02-invalid-integer.ax.txt",
+      "sha256": "5c61e55ea1214ea056b88b98006c42951c89e842e72e4f23bd7c42f16a5ed036",
+      "byteLength": 8007
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-02-invalid-integer.png",
+      "sha256": "785b7951e7ad808ccb3e8c91c949b6a8bbcd210ae0f667e9d8c0f13dfdc20730",
+      "byteLength": 218700
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-03-invalid-continuation-kept.ax.txt",
+      "sha256": "bf949181b07fbb93a1e3bb7df7b16109c8bdc88294924c7bfa25f6be5962298a",
+      "byteLength": 8183
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-04-legacy-saved-and-track-continued.ax.txt",
+      "sha256": "beefa94f4060b308275f22f62c42e7117ff7eb9b778414a71a75193f643774cc",
+      "byteLength": 5905
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-04-legacy-saved-and-track-continued.png",
+      "sha256": "c344047ad98ecedb4ce02fa74143e00d2fe9d9c286e8adbc162ad50717c5521f",
+      "byteLength": 175627
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-05-native-first-null-baseline.ax.txt",
+      "sha256": "9fccf2a7a5a8e8fd0a46c08800290458729a675c1f5dc92e98cf79aeb49b3b6b",
+      "byteLength": 8475
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-05-native-first-null-baseline.png",
+      "sha256": "2a6d889f4b1492a1d6151b8434e50623a2815464a7d51dc1868bfc5c6d9f643f",
+      "byteLength": 230595
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-06-verified-range-rejection.ax.txt",
+      "sha256": "f7032f2d36d1a3d08ef8cc47dd381dcedf8bf8b351bbb65a87f8241cf67dc660",
+      "byteLength": 8942
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-06-verified-range-rejection.png",
+      "sha256": "38c5ed2fdcf7e5320afb5849fd0c5cbcdd5b922351023e3d25e3c2f5cc823f94",
+      "byteLength": 253046
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-07-exact-range-retry.ax.txt",
+      "sha256": "f7032f2d36d1a3d08ef8cc47dd381dcedf8bf8b351bbb65a87f8241cf67dc660",
+      "byteLength": 8942
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-08-corrected-native-draft.ax.txt",
+      "sha256": "12a71d15e89c6339e445b4832b6e429e493f38bafb6fe2b36fc9f7d0e5ef69d7",
+      "byteLength": 8249
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-08-corrected-native-draft.png",
+      "sha256": "cb46f1e6d4a4253dcfd048850d0fc90bf5e1d2c24c8e4c796310c269f19b3048",
+      "byteLength": 233364
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-09-native-first-saved-r7.ax.txt",
+      "sha256": "f23ac024ea46d7d944f8f3a016256890bacb0faf555b18f264575567233db837",
+      "byteLength": 8058
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-09-native-first-saved-r7.png",
+      "sha256": "4e24099eda0fb712a4c04e9ba7673c5792695ad8232ce0945d7bdf11d9e6c9ff",
+      "byteLength": 220491
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-10-native-first-undo-r8.ax.txt",
+      "sha256": "c8d808c92da7cded2db1a7c904c346898ed8f6886e3f67b59981d0d6b7314e97",
+      "byteLength": 8003
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-11-native-first-redo-r9.ax.txt",
+      "sha256": "959d15f109738a2c5e56cebff803c37c35066d8d068f3211c1200f19a2bd26f0",
+      "byteLength": 8058
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-12-native-first-restored-r10.ax.txt",
+      "sha256": "0bae32b8a12320e92dbcea74679f7433aa9627fc3d5edff027964dad63cdf884",
+      "byteLength": 8051
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-12-native-first-restored-r10.png",
+      "sha256": "853ac8fe355d6fc1876577818ecdc4d8b21b8873e69b3ce9e80e8a83829dc1de",
+      "byteLength": 220097
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-13-native-null-removed-r11.ax.txt",
+      "sha256": "757dbb2e57811366056d83ea6a20deabca798dce2511f7ee46410f4fb1dbe1f4",
+      "byteLength": 8051
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-14-native-null-restored-r12.ax.txt",
+      "sha256": "d5e1f85bff43f13085165c4e8b12591ff6610de084cf32ce1c3d4f01d8660004",
+      "byteLength": 8051
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-15-native-first-final-r13.ax.txt",
+      "sha256": "939550c9f0ecd13a386d7a71764d139f0149925d9ccea7ea2fa6a1cffe4fea17",
+      "byteLength": 8062
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-15-native-first-final-r13.png",
+      "sha256": "bd4dfee0b0a831ce7e02952a7e3d35fbbff37248841605b5511d70198e64c387",
+      "byteLength": 220804
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-16-native-second-exact-selection.ax.txt",
+      "sha256": "ce5db14d365e39deb58f87ec6a7ce3b529d38eb52a16fa9769cfec1b7a56c0d0",
+      "byteLength": 8020
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-16-native-second-exact-selection.png",
+      "sha256": "e5da7c4a871efd1d8c93daee7765143e77f8c76780a7e5bc449a324695282b62",
+      "byteLength": 217992
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-17-native-second-saved-r14.ax.txt",
+      "sha256": "b84918d45d100903f05847873802e3e2765bb1823a4d845f0ec3fcf0d17f3fce",
+      "byteLength": 8055
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-17-native-second-saved-r14.png",
+      "sha256": "5c92a8bca2ba497876d68632b53e2afd89bfa7be193c913b387e2dda6272da2b",
+      "byteLength": 220373
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-18-raw-events-read-only.ax.txt",
+      "sha256": "82fa4b567558e4630ce8bc40c8397cb985f812a6454fcc91d3110a00af61f116",
+      "byteLength": 6194
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-18-raw-events-read-only.png",
+      "sha256": "59b1967204625c6f656cec6424947713e69de2e8e454c1be5575a272a2622b23",
+      "byteLength": 182789
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-19-invalid-legacy-discard-kept-r14.ax.txt",
+      "sha256": "3d129de9d41f366aa3df50d4b3cdb86e60a8d14ce8f178e88fd819f9db9d1e9e",
+      "byteLength": 6278
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-20-legacy-trim-default-saved-r15.ax.txt",
+      "sha256": "87dd10ebc1aaa13543e5a334bd8844cf5fd136f7520381bba262b6a5a9abe7ae",
+      "byteLength": 7960
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-20-legacy-trim-default-saved-r15.png",
+      "sha256": "029260500f7b9c36b9386ec02fc4e948e568d263ce5b9d75d065e9227636ed5f",
+      "byteLength": 216177
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-21-legacy-permanent-original-r16.ax.txt",
+      "sha256": "5611511a0f4fd14d68a137dfaf32632bf838ba25df15533ee185ffed9bdf17e8",
+      "byteLength": 7978
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-22-legacy-final-undo-r17.ax.txt",
+      "sha256": "a0f00546938f0989f14f4892685d12ec6deac17fb97fc090c703ea3c9767c80b",
+      "byteLength": 7960
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-22-legacy-final-undo-r17.png",
+      "sha256": "a6b2ccb7cc8bd60c486113c224b611d5cf085197f3b578428872fb1128a855f9",
+      "byteLength": 216073
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-23-edited-archive-inspected.ax.txt",
+      "sha256": "4008738913d03b51827e0f016166c48ffb4b67ac2c903bec018f862c1ae1debc",
+      "byteLength": 8972
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-23-edited-archive-inspected.png",
+      "sha256": "adbdca1b6409bf3c820d96011a467d196ccdb26e506d11fed86bdd9d027b692f",
+      "byteLength": 241430
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-24-edited-archive-restored-copy-r17.ax.txt",
+      "sha256": "0707dee02b72655e9021ee3fa3b6ad3938fcfa04747bb39afcb2d0470b2d21e4",
+      "byteLength": 9283
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-24-edited-archive-restored-copy-r17.png",
+      "sha256": "c87735356e6e4489c4fe89742c8f268f2785f2b065c8d5b313748424006dbc95",
+      "byteLength": 198693
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-25-restored-copy-ready-r17.ax.txt",
+      "sha256": "f188f6762a472b4731914993d29e0121d4036c4d08d499119a57cfe4115110a5",
+      "byteLength": 7137
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-25-restored-copy-ready-r17.png",
+      "sha256": "e5f9dfde427b5850a20c2d4559da073d8a51370e22ebdf14da289035d7f61e5d",
+      "byteLength": 198462
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-26-copy-renamed-r18.ax.txt",
+      "sha256": "d5693e11e29f1b10811e1b98071fb263e93f91ff28077c38378333b8d4bc7d25",
+      "byteLength": 7125
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-26-copy-renamed-r18.png",
+      "sha256": "6861438bad2bc967e977808ce806822ba51562d7def917f801df590ab2ff993b",
+      "byteLength": 197734
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-27-copy-original-and-edits-retained.ax.txt",
+      "sha256": "803c8dccb803cd9d9afb697683f3c2e030a1198349a7f5b54776739599c9819b",
+      "byteLength": 10620
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-27-copy-original-and-edits-retained.png",
+      "sha256": "51ce949e972a94978a8840205bb26a7cc637124e641caeada5199ed8b58f6c9d",
+      "byteLength": 256723
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-28-before-clean-exit.ax.txt",
+      "sha256": "803c8dccb803cd9d9afb697683f3c2e030a1198349a7f5b54776739599c9819b",
+      "byteLength": 10620
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-28-before-clean-exit.png",
+      "sha256": "ea3e575ac299ed3d00354f0dcb2cd118c77a089bc1949fb8c8de14b46f1cad74",
+      "byteLength": 256718
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-29-source-reopened-r17.ax.txt",
+      "sha256": "e538eb13265feacd05dc7be360575d3d403c7a322dbcb7d283e70d515fe53a3a",
+      "byteLength": 7732
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-29-source-reopened-r17.png",
+      "sha256": "cf4bd2db5baf275286ecfaacc71724c706100bcd44cbe8f20c698a56fbe6d96a",
+      "byteLength": 208011
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-30-copy-reopened-r18.ax.txt",
+      "sha256": "d55523d79f90cda1407800bd33970d1df046c55920cf9ac6757cbc5920a5b7c6",
+      "byteLength": 9260
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-30-copy-reopened-r18.png",
+      "sha256": "7a3c22890f15b01014d56d515c12e12ef5f98ed9e778b51f725776ddb0890c35",
+      "byteLength": 228157
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-31-copy-native-speaker-playback.ax.txt",
+      "sha256": "da194c295c1c218a36fdd682cdd80daca52bf7a1daade43d1bd72c356b2f8b4b",
+      "byteLength": 9739
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-31-copy-native-speaker-playback.png",
+      "sha256": "f3eb1db6ee90725eb9846257ba168e99f35e5fd55899e437dcc668bd18652a30",
+      "byteLength": 190348
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-32-copy-native-speaker-completed.ax.txt",
+      "sha256": "936d82a9f6d6c3ca8270ec77258b43796f1b2625610eba413adffc5144c8c34b",
+      "byteLength": 9404
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-32-copy-native-speaker-completed.png",
+      "sha256": "32a64ed26c1d7d3c8bcffafe5dd938ea344466e766b8fda380954558ddb576a9",
+      "byteLength": 233273
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-33-copy-native-speaker-stopped.ax.txt",
+      "sha256": "a9889e37a6387869cf7a49bf9ed8727277aafb891419338a33ce57e57c29f324",
+      "byteLength": 9250
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-33-copy-native-speaker-stopped.png",
+      "sha256": "26e0f68ef60fc2a7a5e3fe9c183de83db32ac793e9b2b60d8540d754304d0d67",
+      "byteLength": 227813
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-34-inspector-scroll-and-save-controls.ax.txt",
+      "sha256": "a9889e37a6387869cf7a49bf9ed8727277aafb891419338a33ce57e57c29f324",
+      "byteLength": 9250
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-34-inspector-scroll-and-save-controls.png",
+      "sha256": "8c3e424b458e601ec202f7acf30d4471adc3e5c155b2775b1702f8522bcc1347",
+      "byteLength": 234001
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-actions-final.json",
+      "sha256": "575b7d73c406ec1305cca62faf435da50f7804d5305042bf19aef3202de935d6",
+      "byteLength": 7409
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-actions.json",
+      "sha256": "9942c406d3715b76de58644f75712713bb92b60bf16c059b2ce00e320de6f6d4",
+      "byteLength": 6722
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-proof-index-complete.json",
+      "sha256": "80412016d197fee10629f35f3e2ec1e862b687c993c50c8f2da064d0548d4bd0",
+      "byteLength": 6253
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-proof-index-final.json",
+      "sha256": "9e2610012e94356611eec90c75f6b77844ddc04de2b59caf8fc4da8ee1358578",
+      "byteLength": 6034
+    },
+    {
+      "path": ".runtime/rust-clip-ui/walkthrough-proof-index.json",
+      "sha256": "c57b8882ba8a0ce6de45d83bf82607df67f47f17a453527ac9964b79d02e81cf",
+      "byteLength": 5089
+    }
+  ],
+  "remaining": [
+    "Waveform handles, arrangement dragging, draft audition, saved performance capture, metronome/count-in, monitoring/overdub/compensation and buffer/clock visibility remain unfinished.",
+    "Full keyboard navigation, IME, scaling, real uncertain/conflict GUI injection, healthy live focus-loss and expression audition remain pending; headless regressions are a separate gate.",
+    "Hardware input, listening quality, measured latency and elapsed recording are unqualified under software-loopback-only instruction.",
+    "MIDI 2 document data, diagnostic UMP, native transport, standard Clip Files and MPE are separate gates.",
+    "Native model inference/adapters, plugin hosting, installers and actual Windows parity remain pending."
+  ]
+}

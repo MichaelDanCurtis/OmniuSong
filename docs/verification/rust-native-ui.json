@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "recordedAtUtc": "2026-10-20T17:40:13.321497+00:00",
+  "scope": "Actual native Mac loading window, bounded observation",
+  "bundle": "dist/OmniuSong Native.app",
+  "binarySha256": "5f8aa52edf204a3ac322e8addfde729731fe7b4705adef08eabe7fb550e762f2",
+  "binaryByteLength": 69397936,
+  "codeSigning": {
+    "kind": "ad-hoc development",
+    "identifier": "local.omniusong.native-preview",
+    "productionSignedOrNotarized": false
+  },
+  "dynamicLinkInspection": [
+    "\t/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation (compatibility version 150.0.0, current version 5027.0.69)",
+    "\t/System/Library/Frameworks/CoreText.framework/Versions/A/CoreText (compatibility version 1.0.0, current version 904.0.0)",
+    "\t/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit (compatibility version 45.0.0, current version 2775.10.103)",
+    "\t/System/Library/Frameworks/ApplicationServices.framework/Versions/A/ApplicationServices (compatibility version 1.0.0, current version 66.0.0)",
+    "\t/System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics (compatibility version 64.0.0, current version 2050.0.0)",
+    "\t/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo (compatibility version 1.2.0, current version 758.27.0)",
+    "\t/System/Library/Frameworks/Carbon.framework/Versions/A/Carbon (compatibility version 2.0.0, current version 170.0.0)",
+    "\t/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation (compatibility version 300.0.0, current version 5027.0.69)",
+    "\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1359.0.0)",
+    "\t/usr/lib/libobjc.A.dylib (compatibility version 1.0.0, current version 228.0.0)",
+    "\t/System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore (compatibility version 1.2.0, current version 1223.2.2)",
+    "\t/System/Library/Frameworks/Metal.framework/Versions/A/Metal (compatibility version 1.0.0, current version 382.5.3)",
+    "\t/usr/lib/libiconv.2.dylib (compatibility version 7.0.0, current version 7.0.0)",
+    "\t/System/Library/Frameworks/ColorSync.framework/Versions/A/ColorSync (compatibility version 1.0.0, current version 3929.0.0)",
+    "\t/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices (compatibility version 1.0.0, current version 1226.0.0)"
+  ],
+  "observed": {
+    "tool": "cua_repl native app API",
+    "window": "OmniuSong \u2014 Native Studio",
+    "accessibilityText": [
+      "omniuSong",
+      "Opening your local studio",
+      "Opening native session storage and reading legacy project summaries.",
+      "macOS may ask OmniuSong Native for access to the external drive. A system prompt, if shown, controls that access.",
+      "Initialization is running in the background. This window can be closed while it waits.",
+      "Native storage: /Volumes/Main External/Development/OmniuSong/.runtime/native-studio",
+      "Legacy sources: /Volumes/Main External/Development/OmniuSong/data",
+      "Close"
+    ],
+    "screenshotVisuallyInspected": true,
+    "loadingWindowRendered": true,
+    "closeDuringPendingInitializationPreviouslyVerified": true,
+    "closeEvidence": "Native Close action exited the previous development app process; process absence verified, then the same bundle was reopened.",
+    "currentState": "loading; initialization worker awaits external-volume access",
+    "osPermissionChanged": false
+  },
+  "limits": [
+    "Full studio create/import/edit/save/reopen through actual OS UI remains pending.",
+    "This is a development bundle, not a production installer.",
+    "The UI receipt identifies the binary actually observed; workspace source-test hashes are recorded separately.",
+    "Headless accessibility test success is not complete OS accessibility acceptance.",
+    "Physical devices, audio, MIDI, inference and Windows were not exercised."
+  ]
+}

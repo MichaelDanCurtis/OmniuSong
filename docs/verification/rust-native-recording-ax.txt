@@ -1,0 +1,60 @@
+Window: "OmniuSong — Native Studio", App: OmniuSong Native.
+0 standard window OmniuSong — Native Studio, Secondary Actions: Raise
+	1 container
+		2 unknown
+			3 text (settable) omniuSong
+			4 text (settable) NATIVE STUDIO · FOUNDATION
+			5 button (disabled) ▶ Play
+			6 button (disabled) ● Record
+			7 text (settable) Audio engine pending
+		8 unknown
+			9 text (settable) Opened Synthetic native recording inspection · native revision 5
+			10 text (settable) Native audio / MIDI / plugins / model execution are not connected in this build.
+		11 unknown
+			12 text (settable) Your sessions
+			13 text (settable) New session name
+			14 text field (settable) New session name, Value: My native session
+			15 button Create session
+			16 toggle button (settable, boolean) Synthetic native recording inspection, Value: on
+			17 text (settable) 1 tracks · 0 notes · r5
+			18 toggle button (settable, boolean) Aria piano · local model preview, Value: off
+			19 text (settable) 2 tracks · 33 notes · r0
+			20 toggle button (settable, boolean) Native UI verified song, Value: off
+			21 text (settable) 2 tracks · 0 notes · r5
+			22 text (settable) Bring your work
+			23 text (settable) Legacy projects are read-only sources.
+			24 text (settable) Legacy source project
+			25 pop up button (settable) Legacy source project, Value: Aria piano · local model preview
+			26 text (settable) 2 tracks · separate native copy
+			27 button Import selected project
+			28 button Storage locations
+		29 splitter (settable, float) Resize panel, Value: 0.1875
+		30 unknown
+			31 text (settable) Session
+			32 text field (settable) Session name, Value: Synthetic native recording inspection
+			33 text (settable) BPM
+			34 text field (settable) Tempo in BPM, Value: 106.25
+			35 button (disabled) Save changes
+			36 button (disabled) Discard edits
+			37 button Undo saved change
+			38 button Redo saved change
+			39 text (settable) Saved
+			40 text (settable) Schema 2 · revision 5 · 4 bars · 960 ticks/beat
+			41 toggle button (settable, boolean) Synthetic sealed original · inspection only, Value: on
+			42 text (settable) Recording · unmuted
+			43 text (settable) Sealed original recordings
+			44 text (settable) 1 declared clip(s) · read-only arrangement
+			45 text (settable) Playback, waveform display and capture are unavailable in this build.
+			46 text (settable) Clip 1 · synthetic-four-frame-clip
+			47 text (settable) Source take 4a47ad70-0d4c-4c50-a692-1144c808f91a · stream synthetic-stereo
+			48 text (settable) Source window: audio frames 100–104 · 4 frames
+			49 text (settable) Placement: frame -48000 at 48000 Hz (-1.000 s)
+			50 text (settable) Audio fades: 1 frames in · 1 frames out
+			51 text (settable) Sealed manifest: 03eff69da5c7bbcaa4027974703acb4917e9253d13f086c515d25c79624ec766
+			52 button Model and performance integration
+	53 close button
+	54 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	55 minimize button
+	56 text OmniuSong — Native Studio
+57 menu bar
+	58 OmniuSong — Native Studio

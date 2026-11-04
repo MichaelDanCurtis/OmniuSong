@@ -1,0 +1,68 @@
+{
+  "format": "omniusong.native-waveform-preservation",
+  "version": 1,
+  "recordedAtUtc": "2026-10-21T00:49:25.092912+00:00",
+  "scope": "Read-only waveform and local unsaved drafts, actual output/Stop, process restart and source reprepare; no publication or new projects",
+  "allCatalogRowsExact": true,
+  "tableCount": 10,
+  "rowCount": 220,
+  "projectCount": 14,
+  "immutableTakeCount": 4,
+  "wholeCatalogFileBytesExact": true,
+  "prototypeFilesExact": 30,
+  "integrityPassed": true,
+  "snapshots": [
+    {
+      "path": ".runtime/rust-waveform-ui/before-waveform-store.json",
+      "sha256": "2b693197fce3888ad75becd850e90a8366c5d61611208b2c4d6e72a290f42134",
+      "byteLength": 20587
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/after-initial-ui-store.json",
+      "sha256": "c416d5259c4568dad4508f7735ceeefe3ba6dcce2094d005eef9fb83ee18d2a3",
+      "byteLength": 20587
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/after-final-ui-before-restart-store.json",
+      "sha256": "f99245a39a0554ad556ee615b072db432d683c7c715ee1285b3db7757e6199d0",
+      "byteLength": 20587
+    },
+    {
+      "path": ".runtime/rust-waveform-ui/after-restart-store.json",
+      "sha256": "4504825935b4e1d304e69c5df136f7df200c91eda114e8cfd7e31dd7219401c4",
+      "byteLength": 20587
+    }
+  ],
+  "catalogFile": {
+    "sha256": "994f9cdd6b591363211972d22b47dbe82c3246c47da8317fc8068abeddcceff0",
+    "byteLength": 7757824
+  },
+  "immutableTakes": [
+    {
+      "path": ".runtime/native-studio/takes/679914498bf02ced1570f8b58ba441eb1f958e8dec54d2931a4eab9f3657ff6b.sqlite3",
+      "sha256": "679914498bf02ced1570f8b58ba441eb1f958e8dec54d2931a4eab9f3657ff6b",
+      "byteLength": 40960
+    },
+    {
+      "path": ".runtime/native-studio/takes/8460ff93703afb9c89ac7359e45761e9605fb1a1ae029aa8dc068398e11bd897.sqlite3",
+      "sha256": "8460ff93703afb9c89ac7359e45761e9605fb1a1ae029aa8dc068398e11bd897",
+      "byteLength": 917504
+    },
+    {
+      "path": ".runtime/native-studio/takes/e654b488b83a63d9323615e5b725dafbb8565ac901621c12954c1885ee428430.sqlite3",
+      "sha256": "e654b488b83a63d9323615e5b725dafbb8565ac901621c12954c1885ee428430",
+      "byteLength": 139264
+    },
+    {
+      "path": ".runtime/native-studio/takes/c4a46085f862202de98388f925984e45906c20123752b345bf92464b0b683900.sqlite3",
+      "sha256": "c4a46085f862202de98388f925984e45906c20123752b345bf92464b0b683900",
+      "byteLength": 143360
+    }
+  ],
+  "prototypeInventory": {
+    "path": "docs/verification/rust-migration-baseline.json",
+    "sha256": "1169fdd5337f98798b0dbd6fb2b87c69ff5f8ab6759ad7454f4c587e3b25536e",
+    "byteLength": 7170
+  },
+  "nativeInputOpened": false
+}

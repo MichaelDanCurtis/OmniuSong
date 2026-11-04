@@ -1,0 +1,71 @@
+{
+  "format": "omniusong.native-session-ui-verification",
+  "version": 1,
+  "recordedAtUtc": "2026-10-20T18:30:53.445461+00:00",
+  "scope": "Actual Mac native development app; session foundation only",
+  "bundle": "dist/OmniuSong Native.app",
+  "binarySha256": "5f8aa52edf204a3ac322e8addfde729731fe7b4705adef08eabe7fb550e762f2",
+  "binaryByteLength": 69397936,
+  "sourceGate": "Initial binary from rust-native-ui.json; new take/archive source qualification remains separate until rebuilt",
+  "permission": {
+    "userReply": "Allow drive access",
+    "promptObservedOnResume": false,
+    "studioStoreAccessWorking": true,
+    "permissionClickPerformedByAgent": false,
+    "comment": "User authorized Main External volume access. On resuming app inspection the studio was already ready; no OS permission setting or prompt was changed by the agent."
+  },
+  "observed": {
+    "tool": "cua_repl native AX and screenshots",
+    "createSession": true,
+    "nameAndFractionalTempoSave": true,
+    "undoRedoBeforeRestart": true,
+    "discardDraftWithoutSave": true,
+    "importLegacyThroughNativeUi": true,
+    "importedNotesInspected": 33,
+    "appClosedAndRelaunched": true,
+    "savedNameTempoRevisionReopened": true,
+    "durableUndoRedoAfterRestart": true,
+    "legacyExactJsonReceiptVerified": true,
+    "playAndRecordDisabled": true
+  },
+  "sessions": [
+    {
+      "id": "2df3b9be-9c77-4560-9c45-7be5385d503d",
+      "name": "Native UI verified song",
+      "revision": 5,
+      "cursor": 1,
+      "tempo": 117.5,
+      "notes": 0
+    },
+    {
+      "id": "aa3c40ed-277a-4b37-8bf0-101842d3de28",
+      "name": "Aria piano \u00b7 local model preview",
+      "revision": 0,
+      "cursor": 0,
+      "tempo": 104,
+      "notes": 33
+    }
+  ],
+  "screenshots": [
+    {
+      "path": "rust-native-session.png",
+      "sha256": "a40bfdd558eb15b23cf9c0197f94b65723bd5ba1c5f9f40d0a3e9ae6dafff256",
+      "byteLength": 128117
+    },
+    {
+      "path": "rust-native-import.png",
+      "sha256": "4e0a9ccb5ff51a86e17e44f29195414ee9d68510eae83fae56907ab5633c5472",
+      "byteLength": 177410
+    },
+    {
+      "path": "rust-native-session-reopened.png",
+      "sha256": "c519921754340323978d0e0c9f0e24a765bfbdaa31cf26047d879606f214695a",
+      "byteLength": 128508
+    }
+  ],
+  "limits": [
+    "No native audio, device capture, MIDI transport, inference, plugin, archive UI, production installer or Windows acceptance.",
+    "Earlier development binary identified explicitly; newer source/test gate is separate.",
+    "Basic native accessibility controls exercised, not full keyboard/scaling/accessibility qualification."
+  ]
+}

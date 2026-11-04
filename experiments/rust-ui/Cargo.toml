@@ -1,0 +1,14 @@
+[package]
+name = "omniusong-rust-ui-spike"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+publish = false
+
+[workspace]
+
+[dependencies]
+egui = { version = "=0.37.0", features = ["default_fonts"] }
+
+[profile.dev]
+debug = 0
