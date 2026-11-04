@@ -6,6 +6,10 @@ mod arrangement_math;
 mod arrangement_types;
 mod arrangement_ui;
 mod audio_ui;
+mod capture_completion_integration;
+mod capture_completion_ui;
+#[cfg(test)]
+mod capture_completion_integration_review;
 #[cfg(test)]
 mod clip_editor_integration_review;
 mod clip_ui;
@@ -30,6 +34,8 @@ mod waveform_ui;
 
 use arrangement_types::PlacementValue;
 use audio_ui::AudioUi;
+use capture_completion_ui::CaptureCompletionUi;
+use capture_completion_integration::CaptureViewRequest;
 use clip_ui::{ClipAction, ClipContext, ClipEditor};
 use eframe::egui;
 use evidence_ui::{EvidenceUi, EvidenceUiRequest};
@@ -155,9 +161,9 @@ enum Action {
         intent: RestoreCopyIntent,
     },
     AttachCapture {
-        journal_path: PathBuf,
-        publication: Box<omniusong_store::TakePublication>,
+        request: Box<omniusong_session::CaptureAttachmentRequest>,
     },
+    CaptureView(CaptureViewRequest),
     Performance(Box<Command>),
     PerformanceSource(SourceRequest),
     Evidence(EvidenceUiRequest),
@@ -225,6 +231,7 @@ struct StudioApp {
     audio_executable: Option<PathBuf>,
     audio_close_requested: bool,
     recovery: RecoveryUi,
+    capture_completion: CaptureCompletionUi,
     performance_sources: PerformanceSourceUi,
     recovery_close_requested: bool,
     note_close_requested: bool,
@@ -274,6 +281,7 @@ impl StudioApp {
             audio_executable: None,
             audio_close_requested: false,
             recovery: RecoveryUi::new(),
+            capture_completion: CaptureCompletionUi::new(),
             performance_sources: PerformanceSourceUi::new(),
             recovery_close_requested: false,
             note_close_requested: false,
@@ -489,6 +497,9 @@ impl StudioApp {
                 return Err("Source review accepts only its exact read-only command, without a continuation".into());
             }
         }
+        if matches!(command, Command::AttachCapture { .. }) {
+            self.admit_capture_submission(&command, &action, after.as_ref())?;
+        }
         let context = self.context();
         let draft = self.draft.clone();
         let note_context = self.notes.context();
@@ -624,6 +635,12 @@ impl StudioApp {
                     self.source_recovery.worker_lost(generation, &error.message);
                 }
                 if error.kind == FailureKind::Disconnected
+                    && self.active.as_ref().is_some_and(|active| matches!(active.action, Action::CaptureView(_)))
+                {
+                    let active = self.active.take().expect("matched current view");
+                    self.complete_capture_view(active, Err(error.clone()));
+                }
+                if error.kind == FailureKind::Disconnected
                     && let Some(active) = self.active.take()
                     && active.command.retry_safe()
                     && !(matches!(active.command, Command::Initialize) && self.retry.is_some())
@@ -634,6 +651,9 @@ impl StudioApp {
                     }
                     if let Action::Recovery(recovery) = &active.action {
                         self.recovery.failed(recovery);
+                    }
+                    if let Command::AttachCapture { request } = &active.command {
+                        let _ = self.capture_completion.transport_failed(request, &error);
                     }
                     if matches!(active.action, Action::AttachCapture { .. }) {
                         self.audio.publication_failed();
@@ -705,14 +725,29 @@ impl StudioApp {
             }
             _ => true,
         };
+        let capture_reference_matches = match (&active.command, &completion.result) {
+            (Command::AttachCapture { request }, Ok(Reply::CaptureAttachment(reply))) =>
+                reply.matches_request_reference(request),
+            (Command::AttachCapture { .. }, Ok(_)) => false,
+            _ => true,
+        };
         if active.id != completion.id
             || active.command.kind() != completion.kind
             || !source_reply_matches
             || !evidence_reply_matches
             || !recovery_reference_matches
+            || !capture_reference_matches
         {
             self.active = Some(active);
             self.error = Some("Ignored a stale session completion".into());
+            return;
+        }
+        if matches!(active.command, Command::AttachCapture { .. }) {
+            self.complete_capture(active, completion.result);
+            return;
+        }
+        if matches!(active.action, Action::CaptureView(_)) {
+            self.complete_capture_view(active, completion.result);
             return;
         }
         if let Action::SourceRecovery(request) = &active.action {
@@ -840,6 +875,9 @@ impl StudioApp {
             Ok(reply) => {
                 let mut after = None;
                 match reply {
+                    Reply::CaptureAttachment(_) => {
+                        self.error=Some("A recording save response arrived without its exact request; your editor was kept.".into());
+                    }
                     Reply::ProjectArchive(_) => {
                         self.error=Some("An unadmitted project archive result was received; the current editor and drafts were kept.".into());
                         self.status="Review the exact archive operation before continuing.".into();
@@ -1426,6 +1464,7 @@ impl StudioApp {
                 &choice,
                 document.id(),
                 document.revision(),
+                self.native_origin.as_deref().ok_or("Open the original studio before attaching")?,
             )?)
         } else {
             action
@@ -1494,13 +1533,8 @@ impl StudioApp {
                 path: path.clone(),
                 intent: intent.clone(),
             },
-            Action::AttachCapture {
-                journal_path,
-                publication,
-            } => Command::AttachCapture {
-                journal_path: journal_path.clone(),
-                publication: publication.as_ref().clone(),
-            },
+            Action::AttachCapture { request } => Command::AttachCapture { request: request.clone() },
+            Action::CaptureView(_) => return Err("Recording editor refresh requires its exact saved result".into()),
             Action::Recovery(recovery) => recovery.command()?,
             Action::Performance(_) => {
                 unreachable!("recording intentions use the guarded service path")
@@ -1548,13 +1582,11 @@ impl StudioApp {
         journal_path: PathBuf,
         publication: omniusong_store::TakePublication,
     ) {
-        match self.dispatch(
-            Action::AttachCapture {
-                journal_path,
-                publication: Box::new(publication),
-            },
-            None,
-        ) {
+        let prepared = self.native_origin.as_deref().ok_or_else(|| "Open the original studio before attaching".to_owned())
+            .and_then(|origin| self.audio.request_for_publication(origin, &journal_path, &publication));
+        let result = prepared.map_err(|error| -> Box<dyn Error> { error.into() })
+            .and_then(|request| self.dispatch(Action::AttachCapture { request: Box::new(request) }, None));
+        match result {
             Ok(()) => self.audio.publication_started(),
             Err(error) => {
                 self.audio.publication_failed();
@@ -1866,6 +1898,7 @@ impl StudioApp {
             if self.dirty() {
                 ui.small("Save or discard draft edits before playing, live audition or recording.");
             }
+            self.capture_completion.show(ui);
             ui.add_space(5.0);
         });
         if retry_attach && let Some((path, publication)) = self.audio.retry_publication() {

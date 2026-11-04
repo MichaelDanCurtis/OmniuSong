@@ -13,8 +13,9 @@ use omniusong_engine::{
     PerformanceStatus, UrgentTicket,
 };
 use omniusong_store::TakePublication;
+use omniusong_session::CaptureAttachmentRequest;
 use std::{
-    path::PathBuf,
+    path::{Path, PathBuf},
     time::{Duration, Instant},
 };
 
@@ -97,6 +98,7 @@ struct CaptureTarget {
 struct SealedCapture {
     take: CapturedTake,
     publication: TakePublication,
+    frozen_request: Option<CaptureAttachmentRequest>,
     publishing: bool,
     auto_attach: bool,
 }
@@ -699,6 +701,7 @@ impl AudioUi {
         self.sealed = Some(SealedCapture {
             take,
             publication,
+            frozen_request: None,
             publishing: false,
             auto_attach: true,
         });
@@ -717,6 +720,31 @@ impl AudioUi {
             return None;
         }
         Some((sealed.take.journal_path.clone(), sealed.publication.clone()))
+    }
+    pub(super) fn request_for_publication(
+        &mut self,
+        origin_root: &Path,
+        journal_path: &Path,
+        publication: &TakePublication,
+    ) -> Result<CaptureAttachmentRequest, String> {
+        let sealed = self.sealed.as_mut().ok_or("No sealed original to attach")?;
+        if sealed.take.journal_path.as_os_str() != journal_path.as_os_str()
+            || sealed.publication != *publication
+        {
+            return Err("The attachment differs from the retained sealed original".into());
+        }
+        if let Some(request) = &sealed.frozen_request {
+            return Ok(request.clone());
+        }
+        let request = CaptureAttachmentRequest {
+            version: 1,
+            origin_root: origin_root.to_owned(),
+            journal_path: journal_path.to_owned(),
+            publication: publication.clone(),
+        };
+        request.validate().map_err(|error| error.message)?;
+        sealed.frozen_request = Some(request.clone());
+        Ok(request)
     }
     pub(super) fn publication_started(&mut self) {
         if let Some(sealed) = &mut self.sealed {
